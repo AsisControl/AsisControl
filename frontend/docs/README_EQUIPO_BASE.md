@@ -2,6 +2,8 @@
 
 Frontend de la primera iteración, desarrollado con Next.js y React.
 
+> **Documento histórico.** Los servicios `mock` descritos abajo se retiraron porque la interfaz ya consume el backend real. La estructura vigente está en `docs/ESTRUCTURA_FRONTEND.md`.
+
 ## Base temporal para backend
 
 La interfaz no consume el backend todavía. Los datos de demostración están aislados de las pantallas:
