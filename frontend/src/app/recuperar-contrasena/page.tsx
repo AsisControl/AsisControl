@@ -1,4 +1,4 @@
-import { RecoveryScreen } from "@/features/auth/recovery";
+import { RecoveryScreen } from "@/core/auth/recovery";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Recuperar contraseña | AsisControl",

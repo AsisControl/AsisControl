@@ -7,14 +7,24 @@ const vm = require("node:vm");
 const ts = require("typescript");
 function harness(fetcher) {
   const cache = {};
+  const root = path.join(__dirname, "..");
+  // Resuelve como el bundler: archivo .ts/.tsx o carpeta con index.ts/.tsx.
+  function resolve(base) {
+    const candidates = [
+      base,
+      `${base}.ts`,
+      `${base}.tsx`,
+      path.join(base, "index.ts"),
+      path.join(base, "index.tsx"),
+    ];
+    const found = candidates.find(
+      (c) => fs.existsSync(c) && fs.statSync(c).isFile(),
+    );
+    if (!found) throw new Error(`No se encontró el módulo ${base}`);
+    return found;
+  }
   function load(name) {
-    let file = path.join(__dirname, "..", name);
-    if (
-      !fs.existsSync(file) &&
-      file.endsWith(".ts") &&
-      fs.existsSync(file.slice(0, -3) + ".tsx")
-    )
-      file = file.slice(0, -3) + ".tsx";
+    const file = resolve(path.isAbsolute(name) ? name : path.join(root, name));
     if (cache[file]) return cache[file].exports;
     const loadedModule = { exports: {} };
     cache[file] = loadedModule;
@@ -26,17 +36,9 @@ function harness(fetcher) {
       },
     }).outputText;
     const requireLocal = (id) => {
-      if (id.startsWith("@/"))
-        return load(
-          "src/" + id.slice(2) + (id.endsWith("shared") ? ".tsx" : ".ts"),
-        );
-      if (id.startsWith("./"))
-        return load(
-          path.relative(
-            path.join(__dirname, ".."),
-            path.join(path.dirname(file), id),
-          ) + ".ts",
-        );
+      if (id.startsWith("@/")) return load(path.join(root, "src", id.slice(2)));
+      if (id.startsWith("./") || id.startsWith("../"))
+        return load(path.join(path.dirname(file), id));
       return require(id);
     };
     vm.runInNewContext(code, {
@@ -80,7 +82,7 @@ test("Login usa identifier y transforma ALUMNO a ESTUDIANTE", async () => {
     return response(200, backendAuth("ALUMNO"));
   });
   const result = await load(
-    "src/features/auth/http-auth-service.ts",
+    "src/core/auth/http-auth-service.ts",
   ).httpAuthService.login({ username: " alumno ", password: "Temporal123!" });
   assert.equal(sent.url, "http://api.test/api/auth/login");
   assert.deepEqual(sent.body, {
@@ -92,12 +94,12 @@ test("Login usa identifier y transforma ALUMNO a ESTUDIANTE", async () => {
   assert.equal(result.session.user.requiresPasswordChange, true);
 });
 test("Acepta los otros tres roles institucionales", () => {
-  const auth = harness()("src/features/auth/http-auth-service.ts");
+  const auth = harness()("src/core/auth/http-auth-service.ts");
   for (const role of ["ADMINISTRADOR", "DOCENTE", "APODERADO"])
     assert.equal(auth.mapAuth(backendAuth(role)).user.role, role);
 });
 test("Rechaza un rol ajeno a la interfaz", () => {
-  const auth = harness()("src/features/auth/http-auth-service.ts");
+  const auth = harness()("src/core/auth/http-auth-service.ts");
   assert.throws(
     () => auth.mapAuth(backendAuth("TESORERIA")),
     /rol.*no está habilitado/,
@@ -107,10 +109,10 @@ test("401 elimina la sesión en memoria", async () => {
   const load = harness(async () =>
     response(401, { message: "Sesión vencida" }),
   );
-  const storage = load("src/features/auth/session-storage.ts");
+  const storage = load("src/core/auth/session-storage.ts");
   storage.saveSession({ accessToken: "test-token" });
   await assert.rejects(
-    load("src/lib/api.ts").api("/api/usuarios"),
+    load("src/core/api/client.ts").api("/api/usuarios"),
     /Sesión vencida/,
   );
   assert.equal(storage.readSession(), null);
@@ -119,10 +121,10 @@ test("403 conserva la sesión y no añade códigos de referencia", async () => {
   const load = harness(async () =>
     response(403, { message: "Acceso denegado", code: "INTERNO_123" }),
   );
-  const storage = load("src/features/auth/session-storage.ts");
+  const storage = load("src/core/auth/session-storage.ts");
   storage.saveSession({ accessToken: "test-token" });
   await assert.rejects(
-    load("src/lib/api.ts").api("/api/usuarios"),
+    load("src/core/api/client.ts").api("/api/usuarios"),
     (e) => e.message === "Acceso denegado",
   );
   assert.equal(storage.readSession().accessToken, "test-token");
@@ -133,10 +135,10 @@ test("Envia Bearer y JSON al backend", async () => {
     headers = options.headers;
     return response(204, null);
   });
-  load("src/features/auth/session-storage.ts").saveSession({
+  load("src/core/auth/session-storage.ts").saveSession({
     accessToken: "test-token",
   });
-  await load("src/lib/api.ts").api("/api/usuarios", {
+  await load("src/core/api/client.ts").api("/api/usuarios", {
     method: "POST",
     body: "{}",
   });
@@ -149,14 +151,14 @@ test("Logout revoca en servidor y limpia la sesión", async () => {
     called = [url, options.method];
     return response(204, null);
   });
-  const storage = load("src/features/auth/session-storage.ts");
+  const storage = load("src/core/auth/session-storage.ts");
   storage.saveSession({ accessToken: "test-token" });
-  await load("src/features/auth/http-auth-service.ts").httpAuthService.logout();
+  await load("src/core/auth/http-auth-service.ts").httpAuthService.logout();
   assert.deepEqual(called, ["http://api.test/api/auth/logout", "POST"]);
   assert.equal(storage.readSession(), null);
 });
 test("Generación temporal cumple requisitos y varía entre llamadas", () => {
-  const { temporaryPassword } = harness()("src/features/management/access.tsx");
+  const { temporaryPassword } = harness()("src/modules/administration/create-access.tsx");
   const values = Array.from({ length: 100 }, temporaryPassword);
   for (const value of values)
     assert.match(value, /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])[!-~]{16}$/);
@@ -164,7 +166,7 @@ test("Generación temporal cumple requisitos y varía entre llamadas", () => {
 });
 
 test("Normaliza las tres respuestas paginadas del backend sin perder filas", () => {
-  const { normalizePage } = harness()("src/features/management/shared.tsx");
+  const { normalizePage } = harness()("src/shared/lib/pagination.ts");
   for (const raw of [
     { content: [{ id: 42 }], page: 1, totalElements: 21, totalPages: 2 },
     { content: [{ id: 42 }], number: 1, totalElements: 21, totalPages: 2 },
@@ -183,7 +185,7 @@ test("Normaliza las tres respuestas paginadas del backend sin perder filas", () 
   }
 });
 test("Una página vacía no permite avanzar a páginas inexistentes", () => {
-  const result = harness()("src/features/management/shared.tsx").normalizePage({
+  const result = harness()("src/shared/lib/pagination.ts").normalizePage({
     content: [],
     page: 0,
     totalElements: 0,
@@ -200,10 +202,10 @@ test("La recuperación pública no envía el token de una sesión existente", as
     headers = options.headers;
     return response(202, { message: "Respuesta genérica" });
   });
-  load("src/features/auth/session-storage.ts").saveSession({
+  load("src/core/auth/session-storage.ts").saveSession({
     accessToken: "test-token",
   });
-  await load("src/lib/api.ts").api(
+  await load("src/core/api/client.ts").api(
     "/api/auth/recovery/request",
     { method: "POST", body: JSON.stringify({ identifier: "usuario" }) },
     false,
@@ -212,7 +214,7 @@ test("La recuperación pública no envía el token de una sesión existente", as
 });
 test("La política admite ocho caracteres y rechaza usuario, espacios y exceso de bytes", () => {
   const policy = harness()(
-    "src/features/auth/password-policy.ts",
+    "src/core/auth/password-policy.ts",
   ).passwordError;
   assert.equal(policy("Abcdefg1", "usuario"), "");
   assert.equal(policy("Ábcdefg1", "usuario"), "");
