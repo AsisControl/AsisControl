@@ -43,6 +43,10 @@ public class Seccion extends AuditableEntity {
     @Column(name = "anio_academico", nullable = false)
     private int anioAcademico;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_grado_academico")
+    private GradoAcademico gradoAcademico;
+
     @Column(name = "capacidad_maxima", nullable = false)
     private int capacidadMaxima;
 
