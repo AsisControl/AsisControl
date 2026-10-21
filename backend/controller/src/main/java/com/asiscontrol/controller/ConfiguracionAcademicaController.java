@@ -2,7 +2,9 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.academico.ConfiguracionDtos.*;
+import com.asiscontrol.entity.planificacion.DiaNoLectivo;
 import com.asiscontrol.service.ConfiguracionAcademicaService;
+import com.asiscontrol.service.DiaNoLectivoService;
 
 import jakarta.validation.Valid;
 
@@ -12,14 +14,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/configuracion-academica")
 @PreAuthorize("hasRole('ADMINISTRADOR')")
 public class ConfiguracionAcademicaController {
     private final ConfiguracionAcademicaService configuracionService;
+    private final DiaNoLectivoService diaNoLectivoService;
 
-    public ConfiguracionAcademicaController(ConfiguracionAcademicaService configuracionService) {
+    public ConfiguracionAcademicaController(
+            ConfiguracionAcademicaService configuracionService,
+            DiaNoLectivoService diaNoLectivoService) {
         this.configuracionService = configuracionService;
+        this.diaNoLectivoService = diaNoLectivoService;
     }
 
     @GetMapping("/anios")
@@ -61,6 +69,29 @@ public class ConfiguracionAcademicaController {
         return configuracionService.estadoPeriodo(id, request);
     }
 
+    @PostMapping("/anios/{anio}/dias-no-lectivos")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DiaNoLectivoResponse crearDiaNoLectivo(
+            @PathVariable int anio, @Valid @RequestBody CrearDiaNoLectivo request) {
+        return mapear(
+                diaNoLectivoService.crear(anio, request.fecha(), request.descripcion()), anio);
+    }
+
+    @GetMapping("/anios/{anio}/dias-no-lectivos")
+    public List<DiaNoLectivoResponse> listarDiasNoLectivos(@PathVariable int anio) {
+        return diaNoLectivoService.listar(anio).stream()
+                .map(diaNoLectivo -> mapear(diaNoLectivo, anio))
+                .toList();
+    }
+
+    @PatchMapping("/dias-no-lectivos/{id}")
+    public DiaNoLectivoResponse actualizarDescripcionDiaNoLectivo(
+            @PathVariable Long id, @Valid @RequestBody ActualizarDiaNoLectivo request) {
+        return mapear(
+                diaNoLectivoService.actualizarDescripcion(
+                        id, request.descripcion(), request.version()));
+    }
+
     @PostMapping("/anios/{anio}/grados")
     @ResponseStatus(HttpStatus.CREATED)
     public AnioResponse grado(@PathVariable int anio, @Valid @RequestBody CrearGrado request) {
@@ -71,5 +102,20 @@ public class ConfiguracionAcademicaController {
     public AnioResponse estadoGrado(
             @PathVariable Long id, @Valid @RequestBody EstadoGrado request) {
         return configuracionService.estadoGrado(id, request);
+    }
+
+    private DiaNoLectivoResponse mapear(DiaNoLectivo diaNoLectivo, int anio) {
+        return new DiaNoLectivoResponse(
+                diaNoLectivo.getId(),
+                anio,
+                diaNoLectivo.getFecha(),
+                diaNoLectivo.getDescripcion(),
+                diaNoLectivo.getFechaCreacion(),
+                diaNoLectivo.getFechaActualizacion(),
+                diaNoLectivo.getVersion());
+    }
+
+    private DiaNoLectivoResponse mapear(DiaNoLectivo diaNoLectivo) {
+        return mapear(diaNoLectivo, diaNoLectivo.getAnioAcademico().getAnio());
     }
 }
