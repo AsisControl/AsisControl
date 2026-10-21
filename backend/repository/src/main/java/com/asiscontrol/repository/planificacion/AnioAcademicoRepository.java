@@ -1,6 +1,6 @@
-package com.asiscontrol.repository;
+package com.asiscontrol.repository.planificacion;
 
-import com.asiscontrol.entity.AnioAcademico;
+import com.asiscontrol.entity.planificacion.AnioAcademico;
 import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 
 import jakarta.persistence.LockModeType;

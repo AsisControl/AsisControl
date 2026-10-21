@@ -1,6 +1,6 @@
-package com.asiscontrol.repository;
+package com.asiscontrol.repository.planificacion;
 
-import com.asiscontrol.entity.PeriodoAcademico;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.entity.enums.EstadoPeriodoAcademico;
 
 import org.springframework.data.jpa.repository.JpaRepository;
