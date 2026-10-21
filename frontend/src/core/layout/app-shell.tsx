@@ -14,6 +14,7 @@ import { navigationHref, resolveNavigation } from "@/core/navigation/navigation-
 import { clearPendingDestination, consumeDestination, rememberDestination } from "@/core/navigation/pending-destination";
 import { Brand } from "./brand";
 import { LoginScreen } from "./login-screen";
+import styles from "./app-shell.module.css";
 
 function Dashboard({
   user,
@@ -28,22 +29,69 @@ function Dashboard({
   const target = resolveNavigation(pathname, searchParams.toString());
   const activeNav = target?.nav ?? "Ruta no válida";
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const header = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !header.current?.contains(event.target))
+        setIsMobileMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth > 760) setIsMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [isMobileMenuOpen]);
   const details = roleDetails[user.role];
   const roleLabel = roleLabels[user.role];
 
   const screen = resolveScreen(activeNav, { user, startCreate: target?.startCreate ?? false });
   return (
     <main className="role-home">
-      <header className="top-nav">
+      <header ref={header} className={`top-nav ${styles.header}`}>
         <Brand compact />
-        <nav aria-label="Navegación principal">
+        <button
+          ref={menuButton}
+          type="button"
+          className={styles.menuButton}
+          aria-label={isMobileMenuOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="main-navigation"
+          onClick={() => {
+            setIsMobileMenuOpen((open) => !open);
+            setIsAccountMenuOpen(false);
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            {isMobileMenuOpen ? <path d="m6 6 12 12M6 18 18 6" /> : <path d="M4 6h16M4 12h16M4 18h16" />}
+          </svg>
+        </button>
+        <nav id="main-navigation" className={`${styles.navigation} ${isMobileMenuOpen ? styles.open : ""}`} aria-label="Navegación principal">
           {details.nav.filter((item) => canAccess(user, item)).map((item) => (
             <button
               className={activeNav === item ? "selected" : ""}
+              aria-current={activeNav === item ? "page" : undefined}
               key={item}
               onClick={() => {
                 const href = navigationHref(item);
-                if (href) router.push(href);
+                if (href) {
+                  setIsMobileMenuOpen(false);
+                  menuButton.current?.focus();
+                  router.push(href);
+                }
               }}
             >
               {item}
@@ -55,7 +103,10 @@ function Dashboard({
             className="account-trigger"
             aria-expanded={isAccountMenuOpen}
             aria-label="Abrir menú de usuario"
-            onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+            onClick={() => {
+              setIsAccountMenuOpen(!isAccountMenuOpen);
+              setIsMobileMenuOpen(false);
+            }}
           >
             <span className="account-name">
               <strong>{user.fullName}</strong>

@@ -1,0 +1,86 @@
+.menuButton { display: none; }
+
+/* Keep all existing desktop/tablet header rules above this breakpoint. */
+@media (max-width: 760px) {
+  .header:global(.top-nav) {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    height: 60px;
+    min-height: 60px;
+    padding: 8px 20px 8px 16px;
+    min-width: 0;
+  }
+
+  .header :global(.brand) { flex: 1 1 0; min-width: 0; gap: 8px; }
+  .header :global(.brand-icon) { flex: 0 0 32px; }
+  .header :global(.brand) > span:last-child { display: block; min-width: 0; }
+  .header :global(.brand b) { font-size: 14px; overflow-wrap: anywhere; }
+  .header :global(.brand small) { display: none; }
+  .header :global(.account) { position: relative; flex: 0 0 auto; min-width: 0; margin-left: 0; }
+  .header :global(.account-name) { display: none; }
+  .header :global(.avatar) { flex: 0 0 32px; }
+  .header :global(.account-menu) { right: 0; max-width: calc(100vw - 32px); }
+  .header :global(.account-menu-info) { overflow-wrap: anywhere; }
+
+  .header .menuButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    border: 1px solid #ffffff66;
+    border-radius: 6px;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+  .menuButton:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+
+  .header nav.navigation {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    right: 16px;
+    z-index: 20;
+    order: 3;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 4px;
+    background: #1e3a8a;
+    border: 1px solid #ffffff33;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px #0000001a;
+    max-height: min(320px, calc(100dvh - 76px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
+  .header nav.navigation.open { display: flex; }
+  .header nav.navigation button {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 6px 12px;
+    line-height: 20px;
+    border-radius: 4px;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .header nav.navigation button:global(.selected) {
+    background: #ffffff14;
+    color: #38bdf8;
+    border-bottom: 0;
+  }
+}
