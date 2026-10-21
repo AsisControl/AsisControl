@@ -1,8 +1,10 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarSeccionRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.ConfirmarPropuestasSeccionesRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearSeccionRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionResponse;
 import com.asiscontrol.entity.Docente;
@@ -206,6 +208,44 @@ public class SeccionService {
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public List<SeccionResponse> confirmarPropuestas(
+            ConfirmarPropuestasSeccionesRequest request) {
+        validarConfirmacion(request);
+        GradoAcademico gradoAcademico = validarOferta(request.anioAcademico(), request.grado());
+        Set<String> nombresExistentes =
+                nombresExistentes(request.anioAcademico(), request.grado(), gradoAcademico);
+        Set<String> nombresSolicitud = new HashSet<>();
+
+        for (SeccionPropuestaRequest propuesta : request.secciones()) {
+            String nombre = normalizarNombre(propuesta.nombre());
+            if (!nombresSolicitud.add(nombre))
+                throw new ConflictException(
+                        "SECCIONES_DUPLICADAS",
+                        "La solicitud contiene nombres de sección duplicados");
+            if (nombresExistentes.contains(nombre))
+                throw new ConflictException(
+                        "SECCION_DUPLICADA",
+                        "Ya existe esa sección para el grado y año académico");
+        }
+
+        validarMotivoSiAnioActivo(request.anioAcademico(), request.motivo());
+
+        List<SeccionResponse> creadas = new ArrayList<>(request.secciones().size());
+        for (SeccionPropuestaRequest propuesta : request.secciones()) {
+            creadas.add(
+                    crear(
+                            new CrearSeccionRequest(
+                                    propuesta.nombre(),
+                                    request.grado(),
+                                    request.anioAcademico(),
+                                    propuesta.capacidadMaxima(),
+                                    null,
+                                    request.motivo())));
+        }
+        return creadas;
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public SeccionResponse cambiarEstado(
             Long id, com.asiscontrol.dto.academico.ConfiguracionDtos.EstadoSeccion request) {
         Seccion vista =
@@ -271,6 +311,62 @@ public class SeccionService {
             throw new BusinessRuleException(
                     "CAPACIDAD_SECCION_INVALIDA",
                     "La capacidad de cada sección debe estar entre 1 y 100");
+    }
+
+    private void validarConfirmacion(ConfirmarPropuestasSeccionesRequest request) {
+        validarAnioYGrado(request.anioAcademico(), request.grado());
+        if (request.secciones() == null || request.secciones().isEmpty())
+            throw new BusinessRuleException(
+                    "SECCIONES_REQUERIDAS", "Debe confirmar al menos una sección");
+        for (SeccionPropuestaRequest propuesta : request.secciones()) {
+            if (propuesta == null
+                    || propuesta.nombre() == null
+                    || propuesta.nombre().isBlank())
+                throw new BusinessRuleException(
+                        "NOMBRE_SECCION_INVALIDO", "El nombre de la sección es obligatorio");
+            if (propuesta.capacidadMaxima() <= 0 || propuesta.capacidadMaxima() > 100)
+                throw new BusinessRuleException(
+                        "CAPACIDAD_SECCION_INVALIDA",
+                        "La capacidad de cada sección debe estar entre 1 y 100");
+        }
+    }
+
+    private void validarAnioYGrado(int anioAcademico, int grado) {
+        if (anioAcademico < 2000 || anioAcademico > 2100)
+            throw new BusinessRuleException(
+                    "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
+        if (grado < 1 || grado > 5)
+            throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
+    }
+
+    private GradoAcademico validarOferta(int anioAcademico, int grado) {
+        configuracion.exigirOferta(anioAcademico, grado, false);
+        return obtenerGradoActivo(anioAcademico, grado);
+    }
+
+    private Set<String> nombresExistentes(
+            int anioAcademico, int grado, GradoAcademico gradoAcademico) {
+        return new HashSet<>(
+                seccionRepository
+                        .findByAnioAcademicoOrderByGradoAscNombreAsc(anioAcademico)
+                        .stream()
+                        .filter(
+                                seccion ->
+                                        seccion.getGrado() == grado
+                                                || (seccion.getGradoAcademico() != null
+                                                        && Objects.equals(
+                                                                seccion.getGradoAcademico().getId(),
+                                                                gradoAcademico.getId())))
+                        .map(seccion -> normalizarNombre(seccion.getNombre()))
+                        .toList());
+    }
+
+    private void validarMotivoSiAnioActivo(int anioAcademico, String motivo) {
+        if (configuracion.buscar(anioAcademico).getEstado()
+                        == com.asiscontrol.entity.enums.EstadoAnioAcademico.ACTIVO
+                && (motivo == null || motivo.isBlank()))
+            throw new BusinessRuleException(
+                    "MOTIVO_REQUERIDO", "Indique el motivo para añadir secciones al año activo");
     }
 
     private String nombrePropuesto(int indice) {

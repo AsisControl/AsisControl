@@ -3,14 +3,17 @@ package com.asiscontrol.dto.academico;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.TipoAula;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalTime;
+import java.util.List;
 
 public final class AcademicoDtos {
 
@@ -114,6 +117,16 @@ public final class AcademicoDtos {
 
     public record SeccionPropuestaResponse(
             String nombre, int grado, int anioAcademico, int capacidadMaxima) {}
+
+    public record ConfirmarPropuestasSeccionesRequest(
+            @Min(2000) @Max(2100) int anioAcademico,
+            @Min(1) @Max(5) int grado,
+            @NotEmpty @Valid List<SeccionPropuestaRequest> secciones,
+            @Size(max = 700) String motivo) {}
+
+    public record SeccionPropuestaRequest(
+            @NotBlank @Size(max = 20) String nombre,
+            @Min(1) @Max(100) int capacidadMaxima) {}
 
     public record CrearAulaRequest(
             @NotBlank @Size(max = 30) String codigo,

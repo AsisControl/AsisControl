@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarSeccionRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.ConfirmarPropuestasSeccionesRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearSeccionRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
@@ -57,6 +58,13 @@ public class SeccionController {
     public List<SeccionPropuestaResponse> generarPropuestas(
             @Valid @RequestBody GenerarPropuestasSeccionesRequest request) {
         return seccionService.generarPropuestas(request);
+    }
+
+    @PostMapping("/propuestas/confirmar")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_ESCRIBIR')")
+    public List<SeccionResponse> confirmarPropuestas(
+            @Valid @RequestBody ConfirmarPropuestasSeccionesRequest request) {
+        return seccionService.confirmarPropuestas(request);
     }
 
     @PutMapping("/{id}/estado")
