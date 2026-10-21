@@ -1,0 +1,74 @@
+@font-face {
+  font-family: "Auth Inter";
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* Shared column geometry; each flow owns the content of its right column. */
+.screen {
+  display: grid;
+  grid-template-columns: 520px minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+.screen > :global(.login-form-panel) {
+  min-width: 0;
+  min-height: 0;
+}
+
+.screen > :global(.login-form-panel) > :global(.login-form) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.panel {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  padding: 48px;
+  background: #1e3a8a;
+  color: #fff;
+  font-family: "Auth Inter", Arial, sans-serif;
+}
+
+.panelContent { position: relative; z-index: 1; }
+.panel :global(.brand) { gap: 12px; min-width: 0; }
+.panel :global(.brand-icon) {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 20%);
+}
+.panel :global(.brand-icon) img { width: 20px; height: 20px; }
+.panel :global(.brand b) { font-size: 18px; line-height: 28px; font-weight: 700; }
+.panel :global(.brand small) { color: #8ec5ff; font-size: 12px; line-height: 16px; font-weight: 400; }
+.identityContent { margin-top: 64px; }
+.identityContent h2 { margin: 0; font-size: 36px; line-height: 45px; font-weight: 700; letter-spacing: normal; }
+.identityContent p { margin: 16px 0 32px; color: #bedbff; font-size: 14px; line-height: 22.75px; font-weight: 400; }
+.identityContent ul { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; color: #dbeafe; font-size: 14px; line-height: 20px; font-weight: 400; }
+.identityContent li { display: flex; align-items: center; gap: 12px; }
+.identityContent li::before { content: ""; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #38bdf8; }
+.circleTop, .circleMiddle, .circleBottom { position: absolute; border-radius: 50%; background: rgb(255 255 255 / 5%); pointer-events: none; }
+.circleTop { width: 256px; height: 256px; left: 328px; top: -64px; }
+.circleMiddle { width: 160px; height: 160px; left: 392px; top: 192px; }
+.circleBottom { width: 192px; height: 192px; left: -48px; bottom: -48px; }
+
+/* Responsive adaptations; the official frame only specifies desktop. */
+@media (max-width: 1150px) {
+  .screen { grid-template-columns: minmax(280px, 36.1%) minmax(0, 1fr); }
+  .panel { padding: 32px 24px; }
+  .identityContent h2 { font-size: 30px; line-height: 39px; }
+  .circleTop { left: auto; right: -64px; }
+  .circleMiddle { left: auto; right: -32px; }
+}
+
+@media (max-width: 760px) {
+  .screen { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .panel { padding: 24px; }
+  .identityContent { display: none; }
+  .circleTop { width: 220px; height: 220px; }
+}

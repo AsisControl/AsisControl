@@ -1,73 +1,130 @@
 "use client";
-import { useEffect, useState } from "react";
-import { api } from "@/core/api/client";
-import { httpAuthService } from "./http-auth-service";
-import { clearSession, readSession, saveSession } from "./session-storage";
+import { useEffect, useSyncExternalStore } from "react";
+import { message } from "@/core/api/client";
+import { httpAuthService, mapAuth, type UserSummary } from "./http-auth-service";
+import { clearSession, readSession, saveSession, subscribeSession, getSessionSnapshot, getServerSessionSnapshot, setSessionValidation, synchronizeSessionInvalidation } from "./session-storage";
 import type { AuthSession, LoginCredentials } from "./types";
+
+let validation: { session: AuthSession; promise: Promise<void> } | null = null;
+let generation = 0;
+let loggingOut = false;
+let lastActivity = Date.now();
+let lastPing = Date.now();
+function expired(session: AuthSession) {
+  return !!session.expiresAt && !(new Date(session.expiresAt).getTime() > Date.now());
+}
+async function revalidateSession() {
+  synchronizeSessionInvalidation();
+  const candidate = readSession();
+  if (!candidate) { setSessionValidation("ready"); return; }
+  if (loggingOut) return;
+  if (expired(candidate) || Date.now() - lastActivity >= 30 * 60 * 1000) { clearSession(); return; }
+  if (validation?.session === candidate) return validation.promise;
+  const requestGeneration = ++generation;
+  setSessionValidation("checking");
+  const promise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      // Capture the token and check the generation before handling a 401, so an
+      // old response cannot clear a newer login. Other API calls keep api()'s 401 handling.
+      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "");
+      const response = await fetch(`${base}/api/auth/me`, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${candidate.accessToken}` },
+        cache: "no-store", signal: controller.signal,
+      });
+      const body = await response.json().catch(() => null);
+      synchronizeSessionInvalidation();
+      if (requestGeneration !== generation || readSession() !== candidate) return;
+      if (response.status === 401) { clearSession(); return; }
+      if (!response.ok) throw new Error(body?.message || "No se pudo comprobar la sesión.");
+      if (expired(candidate)) { clearSession(); return; }
+      const user = body as UserSummary;
+      saveSession(mapAuth({ accessToken: candidate.accessToken, expiresAt: candidate.expiresAt ?? "", user }));
+      lastPing = Date.now();
+    } catch (error) {
+      if (requestGeneration === generation && readSession() === candidate) {
+        const detail = error instanceof TypeError
+          ? "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo nuevamente."
+          : error instanceof Error && error.name === "AbortError"
+            ? "El servidor tardó demasiado. Inténtalo nuevamente." : message(error);
+        setSessionValidation("error", detail);
+      }
+    } finally {
+      clearTimeout(timer);
+      if (validation?.session === candidate) validation = null;
+    }
+  })();
+  validation = { session: candidate, promise };
+  return promise;
+}
 export function useAuth() {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const state = useSyncExternalStore(subscribeSession, getSessionSnapshot, getServerSessionSnapshot);
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSession(readSession());
-      setIsRestoringSession(false);
-    }, 0);
-    const listener = () => setSession(null);
-    window.addEventListener("asiscontrol:session-cleared", listener);
+    const restore = () => { void revalidateSession(); };
+    const hide = () => { if (readSession()) setSessionValidation("checking"); };
+    const visibility = () => { if (document.visibilityState === "visible") restore(); else hide(); };
+    window.addEventListener("pageshow", restore);
+    window.addEventListener("popstate", restore);
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("storage", restore);
+    document.addEventListener("visibilitychange", visibility);
+    restore();
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("asiscontrol:session-cleared", listener);
+      window.removeEventListener("pageshow", restore);
+      window.removeEventListener("popstate", restore);
+      window.removeEventListener("pagehide", hide);
+      window.removeEventListener("storage", restore);
+      document.removeEventListener("visibilitychange", visibility);
     };
   }, []);
   useEffect(() => {
-    if (!session?.expiresAt) return;
-    const ms = new Date(session.expiresAt).getTime() - Date.now();
-    const timer = window.setTimeout(clearSession, Math.max(0, ms));
-    return () => window.clearTimeout(timer);
-  }, [session]);
-  useEffect(() => {
-    if (!session) return;
-    let lastActivity = Date.now();
-    let lastPing = Date.now();
+    if (!state.session) return;
+    const session = state.session;
     const activity = () => {
       const now = Date.now();
-      if (now - lastActivity >= 30 * 60 * 1000) {
-        clearSession();
-        return;
-      }
+      if (expired(session) || now - lastActivity >= 30 * 60 * 1000) { clearSession(); return; }
       lastActivity = now;
-      if (now - lastPing > 2 * 60 * 1000) {
+      if (now - lastPing > 2 * 60 * 1000 && getSessionSnapshot().status === "ready") {
         lastPing = now;
-        void api("/api/auth/me").catch(() => {});
+        void revalidateSession();
       }
     };
     const events = ["pointerdown", "keydown", "scroll", "pointermove"];
-    events.forEach((name) =>
-      window.addEventListener(name, activity, { passive: true }),
-    );
+    events.forEach((name) => window.addEventListener(name, activity, { passive: true }));
     const timer = window.setInterval(() => {
-      if (Date.now() - lastActivity >= 30 * 60 * 1000) clearSession();
+      if (expired(session) || Date.now() - lastActivity >= 30 * 60 * 1000) clearSession();
     }, 15000);
+    const expiryTimer = session.expiresAt
+      ? window.setTimeout(clearSession, Math.max(0, new Date(session.expiresAt).getTime() - Date.now())) : undefined;
     return () => {
       window.clearInterval(timer);
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
       events.forEach((name) => window.removeEventListener(name, activity));
     };
-  }, [session]);
+  }, [state.session]);
   async function login(credentials: LoginCredentials) {
+    const attempt = ++generation;
     const result = await httpAuthService.login(credentials);
-    if (result.ok) {
+    if (result.ok && attempt === generation) {
+      lastActivity = lastPing = Date.now();
       saveSession(result.session);
-      setSession(result.session);
     }
     return result;
   }
   async function logout() {
-    try {
-      await httpAuthService.logout();
-    } catch {
-      clearSession();
-    }
-    setSession(null);
+    ++generation;
+    loggingOut = true;
+    setSessionValidation("checking");
+    try { await httpAuthService.logout(); }
+    catch { clearSession(); }
+    finally { loggingOut = false; clearSession(); }
   }
-  return { session, isRestoringSession, login, logout };
+  return {
+    session: state.session && !expired(state.session) ? state.session : null,
+    isRestoringSession: state.status === "checking",
+    sessionValidationError: state.status === "error" ? state.error : "",
+    retrySession: revalidateSession,
+    login, logout,
+  };
 }

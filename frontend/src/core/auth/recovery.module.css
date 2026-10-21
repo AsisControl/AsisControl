@@ -1,0 +1,57 @@
+@font-face {
+  font-family: "Recovery Inter";
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.screen {
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: "Recovery Inter", Arial, sans-serif;
+}
+
+.content { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 48px; }
+.successContent { background: #fff; }
+.card { width: 100%; max-width: 420px; min-width: 0; overflow-wrap: anywhere; }
+.backLink { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 32px; color: #64748b; font-size: 12px; font-weight: 500; line-height: 16px; text-decoration: none; }
+.backLink:hover { color: #1e3a8a; text-decoration: underline; }
+.icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-bottom: 16px; border-radius: 12px; background: #eff6ff; }
+.successIcon { background: #e6f4ea; }
+.card h1 { margin: 0; font-size: 24px; font-weight: 700; line-height: 32px; }
+.card p { color: #64748b; font-size: 14px; line-height: 20px; }
+.card .description { margin: 8px 0 0; }
+.reset .description, .successContent .description { margin-top: 4px; }
+.form { margin-top: 24px; }
+.reset .form { margin-top: 16px; }
+.form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.form :global(.field) { display: block; margin: 0; color: #364153; font-size: 12px; font-weight: 600; line-height: 16px; text-transform: uppercase; }
+.form :global(.field) input { display: block; width: 100%; min-width: 0; min-height: 0; height: 44px; margin-top: 6px; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #0f172a; font-family: inherit; font-size: 14px; font-weight: 400; }
+.reset .form :global(.field) + :global(.field) { margin-top: 16px; }
+.reset .form :global(.field) { letter-spacing: 0.3px; }
+.reset .form :global(.field) input { height: 38.2px; margin-top: 4px; padding: 8px 12px; letter-spacing: normal; }
+.form input::placeholder { color: #94a3b8; }
+.form :global(.password-field) { display: block; position: relative; }
+.reset .form :global(.password-field) input { padding-right: 44px; }
+.form :global(.password-field) button { position: absolute; top: 0; right: 4px; display: flex; align-items: center; justify-content: center; width: 30px; height: 38.2px; border: 0; background: transparent; color: #64748b; }
+.form :global(.password-field) button svg { width: 13px; height: 13px; }
+.primaryButton { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 46px; margin-top: 24px; padding: 12px 24px; border: 1px solid #1e3a8a; border-radius: 8px; background: #1e3a8a; color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 20px; text-align: center; text-decoration: none; cursor: pointer; }
+.request .primaryButton { min-height: 36px; padding: 7px 24px; }
+.reset .primaryButton { margin-top: 16px; }
+.primaryButton:hover:not(:disabled) { background: #1b3272; }
+.primaryButton:disabled { opacity: 0.65; cursor: wait; }
+.card :global(.hint) { margin: 12px 0 0; font-size: 12px; line-height: 18px; }
+.feedback :global(.action-feedback) { margin: 20px 0; padding: 12px 16px; border: 1px solid #b9f8cf; border-radius: 8px; background: #f0fdf4; color: #016630; }
+.feedback :global(.form-error) { padding: 12px 16px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #b91c1c; }
+.card a:focus-visible, .card button:focus-visible, .form input:focus-visible { outline: 3px solid #38bdf8; outline-offset: 3px; }
+
+/* Tablet and mobile adaptations; the supplied Figma frames are desktop only. */
+@media (max-width: 1150px) {
+  .content { padding: 40px 32px; }
+}
+
+@media (max-width: 760px) {
+  .content { align-items: flex-start; padding: 32px 24px 40px; }
+  .backLink { margin-bottom: 28px; }
+}

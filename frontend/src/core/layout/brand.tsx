@@ -6,7 +6,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
         <img src="/school-logo.svg" alt="" />
       </span>
       <span>
-        <b>Colegio PUCP</b>
+        <b>AsisControl</b>
         <small>
           {compact ? "Sistema de Gestión" : "Sistema de Gestión Académica"}
         </small>
