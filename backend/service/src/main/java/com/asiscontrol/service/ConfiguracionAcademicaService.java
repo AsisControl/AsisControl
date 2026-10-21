@@ -4,9 +4,13 @@ import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.academico.ConfiguracionDtos.*;
 import com.asiscontrol.entity.*;
 import com.asiscontrol.entity.enums.*;
+import com.asiscontrol.entity.planificacion.AnioAcademico;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.exception.*;
 import com.asiscontrol.repository.*;
 
+import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
+import com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

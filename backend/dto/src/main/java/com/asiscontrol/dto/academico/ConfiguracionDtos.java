@@ -4,6 +4,7 @@ import com.asiscontrol.entity.enums.*;
 
 import jakarta.validation.constraints.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,6 +30,14 @@ public final class ConfiguracionDtos {
             @NotNull LocalDate fechaInicio,
             @NotNull LocalDate fechaFin) {}
 
+    public record CrearDiaNoLectivo(
+            @NotNull LocalDate fecha,
+            @Size(max = 255) String descripcion) {}
+
+    public record ActualizarDiaNoLectivo(
+            @Size(max = 255) String descripcion,
+            @NotNull Long version) {}
+
     public record EstadoPeriodo(
             @NotNull EstadoPeriodoAcademico estado,
             @NotNull Long version,
@@ -52,6 +61,15 @@ public final class ConfiguracionDtos {
             LocalDate fechaInicio,
             LocalDate fechaFin,
             EstadoPeriodoAcademico estado,
+            long version) {}
+
+    public record DiaNoLectivoResponse(
+            Long id,
+            int anioAcademico,
+            LocalDate fecha,
+            String descripcion,
+            Instant fechaCreacion,
+            Instant fechaActualizacion,
             long version) {}
 
     public record GradoResponse(

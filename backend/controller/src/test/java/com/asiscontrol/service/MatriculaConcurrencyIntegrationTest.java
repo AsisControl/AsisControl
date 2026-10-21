@@ -8,7 +8,7 @@ import com.asiscontrol.dto.matricula.MatriculaDtos.*;
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.entity.enums.*;
 import com.asiscontrol.exception.BusinessRuleException;
-import com.asiscontrol.repository.AnioAcademicoRepository;
+import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import com.asiscontrol.repository.RegistroAuditoriaRepository;
 
 import org.junit.jupiter.api.Test;

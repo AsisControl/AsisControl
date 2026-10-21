@@ -1,5 +1,6 @@
-package com.asiscontrol.entity;
+package com.asiscontrol.entity.planificacion;
 
+import com.asiscontrol.entity.AuditableEntity;
 import jakarta.persistence.*;
 
 import lombok.Getter;

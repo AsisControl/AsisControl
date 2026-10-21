@@ -1,5 +1,6 @@
 package com.asiscontrol.entity;
 
+import com.asiscontrol.entity.planificacion.AnioAcademico;
 import jakarta.persistence.*;
 
 import lombok.Getter;

@@ -2,6 +2,7 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.entity.*;
 
+import com.asiscontrol.entity.planificacion.AnioAcademico;
 import jakarta.persistence.EntityManager;
 
 import org.springframework.stereotype.Service;
