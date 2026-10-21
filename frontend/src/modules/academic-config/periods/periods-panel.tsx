@@ -4,11 +4,16 @@ import { api, message } from "@/core/api/client";
 import { Field, FormDialog, ReasonField } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import type { AcademicYear, Period, YearPanelProps } from "../types";
+import styles from "../academic-config.module.css";
+import { PeriodCard } from "./period-card";
 type PeriodAction =
-  | { kind: "period" }
-  | { kind: "period-state"; target: Period; next: string };
+  { kind: "period" } | { kind: "period-state"; target: Period; next: string };
 /** US-05: períodos del año académico seleccionado. */
-export function PeriodsPanel({ year, onYearChange, onSuccess }: YearPanelProps) {
+export function PeriodsPanel({
+  year,
+  onYearChange,
+  onSuccess,
+}: YearPanelProps) {
   const [action, setAction] = useState<PeriodAction | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,48 +74,17 @@ export function PeriodsPanel({ year, onYearChange, onSuccess }: YearPanelProps) 
           </button>
         )}
       </div>
-      <div className="user-table-wrap">
-        <table className="user-table">
-          <thead>
-            <tr>
-              <th>Período</th>
-              <th>Fechas</th>
-              <th>Estado</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {year.periodos.map((period) => (
-              <tr key={period.id}>
-                <td data-label="Período">
-                  {period.orden}. {period.nombre}
-                </td>
-                <td data-label="Fechas">
-                  {period.fechaInicio} a {period.fechaFin}
-                </td>
-                <td data-label="Estado">{stateLabel(period.estado)}</td>
-                <td data-label="Acción">
-                  {year.estado === "ACTIVO" && period.estado !== "CERRADO" && (
-                    <button
-                      onClick={() =>
-                        open({
-                          kind: "period-state",
-                          target: period,
-                          next:
-                            period.estado === "PLANIFICADO"
-                              ? "ACTIVO"
-                              : "CERRADO",
-                        })
-                      }
-                    >
-                      {period.estado === "PLANIFICADO" ? "Activar" : "Cerrar"}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className={styles.cards}>
+        {year.periodos.map((period) => (
+          <PeriodCard
+            key={period.id}
+            period={period}
+            canChangeState={year.estado === "ACTIVO"}
+            onChangeState={(target, next) =>
+              open({ kind: "period-state", target, next })
+            }
+          />
+        ))}
       </div>
       {!year.periodos.length && (
         <p className="empty">
@@ -162,7 +136,13 @@ export function PeriodsPanel({ year, onYearChange, onSuccess }: YearPanelProps) 
                 maxLength={100}
                 placeholder="Ej. Primer bimestre"
               />
-              <Field label="Orden" name="orden" type="number" min={1} required />
+              <Field
+                label="Orden"
+                name="orden"
+                type="number"
+                min={1}
+                required
+              />
             </>
           ) : (
             <ReasonField />
