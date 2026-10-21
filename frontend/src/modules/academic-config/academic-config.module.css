@@ -223,6 +223,128 @@
   cursor: not-allowed;
   opacity: 0.6;
 }
+.collapsible {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 24px;
+}
+.collapsibleToggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--ink);
+  display: flex;
+  font-size: 16px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 16px 20px;
+  text-align: left;
+  width: 100%;
+}
+.collapsibleTitle {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chevron {
+  color: var(--muted);
+  font-size: 12px;
+}
+.collapsibleBody {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.toolbar button {
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.toolbar .linkButton {
+  background: transparent;
+  border-color: transparent;
+  text-decoration: underline;
+}
+.notice {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  margin: 0;
+  padding: 10px 12px;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+.table th,
+.table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+.table th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.table .emptyCell {
+  color: var(--muted);
+  padding: 24px 12px;
+  text-align: center;
+}
+.table .rowActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.table .rowActions button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+}
+.table .rowActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.dialogForm .notice {
+  margin-bottom: 4px;
+}
+.dialogForm textarea.input {
+  resize: vertical;
+}
 @media (max-width: 520px) {
   .twoColumns {
     grid-template-columns: 1fr;

@@ -65,6 +65,37 @@ test("No se solapa con otros períodos, ni compartiendo un día", () => {
   assert.ok(v.validatePeriodDates("2026-05-01", "2026-09-30", year, periods).fechaInicio);
   empty(v.validatePeriodDates("2026-06-01", "2026-06-14", year, periods));
 });
+const days = [{ fecha: "2026-04-02" }, { fecha: "2026-07-28" }];
+test("Día no lectivo: la fecha es obligatoria", () => {
+  assert.notEqual(v.validateNonTeachingDate("", year, days), "");
+});
+test("Día no lectivo: la fecha debe estar dentro del año", () => {
+  assert.notEqual(v.validateNonTeachingDate("2026-02-28", year, days), "");
+  assert.notEqual(v.validateNonTeachingDate("2026-12-21", year, days), "");
+  assert.equal(v.validateNonTeachingDate("2026-03-01", year, days), "");
+  assert.equal(v.validateNonTeachingDate("2026-12-20", year, days), "");
+});
+test("Día no lectivo: no admite fechas repetidas", () => {
+  assert.notEqual(v.validateNonTeachingDate("2026-04-02", year, days), "");
+  assert.equal(v.validateNonTeachingDate("2026-04-03", year, days), "");
+  assert.equal(v.validateNonTeachingDate("2026-04-02", year, []), "");
+});
+test("Día no lectivo: descripción opcional, máximo 255", () => {
+  assert.equal(v.validateNonTeachingDescription(""), "");
+  assert.equal(v.validateNonTeachingDescription("a".repeat(255)), "");
+  assert.notEqual(v.validateNonTeachingDescription("a".repeat(256)), "");
+});
+test("validateNonTeachingDay reúne los errores", () => {
+  const ok = { fecha: "2026-05-01", descripcion: "Día del Trabajo" };
+  assert.equal(v.hasErrors(v.validateNonTeachingDay(ok, year, days)), false);
+  const errors = v.validateNonTeachingDay(
+    { fecha: "", descripcion: "a".repeat(256) },
+    year,
+    days,
+  );
+  assert.ok(errors.fecha && errors.descripcion);
+  assert.equal(v.hasErrors(errors), true);
+});
 test("validatePeriod reúne los errores y hasErrors los detecta", () => {
   assert.equal(v.hasErrors(v.validatePeriod(valid, year, periods)), false);
   const errors = v.validatePeriod(

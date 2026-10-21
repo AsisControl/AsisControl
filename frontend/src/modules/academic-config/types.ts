@@ -25,6 +25,16 @@ export type Section = {
   activo: boolean;
   version: number;
 };
+/** Respuesta de dias-no-lectivos (rama de BE 3, aún no está en main). */
+export type NonTeachingDay = {
+  id: number;
+  anioAcademico: number;
+  fecha: string;
+  descripcion: string | null;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+  version: number;
+};
 export type AcademicYear = {
   id: number;
   anio: number;

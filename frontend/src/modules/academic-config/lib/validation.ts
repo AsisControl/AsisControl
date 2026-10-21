@@ -74,5 +74,48 @@ export function validatePeriod(
   return errors;
 }
 
-export const hasErrors = (errors: PeriodErrors) =>
+export const hasErrors = (errors: Partial<Record<string, string>>) =>
   Object.values(errors).some(Boolean);
+
+// Días no lectivos: escritas con la API de BE 3 pendiente; aún no las usa
+// ningún componente. Se conectarán cuando el formulario guarde de verdad.
+export const NON_TEACHING_DESCRIPTION_MAX = 255;
+
+export type NonTeachingDayInput = { fecha: string; descripcion: string };
+export type NonTeachingDayErrors = Partial<
+  Record<keyof NonTeachingDayInput, string>
+>;
+
+/** Fecha ISO obligatoria, dentro del año y que no esté ya en `days`. */
+export function validateNonTeachingDate(
+  date: string,
+  year: DateRange,
+  days: { fecha: string }[],
+): string {
+  if (!date) return "La fecha es obligatoria.";
+  if (date < year.fechaInicio || date > year.fechaFin)
+    return "La fecha debe estar dentro del año.";
+  if (days.some((d) => d.fecha === date))
+    return "Ya existe un día no lectivo en esa fecha.";
+  return "";
+}
+
+/** La descripción es opcional; si existe, máximo 255 caracteres. */
+export function validateNonTeachingDescription(description: string): string {
+  if (description.trim().length > NON_TEACHING_DESCRIPTION_MAX)
+    return `La descripción no puede superar ${NON_TEACHING_DESCRIPTION_MAX} caracteres.`;
+  return "";
+}
+
+export function validateNonTeachingDay(
+  input: NonTeachingDayInput,
+  year: DateRange,
+  days: { fecha: string }[],
+): NonTeachingDayErrors {
+  const errors: NonTeachingDayErrors = {};
+  const date = validateNonTeachingDate(input.fecha, year, days);
+  if (date) errors.fecha = date;
+  const description = validateNonTeachingDescription(input.descripcion);
+  if (description) errors.descripcion = description;
+  return errors;
+}
