@@ -2,46 +2,59 @@
 
 /* eslint-disable @next/next/no-img-element -- SVG assets are served from public/. */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ChangePassword } from "@/core/auth/change-password";
 import { useAuth } from "@/core/auth/use-auth";
 import type { AuthenticatedUser } from "@/core/auth/types";
-import { roleDetails, roleLabels } from "@/core/navigation/navigation";
-import { resolveScreen } from "@/core/navigation/module-outlet";
+import {
+  CHANGE_PASSWORD_PATH,
+  navFromSegment,
+  navPath,
+  roleDetails,
+  roleLabels,
+} from "@/core/navigation/navigation";
+import { NavIcon } from "@/core/navigation/nav-icons";
 import { Brand } from "./brand";
 import { LoginScreen } from "./login-screen";
+import { SessionUserProvider } from "./session-user";
+import styles from "./app-shell.module.css";
 
 function Dashboard({
   user,
   onLogout,
-  initialNav = "Inicio",
-  startCreate = false,
+  children,
 }: {
   user: AuthenticatedUser;
   onLogout: () => Promise<void>;
-  initialNav?: string;
-  startCreate?: boolean;
+  children: ReactNode;
 }) {
-  const [activeNav, setActiveNav] = useState(initialNav);
+  const router = useRouter();
+  const pathname = usePathname();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
   const details = roleDetails[user.role];
   const roleLabel = roleLabels[user.role];
+  const activeNav = navFromSegment(user.role, pathname.split("/")[1]);
 
-  if (changingPassword)
+  if (pathname === CHANGE_PASSWORD_PATH)
     return <ChangePassword onLogout={onLogout} mandatory={false} />;
-  const screen = resolveScreen(activeNav, { user, startCreate });
+  function go(path: string) {
+    setIsAccountMenuOpen(false);
+    router.push(path);
+  }
   return (
     <main className="role-home">
-      <header className="top-nav">
+      <header className={`top-nav ${styles.header}`}>
         <Brand compact />
-        <nav aria-label="Navegación principal">
+        <nav className={styles.navBar} aria-label="Navegación principal">
           {details.nav.map((item) => (
             <button
-              className={activeNav === item ? "selected" : ""}
+              className={`${styles.navItem} ${activeNav === item ? "selected" : ""}`}
+              aria-current={activeNav === item ? "page" : undefined}
               key={item}
-              onClick={() => setActiveNav(item)}
+              onClick={() => go(navPath(item))}
             >
+              <NavIcon label={item} />
               {item}
             </button>
           ))}
@@ -74,7 +87,7 @@ function Dashboard({
               </div>
               <button
                 className="logout-option"
-                onClick={() => setChangingPassword(true)}
+                onClick={() => go(CHANGE_PASSWORD_PATH)}
               >
                 Cambiar contraseña
               </button>
@@ -86,53 +99,22 @@ function Dashboard({
           )}
         </div>
       </header>
-      <section className="home-content">
-        {screen ?? (
-          <>
-            <div className="page-title">
-              <div>
-                <h1>
-                  {activeNav === "Inicio"
-                    ? ["DOCENTE", "ESTUDIANTE"].includes(user.role)
-                      ? `Bienvenido/a, ${user.fullName}`
-                      : details.title
-                    : activeNav}
-                </h1>
-                <p>
-                  {new Date().toLocaleDateString("es-PE", {
-                    timeZone: "America/Lima",
-                    dateStyle: "long",
-                  })}
-                </p>
-              </div>
-            </div>
-            <article className="role-message">
-              <span className="message-mark">✓</span>
-              <div>
-                <p className="eyebrow">{activeNav.toUpperCase()}</p>
-                <h2>Has ingresado como {roleLabel.toLowerCase()}.</h2>
-                <p>
-                  {activeNav === "Inicio"
-                    ? "Selecciona una opción del menú para continuar."
-                    : "Este módulo todavía está pendiente de implementación."}
-                </p>
-              </div>
-            </article>
-          </>
-        )}
-      </section>
+      <section className="home-content">{children}</section>
     </main>
   );
 }
 
-export default function AsisApp({
-  initialNav,
-  startCreate,
-}: {
-  initialNav?: string;
-  startCreate?: boolean;
-}) {
+/**
+ * Shell de la aplicación: exige sesión y muestra el menú principal.
+ * La pantalla visible la decide la URL (ver module-outlet.tsx).
+ */
+export function AppShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { session, isRestoringSession, login, logout } = useAuth();
+  async function logoutToHome() {
+    await logout();
+    router.replace("/");
+  }
   if (isRestoringSession)
     return (
       <main className="app-loading" aria-live="polite">
@@ -141,13 +123,12 @@ export default function AsisApp({
     );
   if (!session) return <LoginScreen onLogin={login} />;
   if (session.user.requiresPasswordChange)
-    return <ChangePassword onLogout={logout} />;
+    return <ChangePassword onLogout={logoutToHome} />;
   return (
-    <Dashboard
-      user={session.user}
-      onLogout={logout}
-      initialNav={initialNav}
-      startCreate={startCreate}
-    />
+    <SessionUserProvider value={session.user}>
+      <Dashboard user={session.user} onLogout={logoutToHome}>
+        {children}
+      </Dashboard>
+    </SessionUserProvider>
   );
 }

@@ -1,0 +1,49 @@
+/* Con iconos el menú es más ancho: se desplaza dentro de sí mismo en vez de
+   ensanchar la página. "safe" evita recortar la primera opción al centrar. */
+.navBar {
+  justify-content: safe center;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.navBar::-webkit-scrollbar {
+  display: none;
+}
+/* .navBar eleva la especificidad sobre las reglas globales de .top-nav nav button. */
+.navBar .navItem {
+  flex: none;
+  align-items: center;
+  border: 1px solid transparent;
+  display: inline-flex;
+  gap: 7px;
+}
+.navBar .navItem svg {
+  flex: none;
+}
+.navBar .navItem:hover {
+  border-color: transparent;
+}
+.navBar .navItem[aria-current="page"] {
+  background: #ffffff26;
+  border: 1px solid #8ec5ff80;
+  color: var(--sky);
+}
+/* Entre 1000 y 1280 px el menú con iconos no cabe en una fila: pasa debajo,
+   igual que hace globals.css por debajo de 1000 px. */
+@media (max-width: 1280px) {
+  .header:global(.top-nav) {
+    flex-wrap: wrap;
+    gap: 12px;
+    height: auto;
+    min-height: 64px;
+    padding-bottom: 10px;
+    padding-top: 10px;
+  }
+  .header:global(.top-nav) .navBar {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .header :global(.account) {
+    margin-left: auto;
+  }
+}
