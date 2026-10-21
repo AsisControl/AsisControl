@@ -2,6 +2,8 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarSeccionRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearSeccionRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionResponse;
 import com.asiscontrol.service.SeccionService;
 
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/secciones")
@@ -46,6 +50,13 @@ public class SeccionController {
     public SeccionResponse actualizar(
             @PathVariable Long id, @Valid @RequestBody ActualizarSeccionRequest request) {
         return seccionService.actualizar(id, request);
+    }
+
+    @PostMapping("/propuestas")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_ESCRIBIR')")
+    public List<SeccionPropuestaResponse> generarPropuestas(
+            @Valid @RequestBody GenerarPropuestasSeccionesRequest request) {
+        return seccionService.generarPropuestas(request);
     }
 
     @PutMapping("/{id}/estado")

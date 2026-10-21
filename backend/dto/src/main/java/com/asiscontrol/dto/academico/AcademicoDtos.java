@@ -106,6 +106,15 @@ public final class AcademicoDtos {
             boolean activo,
             long version) {}
 
+    public record GenerarPropuestasSeccionesRequest(
+            @Min(2000) @Max(2100) int anioAcademico,
+            @Min(1) @Max(5) int grado,
+            @Min(1) int cantidad,
+            @Min(1) @Max(100) int capacidadMaxima) {}
+
+    public record SeccionPropuestaResponse(
+            String nombre, int grado, int anioAcademico, int capacidadMaxima) {}
+
     public record CrearAulaRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 100) String nombre,

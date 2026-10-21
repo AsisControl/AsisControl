@@ -2,6 +2,8 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarSeccionRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearSeccionRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionResponse;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.GradoAcademico;
@@ -20,9 +22,25 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+
 @Service
 @Transactional(readOnly = true)
 public class SeccionService {
+
+    private static final Set<com.asiscontrol.entity.enums.EstadoSolicitudMatricula>
+            ESTADOS_SOLICITUD_VIGENTES =
+                    EnumSet.of(
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.BORRADOR,
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.ENVIADA,
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.EN_REVISION,
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.OBSERVADA);
 
     private final SeccionRepository seccionRepository;
     private final DocenteRepository docenteRepository;
@@ -149,6 +167,44 @@ public class SeccionService {
                 .map(this::mapear);
     }
 
+    public List<SeccionPropuestaResponse> generarPropuestas(
+            GenerarPropuestasSeccionesRequest request) {
+        validarPropuestas(request);
+        configuracion.exigirOferta(request.anioAcademico(), request.grado(), false);
+        GradoAcademico gradoAcademico =
+                obtenerGradoActivo(request.anioAcademico(), request.grado());
+
+        Set<String> nombresExistentes =
+                new HashSet<>(
+                        seccionRepository.findByAnioAcademicoOrderByGradoAscNombreAsc(
+                                        request.anioAcademico())
+                                .stream()
+                                .filter(
+                                        seccion ->
+                                                seccion.getGrado() == request.grado()
+                                                        || (seccion.getGradoAcademico() != null
+                                                                && Objects.equals(
+                                                                        seccion.getGradoAcademico()
+                                                                                .getId(),
+                                                                        gradoAcademico.getId())))
+                                .map(seccion -> normalizarNombre(seccion.getNombre()))
+                                .toList());
+
+        List<SeccionPropuestaResponse> propuestas = new ArrayList<>(request.cantidad());
+        int indice = 0;
+        while (propuestas.size() < request.cantidad()) {
+            String nombre = nombrePropuesto(indice++);
+            if (!nombresExistentes.add(nombre)) continue;
+            propuestas.add(
+                    new SeccionPropuestaResponse(
+                            nombre,
+                            request.grado(),
+                            request.anioAcademico(),
+                            request.capacidadMaxima()));
+        }
+        return propuestas;
+    }
+
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public SeccionResponse cambiarEstado(
             Long id, com.asiscontrol.dto.academico.ConfiguracionDtos.EstadoSeccion request) {
@@ -164,11 +220,11 @@ public class SeccionService {
         configuracion.exigirOferta(vista.getAnioAcademico(), vista.getGrado(), false);
         Seccion seccion = seccionRepository.bloquearPorId(id).orElseThrow();
         exigirVersion(seccion.getVersion(), request.version());
-        if (!request.activo() && utilizada(id))
+        if (!request.activo() && tieneUsoVigente(id))
             throw new ConflictException(
                     "SECCION_UTILIZADA",
-                    "No se puede inhabilitar una sección utilizada por solicitudes, matrículas o"
-                        + " asignaciones");
+                    "No se puede inhabilitar una sección con solicitudes, matrículas o asignaciones"
+                        + " vigentes");
         if (request.motivo() == null || request.motivo().isBlank())
             throw new BusinessRuleException(
                     "MOTIVO_REQUERIDO", "Indique el motivo del cambio de estado");
@@ -192,6 +248,43 @@ public class SeccionService {
         throw new BusinessRuleException(
                 "HISTORIAL_PROTEGIDO",
                 "Utilice el cambio de estado con motivo y versión; la sección se conserva");
+    }
+
+    private boolean tieneUsoVigente(Long id) {
+        return matriculaRepository.existsBySeccionIdAndActivoTrueAndEstado(
+                        id, EstadoMatricula.ACTIVA)
+                || solicitudes.existsBySeccionIdAndActivoTrueAndEstadoIn(
+                        id, ESTADOS_SOLICITUD_VIGENTES)
+                || asignaciones.existsBySeccionIdAndActivoTrue(id);
+    }
+
+    private void validarPropuestas(GenerarPropuestasSeccionesRequest request) {
+        if (request.anioAcademico() < 2000 || request.anioAcademico() > 2100)
+            throw new BusinessRuleException(
+                    "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
+        if (request.grado() < 1 || request.grado() > 5)
+            throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
+        if (request.cantidad() <= 0)
+            throw new BusinessRuleException(
+                    "CANTIDAD_SECCIONES_INVALIDA", "La cantidad de secciones debe ser positiva");
+        if (request.capacidadMaxima() <= 0 || request.capacidadMaxima() > 100)
+            throw new BusinessRuleException(
+                    "CAPACIDAD_SECCION_INVALIDA",
+                    "La capacidad de cada sección debe estar entre 1 y 100");
+    }
+
+    private String nombrePropuesto(int indice) {
+        StringBuilder nombre = new StringBuilder();
+        int valor = indice;
+        do {
+            nombre.insert(0, (char) ('A' + valor % 26));
+            valor = valor / 26 - 1;
+        } while (valor >= 0);
+        return nombre.toString();
+    }
+
+    private String normalizarNombre(String nombre) {
+        return nombre.trim().toUpperCase(Locale.ROOT);
     }
 
     private boolean utilizada(Long id) {
