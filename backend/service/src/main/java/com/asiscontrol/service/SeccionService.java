@@ -285,9 +285,53 @@ public class SeccionService {
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void eliminar(Long id) {
-        throw new BusinessRuleException(
-                "HISTORIAL_PROTEGIDO",
-                "Utilice el cambio de estado con motivo y versión; la sección se conserva");
+        Seccion vista =
+                seccionRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "SECCION_NO_ENCONTRADA",
+                                                "No se encontró la sección"));
+        var anio = configuracion.bloquear(vista.getAnioAcademico());
+        if (anio.getEstado() != com.asiscontrol.entity.enums.EstadoAnioAcademico.BORRADOR)
+            throw new BusinessRuleException(
+                    "SECCION_ELIMINACION_NO_PERMITIDA",
+                    "Solo se pueden eliminar secciones de años en borrador");
+
+        Seccion seccion =
+                seccionRepository
+                        .bloquearPorId(id)
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "SECCION_NO_ENCONTRADA",
+                                                "No se encontró la sección"));
+        if (utilizada(id))
+            throw new ConflictException(
+                    "SECCION_CON_RELACIONES",
+                    "No se puede eliminar una sección que tiene matrículas, solicitudes, asignaciones, horarios u otras relaciones históricas");
+
+        String anterior =
+                "nombre="
+                        + seccion.getNombre()
+                        + ",grado="
+                        + seccion.getGrado()
+                        + ",anio="
+                        + seccion.getAnioAcademico()
+                        + ",capacidad="
+                        + seccion.getCapacidadMaxima();
+        seccionRepository.delete(seccion);
+        seccionRepository.flush();
+        auditoria.registrar(
+                "ELIMINAR_SECCION",
+                "CONFIGURACION_ACADEMICA",
+                "Seccion",
+                id.toString(),
+                com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
+                null,
+                anterior,
+                null);
     }
 
     private boolean tieneUsoVigente(Long id) {
