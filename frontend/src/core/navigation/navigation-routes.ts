@@ -47,3 +47,17 @@ export function navigationHref(nav: string): string | null {
   const entry = Object.entries(pendingRoutes).find(([, label]) => label === nav);
   return entry ? `/?modulo=${entry[0]}` : null;
 }
+
+/** Allow only registered internal destinations, never login/recovery or arbitrary URLs. */
+export function normalizeDestination(value: string): string | null {
+  if (!value.startsWith("/") || value.startsWith("//") || /[\\#\s\p{Cc}]/u.test(value)) return null;
+  try {
+    const url = new URL(value, "https://asiscontrol.invalid");
+    if (url.origin !== "https://asiscontrol.invalid" || url.pathname === "/login") return null;
+    const target = resolveNavigation(url.pathname, url.search);
+    if (!target) return null;
+    return url.search ? navigationHref(target.nav) : url.pathname;
+  } catch {
+    return null;
+  }
+}

@@ -8,6 +8,8 @@ import type { AuthSession, LoginCredentials } from "./types";
 let validation: { session: AuthSession; promise: Promise<void> } | null = null;
 let generation = 0;
 let loggingOut = false;
+// Changes only for a new login, not for refreshed /me user objects.
+let sessionEpoch = 0;
 let lastActivity = Date.now();
 let lastPing = Date.now();
 function expired(session: AuthSession) {
@@ -107,6 +109,7 @@ export function useAuth() {
     const attempt = ++generation;
     const result = await httpAuthService.login(credentials);
     if (result.ok && attempt === generation) {
+      ++sessionEpoch;
       lastActivity = lastPing = Date.now();
       saveSession(result.session);
     }
@@ -120,9 +123,13 @@ export function useAuth() {
     catch { clearSession(); }
     finally { loggingOut = false; clearSession(); }
   }
+  const session = state.session && !expired(state.session) ? state.session : null;
   return {
-    session: state.session && !expired(state.session) ? state.session : null,
-    isRestoringSession: state.status === "checking",
+    session,
+    sessionKey: session ? `${sessionEpoch}:${session.user.id}` : null,
+    isRestoringSession: state.status === "checking" && !session,
+    isRevalidatingSession: state.status === "checking" && !!session,
+    isEndingSession: loggingOut,
     sessionValidationError: state.status === "error" ? state.error : "",
     retrySession: revalidateSession,
     login, logout,

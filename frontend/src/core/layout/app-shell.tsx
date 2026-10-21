@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- SVG assets are served from public/. */
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChangePassword } from "@/core/auth/change-password";
 import { useAuth } from "@/core/auth/use-auth";
@@ -11,6 +11,7 @@ import { roleDetails, roleLabels } from "@/core/navigation/navigation";
 import { resolveScreen } from "@/core/navigation/module-outlet";
 import { canAccess } from "@/core/navigation/access-policy";
 import { navigationHref, resolveNavigation } from "@/core/navigation/navigation-routes";
+import { clearPendingDestination, consumeDestination, rememberDestination } from "@/core/navigation/pending-destination";
 import { Brand } from "./brand";
 import { LoginScreen } from "./login-screen";
 
@@ -124,26 +125,45 @@ function Dashboard({
   );
 }
 
-export default function AsisApp(props: {
-  initialNav?: string;
-  startCreate?: boolean;
-}) {
-  // Legacy page props remain accepted; the current URL is the navigation source.
-  void props;
+function SessionApp() {
   const router = useRouter();
-  const { session, isRestoringSession, sessionValidationError, retrySession, login, logout } = useAuth();
-  const exit = async () => {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const leaving = useRef(false);
+  const returnedSession = useRef<string | null>(null);
+  const passwordContainer = useRef<HTMLDivElement>(null);
+  const { session, sessionKey, isRestoringSession, isRevalidatingSession, isEndingSession, sessionValidationError, retrySession, login, logout } = useAuth();
+  const endSession = async (preserveDestination: boolean) => {
+    leaving.current = true;
+    if (!preserveDestination) clearPendingDestination();
     await logout();
     router.replace("/login");
   };
-  if (isRestoringSession)
-    return (
+  const exit = () => endSession(false);
+  const exitFromPassword = () => {
+    // The unchanged component shares one callback for cancel and completion.
+    // Inspect structure only, never input values: completion has no form.
+    return endSession(!!passwordContainer.current && !passwordContainer.current.querySelector("form"));
+  };
+  const checking = isRestoringSession || isRevalidatingSession;
+  const blocked = checking || !!sessionValidationError;
+  useEffect(() => {
+    if (pathname === "/login") leaving.current = false;
+    else returnedSession.current = null;
+    if (blocked || isEndingSession || leaving.current) return;
+    if (!session && pathname !== "/login") {
+      rememberDestination(`${pathname}${search ? `?${search}` : ""}`);
+      router.replace("/login");
+    } else if (session && !session.user.requiresPasswordChange && pathname === "/login" && returnedSession.current !== sessionKey) {
+      returnedSession.current = sessionKey;
+      router.replace(consumeDestination());
+    }
+  }, [pathname, search, blocked, isEndingSession, session, sessionKey, router]);
+  const validationNotice = checking ? (
       <main className="app-loading" aria-live="polite">
         Cargando sesión…
       </main>
-    );
-  if (sessionValidationError)
-    return (
+    ) : sessionValidationError ? (
       <main className="app-loading">
         <article className="panel">
           <h1>No se pudo comprobar la sesión</h1>
@@ -152,13 +172,45 @@ export default function AsisApp(props: {
           <button onClick={exit}>Cerrar sesión</button>
         </article>
       </main>
+    ) : null;
+  if (session?.user.requiresPasswordChange && !isEndingSession)
+    return (
+      <>
+        <div
+          ref={passwordContainer}
+          key={sessionKey}
+          hidden={blocked}
+          inert={blocked}
+          aria-busy={blocked}
+          onSubmitCapture={(event) => {
+            if (blocked) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
+        >
+          <ChangePassword onLogout={exitFromPassword} />
+        </div>
+        {validationNotice}
+      </>
     );
-  if (!session) return <LoginScreen onLogin={login} />;
-  if (session.user.requiresPasswordChange)
-    return <ChangePassword onLogout={exit} />;
+  if (blocked) return validationNotice;
+  if (!session && pathname === "/login") return <LoginScreen onLogin={login} />;
+  if (!session || pathname === "/login")
+    return <main className="app-loading" aria-live="polite">Cargando sesión…</main>;
   return (
     <Suspense fallback={<main className="app-loading" aria-live="polite">Cargando sesión…</main>}>
       <Dashboard user={session.user} onLogout={exit} />
+    </Suspense>
+  );
+}
+
+export default function AsisApp(props: { initialNav?: string; startCreate?: boolean }) {
+  // Legacy page props remain accepted; the URL is the navigation source.
+  void props;
+  return (
+    <Suspense fallback={<main className="app-loading" aria-live="polite">Cargando sesión…</main>}>
+      <SessionApp />
     </Suspense>
   );
 }
