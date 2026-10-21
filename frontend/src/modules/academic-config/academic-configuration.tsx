@@ -5,6 +5,8 @@ import { Feedback, Field, FormDialog, Pager, ReasonField } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PeriodsPanel } from "./periods/periods-panel";
+import { PeriodFormDialog } from "./periods/period-form-dialog";
+import { pendingFeatures } from "./pending/pending-features";
 import { NonTeachingDaysPanel } from "./periods/non-teaching-days-panel";
 import { GradesPanel } from "./sections/grades-panel";
 import { SectionsPanel } from "./sections/sections-panel";
@@ -26,6 +28,7 @@ export function AcademicConfiguration() {
   const [loaded, setYear] = useState<AcademicYear | null>(null);
   const [chosen, setChosen] = useState<number | null>(null);
   const [action, setAction] = useState<YearAction | null>(null);
+  const [periodOpen, setPeriodOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -114,6 +117,10 @@ export function AcademicConfiguration() {
     }
   }
   const editable = year?.estado !== "CERRADO";
+  const periodHint =
+    year && year.estado !== "BORRADOR"
+      ? pendingFeatures.periodOnActiveYear.hint
+      : "";
   const panelProps: YearPanelProps | null = year && {
     year,
     editable,
@@ -163,6 +170,25 @@ export function AcademicConfiguration() {
           >
             Crear año
           </button>
+          <div className={styles.newPeriod}>
+            <button
+              className={styles.newPeriodButton}
+              disabled={year?.estado !== "BORRADOR"}
+              aria-describedby={periodHint ? "new-period-hint" : undefined}
+              onClick={() => {
+                setError("");
+                setSuccess("");
+                setPeriodOpen(true);
+              }}
+            >
+              + Nuevo período
+            </button>
+            {periodHint && (
+              <span id="new-period-hint" className={styles.newPeriodHint}>
+                {periodHint}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       {years.loading && !years.data && (
@@ -226,6 +252,17 @@ export function AcademicConfiguration() {
           <GradesPanel {...panelProps} />
           <SectionsPanel {...panelProps} />
         </div>
+      )}
+      {periodOpen && year?.estado === "BORRADOR" && (
+        <PeriodFormDialog
+          year={year}
+          onClose={() => setPeriodOpen(false)}
+          onCreated={(updated) => {
+            applyYear(updated);
+            setPeriodOpen(false);
+            setSuccess("Período creado.");
+          }}
+        />
       )}
       {action && (
         <FormDialog

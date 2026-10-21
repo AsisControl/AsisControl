@@ -122,3 +122,109 @@
   padding: 2px 8px;
   white-space: nowrap;
 }
+.newPeriod {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.newPeriodButton {
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 16px;
+}
+.newPeriodButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.newPeriodHint {
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 260px;
+  text-align: right;
+}
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dialogForm .label {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-top: 12px;
+  text-transform: uppercase;
+}
+.dialogForm .required {
+  color: #dc2626;
+}
+.dialogForm .input {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  letter-spacing: normal;
+  margin-top: 6px;
+  padding: 11px 12px;
+  text-transform: none;
+  width: 100%;
+}
+.dialogForm .input:disabled {
+  background: #f8fafc;
+  color: var(--muted);
+}
+.dialogForm .input[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+.dialogForm .fieldError {
+  color: #b91c1c;
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  margin-top: 4px;
+  text-transform: none;
+}
+.twoColumns {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+.dialogActions {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 24px;
+}
+.dialogForm .cancelButton,
+.dialogForm .submitButton {
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 11px 14px;
+}
+.dialogForm .cancelButton {
+  background: #fff;
+  color: var(--blue);
+}
+.dialogForm .submitButton {
+  background: var(--blue);
+  color: #fff;
+}
+.dialogForm .submitButton:disabled,
+.dialogForm .cancelButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+@media (max-width: 520px) {
+  .twoColumns {
+    grid-template-columns: 1fr;
+  }
+}
