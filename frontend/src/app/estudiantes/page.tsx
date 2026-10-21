@@ -1,4 +1,4 @@
-import AsisApp from "@/features/dashboard/app";
+import AsisApp from "@/core/layout/app-shell";
 export default function Page() {
   return <AsisApp initialNav="Matrícula" />;
 }
