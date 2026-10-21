@@ -1,14 +1,28 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
-import { passwordError, passwordHint } from "@/core/auth/password-policy";
+import { passwordError } from "@/core/auth/password-policy";
 import { api, message } from "@/core/api/client";
-import { Feedback, Field, PasswordField, Pager } from "@/shared/ui";
-import { PersonFields, personData } from "@/shared/forms/person-fields";
-import { usePaged } from "@/shared/hooks/use-paged";
+import { Feedback } from "@/shared/ui";
+import { personData } from "@/shared/forms/person-fields";
 import { roleLabel } from "@/shared/lib/formatters";
-import type { Student } from "@/modules/students";
-import { teacherSpecialties } from "@/modules/teachers";
+import { CredentialsStep } from "./new-user/credentials-step";
+import { NewUserSuccess } from "./new-user/new-user-success";
+import { NewUserSummary } from "./new-user/new-user-summary";
+import { PersonStep, type PersonMode } from "./new-user/person-step";
+import { RoleStep } from "./new-user/role-step";
+import { StudentsStep } from "./new-user/students-step";
+import styles from "./new-user/new-user.module.css";
 import type { Account, PersonChoice, Role } from "./types";
+const INSTITUTIONAL_ROLES = [
+  "ADMINISTRADOR",
+  "DOCENTE",
+  "ALUMNO",
+  "ESTUDIANTE",
+  "APODERADO",
+];
+/** Valores del formulario que se muestran en el resumen mientras se escribe. */
+type Draft = { personName: string; username: string; email: string };
+const EMPTY_DRAFT: Draft = { personName: "", username: "", email: "" };
 export function temporaryPassword(): string {
   const alphabet =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -25,37 +39,40 @@ export function temporaryPassword(): string {
   );
   return result;
 }
+/** Nuevo usuario: persona, rol y perfil, acceso y (apoderado) estudiantes. */
 export function CreateAccess({ onBack }: { onBack: () => void }) {
+  const [formKey, setFormKey] = useState(0);
+  return (
+    <NewUserForm
+      key={formKey}
+      onBack={onBack}
+      onCreateAnother={() => setFormKey((key) => key + 1)}
+    />
+  );
+}
+function NewUserForm({
+  onBack,
+  onCreateAnother,
+}: {
+  onBack: () => void;
+  onCreateAnother: () => void;
+}) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [roleId, setRoleId] = useState("");
-  const [mode, setMode] = useState("existing");
+  const [mode, setMode] = useState<PersonMode>("existing");
   const [person, setPerson] = useState<PersonChoice | null>(null);
-  const [search, setSearch] = useState("");
-  const people = usePaged<PersonChoice>("/api/usuarios/personas", search);
-  const [studentSearch, setStudentSearch] = useState("");
-  const students = usePaged<Student>("/api/alumnos", studentSearch);
   const [selected, setSelected] = useState<Map<number, string>>(new Map());
   const [password, setPassword] = useState("");
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState<Account | null>(null);
   useEffect(() => {
     let active = true;
     api<Role[]>("/api/roles")
-      .then((r) => {
-        if (active) {
-          setRoles(
-            r.filter((x) =>
-              [
-                "ADMINISTRADOR",
-                "DOCENTE",
-                "ALUMNO",
-                "ESTUDIANTE",
-                "APODERADO",
-              ].includes(x.nombre),
-            ),
-          );
-        }
+      .then((all) => {
+        if (active)
+          setRoles(all.filter((r) => INSTITUTIONAL_ROLES.includes(r.nombre)));
       })
       .catch((e) => {
         if (active) setError(message(e));
@@ -66,6 +83,36 @@ export function CreateAccess({ onBack }: { onBack: () => void }) {
   }, []);
   const role = roles.find((r) => String(r.id) === roleId)?.nombre || "";
   const needsProfile = mode === "new" || !person?.perfiles.includes(role);
+  const rolesWithAccess =
+    mode === "existing" ? (person?.rolesConAcceso ?? []) : [];
+  const roleTaken = rolesWithAccess.includes(role);
+  const missing = [
+    mode === "existing" && !person && "persona",
+    !role && "rol",
+    roleTaken && "otro rol",
+    !draft.username && "usuario",
+    !draft.email && "correo",
+    !password && "contraseña",
+  ].filter((item): item is string => Boolean(item));
+  function readDraft(form: HTMLFormElement) {
+    const data = new FormData(form);
+    const str = (key: string) => String(data.get(key) || "").trim();
+    setDraft({
+      personName: [
+        str("nombres"),
+        str("apellidoPaterno"),
+        str("apellidoMaterno"),
+      ]
+        .filter(Boolean)
+        .join(" "),
+      username: str("username"),
+      email: str("correo"),
+    });
+  }
+  function changeMode(next: PersonMode) {
+    setMode(next);
+    setError("");
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
@@ -73,21 +120,18 @@ export function CreateAccess({ onBack }: { onBack: () => void }) {
       setError("Selecciona una persona existente.");
       return;
     }
-    if (person?.rolesConAcceso.includes(role) && mode === "existing") {
+    if (roleTaken) {
       setError("Esta persona ya tiene un acceso para el rol elegido.");
       return;
     }
-    const policy = passwordError(
-      password,
-      String(new FormData(e.currentTarget).get("username") || ""),
-    );
+    const data = new FormData(e.currentTarget);
+    const str = (key: string) => String(data.get(key) || "").trim();
+    const policy = passwordError(password, str("username"));
     if (policy) {
       setError(policy);
       return;
     }
     setBusy(true);
-    const data = new FormData(e.currentTarget);
-    const str = (key: string) => String(data.get(key) || "").trim();
     try {
       const result = await api<Account>("/api/usuarios/provisionar", {
         method: "POST",
@@ -116,275 +160,75 @@ export function CreateAccess({ onBack }: { onBack: () => void }) {
   }
   if (saved)
     return (
-      <article className="panel">
-        <h2>Acceso creado</h2>
-        <p className="action-feedback" role="status">
-          {saved.nombreCompleto} · {roleLabel(saved.rol)} · Usuario:{" "}
-          {saved.username}
-        </p>
-        <p>
-          La persona deberá cambiar la contraseña temporal al ingresar. La
-          contraseña no se conserva ni se vuelve a mostrar en esta pantalla.
-        </p>
-        <button onClick={onBack}>Volver a usuarios</button>
-      </article>
+      <NewUserSuccess
+        account={saved}
+        onBack={onBack}
+        onCreateAnother={onCreateAnother}
+      />
     );
+  const personName =
+    mode === "existing" ? (person?.nombreCompleto ?? "") : draft.personName;
   return (
     <section>
-      <div className="management-heading">
-        <div>
-          <p className="eyebrow">ADMINISTRACIÓN</p>
-          <h2>Crear acceso</h2>
-          <p>
-            Una cuenta por persona y rol. Cada acceso utiliza usuario y correo
-            únicos.
-          </p>
-        </div>
-        <button onClick={onBack}>Volver a usuarios</button>
+      <button type="button" className={styles.backLink} onClick={onBack}>
+        ← Volver a usuarios
+      </button>
+      <div className={styles.heading}>
+        <h2>Nuevo usuario</h2>
+        <p>
+          Una cuenta por persona y rol. Cada acceso utiliza usuario y correo
+          únicos.
+        </p>
       </div>
       <Feedback error={error} />
-      <div className="panel">
-        <label className="field">
-          Persona
-          <select
-            value={mode}
-            disabled={busy}
-            onChange={(e) => setMode(e.target.value)}
-          >
-            <option value="existing">Seleccionar persona existente</option>
-            <option value="new">Registrar persona nueva</option>
-          </select>
-        </label>
-        {mode === "existing" && (
-          <>
-            <form
-              className="toolbar"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setSearch(String(new FormData(e.currentTarget).get("q") || ""));
-                people.setPage(0);
-              }}
-            >
-              <Field label="Buscar por nombre o documento" name="q" />
-              <button>Buscar</button>
-            </form>
-            <Feedback error={people.error} />
-            {people.loading ? (
-              <p>Cargando personas…</p>
-            ) : (
-              <div className="choice-list">
-                {people.data?.content.map((p) => (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={person?.id === p.id ? "selected" : ""}
-                    aria-pressed={person?.id === p.id}
-                    key={p.id}
-                    onClick={() => setPerson(p)}
-                  >
-                    <strong>{p.nombreCompleto}</strong>
-                    <small>
-                      Documento: {p.numeroDocumento} · Perfiles:{" "}
-                      {p.perfiles.map(roleLabel).join(", ") || "Sin perfil"}
-                    </small>
-                  </button>
-                ))}
-                {people.data?.content.length === 0 && (
-                  <p>No hay personas para esta búsqueda.</p>
-                )}
-              </div>
-            )}
-            <Pager
-              data={people.data}
-              loading={people.loading}
-              setPage={people.setPage}
+      <form onSubmit={submit} onInput={(e) => readDraft(e.currentTarget)}>
+        <fieldset className={styles.layout} disabled={busy}>
+          <div className={styles.steps}>
+            <PersonStep
+              mode={mode}
+              onModeChange={changeMode}
+              person={person}
+              onPersonChange={setPerson}
             />
-            {person && (
-              <p role="status">
-                Seleccionada: <strong>{person.nombreCompleto}</strong>
-              </p>
-            )}
-          </>
-        )}
-      </div>
-      <form className="panel" onSubmit={submit}>
-        <fieldset disabled={busy}>
-          {mode === "new" && (
-            <>
-              <h3>Datos de la persona</h3>
-              <PersonFields />
-            </>
-          )}
-          <h3>Perfil institucional</h3>
-          <label className="field">
-            Rol *
-            <select
-              required
-              value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-            >
-              <option value="">Seleccionar rol</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {roleLabel(r.nombre)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {role === "DOCENTE" && needsProfile && (
-            <div className="form-grid">
-              <Field
-                label="Código docente"
-                name="codigoDocente"
-                maxLength={30}
-                required
+            <RoleStep
+              roles={roles}
+              roleId={roleId}
+              onRoleChange={setRoleId}
+              needsProfile={needsProfile}
+              rolesWithAccess={rolesWithAccess}
+            />
+            <CredentialsStep
+              password={password}
+              onPasswordChange={setPassword}
+              onGeneratePassword={() => setPassword(temporaryPassword())}
+              done={Boolean(draft.username && draft.email && password)}
+            />
+            {role === "APODERADO" && (
+              <StudentsStep
+                selected={selected}
+                onSelectedChange={setSelected}
               />
-              <Field
-                label="Fecha de ingreso"
-                name="fechaIngreso"
-                type="date"
-                required
-                max={new Date().toISOString().slice(0, 10)}
-              />
-              <label className="field">
-                Especialidad *
-                <select name="especialidad" required>
-                  <option value="">Seleccionar</option>
-                  {teacherSpecialties.map((s) => (
-                    <option key={s} value={s}>
-                      {s.replaceAll("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
-          {["ALUMNO", "ESTUDIANTE"].includes(role) && needsProfile && (
-            <Field
-              label="Código de estudiante"
-              name="codigoAlumno"
-              required
-              maxLength={30}
-            />
-          )}
-          {!needsProfile && role && (
-            <p>Se utilizará el perfil institucional existente.</p>
-          )}
-          <h3>Credenciales del acceso</h3>
-          <div className="form-grid">
-            <Field
-              label="Usuario"
-              name="username"
-              required
-              minLength={4}
-              maxLength={80}
-              autoComplete="off"
-            />
-            <Field
-              label="Correo del acceso"
-              name="correo"
-              required
-              type="email"
-              maxLength={150}
-              autoComplete="off"
-            />
-            <PasswordField
-              label="Contraseña temporal"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              maxLength={64}
-              autoComplete="new-password"
-            />
-            <button
-              className="generate"
-              type="button"
-              onClick={() => setPassword(temporaryPassword())}
-            >
-              Generar contraseña
-            </button>
+            )}
           </div>
-          <p className="hint">
-            {passwordHint} Entrega la contraseña a su titular antes de guardar;
-            deberá cambiarla al ingresar. Vence en 24 horas.
-          </p>
-          <label className="check-field">
-            <input type="checkbox" name="correoVerificado" /> La institución
-            verificó que este correo pertenece al titular.
-          </label>
-          <p className="hint">
-            Sin esta confirmación, la recuperación por correo queda
-            deshabilitada.
-          </p>
-          <div className="form-actions">
-            <button type="button" onClick={onBack}>
-              Cancelar
-            </button>
-            <button
-              className="primary-action"
-              disabled={busy || !roleId || (mode === "existing" && !person)}
-            >
-              {busy ? "Creando…" : "Crear acceso"}
-            </button>
-          </div>
+          <NewUserSummary
+            personName={personName}
+            role={role}
+            profileAction={
+              role
+                ? needsProfile
+                  ? `Se creará el perfil de ${roleLabel(role).toLowerCase()}`
+                  : "Se reutiliza el perfil existente"
+                : ""
+            }
+            username={draft.username}
+            email={draft.email}
+            studentCount={role === "APODERADO" ? selected.size : null}
+            missing={missing}
+            busy={busy}
+            onCancel={onBack}
+          />
         </fieldset>
       </form>
-      {role === "APODERADO" && (
-        <article className="panel">
-          <h3>Estudiantes asociados</h3>
-          <p>
-            Puede asociar varios estudiantes. Sin asociaciones activas, el
-            apoderado verá una experiencia vacía.
-          </p>
-          <form
-            className="toolbar"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setStudentSearch(
-                String(new FormData(e.currentTarget).get("q") || ""),
-              );
-              students.setPage(0);
-            }}
-          >
-            <Field label="Buscar estudiante" name="q" />
-            <button>Buscar</button>
-          </form>
-          <Feedback error={students.error} />
-          {students.loading ? (
-            <p>Cargando estudiantes…</p>
-          ) : (
-            <div className="choice-list">
-              {students.data?.content.map((s) => (
-                <label key={s.id} className="check-choice">
-                  <input
-                    type="checkbox"
-                    disabled={busy}
-                    checked={selected.has(s.id)}
-                    onChange={(e) => {
-                      const next = new Map(selected);
-                      if (e.target.checked)
-                        next.set(s.id, s.persona.nombreCompleto);
-                      else next.delete(s.id);
-                      setSelected(next);
-                    }}
-                  />
-                  {s.persona.nombreCompleto} · {s.codigoAlumno}
-                </label>
-              ))}
-            </div>
-          )}
-          <Pager
-            data={students.data}
-            loading={students.loading}
-            setPage={students.setPage}
-          />
-          <p>
-            {selected.size} seleccionados:{" "}
-            {[...selected.values()].join(", ") || "Ninguno"}
-          </p>
-        </article>
-      )}
     </section>
   );
 }

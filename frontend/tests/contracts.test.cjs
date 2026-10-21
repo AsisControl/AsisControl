@@ -36,6 +36,8 @@ function harness(fetcher) {
       },
     }).outputText;
     const requireLocal = (id) => {
+      // Los CSS Modules no aportan lógica: se sustituyen por un objeto vacío.
+      if (id.endsWith(".css")) return { default: {} };
       if (id.startsWith("@/")) return load(path.join(root, "src", id.slice(2)));
       if (id.startsWith("./") || id.startsWith("../"))
         return load(path.join(path.dirname(file), id));

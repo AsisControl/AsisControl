@@ -1,0 +1,180 @@
+.listHeading {
+  margin-bottom: 20px;
+}
+.listHeading h3 {
+  margin: 0;
+}
+.listHeading p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.filters input,
+.filters select {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  height: 40px;
+  padding: 0 12px;
+}
+.filters input {
+  flex: 0 1 240px;
+}
+.filters select {
+  flex: 0 1 190px;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table th {
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+}
+.table td {
+  vertical-align: middle;
+}
+.date,
+.nowrap {
+  white-space: nowrap;
+}
+.userCell {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.userCell strong {
+  white-space: nowrap;
+}
+.initials {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+  color: #1e3a8a;
+  display: flex;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+.action {
+  color: var(--blue);
+  font-weight: 600;
+}
+.failed {
+  color: #b91c1c;
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pill {
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.moduleSecurity {
+  background: #fdf2f8;
+  border-color: #f9a8d4;
+  color: #be185d;
+}
+.modulePeople {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+.moduleEnrollment {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+.moduleAcademic {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+.moduleAttendance {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+.moduleSchedule {
+  background: #ffedd5;
+  border-color: #fdba74;
+  color: #c2410c;
+}
+.moduleFinance {
+  background: #ccfbf1;
+  border-color: #5eead4;
+  color: #0f766e;
+}
+.moduleOther {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+/* .detailCell eleva la especificidad sobre la regla global .user-table button. */
+.detailCell .iconButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #64748b;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+.detailCell .iconButton:hover {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.detailCell .iconButton svg {
+  flex: none;
+  height: 18px;
+  width: 18px;
+}
+.detailHeading {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  margin: 8px 0 4px;
+}
+.detailHeading .initials {
+  font-size: 16px;
+  height: 48px;
+  width: 48px;
+}
+.detailHeading h3 {
+  margin: 0 0 6px;
+}
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sectionTitle {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 16px 0 8px;
+  text-transform: uppercase;
+}
+.reference {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
