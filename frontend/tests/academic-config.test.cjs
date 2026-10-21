@@ -85,6 +85,18 @@ test("Día no lectivo: descripción opcional, máximo 255", () => {
   assert.equal(v.validateNonTeachingDescription("a".repeat(255)), "");
   assert.notEqual(v.validateNonTeachingDescription("a".repeat(256)), "");
 });
+test("Día no lectivo: la descripción se mide sin espacios laterales", () => {
+  assert.equal(
+    v.validateNonTeachingDescription(` ${"a".repeat(255)} `),
+    "",
+  );
+  assert.equal(v.validateNonTeachingDescription("   "), "");
+});
+test("Día no lectivo: la lista vacía no genera conflictos de fecha", () => {
+  const ok = { fecha: "2026-04-02", descripcion: "" };
+  assert.equal(v.hasErrors(v.validateNonTeachingDay(ok, year, [])), false);
+  assert.ok(v.validateNonTeachingDay(ok, year, days).fecha);
+});
 test("validateNonTeachingDay reúne los errores", () => {
   const ok = { fecha: "2026-05-01", descripcion: "Día del Trabajo" };
   assert.equal(v.hasErrors(v.validateNonTeachingDay(ok, year, days)), false);

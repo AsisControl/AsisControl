@@ -77,8 +77,7 @@ export function validatePeriod(
 export const hasErrors = (errors: Partial<Record<string, string>>) =>
   Object.values(errors).some(Boolean);
 
-// Días no lectivos: escritas con la API de BE 3 pendiente; aún no las usa
-// ningún componente. Se conectarán cuando el formulario guarde de verdad.
+// Días no lectivos: las usa el formulario de agregar/editar.
 export const NON_TEACHING_DESCRIPTION_MAX = 255;
 
 export type NonTeachingDayInput = { fecha: string; descripcion: string };

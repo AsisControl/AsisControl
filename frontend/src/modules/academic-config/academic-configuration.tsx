@@ -248,7 +248,7 @@ export function AcademicConfiguration() {
             <p className="hint">Año cerrado: consulta histórica disponible.</p>
           )}
           <PeriodsPanel {...panelProps} />
-          <NonTeachingDaysPanel {...panelProps} />
+          <NonTeachingDaysPanel key={year.anio} {...panelProps} />
           <GradesPanel {...panelProps} />
           <SectionsPanel {...panelProps} />
         </div>

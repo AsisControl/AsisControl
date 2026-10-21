@@ -1,20 +1,59 @@
 "use client";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
+import { api, message } from "@/core/api/client";
+import { Feedback } from "@/shared/ui";
 import { formatDate } from "../lib/format-date";
 import { PendingBadge } from "../pending/pending-badge";
 import styles from "../academic-config.module.css";
 import type { NonTeachingDay, YearPanelProps } from "../types";
-import { NonTeachingDayPreviewDialog } from "./non-teaching-day-preview-dialog";
-/**
- * Sin fuente de datos hasta que la API de días no lectivos (rama de BE 3)
- * llegue a main. Al conectarla, esta lista sale del GET del año.
- */
-const days: NonTeachingDay[] = [];
-/** US-05: días no lectivos del año seleccionado (solo interfaz, sin API). */
+import { NonTeachingDayFormDialog } from "./non-teaching-day-form-dialog";
+const byDate = (a: NonTeachingDay, b: NonTeachingDay) =>
+  a.fecha.localeCompare(b.fecha);
+/** US-05: días no lectivos del año seleccionado (GET/POST/PATCH reales). */
 export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
   const [expanded, setExpanded] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [days, setDays] = useState<NonTeachingDay[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<NonTeachingDay | null>(null);
   const bodyId = useId();
+  const anio = year.anio;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const list = await api<NonTeachingDay[]>(
+        `/api/configuracion-academica/anios/${anio}/dias-no-lectivos`,
+      );
+      setDays([...list].sort(byDate));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [anio]);
+  // Al cambiar de año el padre remonta el panel (key), así que la lista se
+  // consulta al expandir y no queda nada del año anterior.
+  function toggle() {
+    if (!expanded) void load();
+    setExpanded(!expanded);
+  }
+  async function saved(text: string) {
+    setAdding(false);
+    setEditing(null);
+    setSuccess(text);
+    await load();
+  }
+  async function failedEdit(reason: string) {
+    // Con versión vieja (u otro cambio) el diálogo ya no sirve: se cierra,
+    // se refresca la lista y se avisa.
+    setEditing(null);
+    setSuccess("");
+    await load();
+    setError(`${reason} Se recargó la lista.`);
+  }
   return (
     <section className={styles.collapsible}>
       <button
@@ -22,12 +61,9 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
         className={styles.collapsibleToggle}
         aria-expanded={expanded}
         aria-controls={bodyId}
-        onClick={() => setExpanded((value) => !value)}
+        onClick={toggle}
       >
-        <span className={styles.collapsibleTitle}>
-          Días no lectivos
-          <PendingBadge feature="nonTeachingDays" />
-        </span>
+        <span className={styles.collapsibleTitle}>Días no lectivos</span>
         <span className={styles.chevron} aria-hidden="true">
           {expanded ? "▲" : "▼"}
         </span>
@@ -36,16 +72,15 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
         <div id={bodyId} className={styles.collapsibleBody}>
           {editable ? (
             <div className={styles.toolbar}>
-              <button type="button" disabled>
-                Agregar día no lectivo
-              </button>
-              <PendingBadge feature="addNonTeachingDay" />
               <button
                 type="button"
-                className={styles.linkButton}
-                onClick={() => setPreviewOpen(true)}
+                disabled={loading}
+                onClick={() => {
+                  setSuccess("");
+                  setAdding(true);
+                }}
               >
-                Ver vista previa del formulario
+                Agregar día no lectivo
               </button>
             </div>
           ) : (
@@ -53,6 +88,7 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
               Año cerrado: los días no lectivos son de solo lectura.
             </p>
           )}
+          <Feedback error={error} success={success} />
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -70,10 +106,15 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
                     <td>
                       {editable && (
                         <div className={styles.rowActions}>
-                          <button type="button" disabled>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSuccess("");
+                              setEditing(day);
+                            }}
+                          >
                             Editar descripción
                           </button>
-                          <PendingBadge feature="editNonTeachingDay" />
                           <button type="button" disabled>
                             Eliminar
                           </button>
@@ -83,11 +124,17 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
                     </td>
                   </tr>
                 ))}
-                {!days.length && (
+                {loading && !days.length && (
                   <tr>
                     <td colSpan={3} className={styles.emptyCell}>
-                      Función pendiente de backend: los días no lectivos del año{" "}
-                      {year.anio} no se pueden consultar todavía.
+                      Cargando días no lectivos…
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && !days.length && (
+                  <tr>
+                    <td colSpan={3} className={styles.emptyCell}>
+                      Sin días no lectivos
                     </td>
                   </tr>
                 )}
@@ -96,10 +143,22 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
           </div>
         </div>
       )}
-      {previewOpen && editable && (
-        <NonTeachingDayPreviewDialog
+      {editable && adding && (
+        <NonTeachingDayFormDialog
           year={year}
-          onClose={() => setPreviewOpen(false)}
+          days={days}
+          onClose={() => setAdding(false)}
+          onSaved={() => void saved("Día no lectivo agregado.")}
+        />
+      )}
+      {editable && editing && (
+        <NonTeachingDayFormDialog
+          year={year}
+          days={days}
+          day={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => void saved("Descripción actualizada.")}
+          onFailed={(reason) => void failedEdit(reason)}
         />
       )}
     </section>
