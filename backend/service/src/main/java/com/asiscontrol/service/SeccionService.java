@@ -140,8 +140,13 @@ public class SeccionService {
         return mapear(obtenerEntidad(id));
     }
 
-    public Page<SeccionResponse> listar(Pageable pageable) {
-        return seccionRepository.findByActivoTrue(pageable).map(this::mapear);
+    public Page<SeccionResponse> listar(
+            Boolean activo, Integer anioAcademico, Integer grado, Pageable pageable) {
+        validarFiltros(anioAcademico, grado);
+        return seccionRepository
+                .buscarConFiltros(
+                        activo == null ? Boolean.TRUE : activo, anioAcademico, grado, pageable)
+                .map(this::mapear);
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
@@ -287,5 +292,13 @@ public class SeccionService {
             throw new ConflictException(
                     "VERSION_DESACTUALIZADA", "La seccion fue modificada; vuelva a cargarla");
         }
+    }
+
+    private void validarFiltros(Integer anioAcademico, Integer grado) {
+        if (anioAcademico != null && (anioAcademico < 2000 || anioAcademico > 2100))
+            throw new BusinessRuleException(
+                    "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
+        if (grado != null && (grado < 1 || grado > 5))
+            throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
     }
 }
