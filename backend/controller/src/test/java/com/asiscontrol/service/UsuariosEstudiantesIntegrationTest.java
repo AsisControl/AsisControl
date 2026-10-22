@@ -432,6 +432,28 @@ class UsuariosEstudiantesIntegrationTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @Test
+    void retirarApoderadoConservaElPerfilYAccesoDeDocenteDeLaMismaPersona() {
+        String teacherKey = key();
+        var docente = usuarios.provision(provision(
+                persona(teacherKey), role("DOCENTE"), teacherKey,
+                null, "DOC" + teacherKey, LocalDate.now(), Especialidad.MATEMATICA, Set.of()));
+        String guardianKey = key();
+        var apoderado = usuarios.provision(new UsuarioDtos.ProvisionRequest(
+                docente.personaId(), null, role("APODERADO"), "usr" + guardianKey,
+                "cuenta" + guardianKey + "@example.test", "Temporal123!",
+                null, null, null, null, Set.of()));
+        var perfil = apoderadoRepository.findByPersonaIdAndActivoTrue(docente.personaId()).orElseThrow();
+
+        personas.deleteApoderado(perfil.getId());
+
+        assertThat(personaRepository.findById(docente.personaId()).orElseThrow().isActivo()).isTrue();
+        assertThat(accesoRepository.findById(docente.id()).orElseThrow().getEstado())
+                .isEqualTo(EstadoAcceso.ACTIVO);
+        assertThat(accesoRepository.findById(apoderado.id()).orElseThrow().getEstado())
+                .isEqualTo(EstadoAcceso.DESACTIVADO);
+    }
+
     private long role(String name) {
         return rolRepository.findByNombreIgnoreCase(name).orElseThrow().getId();
     }

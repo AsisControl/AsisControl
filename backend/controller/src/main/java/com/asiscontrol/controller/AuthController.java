@@ -24,22 +24,63 @@ public class AuthController {
 
     private final AuthService authService;
     private final com.asiscontrol.service.RecuperacionService recuperacion;
+    private final com.asiscontrol.service.RenovacionSesionService renovacion;
+    private final com.asiscontrol.security.RefreshCookieSupport cookies;
 
     public AuthController(
-            AuthService authService, com.asiscontrol.service.RecuperacionService recuperacion) {
+            AuthService authService, com.asiscontrol.service.RecuperacionService recuperacion,
+            com.asiscontrol.service.RenovacionSesionService renovacion,
+            com.asiscontrol.security.RefreshCookieSupport cookies) {
         this.authService = authService;
         this.recuperacion = recuperacion;
+        this.renovacion = renovacion;
+        this.cookies = cookies;
     }
 
     @PostMapping("/login")
-    public AuthDtos.AuthResponse login(@Valid @RequestBody AuthDtos.LoginRequest request) {
-        return authService.login(request);
+    @io.swagger.v3.oas.annotations.security.SecurityRequirements
+    @io.swagger.v3.oas.annotations.Operation(summary = "Iniciar sesión y emitir cookie HttpOnly de renovación")
+    public org.springframework.http.ResponseEntity<AuthDtos.AuthResponse> login(
+            @Valid @RequestBody AuthDtos.LoginRequest request,
+            jakarta.servlet.http.HttpServletRequest http) {
+        cookies.validarOrigen(http, false);
+        return respuesta(renovacion.login(request));
+    }
+
+    @PostMapping("/refresh")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirements
+    @io.swagger.v3.oas.annotations.Operation(summary = "Renovar usando la cookie y un Origin permitido; sin Bearer")
+    public org.springframework.http.ResponseEntity<AuthDtos.AuthResponse> refresh(
+            @org.springframework.web.bind.annotation.CookieValue(
+                    name = com.asiscontrol.security.RefreshCookieSupport.NAME, required = false)
+                    String refreshToken,
+            jakarta.servlet.http.HttpServletRequest http,
+            jakarta.servlet.http.HttpServletResponse response) {
+        cookies.validarOrigen(http, true);
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        try {
+            return respuesta(renovacion.renovar(refreshToken));
+        } catch (org.springframework.security.core.AuthenticationException ex) {
+            response.addHeader(HttpHeaders.SET_COOKIE, cookies.borrar().toString());
+            throw ex;
+        }
     }
 
     @PostMapping("/logout")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirements
+    @io.swagger.v3.oas.annotations.Operation(summary = "Revocar la sesión y eliminar la cookie de renovación")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
-        authService.logout(extractBearerToken(authorization));
+    public void logout(
+            @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @org.springframework.web.bind.annotation.CookieValue(
+                    name = com.asiscontrol.security.RefreshCookieSupport.NAME, required = false)
+                    String refreshToken,
+            jakarta.servlet.http.HttpServletRequest http,
+            jakarta.servlet.http.HttpServletResponse response) {
+        cookies.validarOrigen(http, refreshToken != null);
+        renovacion.cerrar(refreshToken, authorization == null ? null : extractBearerToken(authorization));
+        response.addHeader(HttpHeaders.SET_COOKIE, cookies.borrar().toString());
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
     }
 
     @GetMapping("/me")
@@ -85,5 +126,14 @@ public class AuthController {
             throw new BusinessRuleException("TOKEN_FALTANTE", "Debe enviar un token Bearer valido");
         }
         return authorization.substring(7);
+    }
+
+    private org.springframework.http.ResponseEntity<AuthDtos.AuthResponse> respuesta(
+            com.asiscontrol.service.RenovacionSesionService.Credenciales credenciales) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE,
+                        cookies.crear(credenciales.refreshToken(), credenciales.expiresAt()).toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(credenciales.response());
     }
 }

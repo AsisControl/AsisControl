@@ -22,16 +22,17 @@ public class JwtService {
 
     public JwtService(
             JwtEncoder jwtEncoder,
-            @Value("${app.security.jwt.expiration-minutes:480}") long expirationMinutes) {
+            @Value("${app.security.jwt.expiration-minutes:15}") long expirationMinutes) {
         this.jwtEncoder = jwtEncoder;
         if (expirationMinutes < 1)
             throw new IllegalArgumentException("La duración de sesión debe ser positiva");
-        this.expirationMinutes = Math.min(expirationMinutes, 480);
+        this.expirationMinutes = Math.min(expirationMinutes, 15);
     }
 
     public GeneratedToken generate(AuthenticatedUser authenticatedUser) {
         AccesoUsuario usuario = authenticatedUser.getUsuario();
-        Instant issuedAt = Instant.now();
+        // JWT utiliza segundos; la misma precisión evita diferencias al persistir DATETIME(6).
+        Instant issuedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant expiresAt = issuedAt.plus(expirationMinutes, ChronoUnit.MINUTES);
         List<String> authorities =
                 authenticatedUser.getAuthorities().stream()

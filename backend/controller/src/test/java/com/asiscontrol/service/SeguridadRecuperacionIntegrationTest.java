@@ -295,13 +295,15 @@ class SeguridadRecuperacionIntegrationTest {
         var u = create(true);
         var response = login(u, "Temporal123!");
         String hash = HashUtils.sha256(response.accessToken());
-        assertThat(Duration.between(Instant.now(), response.expiresAt()).toHours()).isEqualTo(7);
+        assertThat(Duration.between(Instant.now(), response.expiresAt()).toMinutes()).isBetween(13L, 15L);
         new TransactionTemplate(manager)
                 .executeWithoutResult(
                         s -> {
                             var session =
                                     sessions.findByTokenHashAndEstado(hash, EstadoSesion.VIGENTE)
                                             .orElseThrow();
+                            assertThat(Duration.between(Instant.now(), session.getFechaExpiracion()).toHours())
+                                    .isEqualTo(7);
                             session.setUltimaActividad(Instant.now().minus(Duration.ofMinutes(31)));
                             sessions.saveAndFlush(session);
                         });
