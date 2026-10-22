@@ -6,6 +6,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
 import com.asiscontrol.entity.Aula;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -16,15 +17,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.Objects;
 
 @Service
 @Transactional(readOnly = true)
 public class AulaService {
 
-    private final AulaRepository aulaRepository;
+    private static final String MODULO = "ACADEMICO";
+    private static final String ENTIDAD = "Aula";
 
-    public AulaService(AulaRepository aulaRepository) {
+    private final AulaRepository aulaRepository;
+    private final AuditoriaService auditoriaService;
+
+    public AulaService(AulaRepository aulaRepository, AuditoriaService auditoriaService) {
         this.aulaRepository = aulaRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional
@@ -34,7 +41,9 @@ public class AulaService {
         Aula aula = new Aula();
         aplicar(aula, request);
         aula.setActivo(true);
-        return mapear(aulaRepository.save(aula));
+        Aula guardada = aulaRepository.save(aula);
+        auditar("CREAR_AULA", guardada, null, null, describir(guardada));
+        return mapear(guardada);
     }
 
     @Transactional
@@ -43,12 +52,30 @@ public class AulaService {
         Aula aula = obtenerEntidad(id);
         exigirVersion(aula.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
-        aula.setCodigo(normalizarCodigo(request.codigo()));
-        aula.setNombre(request.nombre().trim());
+        String codigo = normalizarCodigo(request.codigo());
+        String nombre = request.nombre().trim();
+        String ubicacion = normalizarUbicacion(request.ubicacion());
+        StringBuilder anterior = new StringBuilder();
+        StringBuilder nuevo = new StringBuilder();
+        anotarCambio(anterior, nuevo, "codigo", aula.getCodigo(), codigo);
+        anotarCambio(anterior, nuevo, "nombre", aula.getNombre(), nombre);
+        anotarCambio(anterior, nuevo, "tipoAula", aula.getTipoAula(), request.tipoAula());
+        anotarCambio(anterior, nuevo, "ubicacion", aula.getUbicacion(), ubicacion);
+        Integer capacidadAnterior = aula.getCapacidad();
+        aula.setCodigo(codigo);
+        aula.setNombre(nombre);
         aula.setTipoAula(request.tipoAula());
         aula.setCapacidad(request.capacidad());
-        aula.setUbicacion(normalizarUbicacion(request.ubicacion()));
-        return mapear(aulaRepository.save(aula));
+        aula.setUbicacion(ubicacion);
+        Aula guardada = aulaRepository.save(aula);
+        if (!nuevo.isEmpty()) {
+            auditar("ACTUALIZAR_AULA", guardada, null, anterior.toString(), nuevo.toString());
+        }
+        if (!capacidadAnterior.equals(request.capacidad())) {
+            auditar("CAMBIAR_CAPACIDAD_AULA", guardada, null,
+                    "capacidad=" + capacidadAnterior, "capacidad=" + request.capacidad());
+        }
+        return mapear(guardada);
     }
 
     public AulaResponse obtener(Long id) {
@@ -127,6 +154,34 @@ public class AulaService {
         return new AulaResponse(
                 aula.getId(), aula.getCodigo(), aula.getNombre(), aula.getTipoAula(), aula.getCapacidad(),
                 aula.getUbicacion(), aula.isActivo(), aula.getVersion());
+    }
+
+    private void auditar(String accion, Aula aula, String motivo, String valorAnterior, String nuevoValor) {
+        // Misma transaccion que la operacion: si esta se revierte, no queda registro.
+        auditoriaService.registrar(
+                accion, MODULO, ENTIDAD, aula.getId().toString(), ResultadoAuditoria.EXITOSO,
+                motivo, valorAnterior, nuevoValor);
+    }
+
+    private String describir(Aula aula) {
+        return "codigo=" + aula.getCodigo()
+                + ",nombre=" + aula.getNombre()
+                + ",tipoAula=" + aula.getTipoAula()
+                + ",capacidad=" + aula.getCapacidad()
+                + ",ubicacion=" + aula.getUbicacion()
+                + ",activo=" + aula.isActivo();
+    }
+
+    private void anotarCambio(StringBuilder anterior, StringBuilder nuevo, String campo, Object antes, Object despues) {
+        if (Objects.equals(antes, despues)) {
+            return;
+        }
+        if (!nuevo.isEmpty()) {
+            anterior.append(',');
+            nuevo.append(',');
+        }
+        anterior.append(campo).append('=').append(antes);
+        nuevo.append(campo).append('=').append(despues);
     }
 
     private void exigirVersion(long actual, Long recibida) {
