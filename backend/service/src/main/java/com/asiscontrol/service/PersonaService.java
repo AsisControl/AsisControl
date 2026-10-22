@@ -304,14 +304,22 @@ public class PersonaService {
                                 alumnoApoderadoRepository.save(link);
                             });
         }
-        AlumnoApoderado link = new AlumnoApoderado();
-        link.setAlumno(alumno);
-        link.setApoderado(apoderado);
+        AlumnoApoderado link =
+                alumnoApoderadoRepository
+                        .findByAlumnoIdAndApoderadoId(alumnoId, apoderado.getId())
+                        .orElseGet(
+                                () -> {
+                                    AlumnoApoderado nuevo = new AlumnoApoderado();
+                                    nuevo.setAlumno(alumno);
+                                    nuevo.setApoderado(apoderado);
+                                    return nuevo;
+                                });
         link.setParentesco(
                 request.parentesco() == null
                         ? com.asiscontrol.entity.enums.Parentesco.NO_DECLARADO
                         : request.parentesco());
         link.setPrincipal(request.principal());
+        link.setActivo(true);
         alumnoApoderadoRepository.saveAndFlush(link);
         auditoriaService.registrar(
                 "ASOCIAR_APODERADO",
