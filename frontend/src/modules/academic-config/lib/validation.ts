@@ -222,3 +222,82 @@ export function validateNonTeachingDay(
   if (description) errors.descripcion = description;
   return errors;
 }
+
+// Grados: habilitar y editar. El servidor es la autoridad.
+export const GRADE_NUMBER_MIN = 1;
+export const GRADE_NUMBER_MAX = 5;
+export const GRADE_CAPACITY_MIN = 1;
+export const GRADE_CAPACITY_MAX = 100;
+export const GRADE_REASON_MAX = 700;
+
+export type GradeInput = {
+  numero: number | null;
+  capacidad: string;
+  motivo: string;
+};
+export type GradeErrors = Partial<Record<keyof GradeInput, string>>;
+
+/** Números de grado (1 a 5) que aún no existen en el año. */
+export function availableGradeNumbers(existing: number[]): number[] {
+  const all = Array.from(
+    { length: GRADE_NUMBER_MAX - GRADE_NUMBER_MIN + 1 },
+    (_, i) => GRADE_NUMBER_MIN + i,
+  );
+  return all.filter((n) => !existing.includes(n));
+}
+
+/** Entero de 1 a 5 que no esté ya configurado en el año. */
+export function validateGradeNumber(
+  value: number | null,
+  existing: number[],
+): string {
+  if (value === null || Number.isNaN(value)) return "Seleccione un grado.";
+  if (
+    !Number.isInteger(value) ||
+    value < GRADE_NUMBER_MIN ||
+    value > GRADE_NUMBER_MAX
+  )
+    return `El grado debe estar entre ${GRADE_NUMBER_MIN} y ${GRADE_NUMBER_MAX}.`;
+  if (existing.includes(value)) return "El grado ya está configurado en el año.";
+  return "";
+}
+
+/** Capacidad por defecto: entero de 1 a 100. */
+export function validateGradeCapacity(value: string): string {
+  const text = value.trim();
+  if (!text) return "La capacidad por defecto es obligatoria.";
+  if (!/^\d+$/.test(text)) return "La capacidad debe ser un número entero.";
+  const capacity = Number(text);
+  if (capacity < GRADE_CAPACITY_MIN || capacity > GRADE_CAPACITY_MAX)
+    return `La capacidad debe estar entre ${GRADE_CAPACITY_MIN} y ${GRADE_CAPACITY_MAX}.`;
+  return "";
+}
+
+/** Obligatorio cuando `required`; máximo 700 caracteres. */
+export function validateGradeReason(reason: string, required: boolean): string {
+  const value = reason.trim();
+  if (required && !value) return "Indique el motivo del cambio.";
+  if (value.length > GRADE_REASON_MAX)
+    return `El motivo no puede superar ${GRADE_REASON_MAX} caracteres.`;
+  return "";
+}
+
+/**
+ * Habilitar (`creating`): grado nuevo sin repetir y sin motivo.
+ * Editar o cambiar estado: el servidor exige motivo siempre.
+ */
+export function validateGrade(
+  input: GradeInput,
+  context: { existing: number[]; creating: boolean },
+): GradeErrors {
+  const errors: GradeErrors = {};
+  if (context.creating) {
+    const number = validateGradeNumber(input.numero, context.existing);
+    if (number) errors.numero = number;
+  }
+  const capacity = validateGradeCapacity(input.capacidad);
+  if (capacity) errors.capacidad = capacity;
+  const reason = validateGradeReason(input.motivo, !context.creating);
+  if (reason) errors.motivo = reason;
+  return errors;
+}

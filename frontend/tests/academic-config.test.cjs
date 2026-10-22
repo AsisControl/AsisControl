@@ -209,3 +209,50 @@ test("validateSection reúne los errores", () => {
   assert.ok(edit.capacidad);
   assert.equal(edit.nombre, undefined);
 });
+test("Grado: solo se ofrecen los números 1 a 5 que no existen", () => {
+  assert.deepEqual([...v.availableGradeNumbers([])], [1, 2, 3, 4, 5]);
+  assert.deepEqual([...v.availableGradeNumbers([1, 3])], [2, 4, 5]);
+  assert.deepEqual([...v.availableGradeNumbers([1, 2, 3, 4, 5])], []);
+});
+test("Grado: número entre 1 y 5 y sin repetir", () => {
+  assert.notEqual(v.validateGradeNumber(null, []), "");
+  assert.notEqual(v.validateGradeNumber(0, []), "");
+  assert.notEqual(v.validateGradeNumber(6, []), "");
+  assert.notEqual(v.validateGradeNumber(2.5, []), "");
+  assert.notEqual(v.validateGradeNumber(2, [1, 2]), "");
+  assert.equal(v.validateGradeNumber(1, []), "");
+  assert.equal(v.validateGradeNumber(5, [1, 2]), "");
+});
+test("Grado: capacidad entera de 1 a 100", () => {
+  assert.notEqual(v.validateGradeCapacity(""), "");
+  assert.notEqual(v.validateGradeCapacity("0"), "");
+  assert.notEqual(v.validateGradeCapacity("101"), "");
+  assert.notEqual(v.validateGradeCapacity("3.5"), "");
+  assert.notEqual(v.validateGradeCapacity("-4"), "");
+  assert.equal(v.validateGradeCapacity("1"), "");
+  assert.equal(v.validateGradeCapacity(" 100 "), "");
+});
+test("Grado: motivo obligatorio si se exige, máximo 700", () => {
+  assert.notEqual(v.validateGradeReason("  ", true), "");
+  assert.equal(v.validateGradeReason("", false), "");
+  assert.equal(v.validateGradeReason("a".repeat(700), true), "");
+  assert.notEqual(v.validateGradeReason("a".repeat(701), false), "");
+});
+test("validateGrade: crear no pide motivo; editar sí", () => {
+  const create = { existing: [1], creating: true };
+  assert.equal(
+    v.hasErrors(v.validateGrade({ numero: 2, capacidad: "35", motivo: "" }, create)),
+    false,
+  );
+  const bad = v.validateGrade({ numero: 1, capacidad: "0", motivo: "" }, create);
+  assert.ok(bad.numero && bad.capacidad);
+  assert.equal(bad.motivo, undefined);
+  const edit = { existing: [1], creating: false };
+  const noReason = v.validateGrade({ numero: null, capacidad: "30", motivo: " " }, edit);
+  assert.ok(noReason.motivo);
+  assert.equal(noReason.numero, undefined);
+  assert.equal(
+    v.hasErrors(v.validateGrade({ numero: null, capacidad: "30", motivo: "ok" }, edit)),
+    false,
+  );
+});
