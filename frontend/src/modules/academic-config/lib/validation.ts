@@ -77,6 +77,110 @@ export function validatePeriod(
 export const hasErrors = (errors: Partial<Record<string, string>>) =>
   Object.values(errors).some(Boolean);
 
+// Secciones: reglas del formulario de crear/editar. El servidor es la autoridad.
+export const SECTION_NAME_MAX = 20;
+export const SECTION_CAPACITY_MIN = 1;
+export const SECTION_CAPACITY_MAX = 100;
+export const SECTION_REASON_MAX = 700;
+
+type ExistingSection = { id: number; nombre: string; grado: number };
+export type SectionInput = {
+  nombre: string;
+  grado: number | null;
+  capacidad: string;
+  motivo: string;
+};
+export type SectionErrors = Partial<Record<keyof SectionInput, string>>;
+
+/** Obligatorio, máximo 20 y sin repetir en el mismo grado (sin mayúsculas). */
+export function validateSectionName(
+  name: string,
+  grade: number | null,
+  sections: ExistingSection[],
+  currentId?: number,
+): string {
+  const value = name.trim();
+  if (!value) return "El nombre de la sección es obligatorio.";
+  if (value.length > SECTION_NAME_MAX)
+    return `El nombre no puede superar ${SECTION_NAME_MAX} caracteres.`;
+  const key = value.toLowerCase();
+  const repeated = sections.some(
+    (s) =>
+      s.id !== currentId &&
+      s.grado === grade &&
+      s.nombre.trim().toLowerCase() === key,
+  );
+  if (repeated) return "Ya existe esa sección en el grado seleccionado.";
+  return "";
+}
+
+/** Entero de 1 a 100; en edición, no menor que los matriculados. */
+export function validateSectionCapacity(
+  value: string,
+  enrolled?: number,
+): string {
+  const text = value.trim();
+  if (!text) return "La capacidad máxima es obligatoria.";
+  if (!/^\d+$/.test(text)) return "La capacidad debe ser un número entero.";
+  const capacity = Number(text);
+  if (capacity < SECTION_CAPACITY_MIN || capacity > SECTION_CAPACITY_MAX)
+    return `La capacidad debe estar entre ${SECTION_CAPACITY_MIN} y ${SECTION_CAPACITY_MAX}.`;
+  if (enrolled !== undefined && capacity < enrolled)
+    return `La capacidad no puede ser menor que los ${enrolled} alumnos matriculados.`;
+  return "";
+}
+
+export function validateSectionGrade(
+  grade: number | null,
+  enabled: number[],
+): string {
+  if (grade === null) return "Seleccione un grado.";
+  if (!enabled.includes(grade)) return "El grado no está habilitado en el año.";
+  return "";
+}
+
+/** El motivo es opcional salvo que `required`; máximo 700 caracteres. */
+export function validateSectionReason(
+  reason: string,
+  required: boolean,
+): string {
+  const value = reason.trim();
+  if (required && !value) return "Indique el motivo del cambio.";
+  if (value.length > SECTION_REASON_MAX)
+    return `El motivo no puede superar ${SECTION_REASON_MAX} caracteres.`;
+  return "";
+}
+
+export function validateSection(
+  input: SectionInput,
+  context: {
+    sections: ExistingSection[];
+    enabledGrades: number[];
+    reasonRequired: boolean;
+    /** Edición: id de la sección y alumnos matriculados. */
+    editing?: { id: number; enrolled: number };
+  },
+): SectionErrors {
+  const errors: SectionErrors = {};
+  const grade = validateSectionGrade(input.grado, context.enabledGrades);
+  if (grade) errors.grado = grade;
+  const name = validateSectionName(
+    input.nombre,
+    input.grado,
+    context.sections,
+    context.editing?.id,
+  );
+  if (name) errors.nombre = name;
+  const capacity = validateSectionCapacity(
+    input.capacidad,
+    context.editing?.enrolled,
+  );
+  if (capacity) errors.capacidad = capacity;
+  const reason = validateSectionReason(input.motivo, context.reasonRequired);
+  if (reason) errors.motivo = reason;
+  return errors;
+}
+
 // Días no lectivos: las usa el formulario de agregar/editar.
 export const NON_TEACHING_DESCRIPTION_MAX = 255;
 

@@ -345,6 +345,20 @@
 .dialogForm textarea.input {
   resize: vertical;
 }
+.dialogForm .fieldHint {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  margin-top: 4px;
+  text-transform: none;
+}
+.dialogForm .pendingBadge {
+  letter-spacing: normal;
+  margin-left: 6px;
+  text-transform: none;
+}
 @media (max-width: 520px) {
   .twoColumns {
     grid-template-columns: 1fr;

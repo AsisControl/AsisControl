@@ -148,3 +148,64 @@ test("Vacantes: valor del backend, nunca negativas, con respaldo calculado", () 
   assert.equal(m.vacancies({ capacidadMaxima: 35, ocupacion: 30 }), 5);
   assert.equal(m.vacancies({ capacidadMaxima: 0, ocupacion: 3 }), 0);
 });
+const sections = [
+  { id: 1, nombre: "A", grado: 1 },
+  { id: 2, nombre: "B", grado: 1 },
+  { id: 3, nombre: "A", grado: 2 },
+];
+test("Sección: nombre obligatorio y máximo 20", () => {
+  assert.notEqual(v.validateSectionName("  ", 1, sections), "");
+  assert.equal(v.validateSectionName("a".repeat(20), 1, sections), "");
+  assert.notEqual(v.validateSectionName("a".repeat(21), 1, sections), "");
+});
+test("Sección: no se repite en el mismo grado, sin distinguir mayúsculas", () => {
+  assert.notEqual(v.validateSectionName(" a ", 1, sections), "");
+  assert.equal(v.validateSectionName("C", 1, sections), "");
+  assert.equal(v.validateSectionName("B", 2, sections), "");
+  assert.equal(v.validateSectionName("a", 1, sections, 1), "");
+});
+test("Sección: capacidad entera de 1 a 100", () => {
+  assert.notEqual(v.validateSectionCapacity(""), "");
+  assert.notEqual(v.validateSectionCapacity("0"), "");
+  assert.notEqual(v.validateSectionCapacity("101"), "");
+  assert.notEqual(v.validateSectionCapacity("3.5"), "");
+  assert.notEqual(v.validateSectionCapacity("-4"), "");
+  assert.equal(v.validateSectionCapacity("1"), "");
+  assert.equal(v.validateSectionCapacity("100"), "");
+});
+test("Sección: la capacidad no baja de los matriculados", () => {
+  assert.match(v.validateSectionCapacity("20", 25), /25 alumnos matriculados/);
+  assert.equal(v.validateSectionCapacity("25", 25), "");
+  assert.equal(v.validateSectionCapacity("5"), "");
+});
+test("Sección: el grado debe estar habilitado", () => {
+  assert.notEqual(v.validateSectionGrade(null, [1, 2]), "");
+  assert.notEqual(v.validateSectionGrade(3, [1, 2]), "");
+  assert.equal(v.validateSectionGrade(2, [1, 2]), "");
+});
+test("Sección: motivo obligatorio solo si se exige, máximo 700", () => {
+  assert.notEqual(v.validateSectionReason("  ", true), "");
+  assert.equal(v.validateSectionReason("", false), "");
+  assert.equal(v.validateSectionReason("a".repeat(700), true), "");
+  assert.notEqual(v.validateSectionReason("a".repeat(701), false), "");
+});
+test("validateSection reúne los errores", () => {
+  const context = {
+    sections,
+    enabledGrades: [1, 2],
+    reasonRequired: false,
+  };
+  const ok = { nombre: "C", grado: 1, capacidad: "35", motivo: "" };
+  assert.equal(v.hasErrors(v.validateSection(ok, context)), false);
+  const bad = v.validateSection(
+    { nombre: "", grado: null, capacidad: "0", motivo: "" },
+    { ...context, reasonRequired: true },
+  );
+  assert.ok(bad.nombre && bad.grado && bad.capacidad && bad.motivo);
+  const edit = v.validateSection(
+    { nombre: "A", grado: 1, capacidad: "10", motivo: "x" },
+    { ...context, reasonRequired: true, editing: { id: 1, enrolled: 12 } },
+  );
+  assert.ok(edit.capacidad);
+  assert.equal(edit.nombre, undefined);
+});

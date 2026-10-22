@@ -1,20 +1,16 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
-import { Field, FormDialog, ReasonField } from "@/shared/ui";
+import { FormDialog, ReasonField } from "@/shared/ui";
 import { isOverCapacity, vacancies } from "../lib/section-metrics";
 import styles from "../academic-config.module.css";
 import type { Section, YearPanelProps } from "../types";
 import { OccupancyBar } from "./occupancy-bar";
+import { SectionFormDialog } from "./section-form-dialog";
 type SectionAction =
   | { kind: "section" }
   | { kind: "section-edit"; target: Section }
   | { kind: "section-disable"; target: Section; next: boolean };
-const titles: Record<SectionAction["kind"], string> = {
-  section: "Crear sección",
-  "section-edit": "Editar sección",
-  "section-disable": "Cambiar estado de sección",
-};
 const iconProps = {
   width: 16,
   height: 16,
@@ -48,69 +44,47 @@ export function SectionsPanel({
   const [action, setAction] = useState<SectionAction | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [proposedGrade, setProposedGrade] = useState(0);
   const [gradeFilter, setGradeFilter] = useState("");
   const open = (value: SectionAction) => {
     setError("");
     onSuccess("");
     setAction(value);
-    setProposedGrade(0);
   };
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!action) return;
+    if (!action || action.kind !== "section-disable" || busy) return;
     const form = new FormData(event.currentTarget);
-    const str = (key: string) => String(form.get(key) || "").trim();
     setBusy(true);
     setError("");
     try {
-      if (action.kind === "section-disable") {
-        await api(`/api/secciones/${action.target.id}/estado`, {
-          method: "PUT",
-          body: JSON.stringify({
-            activo: action.next,
-            version: action.target.version,
-            motivo: str("motivo"),
-          }),
-        });
-      } else {
-        const original = action.kind === "section-edit" ? action.target : null;
-        let path = "/api/secciones";
-        let tutor: number | null = null;
-        if (original) {
-          const detail = await api<{ docenteTutorId: number | null }>(
-            `${path}/${original.id}`,
-          );
-          tutor = detail.docenteTutorId;
-          path += `/${original.id}`;
-        }
-        await api(path, {
-          method: original ? "PUT" : "POST",
-          body: JSON.stringify({
-            nombre: str("nombre"),
-            grado: original?.grado || Number(form.get("numero")),
-            anioAcademico: year.anio,
-            capacidadMaxima: Number(form.get("capacidad")),
-            docenteTutorId: tutor,
-            motivo: str("motivo") || null,
-            ...(original ? { version: original.version } : {}),
-          }),
-        });
-      }
+      await api(`/api/secciones/${action.target.id}/estado`, {
+        method: "PUT",
+        body: JSON.stringify({
+          activo: action.next,
+          version: action.target.version,
+          motivo: String(form.get("motivo") || "").trim(),
+        }),
+      });
       await onReload();
       setAction(null);
-      onSuccess(
-        action.kind === "section-disable"
-          ? "Estado de sección actualizado. Su información se conserva."
-          : "Configuración guardada.",
-      );
+      onSuccess("Estado de sección actualizado. Su información se conserva.");
     } catch (error) {
       setError(message(error));
     } finally {
       setBusy(false);
     }
   }
-  const target = action && action.kind !== "section" ? action.target : null;
+  /** Tras crear o editar: recarga el año, cierra el modal y avisa el éxito. */
+  async function saved(text: string) {
+    try {
+      await onReload();
+      onSuccess(text);
+    } catch {
+      onSuccess(`${text} No se pudo actualizar la tabla; recarga la página.`);
+    } finally {
+      setAction(null);
+    }
+  }
   const hasActiveGrades = year.grados.some((g) => g.activo);
   const gradeOptions = [...year.grados].sort((a, b) => a.numero - b.numero);
   const activeFilter = gradeOptions.some((g) => String(g.numero) === gradeFilter)
@@ -244,76 +218,29 @@ export function SectionsPanel({
           </tbody>
         </table>
       </div>
-      {action && (
+      {action && action.kind !== "section-disable" && (
+        <SectionFormDialog
+          year={year}
+          section={action.kind === "section-edit" ? action.target : undefined}
+          onClose={() => setAction(null)}
+          onSaved={saved}
+        />
+      )}
+      {action?.kind === "section-disable" && (
         <FormDialog
-          title={titles[action.kind]}
+          title="Cambiar estado de sección"
           busy={busy}
           error={error}
           onClose={() => setAction(null)}
           onSubmit={save}
           notes={
-            action.kind === "section-disable" && (
-              <p>
-                Solo pueden inhabilitarse secciones sin solicitudes, matrículas
-                ni asignaciones. Su registro se conserva.
-              </p>
-            )
+            <p>
+              Solo pueden inhabilitarse secciones sin solicitudes, matrículas ni
+              asignaciones. Su registro se conserva.
+            </p>
           }
         >
-          {action.kind === "section" && (
-            <label className="field">
-              Grado *
-              <select
-                name="numero"
-                required
-                defaultValue=""
-                onChange={(event) =>
-                  setProposedGrade(Number(event.target.value))
-                }
-              >
-                <option value="" disabled>
-                  Seleccionar grado
-                </option>
-                {year.grados
-                  .filter((g) => g.activo)
-                  .map((g) => (
-                    <option key={g.numero} value={g.numero}>
-                      {g.numero}° de secundaria
-                    </option>
-                  ))}
-              </select>
-            </label>
-          )}
-          {action.kind !== "section-disable" && (
-            <>
-              <Field
-                label="Nombre de sección"
-                name="nombre"
-                required
-                maxLength={20}
-                defaultValue={target?.nombre || ""}
-                placeholder="Ej. A"
-              />
-              <Field
-                label="Capacidad máxima"
-                name="capacidad"
-                key={action.kind === "section" ? proposedGrade : "capacity"}
-                type="number"
-                min={1}
-                max={100}
-                required
-                defaultValue={
-                  target
-                    ? target.capacidadMaxima
-                    : year.grados.find((grade) => grade.numero === proposedGrade)
-                        ?.capacidadDefault || 30
-                }
-              />
-            </>
-          )}
-          {(action.kind !== "section" || year.estado === "ACTIVO") && (
-            <ReasonField />
-          )}
+          <ReasonField />
         </FormDialog>
       )}
     </>
