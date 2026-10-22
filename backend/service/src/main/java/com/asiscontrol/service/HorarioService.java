@@ -105,7 +105,7 @@ public class HorarioService {
             throw new BusinessRuleException(
                     "HORARIO_RANGO_INVALIDO", "La hora de inicio debe ser anterior a la hora de fin");
         }
-        if (aula.getCapacidad() < asignacion.getSeccion().getCapacidadMaxima()) {
+        if (!AulaService.esSuficiente(aula.getCapacidad(), asignacion.getSeccion().getCapacidadMaxima())) {
             throw new BusinessRuleException(
                     "AULA_CAPACIDAD_INSUFICIENTE",
                     "El aula no tiene capacidad para la seccion asignada");

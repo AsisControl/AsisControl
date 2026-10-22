@@ -6,6 +6,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
 import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
 import com.asiscontrol.service.AulaService;
 import jakarta.validation.Valid;
@@ -25,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/aulas")
@@ -60,6 +63,11 @@ public class AulaController {
     @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
     public AulaResponse habilitar(@PathVariable Long id, @Valid @RequestBody HabilitarAulaRequest request) {
         return aulaService.habilitar(id, request);
+    }
+
+    @GetMapping("/{id}/horarios")
+    public List<HorarioResponse> horarios(@PathVariable Long id) {
+        return aulaService.horarios(id);
     }
 
     @GetMapping("/{id}")
