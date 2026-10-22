@@ -132,16 +132,22 @@ public final class AcademicoDtos {
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 100) String nombre,
             @NotNull TipoAula tipoAula,
-            @Min(1) @Max(300) int capacidad,
-            @NotBlank @Size(max = 180) String ubicacion) {}
+            @NotNull @Min(1) @Max(300) Integer capacidad,
+            @Size(max = 180) String ubicacion) {}
 
     public record ActualizarAulaRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 100) String nombre,
             @NotNull TipoAula tipoAula,
-            @Min(1) @Max(300) int capacidad,
-            @NotBlank @Size(max = 180) String ubicacion,
+            @NotNull @Min(1) @Max(300) Integer capacidad,
+            @Size(max = 180) String ubicacion,
             @NotNull Long version) {}
+
+    public enum EstadoAula {
+        HABILITADAS,
+        INHABILITADAS,
+        TODAS
+    }
 
     public record AulaResponse(
             Long id,
@@ -152,6 +158,8 @@ public final class AcademicoDtos {
             String ubicacion,
             boolean activo,
             long version) {}
+
+    public record AulaResumenResponse(long habilitadas) {}
 
     public record CrearAsignacionCursoRequest(
             @NotNull Long cursoId, @NotNull Long seccionId, @NotNull Long docenteId) {}

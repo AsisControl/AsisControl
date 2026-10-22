@@ -2,7 +2,9 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResponse;
+import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
 import com.asiscontrol.service.AulaService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -49,10 +52,16 @@ public class AulaController {
         return aulaService.obtener(id);
     }
 
+    @GetMapping("/resumen")
+    public AulaResumenResponse resumen() {
+        return aulaService.resumen();
+    }
+
     @GetMapping
     public Page<AulaResponse> listar(
+            @RequestParam(required = false) EstadoAula estado,
             @PageableDefault(size = 20, sort = "codigo") Pageable pageable) {
-        return aulaService.listar(pageable);
+        return aulaService.listar(estado, pageable);
     }
 
     @DeleteMapping("/{id}")
