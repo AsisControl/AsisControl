@@ -118,3 +118,33 @@ test("validatePeriod reúne los errores y hasErrors los detecta", () => {
   assert.ok(errors.nombre && errors.fechaInicio && errors.fechaFin);
   assert.equal(v.hasErrors(errors), true);
 });
+const m = load("src/modules/academic-config/lib/section-metrics.ts");
+test("Porcentaje de ocupación redondeado y sin tope", () => {
+  assert.equal(m.occupancyPercent({ capacidadMaxima: 35, ocupacion: 33 }), 94);
+  assert.equal(m.occupancyPercent({ capacidadMaxima: 35, ocupacion: 35 }), 100);
+  assert.equal(m.occupancyPercent({ capacidadMaxima: 35, ocupacion: 0 }), 0);
+  assert.equal(m.occupancyPercent({ capacidadMaxima: 35, ocupacion: 36 }), 103);
+});
+test("Capacidad 0 o datos faltantes no dan NaN ni dividen por cero", () => {
+  assert.equal(m.occupancyPercent({ capacidadMaxima: 0, ocupacion: 5 }), 0);
+  assert.equal(m.occupancyPercent({ capacidadMaxima: undefined, ocupacion: 5 }), 0);
+  assert.equal(m.occupancyPercent({ capacidadMaxima: 30, ocupacion: null }), 0);
+  assert.equal(m.occupancyPercent({ capacidadMaxima: NaN, ocupacion: NaN }), 0);
+  assert.equal(m.occupancyBarWidth({ capacidadMaxima: 0, ocupacion: 0 }), 0);
+});
+test("El ancho de la barra se limita a 100", () => {
+  assert.equal(m.occupancyBarWidth({ capacidadMaxima: 35, ocupacion: 36 }), 100);
+  assert.equal(m.occupancyBarWidth({ capacidadMaxima: 10, ocupacion: 5 }), 50);
+});
+test("Sobre capacidad solo cuando ocupación > capacidad", () => {
+  assert.equal(m.isOverCapacity({ capacidadMaxima: 35, ocupacion: 36 }), true);
+  assert.equal(m.isOverCapacity({ capacidadMaxima: 35, ocupacion: 35 }), false);
+  assert.equal(m.isOverCapacity({ capacidadMaxima: 0, ocupacion: 1 }), true);
+  assert.equal(m.isOverCapacity({ capacidadMaxima: 0, ocupacion: 0 }), false);
+});
+test("Vacantes: valor del backend, nunca negativas, con respaldo calculado", () => {
+  assert.equal(m.vacancies({ capacidadMaxima: 35, ocupacion: 33, vacantes: 2 }), 2);
+  assert.equal(m.vacancies({ capacidadMaxima: 35, ocupacion: 36, vacantes: -1 }), 0);
+  assert.equal(m.vacancies({ capacidadMaxima: 35, ocupacion: 30 }), 5);
+  assert.equal(m.vacancies({ capacidadMaxima: 0, ocupacion: 3 }), 0);
+});
