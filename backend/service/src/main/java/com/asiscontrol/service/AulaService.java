@@ -7,6 +7,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
 import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.HorarioEnUsoAula;
+import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Aula;
@@ -18,6 +19,7 @@ import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AulaRepository;
 import com.asiscontrol.repository.HorarioRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -139,6 +141,12 @@ public class AulaService {
         return mapear(guardada);
     }
 
+    /** Horarios activos e inactivos del aula, tambien si el aula esta inhabilitada. */
+    public List<HorarioResponse> horarios(Long id) {
+        obtenerEntidadSinFiltroActivo(id);
+        return horarioRepository.findHistorialPorAula(id).stream().map(this::mapearHorario).toList();
+    }
+
     public AulaResponse obtener(Long id) {
         return mapear(obtenerEntidadSinFiltroActivo(id));
     }
@@ -161,11 +169,22 @@ public class AulaService {
         return new AulaResumenResponse(aulaRepository.countByActivoTrue());
     }
 
+    /** Eliminacion fisica: solo para aulas que nunca se usaron en un horario. Inhabilitar vive en {@link #inhabilitar}. */
     @Transactional
     public void eliminar(Long id) {
-        Aula aula = obtenerEntidad(id);
-        aula.setActivo(false);
-        aulaRepository.save(aula);
+        Aula aula = obtenerEntidadSinFiltroActivo(id);
+        if (horarioRepository.existsByAulaId(id)) {
+            throw aulaUtilizada();
+        }
+        String anterior = describir(aula);
+        try {
+            aulaRepository.delete(aula);
+            aulaRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            // Respaldo ante una referencia creada en paralelo: mismo 409 en vez de un 500.
+            throw aulaUtilizada();
+        }
+        auditar("ELIMINAR_AULA", aula, null, anterior, null);
     }
 
     public Aula obtenerEntidad(Long id) {
@@ -231,6 +250,11 @@ public class AulaService {
         }
     }
 
+    private ConflictException aulaUtilizada() {
+        return new ConflictException(
+                "AULA_UTILIZADA", "No se puede eliminar un aula utilizada en horarios; inhabilitela en su lugar");
+    }
+
     private String exigirMotivo(String motivo) {
         if (motivo == null || motivo.isBlank()) {
             throw new BusinessRuleException("MOTIVO_REQUERIDO", "Indique el motivo del cambio de estado");
@@ -245,6 +269,18 @@ public class AulaService {
                 horario.getId(), asignacion.getId(), horario.getDiaSemana(), horario.getHoraInicio(),
                 horario.getHoraFin(), seccion.getId(), seccion.getNombre(), seccion.getGrado(),
                 asignacion.getCurso().getNombre(), seccion.getCapacidadMaxima());
+    }
+
+    // Mismo HorarioResponse que HorarioService; el mapeo se replica para no tocar HorarioService.
+    private HorarioResponse mapearHorario(Horario horario) {
+        AsignacionCurso asignacion = horario.getAsignacionCurso();
+        return new HorarioResponse(
+                horario.getId(), asignacion.getId(), asignacion.getCurso().getId(),
+                asignacion.getCurso().getNombre(), asignacion.getSeccion().getId(),
+                asignacion.getSeccion().getNombre(), asignacion.getDocente().getId(),
+                asignacion.getDocente().getPersona().nombreCompleto(), horario.getAula().getId(),
+                horario.getAula().getNombre(), horario.getDiaSemana(), horario.getHoraInicio(),
+                horario.getHoraFin(), horario.isActivo(), horario.getVersion());
     }
 
     private void auditar(String accion, Aula aula, String motivo, String valorAnterior, String nuevoValor) {
