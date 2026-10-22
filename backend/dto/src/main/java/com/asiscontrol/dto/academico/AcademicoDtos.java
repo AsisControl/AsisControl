@@ -143,6 +143,27 @@ public final class AcademicoDtos {
             @Size(max = 180) String ubicacion,
             @NotNull Long version) {}
 
+    public record InhabilitarAulaRequest(
+            @NotBlank @Size(max = 500) String motivo,
+            @NotNull Long version) {}
+
+    public record HabilitarAulaRequest(
+            @Size(max = 500) String motivo,
+            @NotNull Long version) {}
+
+    /** Horario activo que impide reducir la capacidad o inhabilitar un aula. */
+    public record HorarioEnUsoAula(
+            Long horarioId,
+            Long asignacionCursoId,
+            DiaSemana diaSemana,
+            LocalTime horaInicio,
+            LocalTime horaFin,
+            Long seccionId,
+            String seccion,
+            int grado,
+            String curso,
+            int capacidadMaximaSeccion) {}
+
     public enum EstadoAula {
         HABILITADAS,
         INHABILITADAS,

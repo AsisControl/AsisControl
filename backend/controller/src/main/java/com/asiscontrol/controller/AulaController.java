@@ -5,6 +5,8 @@ import com.asiscontrol.dto.academico.AcademicoDtos.AulaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
+import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
 import com.asiscontrol.service.AulaService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -14,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -45,6 +48,18 @@ public class AulaController {
     @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
     public AulaResponse actualizar(@PathVariable Long id, @Valid @RequestBody ActualizarAulaRequest request) {
         return aulaService.actualizar(id, request);
+    }
+
+    @PatchMapping("/{id}/inhabilitar")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    public AulaResponse inhabilitar(@PathVariable Long id, @Valid @RequestBody InhabilitarAulaRequest request) {
+        return aulaService.inhabilitar(id, request);
+    }
+
+    @PatchMapping("/{id}/habilitar")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    public AulaResponse habilitar(@PathVariable Long id, @Valid @RequestBody HabilitarAulaRequest request) {
+        return aulaService.habilitar(id, request);
     }
 
     @GetMapping("/{id}")

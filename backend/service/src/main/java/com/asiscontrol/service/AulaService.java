@@ -5,17 +5,25 @@ import com.asiscontrol.dto.academico.AcademicoDtos.AulaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
+import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.HorarioEnUsoAula;
+import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
+import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Aula;
+import com.asiscontrol.entity.Horario;
+import com.asiscontrol.entity.Seccion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AulaRepository;
+import com.asiscontrol.repository.HorarioRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -27,11 +35,21 @@ public class AulaService {
     private static final String ENTIDAD = "Aula";
 
     private final AulaRepository aulaRepository;
+    private final HorarioRepository horarioRepository;
     private final AuditoriaService auditoriaService;
 
-    public AulaService(AulaRepository aulaRepository, AuditoriaService auditoriaService) {
+    public AulaService(
+            AulaRepository aulaRepository,
+            HorarioRepository horarioRepository,
+            AuditoriaService auditoriaService) {
         this.aulaRepository = aulaRepository;
+        this.horarioRepository = horarioRepository;
         this.auditoriaService = auditoriaService;
+    }
+
+    /** La capacidad del aula es suficiente si es mayor o igual a la capacidad maxima de la seccion. */
+    public static boolean esSuficiente(int capacidadAula, int capacidadMaximaSeccion) {
+        return capacidadAula >= capacidadMaximaSeccion;
     }
 
     @Transactional
@@ -53,6 +71,13 @@ public class AulaService {
         exigirVersion(aula.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
         String codigo = normalizarCodigo(request.codigo());
+        if (!codigo.equals(aula.getCodigo()) && horarioRepository.existsByAulaId(id)) {
+            throw new ConflictException(
+                    "AULA_CODIGO_EN_USO", "No se puede cambiar el codigo de un aula utilizada en horarios");
+        }
+        if (request.capacidad() < aula.getCapacidad()) {
+            validarReduccionCapacidad(id, request.capacidad());
+        }
         String nombre = request.nombre().trim();
         String ubicacion = normalizarUbicacion(request.ubicacion());
         StringBuilder anterior = new StringBuilder();
@@ -75,6 +100,42 @@ public class AulaService {
             auditar("CAMBIAR_CAPACIDAD_AULA", guardada, null,
                     "capacidad=" + capacidadAnterior, "capacidad=" + request.capacidad());
         }
+        return mapear(guardada);
+    }
+
+    @Transactional
+    public AulaResponse inhabilitar(Long id, InhabilitarAulaRequest request) {
+        String motivo = exigirMotivo(request.motivo());
+        Aula aula = obtenerEntidadSinFiltroActivo(id);
+        exigirVersion(aula.getVersion(), request.version());
+        if (!aula.isActivo()) {
+            throw new ConflictException("AULA_YA_INHABILITADA", "El aula ya se encuentra inhabilitada");
+        }
+        List<HorarioEnUsoAula> enUso = horarioRepository.findActivosPorAulaConSeccion(id).stream()
+                .map(this::mapearUso)
+                .toList();
+        if (!enUso.isEmpty()) {
+            throw new ConflictException(
+                    "AULA_CON_HORARIOS_ACTIVOS",
+                    "No se puede inhabilitar un aula con horarios activos", enUso);
+        }
+        aula.setActivo(false);
+        Aula guardada = aulaRepository.save(aula);
+        auditar("INHABILITAR_AULA", guardada, motivo, "activo=true", "activo=false");
+        return mapear(guardada);
+    }
+
+    @Transactional
+    public AulaResponse habilitar(Long id, HabilitarAulaRequest request) {
+        Aula aula = obtenerEntidadSinFiltroActivo(id);
+        exigirVersion(aula.getVersion(), request.version());
+        if (aula.isActivo()) {
+            throw new ConflictException("AULA_YA_HABILITADA", "El aula ya se encuentra habilitada");
+        }
+        aula.setActivo(true);
+        Aula guardada = aulaRepository.save(aula);
+        String motivo = request.motivo() == null || request.motivo().isBlank() ? null : request.motivo().trim();
+        auditar("HABILITAR_AULA", guardada, motivo, "activo=false", "activo=true");
         return mapear(guardada);
     }
 
@@ -154,6 +215,36 @@ public class AulaService {
         return new AulaResponse(
                 aula.getId(), aula.getCodigo(), aula.getNombre(), aula.getTipoAula(), aula.getCapacidad(),
                 aula.getUbicacion(), aula.isActivo(), aula.getVersion());
+    }
+
+    private void validarReduccionCapacidad(Long aulaId, int nuevaCapacidad) {
+        // Sin fecha en Horario: todo horario activo cuenta como asignacion activa o futura.
+        List<HorarioEnUsoAula> incompatibles = horarioRepository.findActivosPorAulaConSeccion(aulaId).stream()
+                .filter(h -> !esSuficiente(nuevaCapacidad, h.getAsignacionCurso().getSeccion().getCapacidadMaxima()))
+                .map(this::mapearUso)
+                .toList();
+        if (!incompatibles.isEmpty()) {
+            throw new ConflictException(
+                    "AULA_CAPACIDAD_INSUFICIENTE",
+                    "La nueva capacidad es menor que la capacidad maxima de secciones asignadas al aula",
+                    incompatibles);
+        }
+    }
+
+    private String exigirMotivo(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new BusinessRuleException("MOTIVO_REQUERIDO", "Indique el motivo del cambio de estado");
+        }
+        return motivo.trim();
+    }
+
+    private HorarioEnUsoAula mapearUso(Horario horario) {
+        AsignacionCurso asignacion = horario.getAsignacionCurso();
+        Seccion seccion = asignacion.getSeccion();
+        return new HorarioEnUsoAula(
+                horario.getId(), asignacion.getId(), horario.getDiaSemana(), horario.getHoraInicio(),
+                horario.getHoraFin(), seccion.getId(), seccion.getNombre(), seccion.getGrado(),
+                asignacion.getCurso().getNombre(), seccion.getCapacidadMaxima());
     }
 
     private void auditar(String accion, Aula aula, String motivo, String valorAnterior, String nuevoValor) {
