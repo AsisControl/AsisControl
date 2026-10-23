@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reporte HTML generado por npm run test:coverage.
+    "coverage/**",
   ]),
   // Límites entre módulos: ver docs/ESTRUCTURA_FRONTEND.md.
   {
