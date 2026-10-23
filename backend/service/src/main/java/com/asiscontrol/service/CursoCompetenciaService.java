@@ -56,11 +56,17 @@ public class CursoCompetenciaService {
     }
 
     public CursoCompetenciaResponse obtener(Long id) {
-        return mapear(obtenerEntidad(id));
+        CursoCompetencia relacion = cursoCompetenciaRepository
+                .buscarDisponiblePorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "CURSO_COMPETENCIA_NO_DISPONIBLE",
+                        "No existe una relacion curso-competencia disponible con id " + id));
+
+        return mapear(relacion);
     }
 
     public Page<CursoCompetenciaResponse> listar(Pageable pageable) {
-        return cursoCompetenciaRepository.findByActivoTrue(pageable).map(this::mapear);
+        return cursoCompetenciaRepository.buscarDisponibles(pageable).map(this::mapear);
     }
 
     @Transactional

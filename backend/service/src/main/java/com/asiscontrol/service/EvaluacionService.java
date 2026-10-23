@@ -12,6 +12,7 @@ import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.CompetenciaRepository;
+import com.asiscontrol.repository.CursoCompetenciaRepository;
 import com.asiscontrol.repository.EvaluacionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,17 +31,20 @@ public class EvaluacionService {
     private final EvaluacionRepository evaluacionRepository;
     private final AsignacionCursoRepository asignacionCursoRepository;
     private final CompetenciaRepository competenciaRepository;
+    private final CursoCompetenciaRepository cursoCompetenciaRepository;
     private final ModuloAccessGuard accessGuard;
 
     public EvaluacionService(
             EvaluacionRepository evaluacionRepository,
             AsignacionCursoRepository asignacionCursoRepository,
             CompetenciaRepository competenciaRepository,
+            CursoCompetenciaRepository cursoCompetenciaRepository,
             ModuloAccessGuard accessGuard
     ) {
         this.evaluacionRepository = evaluacionRepository;
         this.asignacionCursoRepository = asignacionCursoRepository;
         this.competenciaRepository = competenciaRepository;
+        this.cursoCompetenciaRepository = cursoCompetenciaRepository;
         this.accessGuard = accessGuard;
     }
 
@@ -144,6 +148,8 @@ public class EvaluacionService {
             );
         }
 
+        validarCompetenciasDisponibles(asignacion, idsUnicos);
+
         evaluacion.setAsignacionCurso(asignacion);
         evaluacion.setTitulo(request.titulo().trim());
         evaluacion.setDescripcion(limpiar(request.descripcion()));
@@ -152,6 +158,18 @@ public class EvaluacionService {
         evaluacion.setFechaEvaluacion(request.fechaEvaluacion());
         evaluacion.setPonderacionPorcentaje(request.ponderacionPorcentaje());
         evaluacion.setCompetencias(new LinkedHashSet<>(competencias));
+    }
+
+    private void validarCompetenciasDisponibles(AsignacionCurso asignacion, Set<Long> idsCompetencia) {
+        Set<Long> disponibles = cursoCompetenciaRepository
+                .buscarIdsCompetenciasDisponiblesPorCurso(asignacion.getCurso().getId());
+        if (!disponibles.containsAll(idsCompetencia)) {
+            throw new BusinessRuleException(
+                    "COMPETENCIA_NO_DISPONIBLE_PARA_CURSO",
+                    "Todas las competencias deben estar asociadas al curso y tanto la relacion "
+                            + "como el curso y la competencia deben estar activos"
+            );
+        }
     }
 
     private void validarTransicion(Evaluacion evaluacion, EstadoEvaluacion destino) {
@@ -172,6 +190,12 @@ public class EvaluacionService {
                     "EVALUACION_SIN_COMPETENCIAS",
                     "La evaluacion debe incluir al menos una competencia antes de publicarse"
             );
+        }
+        if (destino == EstadoEvaluacion.PUBLICADA) {
+            Set<Long> idsCompetencia = evaluacion.getCompetencias().stream()
+                    .map(Competencia::getId)
+                    .collect(Collectors.toSet());
+            validarCompetenciasDisponibles(evaluacion.getAsignacionCurso(), idsCompetencia);
         }
     }
 
