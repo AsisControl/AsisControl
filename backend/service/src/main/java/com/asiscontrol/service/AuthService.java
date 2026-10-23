@@ -88,7 +88,8 @@ public class AuthService {
             sesion.setTokenHash(HashUtils.sha256(token.value()));
             sesion.setFechaCreacion(token.issuedAt());
             sesion.setUltimaActividad(token.issuedAt());
-            sesion.setFechaExpiracion(token.expiresAt());
+            // Límite absoluto de la sesión, independiente de los JWT cortos que se renuevan.
+            sesion.setFechaExpiracion(token.issuedAt().plus(Duration.ofHours(8)));
             sesion.setEstado(EstadoSesion.VIGENTE);
             sesionRepository.save(sesion);
 
@@ -197,7 +198,7 @@ public class AuthService {
                         });
     }
 
-    private AuthDtos.UserSummary toUserSummary(AccesoUsuario usuario) {
+    AuthDtos.UserSummary toUserSummary(AccesoUsuario usuario) {
         List<String> permissions =
                 usuario.getRol().getPermisos().stream()
                         .filter(permission -> permission.isActivo())
