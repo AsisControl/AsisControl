@@ -1,0 +1,11 @@
+**/target
+**/.idea
+**/.vs
+**/.git
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.log
+**/logs
+**/storage
