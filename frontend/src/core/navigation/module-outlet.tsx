@@ -5,6 +5,7 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
+import { canAccess } from "./access-policy";
 import {
   HOME_NAV,
   navFromSegment,
@@ -47,6 +48,7 @@ export function ModuleOutlet() {
   const [segment, ...subpath] = pathname.split("/").filter(Boolean);
   const nav = navFromSegment(user.role, segment);
   if (!nav) return <NotFound />;
+  if (!canAccess(user, nav, subpath)) return <AccessDenied />;
   const screen = screens[user.role]?.[nav];
   return screen ? screen({ user, subpath }) : <PendingModule nav={nav} />;
 }
@@ -88,13 +90,29 @@ function PendingModule({ nav }: { nav: string }) {
   );
 }
 function NotFound() {
+  return (
+    <BlockedRoute
+      eyebrow="PÁGINA NO ENCONTRADA"
+      title="Esta dirección no existe o no está disponible para tu rol."
+    />
+  );
+}
+function AccessDenied() {
+  return (
+    <BlockedRoute
+      eyebrow="ACCESO DENEGADO"
+      title="No tienes permiso para acceder a esta opción."
+    />
+  );
+}
+function BlockedRoute({ eyebrow, title }: { eyebrow: string; title: string }) {
   const router = useRouter();
   return (
     <article className="role-message">
       <span className="message-mark">!</span>
       <div>
-        <p className="eyebrow">PÁGINA NO ENCONTRADA</p>
-        <h2>Esta dirección no existe o no está disponible para tu rol.</h2>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2>{title}</h2>
         <button className="primary-action" onClick={() => router.push("/")}>
           Ir al inicio
         </button>
