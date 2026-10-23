@@ -1,27 +1,8 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- Node test harness loads isolated TypeScript modules. */
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
-const ts = require("typescript");
-function load(relative) {
-  const file = path.join(__dirname, "..", relative);
-  const code = ts.transpileModule(fs.readFileSync(file, "utf8"), {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
-  const loadedModule = { exports: {} };
-  vm.runInNewContext(code, {
-    module: loadedModule,
-    exports: loadedModule.exports,
-  });
-  return loadedModule.exports;
-}
-const v = load("src/modules/academic-config/lib/validation.ts");
-// Los objetos nacen en otro contexto de vm: se comparan por claves, no por prototipo.
+// @vitest-environment node
+import { test } from "vitest";
+import assert from "node:assert/strict";
+import * as v from "@/modules/academic-config/lib/validation";
+import * as m from "@/modules/academic-config/lib/section-metrics";
 const empty = (value) => assert.equal(Object.keys(value).length, 0);
 const year = { fechaInicio: "2026-03-01", fechaFin: "2026-12-20" };
 const periods = [
@@ -118,7 +99,6 @@ test("validatePeriod reúne los errores y hasErrors los detecta", () => {
   assert.ok(errors.nombre && errors.fechaInicio && errors.fechaFin);
   assert.equal(v.hasErrors(errors), true);
 });
-const m = load("src/modules/academic-config/lib/section-metrics.ts");
 test("Porcentaje de ocupación redondeado y sin tope", () => {
   assert.equal(m.occupancyPercent({ capacidadMaxima: 35, ocupacion: 33 }), 94);
   assert.equal(m.occupancyPercent({ capacidadMaxima: 35, ocupacion: 35 }), 100);
