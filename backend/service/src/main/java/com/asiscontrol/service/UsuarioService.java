@@ -134,17 +134,36 @@ public class UsuarioService {
     @Transactional
     public UsuarioDtos.Response provision(UsuarioDtos.ProvisionRequest request) {
         Rol role = findActiveRole(request.rolId());
+        boolean personaNueva = request.personaId() == null;
         Persona persona = perfiles.resolve(request);
         perfiles.prepare(persona, role.getNombre(), request);
-        return create(
-                new UsuarioDtos.CreateRequest(
-                        persona.getId(),
-                        role.getId(),
-                        request.username(),
-                        request.correo(),
-                        request.password(),
-                        true,
-                        request.correoVerificado()));
+        UsuarioDtos.Response creado =
+                create(
+                        new UsuarioDtos.CreateRequest(
+                                persona.getId(),
+                                role.getId(),
+                                request.username(),
+                                request.correo(),
+                                request.password(),
+                                true,
+                                request.correoVerificado()));
+        // create() ya audita CREAR_USUARIO; este registro deja constancia del alta completa,
+        // incluida la persona cuando se crea en el mismo paso.
+        auditoriaService.registrar(
+                "PROVISIONAR_ACCESO",
+                "SEGURIDAD",
+                "AccesoUsuario",
+                creado.id().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                "personaId="
+                        + persona.getId()
+                        + ",personaNueva="
+                        + personaNueva
+                        + ",rol="
+                        + role.getNombre());
+        return creado;
     }
 
     @Transactional(readOnly = true)

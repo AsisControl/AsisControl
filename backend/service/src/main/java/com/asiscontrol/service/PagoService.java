@@ -310,9 +310,28 @@ public class PagoService {
         transaccion.setObservacion(limpiar(request.observacion()));
         TransaccionPago guardada = transaccionPagoRepository.save(transaccion);
 
+        String compromisoAnterior = "compromisoId=" + compromiso.getId()
+                + ",montoPagado=" + compromiso.getMontoPagado()
+                + ",estado=" + compromiso.getEstado();
         compromiso.setMontoPagado(dinero(compromiso.getMontoPagado().add(monto)));
         compromiso.setEstado(calcularEstado(compromiso));
         compromisoPagoRepository.save(compromiso);
+        auditoria.registrar(
+                "REGISTRAR_TRANSACCION",
+                "PAGO",
+                "TRANSACCION_PAGO",
+                guardada.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                compromisoAnterior,
+                "numeroOperacion=" + guardada.getNumeroOperacion()
+                        + ",monto=" + guardada.getMonto()
+                        + ",medioPago=" + guardada.getMedioPago()
+                        + ",apoderadoId=" + (apoderado == null ? null : apoderado.getId())
+                        + ",administradorId=" + (administrador == null ? null : administrador.getId())
+                        + ",compromisoId=" + compromiso.getId()
+                        + ",montoPagado=" + compromiso.getMontoPagado()
+                        + ",estado=" + compromiso.getEstado());
         return toTransaccionResponse(guardada);
     }
 
@@ -387,7 +406,22 @@ public class PagoService {
         comprobante.setNumero(numero);
         comprobante.setFechaEmision(Instant.now());
         comprobante.setMontoTotal(transaccion.getMonto());
-        return toComprobanteResponse(comprobanteRepository.save(comprobante));
+        Comprobante guardado = comprobanteRepository.save(comprobante);
+        auditoria.registrar(
+                "EMITIR_COMPROBANTE",
+                "PAGO",
+                "COMPROBANTE",
+                guardado.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                "tipo=" + guardado.getTipoComprobante()
+                        + ",serie=" + guardado.getSerie()
+                        + ",numero=" + guardado.getNumero()
+                        + ",montoTotal=" + guardado.getMontoTotal()
+                        + ",transaccionId=" + transaccion.getId()
+                        + ",archivoId=" + (archivo == null ? null : archivo.getId()));
+        return toComprobanteResponse(guardado);
     }
 
     public PagoDto.SimulacionResponse simular(PagoDto.SimulacionRequest request) {
