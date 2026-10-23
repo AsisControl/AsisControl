@@ -17,6 +17,8 @@ public interface CompetenciaRepository extends JpaRepository<Competencia, Long> 
 
     Optional<Competencia> findByCodigoIgnoreCaseAndActivoTrue(String codigo);
 
+    Optional<Competencia> findByCodigoIgnoreCase(String codigo);
+
     List<Competencia> findAllByIdInAndActivoTrue(Collection<Long> ids);
 
     @Query("""
