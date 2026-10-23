@@ -4,7 +4,7 @@
 
 La rama se crea desde develop. No cambia controllers, services, entidades, frontend ni migraciones. Usa el RDS existente; no crea MySQL en Docker.
 
-`ci.yml` ahora comprueba tambien los pushes a develop y puede reutilizarse desde `publish.yml`. En main, `publish.yml` llama primero al CI completo y solo publica si pasa. No se pierde la validacion de main: se ejecuta dentro de Publicar imagenes de despliegue. Los PR siguen ejecutando CI sin permisos de publicacion.
+En cada push a develop o main, `publish.yml` llama primero al CI completo y solo publica si pasa. `ci.yml` no se dispara ademas por esos pushes, para no duplicar las pruebas. Los PR siguen ejecutando CI sin permisos de publicacion.
 
 `publish.yml` publica backend y frontend en GHCR usando el GITHUB_TOKEN temporal del workflow. No necesita claves AWS ni contrasenas de RDS. Cada imagen se etiqueta con el SHA completo del commit; no se usa latest. Si una publicacion falla, no despliegues ese SHA hasta que ambas esten disponibles.
 
@@ -24,7 +24,7 @@ Despues, con un dominio controlado por el equipo, crear un registro DNS A hacia 
 
 1. Revisar, commitear, subir esta rama y crear PR a develop. Integrar segun el flujo del equipo; main sigue siendo la version estable.
 2. En Settings > Secrets and variables > Actions > Variables, crear PUBLIC_APP_URL con `http://IP_PUBLICA_EC2` por ahora, sin barra final, rutas ni claves; despues usar `https://TU_DOMINIO`. Es una variable publica.
-3. En Actions, Publicar imagenes de despliegue permite Run workflow desde develop una vez que el archivo este integrado y disponible para ejecucion manual (GitHub requiere el workflow en la rama predeterminada). Si no aparece, integrar mediante PR en main; su push disparara publicacion. Para el despliegue final usar main aprobado. No hacer push directo para saltarse revisiones.
+3. Al fusionar el PR en develop, su push ejecuta automaticamente Publicar imagenes de despliegue: no requiere Run workflow ni integrar en main. Buscar la ejecucion en Actions > All workflows. Si falta el boton manual, el disparador por push funciona igualmente. El equipo puede validar y publicar desde develop; main tambien publica cuando el equipo decida integrarlo. No hacer push directo para saltarse revisiones.
 4. Esperar a que las pruebas y ambas publicaciones terminen en verde. Copiar el SHA de 40 caracteres y los nombres indicados en el resumen.
 5. Los paquetes son `ghcr.io/asiscontrol/asiscontrol-backend:SHA` y `ghcr.io/asiscontrol/asiscontrol-frontend:SHA` si el repositorio conserva el nombre AsisControl/AsisControl.
 
