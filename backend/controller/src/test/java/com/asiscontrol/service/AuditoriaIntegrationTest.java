@@ -18,6 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -28,6 +34,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Cada test se deshace al terminar para no dejar cursos ni alumnos que alteren otros tests. Solo
@@ -44,6 +55,7 @@ class AuditoriaIntegrationTest {
     @Autowired GlobalExceptionHandler exceptionHandler;
     @Autowired RegistroAuditoriaRepository registros;
     @Autowired PlatformTransactionManager transactions;
+    @Autowired WebApplicationContext context;
 
     private static String clave() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
@@ -167,6 +179,96 @@ class AuditoriaIntegrationTest {
         assertThat(resumen.getFirst().getNuevoValor())
                 .contains("filas=2", "importados=1", "fallidos=1");
         assertThat(resumen.getFirst().getMotivo()).isEqualTo("Filas con errores: 3");
+    }
+
+    @Test
+    void guardaLaIpDeLaConexionYNoLaDeXForwardedFor() {
+        String registroId = "IP-" + clave();
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/cursos");
+        request.setRemoteAddr("203.0.113.7");
+        request.addHeader("X-Forwarded-For", "198.51.100.99");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        try {
+            auditoria.registrar("PRUEBA_IP", ModuloAuditoria.GENERAL, "Prueba", registroId,
+                    ResultadoAuditoria.EXITOSO, null, null, null);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+
+        assertThat(buscar("PRUEBA_IP", registroId).getFirst().getDireccionIp()).isEqualTo("203.0.113.7");
+    }
+
+    @Test
+    void sinPeticionHttpLaIpQuedaVacia() {
+        String registroId = "SIN-IP-" + clave();
+        // Spring Test simula una peticion en cada test; se quita para reproducir una tarea interna.
+        var peticionSimulada = RequestContextHolder.getRequestAttributes();
+        RequestContextHolder.resetRequestAttributes();
+        try {
+            auditoria.registrar("PRUEBA_SIN_IP", ModuloAuditoria.GENERAL, "Prueba", registroId,
+                    ResultadoAuditoria.EXITOSO, null, null, null);
+        } finally {
+            RequestContextHolder.setRequestAttributes(peticionSimulada);
+        }
+
+        assertThat(buscar("PRUEBA_SIN_IP", registroId).getFirst().getDireccionIp()).isNull();
+    }
+
+    @Test
+    void filtraPorModuloAccionResultadoYBusqueda() {
+        String modulo = "MOD_" + clave();
+        String marca = "marca-" + clave().toLowerCase();
+        auditoria.registrar("ACCION_A", modulo, "Prueba", marca + "-1",
+                ResultadoAuditoria.EXITOSO, null, null, null);
+        auditoria.registrar("ACCION_B", modulo, "Prueba", marca + "-2",
+                ResultadoAuditoria.RECHAZADO, "motivo de prueba", null, null);
+        auditoria.registrar("ACCION_A", ModuloAuditoria.GENERAL, "Prueba", marca + "-3",
+                ResultadoAuditoria.EXITOSO, null, null, null);
+
+        assertThat(auditoria.listarAuditorias(null, null, modulo, null, null, 0, 20).content())
+                .extracting(r -> r.registroId())
+                .containsExactlyInAnyOrder(marca + "-1", marca + "-2");
+        assertThat(auditoria.listarAuditorias(null, null, modulo, "ACCION_A", null, 0, 20).content())
+                .extracting(r -> r.registroId())
+                .containsExactly(marca + "-1");
+        assertThat(auditoria.listarAuditorias(
+                        null, null, modulo, null, ResultadoAuditoria.RECHAZADO, 0, 20).content())
+                .extracting(r -> r.registroId())
+                .containsExactly(marca + "-2");
+        // La busqueda no distingue mayusculas y alcanza el id del registro.
+        assertThat(auditoria.listarAuditorias(marca.toUpperCase(), null, null, null, null, 0, 20).content())
+                .hasSize(3);
+        assertThat(auditoria.listarModulos()).contains(modulo, ModuloAuditoria.GENERAL);
+        assertThat(auditoria.listarAcciones()).contains("ACCION_A", "ACCION_B");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
+    void elAdministradorConsultaRegistrosFiltradosYOpcionesPorHttp() throws Exception {
+        String modulo = "MOD_HTTP_" + clave();
+        auditoria.registrar("ACCION_HTTP", modulo, "Prueba", "1",
+                ResultadoAuditoria.EXITOSO, null, null, null);
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+
+        mvc.perform(get("/api/auditoria/registros").param("modulo", modulo).param("accion", "ACCION_HTTP"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].modulo").value(modulo))
+                .andExpect(jsonPath("$.content[0].actorNombre").hasJsonPath());
+        mvc.perform(get("/api/auditoria/modulos"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@ == '" + modulo + "')]").exists());
+        mvc.perform(get("/api/auditoria/acciones"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@ == 'ACCION_HTTP')]").exists());
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void soloElAdministradorConsultaLaAuditoria() throws Exception {
+        MockMvc mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        mvc.perform(get("/api/auditoria/modulos")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/auditoria/registros")).andExpect(status().isForbidden());
     }
 
     private static byte[] excel(String[][] filas) throws IOException {

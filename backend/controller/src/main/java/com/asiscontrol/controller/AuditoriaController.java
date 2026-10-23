@@ -29,9 +29,27 @@ public class AuditoriaController {
 
     @GetMapping("/registros")
     public PageResponse<AuditoriaDtos.AuditResponse> audits(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long rolId,
+            @RequestParam(required = false) String modulo,
+            @RequestParam(required = false) String accion,
+            @RequestParam(required = false) com.asiscontrol.entity.enums.ResultadoAuditoria resultado,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return auditoriaService.listarAuditorias(page, size);
+        return auditoriaService.listarAuditorias(
+                search, rolId, modulo, accion, resultado, page, size);
+    }
+
+    /** Modulos con registros, para el filtro de la pantalla de auditoria. */
+    @GetMapping("/modulos")
+    public java.util.List<String> modulos() {
+        return auditoriaService.listarModulos();
+    }
+
+    /** Acciones con registros, para el filtro de la pantalla de auditoria. */
+    @GetMapping("/acciones")
+    public java.util.List<String> acciones() {
+        return auditoriaService.listarAcciones();
     }
 
     @GetMapping("/errores")
