@@ -4,8 +4,9 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [main, chore/docker-ci]
+    branches: [develop, chore/docker-ci, chore/ec2-deployment]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

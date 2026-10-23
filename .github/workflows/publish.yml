@@ -1,0 +1,81 @@
+name: Publicar imagenes de despliegue
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publicar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  configuration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar rama y URL publica
+        env:
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main|refs/heads/develop|refs/heads/chore/ec2-deployment) ;;
+            *) echo 'Usa main, develop o la rama de preparacion.'; exit 1 ;;
+          esac
+          python3 - <<'PY'
+          import os
+          import ipaddress
+          from urllib.parse import urlsplit
+          url = os.environ['PUBLIC_APP_URL']
+          parsed = urlsplit(url)
+          if (parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username
+              or parsed.password or parsed.path or parsed.query or parsed.fragment):
+              raise SystemExit('Configura PUBLIC_APP_URL como http://IP o https://dominio, sin barra final.')
+          if parsed.scheme == 'http':
+              ipaddress.IPv4Address(parsed.hostname)
+          PY
+
+  checks:
+    needs: configuration
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nombre de imagen en minusculas
+        id: image
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}-$COMPONENT" >> "$GITHUB_OUTPUT"
+      - name: Iniciar sesion en GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Construir y publicar el commit validado
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          docker build --build-arg "NEXT_PUBLIC_API_BASE_URL=$PUBLIC_APP_URL" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "$IMAGE:$GITHUB_SHA" "./$COMPONENT"
+          docker push "$IMAGE:$GITHUB_SHA"
+          echo "### Imagen publicada: $COMPONENT" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$IMAGE:$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Cerrar sesion
+        if: always()
+        run: docker logout ghcr.io
