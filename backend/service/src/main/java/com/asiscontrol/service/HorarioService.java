@@ -7,6 +7,7 @@ import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.enums.DiaSemana;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -28,14 +29,17 @@ public class HorarioService {
     private final HorarioRepository horarioRepository;
     private final AsignacionCursoRepository asignacionRepository;
     private final AulaRepository aulaRepository;
+    private final AuditoriaService auditoria;
 
     public HorarioService(
             HorarioRepository horarioRepository,
             AsignacionCursoRepository asignacionRepository,
-            AulaRepository aulaRepository) {
+            AulaRepository aulaRepository,
+            AuditoriaService auditoria) {
         this.horarioRepository = horarioRepository;
         this.asignacionRepository = asignacionRepository;
         this.aulaRepository = aulaRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -46,7 +50,10 @@ public class HorarioService {
         Horario horario = new Horario();
         aplicar(horario, asignacion, aula, request.diaSemana(), request.horaInicio(), request.horaFin());
         horario.setActivo(true);
-        return mapear(horarioRepository.save(horario));
+        Horario saved = horarioRepository.save(horario);
+        auditoria.registrar("CREAR_HORARIO", "ACADEMICO", "Horario",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
+        return mapear(saved);
     }
 
     @Transactional
@@ -56,8 +63,12 @@ public class HorarioService {
         AsignacionCurso asignacion = buscarAsignacion(request.asignacionCursoId());
         Aula aula = buscarAula(request.aulaId());
         validar(request.diaSemana(), request.horaInicio(), request.horaFin(), asignacion, aula, id);
+        String anterior = describir(horario);
         aplicar(horario, asignacion, aula, request.diaSemana(), request.horaInicio(), request.horaFin());
-        return mapear(horarioRepository.save(horario));
+        Horario saved = horarioRepository.save(horario);
+        auditoria.registrar("ACTUALIZAR_HORARIO", "ACADEMICO", "Horario",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        return mapear(saved);
     }
 
     public HorarioResponse obtener(Long id) {
@@ -73,6 +84,16 @@ public class HorarioService {
         Horario horario = obtenerEntidad(id);
         horario.setActivo(false);
         horarioRepository.save(horario);
+        auditoria.registrar("ELIMINAR_HORARIO", "ACADEMICO", "Horario",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, describir(horario), null);
+    }
+
+    private String describir(Horario horario) {
+        return "asignacionCursoId=" + horario.getAsignacionCurso().getId()
+                + ",aulaId=" + horario.getAula().getId()
+                + ",dia=" + horario.getDiaSemana()
+                + ",horaInicio=" + horario.getHoraInicio()
+                + ",horaFin=" + horario.getHoraFin();
     }
 
     private Horario obtenerEntidad(Long id) {

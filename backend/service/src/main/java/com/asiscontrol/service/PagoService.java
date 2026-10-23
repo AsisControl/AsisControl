@@ -126,7 +126,7 @@ public class PagoService {
                 ResultadoAuditoria.EXITOSO,
                 null,
                 null,
-                null);
+                describirCompromiso(savedCompromiso));
         return toCompromisoResponse(savedCompromiso);
     }
 
@@ -164,6 +164,7 @@ public class PagoService {
 
         String codigo = normalizarCodigo(request.codigoCompromiso());
         validarCodigoDisponible(codigo, id);
+        String anterior = describirCompromiso(compromiso);
         Matricula matricula = matriculaRepository.findByIdAndActivoTrue(request.idMatricula())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "MATRICULA_NO_ENCONTRADA",
@@ -186,8 +187,8 @@ public class PagoService {
                 savedCompromiso.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
-                null,
-                null);
+                anterior,
+                describirCompromiso(savedCompromiso));
         return toCompromisoResponse(savedCompromiso);
     }
 
@@ -204,6 +205,7 @@ public class PagoService {
                     "No se puede eliminar un compromiso que ya tiene pagos registrados"
             );
         }
+        String anterior = describirCompromiso(compromiso);
         compromiso.setEstado(EstadoCompromisoPago.ANULADO);
         compromiso.setActivo(false);
         CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
@@ -214,8 +216,8 @@ public class PagoService {
                 savedCompromiso.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
-                null,
-                null);
+                anterior,
+                "estado=" + savedCompromiso.getEstado() + ",activo=false");
     }
 
     @Transactional(readOnly = true)
@@ -422,6 +424,17 @@ public class PagoService {
                         + ",transaccionId=" + transaccion.getId()
                         + ",archivoId=" + (archivo == null ? null : archivo.getId()));
         return toComprobanteResponse(guardado);
+    }
+
+    private String describirCompromiso(CompromisoPago compromiso) {
+        return "codigo=" + compromiso.getCodigoCompromiso()
+                + ",matriculaId=" + compromiso.getMatricula().getId()
+                + ",concepto=" + compromiso.getConcepto()
+                + ",montoTotal=" + compromiso.getMontoTotal()
+                + ",montoPagado=" + compromiso.getMontoPagado()
+                + ",moneda=" + compromiso.getMoneda()
+                + ",vencimiento=" + compromiso.getFechaVencimiento()
+                + ",estado=" + compromiso.getEstado();
     }
 
     public PagoDto.SimulacionResponse simular(PagoDto.SimulacionRequest request) {

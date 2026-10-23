@@ -93,7 +93,12 @@ public class AsistenciaDocenteService {
         }
         validarSinAsistenciaEnJornada(anterior.getDocente().getId(), LocalDate.now());
         invalidarCodigosVigentes(anterior.getDocente().getId());
-        return crearCodigo(anterior.getDocente(), vigenciaSegundos);
+        CodigoQRResponse nuevo = crearCodigo(anterior.getDocente(), vigenciaSegundos);
+        auditoria.registrar("RENOVAR_QR_DOCENTE", "ASISTENCIA", "CodigoQRAsistencia",
+                nuevo.id().toString(), ResultadoAuditoria.EXITOSO, null,
+                "codigoAnteriorId=" + codigoId + ",estado=" + anterior.getEstado(),
+                "docente=" + anterior.getDocente().getId() + ",vigenciaSegundos=" + vigenciaSegundos);
+        return nuevo;
     }
 
     @Transactional(noRollbackFor = BusinessRuleException.class)
