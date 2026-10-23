@@ -88,7 +88,8 @@ public class AuthService {
             sesion.setTokenHash(HashUtils.sha256(token.value()));
             sesion.setFechaCreacion(token.issuedAt());
             sesion.setUltimaActividad(token.issuedAt());
-            sesion.setFechaExpiracion(token.expiresAt());
+            // Límite absoluto de la sesión, independiente de los JWT cortos que se renuevan.
+            sesion.setFechaExpiracion(token.issuedAt().plus(Duration.ofHours(8)));
             sesion.setEstado(EstadoSesion.VIGENTE);
             sesionRepository.save(sesion);
 
@@ -99,7 +100,7 @@ public class AuthService {
             if (!bloqueado) registerFailedAttempt(identifier);
             auditoriaService.registrar(
                     "INICIAR_SESION",
-                    "SEGURIDAD",
+                    ModuloAuditoria.SEGURIDAD,
                     "AccesoUsuario",
                     locked == null ? "NO_IDENTIFICADO" : locked.getId().toString(),
                     ResultadoAuditoria.RECHAZADO,
@@ -121,7 +122,7 @@ public class AuthService {
                             sesionRepository.save(session);
                             auditoriaService.registrar(
                                     "CERRAR_SESION",
-                                    "SEGURIDAD",
+                                    ModuloAuditoria.SEGURIDAD,
                                     "SesionAcceso",
                                     session.getId().toString(),
                                     ResultadoAuditoria.EXITOSO,
@@ -173,7 +174,7 @@ public class AuthService {
                 usuario.getId(), EstadoSesion.REVOCADA, Instant.now());
         auditoriaService.registrar(
                 "CAMBIAR_CONTRASENA",
-                "SEGURIDAD",
+                ModuloAuditoria.SEGURIDAD,
                 "AccesoUsuario",
                 usuario.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -197,7 +198,7 @@ public class AuthService {
                         });
     }
 
-    private AuthDtos.UserSummary toUserSummary(AccesoUsuario usuario) {
+    AuthDtos.UserSummary toUserSummary(AccesoUsuario usuario) {
         List<String> permissions =
                 usuario.getRol().getPermisos().stream()
                         .filter(permission -> permission.isActivo())

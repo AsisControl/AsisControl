@@ -30,7 +30,9 @@ import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@SpringBootTest
+@SpringBootTest(
+        properties =
+                "spring.datasource.url=jdbc:h2:mem:asiscontrol_ficha_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false")
 @ActiveProfiles("test")
 @Transactional
 class FichaAlumnoValidationIntegrationTest {
@@ -237,6 +239,58 @@ class FichaAlumnoValidationIntegrationTest {
                             assertThat(firstResult.getValorAnterior()).contains("nombres=Diego,");
                             assertThat(firstResult.getNuevoValor()).contains("nombres=Diego José,");
                             assertThat(firstResult.getActorIdentificador()).isEqualTo("fe2-admin");
+                        });
+    }
+
+    @Test
+    void conservaMotivoCompletoAunqueElResumenDeAuditoriaSeaDeQuinientosCaracteres()
+            throws Exception {
+        var persona = createStudentPersonPayload();
+        var result =
+                mvc.perform(createAdminRequest(post("/api/alumnos"), Map.of("persona", persona)))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        long id = jsonMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+        persona.put("nombres", "Diego José");
+        String motivo = "Corrección documentada: " + "a".repeat(600);
+        mvc.perform(
+                        createAdminRequest(
+                                put("/api/alumnos/" + id),
+                                Map.of("persona", persona, "motivo", motivo)))
+                .andExpect(status().isOk());
+        assertThat(auditoriaRepository.findAll())
+                .anySatisfy(
+                        registro -> {
+                            assertThat(registro.getAccion()).isEqualTo("ACTUALIZAR_ALUMNO");
+                            assertThat(registro.getRegistroId()).isEqualTo(Long.toString(id));
+                            assertThat(registro.getMotivo()).isEqualTo(motivo.substring(0, 500));
+                            assertThat(registro.getNuevoValor())
+                                    .contains("motivoCorreccion=" + motivo);
+                        });
+    }
+
+    @Test
+    void actualizarSoloContactoRegistraCamposSinCopiarSusValores() throws Exception {
+        var persona = createStudentPersonPayload();
+        var result =
+                mvc.perform(createAdminRequest(post("/api/alumnos"), Map.of("persona", persona)))
+                        .andExpect(status().isCreated())
+                        .andReturn();
+        long id = jsonMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+        persona.put("telefono", "999742200");
+        persona.put("correo", "contacto.ficha@example.test");
+        mvc.perform(createAdminRequest(put("/api/alumnos/" + id), Map.of("persona", persona)))
+                .andExpect(status().isOk());
+        assertThat(auditoriaRepository.findAll())
+                .anySatisfy(
+                        registro -> {
+                            assertThat(registro.getAccion()).isEqualTo("ACTUALIZAR_ALUMNO");
+                            assertThat(registro.getRegistroId()).isEqualTo(Long.toString(id));
+                            assertThat(registro.getMotivo()).contains("telefono", "correo");
+                            assertThat(registro.getValorAnterior())
+                                    .doesNotContain("999742200", "contacto.ficha@example.test");
+                            assertThat(registro.getNuevoValor())
+                                    .doesNotContain("999742200", "contacto.ficha@example.test");
                         });
     }
 

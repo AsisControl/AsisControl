@@ -16,6 +16,8 @@ public final class AuditoriaDtos {
     public record AuditResponse(
             Long id,
             String actorIdentificador,
+            /** Nombre de la persona del acceso; null para "SISTEMA" o accesos ya inactivos. */
+            String actorNombre,
             String rolActor,
             String accion,
             String modulo,
@@ -24,7 +26,8 @@ public final class AuditoriaDtos {
             Instant fechaHora,
             ResultadoAuditoria resultado,
             String motivo,
-            String correlationId) {}
+            String correlationId,
+            String direccionIp) {}
 
     public record ErrorResponse(
             Long id,

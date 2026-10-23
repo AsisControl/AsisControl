@@ -135,7 +135,7 @@ public class MatriculaService {
         matriculaRepository.saveAndFlush(matricula);
         auditoria.registrar(
                 "FINALIZAR_SOLICITUD",
-                "MATRICULA",
+                ModuloAuditoria.MATRICULA,
                 "SolicitudMatricula",
                 solicitud.getId().toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
@@ -144,7 +144,7 @@ public class MatriculaService {
                 "MATRICULA_FINALIZADA");
         auditoria.registrar(
                 "CREAR_MATRICULA",
-                "MATRICULA",
+                ModuloAuditoria.MATRICULA,
                 "Matricula",
                 matricula.getId().toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
@@ -183,7 +183,7 @@ public class MatriculaService {
         matriculaRepository.saveAndFlush(matricula);
         auditoria.registrar(
                 "CAMBIAR_ESTADO_MATRICULA",
-                "MATRICULA",
+                ModuloAuditoria.MATRICULA,
                 "Matricula",
                 id.toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,

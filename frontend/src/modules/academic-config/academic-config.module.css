@@ -1,0 +1,467 @@
+.header {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.header h3 {
+  font-size: 24px;
+  margin: 0;
+}
+.header p {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.yearPicker {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+}
+.yearSelect {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+.activeTag {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+}
+.cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+}
+.cardActive {
+  background: #f0fdf4;
+  border-color: #16a34a;
+}
+.cardHeader {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.cardHeader strong {
+  font-size: 16px;
+}
+.status {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.statusActive {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+.statusClosed {
+  background: #f1f5f9;
+}
+.row {
+  color: var(--muted);
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+}
+.row span:last-child {
+  color: var(--ink);
+}
+.cardActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.cardActions button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+.pendingBadge {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  color: #92400e;
+  font-size: 11px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.newPeriod {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.newPeriodButton {
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 16px;
+}
+.newPeriodButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.newPeriodHint {
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 260px;
+  text-align: right;
+}
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dialogForm .label {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-top: 12px;
+  text-transform: uppercase;
+}
+.dialogForm .required {
+  color: #dc2626;
+}
+.dialogForm .input {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  letter-spacing: normal;
+  margin-top: 6px;
+  padding: 11px 12px;
+  text-transform: none;
+  width: 100%;
+}
+.dialogForm .input:disabled {
+  background: #f8fafc;
+  color: var(--muted);
+}
+.dialogForm .input[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+.dialogForm .fieldError {
+  color: #b91c1c;
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  margin-top: 4px;
+  text-transform: none;
+}
+.twoColumns {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+.dialogActions {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 24px;
+}
+.dialogForm .cancelButton,
+.dialogForm .submitButton {
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 11px 14px;
+}
+.dialogForm .cancelButton {
+  background: #fff;
+  color: var(--blue);
+}
+.dialogForm .submitButton {
+  background: var(--blue);
+  color: #fff;
+}
+.dialogForm .submitButton:disabled,
+.dialogForm .cancelButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.collapsible {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 24px;
+}
+.collapsibleToggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--ink);
+  display: flex;
+  font-size: 16px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 16px 20px;
+  text-align: left;
+  width: 100%;
+}
+.collapsibleTitle {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chevron {
+  color: var(--muted);
+  font-size: 12px;
+}
+.collapsibleBody {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.toolbar button {
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.toolbar .linkButton {
+  background: transparent;
+  border-color: transparent;
+  text-decoration: underline;
+}
+.notice {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  margin: 0;
+  padding: 10px 12px;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+.table th,
+.table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+.table th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.table .emptyCell {
+  color: var(--muted);
+  padding: 24px 12px;
+  text-align: center;
+}
+.table .rowActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.table .rowActions button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+}
+.table .rowActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.dialogForm .notice {
+  margin-bottom: 4px;
+}
+.dialogForm textarea.input {
+  resize: vertical;
+}
+.dialogForm .fieldHint {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  margin-top: 4px;
+  text-transform: none;
+}
+.dialogForm .pendingBadge {
+  letter-spacing: normal;
+  margin-left: 6px;
+  text-transform: none;
+}
+@media (max-width: 520px) {
+  .twoColumns {
+    grid-template-columns: 1fr;
+  }
+}
+.sectionsHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 32px;
+}
+.sectionsHeader h4 {
+  font-size: 18px;
+  margin: 0;
+}
+.sectionsControls {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.gradeFilter {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  padding: 9px 12px;
+}
+.gradeCell {
+  color: var(--blue);
+  font-weight: 600;
+}
+.strongCell {
+  color: var(--ink);
+  font-weight: 600;
+}
+.vacancies {
+  color: #16a34a;
+  font-weight: 600;
+}
+.overCapacity {
+  align-items: center;
+  color: #dc2626;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 6px;
+  white-space: nowrap;
+}
+.occupancy {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 140px;
+}
+.occupancyTrack {
+  background: #e2e8f0;
+  border-radius: 999px;
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+}
+.occupancyFill {
+  background: #d97706;
+  border-radius: 999px;
+  height: 100%;
+}
+.occupancyFull {
+  background: #dc2626;
+}
+.occupancyValue {
+  color: var(--muted);
+  font-size: 13px;
+  min-width: 40px;
+}
+.rowDisabled td {
+  color: var(--muted);
+  opacity: 0.65;
+}
+.disabledBadge {
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.table .rowActions .iconButton {
+  align-items: center;
+  border-color: transparent;
+  display: inline-flex;
+  padding: 6px;
+}
+.table .rowActions .textAction {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+}

@@ -30,6 +30,9 @@ class RiesgoServiceTest {
     @Mock
     private AlumnoRepository alumnoRepository;
 
+    @Mock
+    private AuditoriaService auditoria;
+
     @InjectMocks
     private RiesgoService riesgoService;
 

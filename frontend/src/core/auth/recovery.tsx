@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
 import { Feedback, Field, PasswordField } from "@/shared/ui";
 import { passwordError, passwordHint } from "./password-policy";
+import { AuthFormLayout } from "./auth-form-layout";
+import styles from "./auth-form.module.css";
 export function RecoveryScreen() {
   const incoming = useRef("");
   const [token, setToken] = useState("");
@@ -98,102 +99,115 @@ export function RecoveryScreen() {
     setNotice("");
     setError("");
   }
+  const icon = mode === "done" ? "check" : mode === "reset" ? "lock" : "shield";
   return (
-    <main className="recovery-screen">
-      <section className="recovery-brand">
-        <Image src="/school-logo.svg" width={32} height={32} alt="" />
-        <strong>AsisControl</strong>
-        <p>Sistema de Gestión Académica</p>
-      </section>
-      <article className="panel recovery-card">
-        <p className="eyebrow">SEGURIDAD DEL ACCESO</p>
-        <h1>
-          {mode === "reset"
-            ? "Elige una nueva contraseña"
-            : mode === "done"
-              ? "Contraseña actualizada"
-              : mode === "invalid"
-                ? "Enlace no disponible"
+    <AuthFormLayout
+      label="Recuperación de contraseña"
+      icon={icon}
+      backLink={
+        mode !== "done" && (
+          <Link className={styles.backLink} href="/">
+            <span aria-hidden="true">←</span> Volver al inicio de sesión
+          </Link>
+        )
+      }
+    >
+      <h1>
+        {mode === "reset"
+          ? "Elige una nueva contraseña"
+          : mode === "done"
+            ? "Contraseña actualizada"
+            : mode === "invalid"
+              ? "Enlace no disponible"
+              : mode === "sent"
+                ? "Revisa tu correo"
                 : "Recuperar contraseña"}
-        </h1>
+      </h1>
+      <div className={styles.feedback}>
         <Feedback error={error} success={notice} />
-        {mode === "validating" ? (
-          <p role="status">Verificando el enlace…</p>
-        ) : ["request", "reset"].includes(mode) ? (
-          <form onSubmit={submit}>
-            <fieldset disabled={busy}>
-              {mode === "request" ? (
-                <>
-                  <p>
-                    Ingresa el usuario de tu acceso. Si la institución confirmó
-                    tu correo, recibirás un enlace válido durante 15 minutos.
-                  </p>
-                  <Field
-                    label="Usuario institucional"
-                    name="identifier"
-                    required
-                    maxLength={150}
-                    autoComplete="username"
-                  />
-                  <p className="hint">
-                    Cada acceso de una persona con varios roles se recupera por
-                    separado. No creamos cuentas mediante este formulario.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <PasswordField
-                    label="Nueva contraseña"
-                    name="newPassword"
-                    required
-                    minLength={8}
-                    maxLength={64}
-                    autoComplete="new-password"
-                  />
-                  <PasswordField
-                    label="Confirmar contraseña"
-                    name="confirm"
-                    required
-                    minLength={8}
-                    maxLength={64}
-                    autoComplete="new-password"
-                  />
-                  <p className="hint">
-                    {passwordHint} Debe ser diferente a la actual. Se cerrarán
-                    las sesiones anteriores.
-                  </p>
-                </>
-              )}
-              <button className="primary-action" disabled={busy}>
-                {busy
-                  ? "Procesando…"
-                  : mode === "reset"
-                    ? "Guardar contraseña"
-                    : "Enviar instrucciones"}
-              </button>
-            </fieldset>
-          </form>
-        ) : mode === "sent" ? (
-          <>
-            <p>
-              No publiques ni compartas el enlace. Solicitar otro reemplaza al
-              anterior. Se permiten hasta tres solicitudes por hora.
-            </p>
-            <button onClick={again}>Solicitar otro enlace</button>
-          </>
-        ) : mode === "invalid" ? (
-          <button className="primary-action" onClick={again}>
-            Solicitar nuevo enlace
+      </div>
+      {mode === "validating" ? (
+        <p role="status">Verificando el enlace…</p>
+      ) : ["request", "reset"].includes(mode) ? (
+        <form className={styles.form} onSubmit={submit}>
+          <fieldset className={styles.fields} disabled={busy}>
+            {mode === "request" ? (
+              <>
+                <p className={styles.description}>
+                  Ingresa el usuario de tu acceso. Si la institución confirmó
+                  tu correo, recibirás un enlace válido durante 15 minutos.
+                </p>
+                <Field
+                  label="Usuario institucional"
+                  name="identifier"
+                  required
+                  maxLength={150}
+                  autoComplete="username"
+                  placeholder="Ingresa tu usuario"
+                />
+                <p className="hint">
+                  Cada acceso de una persona con varios roles se recupera por
+                  separado. No creamos cuentas mediante este formulario.
+                </p>
+              </>
+            ) : (
+              <>
+                <PasswordField
+                  label="Nueva contraseña"
+                  name="newPassword"
+                  required
+                  minLength={8}
+                  maxLength={64}
+                  autoComplete="new-password"
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <PasswordField
+                  label="Confirmar contraseña"
+                  name="confirm"
+                  required
+                  minLength={8}
+                  maxLength={64}
+                  autoComplete="new-password"
+                  placeholder="Repite la contraseña"
+                />
+                <p className="hint">
+                  {passwordHint} Debe ser diferente a la actual. Se cerrarán
+                  las sesiones anteriores.
+                </p>
+              </>
+            )}
+          </fieldset>
+          <button className={styles.primaryButton} disabled={busy}>
+            {busy
+              ? "Procesando…"
+              : mode === "reset"
+                ? "Guardar contraseña"
+                : "Enviar instrucciones"}
           </button>
-        ) : null}
-        <Link className="back-link" href="/login">
-          Volver al inicio de sesión
+        </form>
+      ) : mode === "sent" ? (
+        <>
+          <p>
+            No publiques ni compartas el enlace. Solicitar otro reemplaza al
+            anterior. Se permiten hasta tres solicitudes por hora.
+          </p>
+          <button className={styles.primaryButton} onClick={again}>
+            Solicitar otro enlace
+          </button>
+        </>
+      ) : mode === "invalid" ? (
+        <button className={styles.primaryButton} onClick={again}>
+          Solicitar nuevo enlace
+        </button>
+      ) : (
+        <Link className={styles.primaryButton} href="/">
+          Ir al inicio de sesión
         </Link>
-        <p className="hint">
-          Si no tienes acceso al correo o tu contraseña temporal venció,
-          contacta a la administración para verificar tu identidad.
-        </p>
-      </article>
-    </main>
+      )}
+      <p className="hint">
+        Si no tienes acceso al correo o tu contraseña temporal venció,
+        contacta a la administración para verificar tu identidad.
+      </p>
+    </AuthFormLayout>
   );
 }

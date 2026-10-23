@@ -7,6 +7,7 @@ import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.CursoCompetencia;
 import com.asiscontrol.exception.ConflictException;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.CompetenciaRepository;
 import com.asiscontrol.repository.CursoCompetenciaRepository;
@@ -20,28 +21,49 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CursoCompetenciaService {
 
+    public record ResultadoAsociacion(CursoCompetenciaResponse relacion, boolean creada) {}
+
     private final CursoCompetenciaRepository cursoCompetenciaRepository;
     private final CursoRepository cursoRepository;
     private final CompetenciaRepository competenciaRepository;
+    private final AuditoriaService auditoria;
 
     public CursoCompetenciaService(
             CursoCompetenciaRepository cursoCompetenciaRepository,
             CursoRepository cursoRepository,
-            CompetenciaRepository competenciaRepository) {
+            CompetenciaRepository competenciaRepository,
+            AuditoriaService auditoria) {
         this.cursoCompetenciaRepository = cursoCompetenciaRepository;
         this.cursoRepository = cursoRepository;
         this.competenciaRepository = competenciaRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
-    public CursoCompetenciaResponse crear(CrearCursoCompetenciaRequest request) {
-        validarUnica(request.cursoId(), request.competenciaId(), null);
-        CursoCompetencia relacion = new CursoCompetencia();
-        relacion.setCurso(buscarCurso(request.cursoId()));
-        relacion.setCompetencia(buscarCompetencia(request.competenciaId()));
+    public ResultadoAsociacion crear(CrearCursoCompetenciaRequest request) {
+        Curso curso = buscarCurso(request.cursoId());
+        Competencia competencia = buscarCompetencia(request.competenciaId());
+        var existente = cursoCompetenciaRepository
+                .findByCursoIdAndCompetenciaId(request.cursoId(), request.competenciaId());
+        if (existente.filter(CursoCompetencia::isActivo).isPresent()) {
+            throw new ConflictException(
+                    "CURSO_COMPETENCIA_DUPLICADA", "La competencia ya esta asociada al curso");
+        }
+
+        // Recuperar la misma fila conserva su identidad y fecha de creacion.
+        CursoCompetencia relacion = existente.orElseGet(CursoCompetencia::new);
+        relacion.setCurso(curso);
+        relacion.setCompetencia(competencia);
         relacion.setOrden(request.orden());
         relacion.setActivo(true);
-        return mapear(cursoCompetenciaRepository.save(relacion));
+        CursoCompetencia saved = cursoCompetenciaRepository.saveAndFlush(relacion);
+        boolean creada = existente.isEmpty();
+        auditoria.registrar(creada ? "CREAR_CURSO_COMPETENCIA" : "REACTIVAR_CURSO_COMPETENCIA",
+                ModuloAuditoria.ACADEMICO, "CursoCompetencia",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null,
+                creada ? null : "activo=false",
+                "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId());
+        return new ResultadoAsociacion(mapear(saved), creada);
     }
 
     @Transactional
@@ -49,18 +71,31 @@ public class CursoCompetenciaService {
         CursoCompetencia relacion = obtenerEntidad(id);
         exigirVersion(relacion.getVersion(), request.version());
         validarUnica(request.cursoId(), request.competenciaId(), id);
+        String anterior = "cursoId=" + relacion.getCurso().getId()
+                + ",competenciaId=" + relacion.getCompetencia().getId() + ",orden=" + relacion.getOrden();
         relacion.setCurso(buscarCurso(request.cursoId()));
         relacion.setCompetencia(buscarCompetencia(request.competenciaId()));
         relacion.setOrden(request.orden());
-        return mapear(cursoCompetenciaRepository.save(relacion));
+        CursoCompetencia saved = cursoCompetenciaRepository.saveAndFlush(relacion);
+        auditoria.registrar("ACTUALIZAR_CURSO_COMPETENCIA", ModuloAuditoria.ACADEMICO, "CursoCompetencia",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId()
+                        + ",orden=" + saved.getOrden());
+        return mapear(saved);
     }
 
     public CursoCompetenciaResponse obtener(Long id) {
-        return mapear(obtenerEntidad(id));
+        CursoCompetencia relacion = cursoCompetenciaRepository
+                .buscarDisponiblePorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "CURSO_COMPETENCIA_NO_DISPONIBLE",
+                        "No existe una relacion curso-competencia disponible con id " + id));
+
+        return mapear(relacion);
     }
 
     public Page<CursoCompetenciaResponse> listar(Pageable pageable) {
-        return cursoCompetenciaRepository.findByActivoTrue(pageable).map(this::mapear);
+        return cursoCompetenciaRepository.buscarDisponibles(pageable).map(this::mapear);
     }
 
     @Transactional
@@ -68,6 +103,9 @@ public class CursoCompetenciaService {
         CursoCompetencia relacion = obtenerEntidad(id);
         relacion.setActivo(false);
         cursoCompetenciaRepository.save(relacion);
+        auditoria.registrar("ELIMINAR_CURSO_COMPETENCIA", ModuloAuditoria.ACADEMICO, "CursoCompetencia",
+                relacion.getId().toString(), ResultadoAuditoria.EXITOSO, null,
+                "cursoId=" + relacion.getCurso().getId() + ",competenciaId=" + relacion.getCompetencia().getId(), null);
     }
 
     private CursoCompetencia obtenerEntidad(Long id) {
@@ -90,12 +128,12 @@ public class CursoCompetenciaService {
     }
 
     private void validarUnica(Long cursoId, Long competenciaId, Long idActual) {
-        cursoCompetenciaRepository.findByCursoIdAndCompetenciaIdAndActivoTrue(cursoId, competenciaId)
+        cursoCompetenciaRepository.findByCursoIdAndCompetenciaId(cursoId, competenciaId)
                 .filter(existente -> idActual == null || !existente.getId().equals(idActual))
                 .ifPresent(existente -> {
                     throw new ConflictException(
                             "CURSO_COMPETENCIA_DUPLICADA",
-                            "La competencia ya esta asociada al curso");
+                            "Ya existe una relacion entre el curso y la competencia, activa o inactiva");
                 });
     }
 

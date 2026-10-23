@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/contracts.test.cjs src/modules/students/tests/students.test.cjs src/modules/students/tests/interactions.test.cjs",
+    "test": "node --test tests/contracts.test.cjs tests/academic-config.test.cjs src/modules/students/tests/students.test.cjs src/modules/students/tests/interactions.test.cjs",
     "test:students": "node --test src/modules/students/tests/students.test.cjs src/modules/students/tests/interactions.test.cjs"
   },
   "dependencies": {
