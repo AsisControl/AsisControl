@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
-function harness(fetcher) {
+function harness(fetcher, globals = {}) {
   const cache = {};
   const root = path.join(__dirname, "..");
   // Resuelve como el bundler: archivo .ts/.tsx o carpeta con index.ts/.tsx.
@@ -55,6 +55,7 @@ function harness(fetcher) {
       setTimeout,
       clearTimeout,
       crypto: require("node:crypto").webcrypto,
+      ...globals,
     });
     return loadedModule.exports;
   }
@@ -224,4 +225,54 @@ test("La política admite ocho caracteres y rechaza usuario, espacios y exceso d
   assert.notEqual(policy("Abc defg1", "usuario"), "");
   assert.notEqual(policy("abcdefgh", "usuario"), "");
   assert.notEqual(policy("Á".repeat(60) + "ab1", "usuario"), "");
+});
+test("El menú oculta opciones sin permiso y la creación de usuarios exige escritura", () => {
+  const { canAccess } = harness()("src/core/navigation/access-policy.ts");
+  const admin = (permissions) => ({
+    id: "1",
+    username: "admin",
+    fullName: "Admin",
+    role: "ADMINISTRADOR",
+    permissions,
+  });
+  const reader = admin(["MATRICULA_LEER", "USUARIOS_LEER"]);
+  assert.equal(canAccess(reader, "Matrícula"), true);
+  assert.equal(canAccess(reader, "Administración"), true);
+  assert.equal(canAccess(reader, "Administración", ["usuarios", "nuevo"]), false);
+  assert.equal(
+    canAccess(admin(["USUARIOS_LEER", "USUARIOS_ESCRIBIR"]), "Administración", [
+      "usuarios",
+      "nuevo",
+    ]),
+    true,
+  );
+  assert.equal(canAccess(admin([]), "Matrícula"), false);
+  assert.equal(canAccess(admin([]), "Asistencia"), true);
+  assert.equal(
+    canAccess({ ...reader, role: "DOCENTE" }, "Administración"),
+    false,
+  );
+});
+test("Cerrar sesión deja una marca para las otras pestañas sin guardar el token", () => {
+  const stored = {};
+  const listeners = [];
+  const window = {
+    localStorage: {
+      getItem: (key) => stored[key] ?? null,
+      setItem: (key, value) => {
+        stored[key] = value;
+      },
+    },
+    dispatchEvent: () => true,
+  };
+  const storage = harness(undefined, { window, Event })(
+    "src/core/auth/session-storage.ts",
+  );
+  storage.subscribeSession(() => listeners.push(storage.readSession()));
+  storage.saveSession({ accessToken: "test-token", user: {} });
+  storage.clearSession();
+  assert.equal(storage.readSession(), null);
+  assert.equal(Object.values(stored).join(" ").includes("test-token"), false);
+  assert.ok(stored["asiscontrol:session-invalidation"]);
+  assert.equal(listeners.at(-1), null);
 });

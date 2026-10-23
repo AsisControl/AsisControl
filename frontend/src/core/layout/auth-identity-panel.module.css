@@ -1,0 +1,155 @@
+/* Geometría común de las pantallas de acceso; cada flujo define su columna derecha. */
+.screen {
+  display: grid;
+  grid-template-columns: 520px minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100svh;
+}
+.screen > :global(.login-form-panel) {
+  min-height: 0;
+  min-width: 0;
+}
+.screen > :global(.login-form-panel) > :global(.login-form) {
+  max-width: 100%;
+  min-width: 0;
+}
+.panel {
+  background: #1e3a8a;
+  color: #fff;
+  font-family: Inter, Arial, sans-serif;
+  min-width: 0;
+  overflow: hidden;
+  padding: 48px;
+  position: relative;
+}
+.panelContent {
+  position: relative;
+  z-index: 1;
+}
+.panel :global(.brand) {
+  gap: 12px;
+  min-width: 0;
+}
+.panel :global(.brand-icon) {
+  background: rgb(255 255 255 / 20%);
+  border-radius: 12px;
+  flex: 0 0 40px;
+  height: 40px;
+  width: 40px;
+}
+.panel :global(.brand-icon) img {
+  height: 20px;
+  width: 20px;
+}
+.panel :global(.brand b) {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 28px;
+}
+.panel :global(.brand small) {
+  color: #8ec5ff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+.identityContent {
+  margin-top: 64px;
+}
+.identityContent h2 {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 45px;
+  margin: 0;
+}
+.identityContent p {
+  color: #bedbff;
+  font-size: 14px;
+  line-height: 22.75px;
+  margin: 16px 0 32px;
+}
+.identityContent ul {
+  color: #dbeafe;
+  display: grid;
+  font-size: 14px;
+  gap: 12px;
+  line-height: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.identityContent li {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+.identityContent li::before {
+  background: #38bdf8;
+  border-radius: 50%;
+  content: "";
+  flex: 0 0 6px;
+  height: 6px;
+  width: 6px;
+}
+.circleTop,
+.circleMiddle,
+.circleBottom {
+  background: rgb(255 255 255 / 5%);
+  border-radius: 50%;
+  pointer-events: none;
+  position: absolute;
+}
+.circleTop {
+  height: 256px;
+  left: 328px;
+  top: -64px;
+  width: 256px;
+}
+.circleMiddle {
+  height: 160px;
+  left: 392px;
+  top: 192px;
+  width: 160px;
+}
+.circleBottom {
+  bottom: -48px;
+  height: 192px;
+  left: -48px;
+  width: 192px;
+}
+/* El diseño de referencia es de escritorio; estas reglas lo adaptan a tablet y móvil. */
+@media (max-width: 1150px) {
+  .screen {
+    grid-template-columns: minmax(280px, 36.1%) minmax(0, 1fr);
+  }
+  .panel {
+    padding: 32px 24px;
+  }
+  .identityContent h2 {
+    font-size: 30px;
+    line-height: 39px;
+  }
+  .circleTop {
+    left: auto;
+    right: -64px;
+  }
+  .circleMiddle {
+    left: auto;
+    right: -32px;
+  }
+}
+@media (max-width: 760px) {
+  .screen {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .panel {
+    padding: 24px;
+  }
+  .identityContent {
+    display: none;
+  }
+  .circleTop {
+    height: 220px;
+    width: 220px;
+  }
+}

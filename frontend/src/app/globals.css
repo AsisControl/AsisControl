@@ -55,85 +55,6 @@ input {
   font-size: 12px;
   line-height: 16px;
 }
-.login-screen {
-  display: grid;
-  grid-template-columns: 36.1% 63.9%;
-  min-height: 100vh;
-}
-.login-identity {
-  background: var(--blue-2);
-  color: #fff;
-  min-height: 770px;
-  overflow: hidden;
-  padding: 48px;
-  position: relative;
-}
-.login-identity > *:not(.orb) {
-  position: relative;
-  z-index: 1;
-}
-.orb {
-  background: #ffffff0d;
-  border-radius: 50%;
-  position: absolute;
-}
-.orb-one {
-  height: 256px;
-  right: -64px;
-  top: -64px;
-  width: 256px;
-}
-.orb-two {
-  height: 160px;
-  right: -32px;
-  top: 136px;
-  width: 160px;
-}
-.orb-three {
-  bottom: -48px;
-  height: 192px;
-  left: -48px;
-  width: 192px;
-}
-.identity-content {
-  margin-top: 51px;
-}
-.identity-content h1 {
-  font-size: 36px;
-  letter-spacing: -0.7px;
-  line-height: 45px;
-  margin: 0;
-}
-.identity-content > p {
-  color: #bedbff;
-  font-size: 14px;
-  line-height: 22px;
-  margin: 16px 0 28px;
-  max-width: 424px;
-}
-.identity-content ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.identity-content li {
-  color: #dbeafe;
-  font-size: 14px;
-  line-height: 32px;
-}
-.identity-content li:before {
-  color: var(--sky);
-  content: "•";
-  font-size: 18px;
-  margin-right: 10px;
-}
-.version {
-  bottom: 48px;
-  color: #8ec5ff;
-  font-size: 12px;
-  left: 48px;
-  position: absolute;
-}
 .login-form-panel {
   align-items: center;
   display: flex;
@@ -488,12 +409,6 @@ input {
   margin: 4px 0 0;
 }
 @media (max-width: 900px) {
-  .login-screen {
-    grid-template-columns: 1fr;
-  }
-  .login-identity {
-    display: none;
-  }
   .login-form-panel {
     min-height: 100vh;
   }
@@ -877,12 +792,6 @@ select:focus-visible {
 .account-menu-info {
   color: #0f172a;
 }
-.login-identity .version {
-  position: absolute;
-  bottom: 32px;
-  left: 48px;
-  margin: 0;
-}
 input::-ms-reveal,
 input::-ms-clear {
   display: none;
@@ -955,11 +864,6 @@ fieldset {
   margin: 0;
   min-width: 0;
   border: 0;
-}
-.password-change {
-  max-width: 520px;
-  width: 100%;
-  margin: 24px;
 }
 .toolbar {
   display: flex;
@@ -1162,9 +1066,6 @@ fieldset {
   .row-actions {
     flex-wrap: wrap;
   }
-  .password-change {
-    margin: 16px;
-  }
   .account-name {
     display: block;
   }
@@ -1362,57 +1263,6 @@ fieldset {
     max-height: calc(100dvh - 24px);
   }
 }
-
-.recovery-screen {
-  min-height: 100vh;
-  display: grid;
-  place-content: center;
-  gap: 24px;
-  padding: 32px 20px;
-  background: var(--surface);
-}
-.recovery-brand {
-  text-align: center;
-  color: var(--blue);
-}
-.recovery-brand img {
-  height: 32px;
-  width: 32px;
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 8px;
-}
-.recovery-brand strong {
-  font-size: 24px;
-}
-.recovery-brand p {
-  margin-top: 8px;
-  font-size: 14px;
-}
-.recovery-card {
-  width: min(520px, 100%);
-  margin: 0 auto;
-}
-.recovery-card h1 {
-  font-size: 24px;
-  margin: 8px 0 20px;
-}
-.recovery-card fieldset {
-  display: grid;
-  gap: 16px;
-  border: 0;
-  padding: 0;
-  margin: 0;
-}
-.recovery-card form {
-  margin-top: 16px;
-}
-.recovery-card .back-link {
-  display: block;
-  margin: 24px 0 16px;
-  text-align: center;
-  color: var(--blue);
-}
 a.forgot {
   text-align: right;
   font-size: 12px;
@@ -1506,23 +1356,10 @@ a.forgot {
   line-height: 1.6;
 }
 @media (max-width: 640px) {
-  .recovery-screen {
-    padding: 20px 12px;
-  }
-  .recovery-card {
-    padding: 20px;
-  }
   .permission-matrix td {
     white-space: normal;
   }
   .role-card {
     padding: 16px;
   }
-}
-
-.recovery-brand img {
-  background: var(--blue);
-  padding: 6px;
-  border-radius: 8px;
-  box-sizing: content-box;
 }
