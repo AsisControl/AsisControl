@@ -78,10 +78,10 @@ public class CursoService {
     }
 
     private void validarCodigoUnico(String codigo, Long idActual) {
-        cursoRepository.findByCodigoIgnoreCaseAndActivoTrue(codigo.trim())
+        cursoRepository.findByCodigoIgnoreCase(codigo.trim())
                 .filter(existente -> idActual == null || !existente.getId().equals(idActual))
                 .ifPresent(existente -> {
-                    throw new ConflictException("CURSO_CODIGO_DUPLICADO", "Ya existe un curso con ese codigo");
+                    throw new ConflictException("CURSO_CODIGO_DUPLICADO", "Ya existe un curso con ese codigo , puede estar activo o no");
                 });
     }
 

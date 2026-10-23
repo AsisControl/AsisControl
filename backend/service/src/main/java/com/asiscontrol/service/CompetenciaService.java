@@ -78,11 +78,11 @@ public class CompetenciaService {
     }
 
     private void validarCodigoUnico(String codigo, Long idActual) {
-        competenciaRepository.findByCodigoIgnoreCaseAndActivoTrue(codigo.trim())
+        competenciaRepository.findByCodigoIgnoreCase(codigo.trim())
                 .filter(existente -> idActual == null || !existente.getId().equals(idActual))
                 .ifPresent(existente -> {
                     throw new ConflictException(
-                            "COMPETENCIA_CODIGO_DUPLICADO", "Ya existe una competencia con ese codigo");
+                            "COMPETENCIA_CODIGO_DUPLICADO", "El codigo ya esta registrado, incluso si la competencia esta inactiva");
                 });
     }
 
