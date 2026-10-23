@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CursoCompetenciaService {
 
+    public record ResultadoAsociacion(CursoCompetenciaResponse relacion, boolean creada) {}
+
     private final CursoCompetenciaRepository cursoCompetenciaRepository;
     private final CursoRepository cursoRepository;
     private final CompetenciaRepository competenciaRepository;
@@ -34,14 +36,24 @@ public class CursoCompetenciaService {
     }
 
     @Transactional
-    public CursoCompetenciaResponse crear(CrearCursoCompetenciaRequest request) {
-        validarUnica(request.cursoId(), request.competenciaId(), null);
-        CursoCompetencia relacion = new CursoCompetencia();
-        relacion.setCurso(buscarCurso(request.cursoId()));
-        relacion.setCompetencia(buscarCompetencia(request.competenciaId()));
+    public ResultadoAsociacion crear(CrearCursoCompetenciaRequest request) {
+        Curso curso = buscarCurso(request.cursoId());
+        Competencia competencia = buscarCompetencia(request.competenciaId());
+        var existente = cursoCompetenciaRepository
+                .findByCursoIdAndCompetenciaId(request.cursoId(), request.competenciaId());
+        if (existente.filter(CursoCompetencia::isActivo).isPresent()) {
+            throw new ConflictException(
+                    "CURSO_COMPETENCIA_DUPLICADA", "La competencia ya esta asociada al curso");
+        }
+
+        // Recuperar la misma fila conserva su identidad y fecha de creacion.
+        CursoCompetencia relacion = existente.orElseGet(CursoCompetencia::new);
+        relacion.setCurso(curso);
+        relacion.setCompetencia(competencia);
         relacion.setOrden(request.orden());
         relacion.setActivo(true);
-        return mapear(cursoCompetenciaRepository.save(relacion));
+        return new ResultadoAsociacion(
+                mapear(cursoCompetenciaRepository.saveAndFlush(relacion)), existente.isEmpty());
     }
 
     @Transactional
@@ -52,7 +64,7 @@ public class CursoCompetenciaService {
         relacion.setCurso(buscarCurso(request.cursoId()));
         relacion.setCompetencia(buscarCompetencia(request.competenciaId()));
         relacion.setOrden(request.orden());
-        return mapear(cursoCompetenciaRepository.save(relacion));
+        return mapear(cursoCompetenciaRepository.saveAndFlush(relacion));
     }
 
     public CursoCompetenciaResponse obtener(Long id) {
@@ -96,12 +108,12 @@ public class CursoCompetenciaService {
     }
 
     private void validarUnica(Long cursoId, Long competenciaId, Long idActual) {
-        cursoCompetenciaRepository.findByCursoIdAndCompetenciaIdAndActivoTrue(cursoId, competenciaId)
+        cursoCompetenciaRepository.findByCursoIdAndCompetenciaId(cursoId, competenciaId)
                 .filter(existente -> idActual == null || !existente.getId().equals(idActual))
                 .ifPresent(existente -> {
                     throw new ConflictException(
                             "CURSO_COMPETENCIA_DUPLICADA",
-                            "La competencia ya esta asociada al curso");
+                            "Ya existe una relacion entre el curso y la competencia, activa o inactiva");
                 });
     }
 

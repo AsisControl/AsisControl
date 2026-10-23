@@ -14,7 +14,7 @@ public interface CursoCompetenciaRepository extends JpaRepository<CursoCompetenc
 
     Optional<CursoCompetencia> findByIdAndActivoTrue(Long id);
 
-    Optional<CursoCompetencia> findByCursoIdAndCompetenciaIdAndActivoTrue(
+    Optional<CursoCompetencia> findByCursoIdAndCompetenciaId(
             Long cursoId,
             Long competenciaId
     );
