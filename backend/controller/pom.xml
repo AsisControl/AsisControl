@@ -11,6 +11,9 @@
     </parent>
     <artifactId>asiscontrol-controller</artifactId>
     <name>AsisControl Controller</name>
+    <properties>
+        <coverage.minimum>0.90</coverage.minimum>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>com.asiscontrol</groupId>
@@ -99,6 +102,29 @@
                         <goals>
                             <goal>report-aggregate</goal>
                         </goals>
+                        <configuration>
+                            <includeCurrentProject>true</includeCurrentProject>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>global-coverage-gate</id>
+                        <phase>verify</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>com.asiscontrol.quality.CoverageGate</mainClass>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>${project.build.directory}/site/jacoco-aggregate/jacoco.xml</argument>
+                                <argument>${coverage.minimum}</argument>
+                            </arguments>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

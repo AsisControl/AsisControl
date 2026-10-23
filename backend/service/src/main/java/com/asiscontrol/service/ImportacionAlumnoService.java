@@ -45,11 +45,16 @@ public class ImportacionAlumnoService {
     );
 
     private final PersonaService personaService;
+    private final jakarta.validation.Validator validator;
     private final AuditoriaService auditoria;
     private final DataFormatter formatter = new DataFormatter(Locale.ROOT);
 
-    public ImportacionAlumnoService(PersonaService personaService, AuditoriaService auditoria) {
+    public ImportacionAlumnoService(
+            PersonaService personaService,
+            jakarta.validation.Validator validator,
+            AuditoriaService auditoria) {
         this.personaService = personaService;
+        this.validator = validator;
         this.auditoria = auditoria;
     }
 
@@ -71,7 +76,14 @@ public class ImportacionAlumnoService {
                 }
                 total++;
                 try {
-                    personaService.createAlumno(toRequest(row, columns));
+                    var request = toRequest(row, columns);
+                    var errors = validator.validate(request);
+                    if (!errors.isEmpty()) {
+                        throw new BusinessRuleException("FILA_INVALIDA", errors.stream()
+                                .map(jakarta.validation.ConstraintViolation::getMessage)
+                                .sorted().collect(java.util.stream.Collectors.joining("; ")));
+                    }
+                    personaService.createAlumno(request);
                     imported++;
                 } catch (RuntimeException exception) {
                     issues.add(new PersonaDtos.ImportIssue(
@@ -86,6 +98,10 @@ public class ImportacionAlumnoService {
                     "ARCHIVO_NO_LEGIBLE",
                     "No fue posible leer el archivo Excel"
             );
+        } catch (org.apache.poi.EncryptedDocumentException
+                | org.apache.poi.ooxml.POIXMLException | IllegalArgumentException exception) {
+            throw new BusinessRuleException(
+                    "ARCHIVO_NO_LEGIBLE", "El archivo no es un Excel válido sin contraseña");
         }
         auditarImportacion(file, total, imported, issues);
         return new PersonaDtos.ImportResult(total, imported, total - imported, List.copyOf(issues));
@@ -250,7 +266,8 @@ public class ImportacionAlumnoService {
         String text = formatter.formatCellValue(cell).trim();
         List<DateTimeFormatter> formats = List.of(
                 DateTimeFormatter.ISO_LOCAL_DATE,
-                DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                DateTimeFormatter.ofPattern("dd/MM/uuuu")
+                        .withResolverStyle(java.time.format.ResolverStyle.STRICT)
         );
         for (DateTimeFormatter format : formats) {
             try {
@@ -281,7 +298,10 @@ public class ImportacionAlumnoService {
             return null;
         }
         try {
-            return Long.valueOf(value.replace(".0", ""));
+            if (!value.matches("[0-9]+(?:\\.0+)?")) throw new NumberFormatException();
+            long id = Long.parseLong(value.split("\\.", 2)[0]);
+            if (id < 1) throw new NumberFormatException();
+            return id;
         } catch (NumberFormatException exception) {
             throw new BusinessRuleException(
                     "NACIONALIDAD_INVALIDA",
@@ -300,6 +320,11 @@ public class ImportacionAlumnoService {
     }
 
     private String safeMessage(RuntimeException exception) {
-        return exception.getMessage() == null ? "Fila no valida" : exception.getMessage();
+        if (exception instanceof BusinessRuleException
+                || exception instanceof com.asiscontrol.exception.ConflictException
+                || exception instanceof com.asiscontrol.exception.ResourceNotFoundException) {
+            return exception.getMessage();
+        }
+        return "Fila no valida; revise los datos o consulte al administrador";
     }
 }
