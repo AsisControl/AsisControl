@@ -61,7 +61,17 @@ class AccesosPorRolIntegrationTest {
         assertThat(first.requiereCambioContrasena()).isTrue();
     }
     @Test void vinculaApoderadoConEstudianteHabilitado() {
-        var student = personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(person(key()), "EST" + key()));
+        var personaRequest = person(key());
+        // La ficha secundaria ahora exige 10–20 años; los otros perfiles conservan su fixture adulto.
+        var studentPerson = new PersonaDtos.PersonaRequest(
+                personaRequest.nombres(), personaRequest.apellidoPaterno(),
+                personaRequest.apellidoMaterno(), personaRequest.tipoDocumento(),
+                personaRequest.numeroDocumento(), personaRequest.nacionalidadId(),
+                personaRequest.sexo(),
+                LocalDate.now(java.time.ZoneId.of("America/Lima")).minusYears(14),
+                personaRequest.telefono(), personaRequest.correo(), personaRequest.direccion());
+        var student = personas.createAlumno(
+                new PersonaDtos.AlumnoCreateRequest(studentPerson, "EST" + key()));
         var guardian = service.provision(request("APODERADO", null, Set.of(student.id())));
         var profile = apoderadoRepo.findByPersonaIdAndActivoTrue(guardian.personaId()).orElseThrow();
         var link = links.findByAlumnoIdAndApoderadoIdAndActivoTrue(student.id(), profile.getId()).orElseThrow();
