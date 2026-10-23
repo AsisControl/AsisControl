@@ -13,6 +13,9 @@
     <name>AsisControl Controller</name>
     <properties>
         <coverage.minimum>0.90</coverage.minimum>
+        <!-- Con -DskipTests no hay datos nuevos de cobertura: se omiten el reporte y el umbral
+             para no evaluar un jacoco.exec antiguo. -->
+        <skipTests>false</skipTests>
     </properties>
     <dependencies>
         <dependency>
@@ -103,6 +106,7 @@
                             <goal>report-aggregate</goal>
                         </goals>
                         <configuration>
+                            <skip>${skipTests}</skip>
                             <includeCurrentProject>true</includeCurrentProject>
                         </configuration>
                     </execution>
@@ -118,6 +122,7 @@
                         <phase>verify</phase>
                         <goals><goal>java</goal></goals>
                         <configuration>
+                            <skip>${skipTests}</skip>
                             <mainClass>com.asiscontrol.quality.CoverageGate</mainClass>
                             <classpathScope>test</classpathScope>
                             <arguments>
