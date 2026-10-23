@@ -17,8 +17,11 @@ export function CourseDetailDialog({
   onEdit?: () => void;
 }) {
   return (
-    <Dialog title="Detalle del curso" onClose={onClose}>
-      <h3 className={styles.detailTitle}>{course.nombre}</h3>
+    <Dialog
+      title={course.nombre}
+      description={`Curso · ${course.codigo}`}
+      onClose={onClose}
+    >
       <dl className="detail-grid">
         <div>
           <dt>Código</dt>
@@ -30,14 +33,20 @@ export function CourseDetailDialog({
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>{course.activo ? "Activo" : "Inactivo"}</dd>
+          <dd>
+            <span
+              className={`status ${course.activo ? "status-active" : "status-inactive"}`}
+            >
+              {course.activo ? "Activo" : "Inactivo"}
+            </span>
+          </dd>
         </div>
-        <div>
+        <div className="full-field">
           <dt>Descripción</dt>
           <dd>{course.descripcion || "Sin descripción"}</dd>
         </div>
       </dl>
-      <p className={styles.sectionTitle}>Competencias asociadas</p>
+      <h4>Competencias asociadas</h4>
       {competencies === null ? (
         <p className="empty">No se pudieron consultar las competencias.</p>
       ) : competencies.length ? (

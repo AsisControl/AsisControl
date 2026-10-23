@@ -71,7 +71,9 @@ test("El detalle muestra las competencias en orden y lleva a la edición", async
   renderAcademic();
   await screen.findByText("2 competencias");
   await user.click(within(await rowOf("Matemática")).getByText("Ver detalle"));
-  const dialog = screen.getByRole("dialog", { name: "Detalle del curso" });
+  const dialog = screen.getByRole("dialog", { name: "Matemática" });
+  expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+  expect(within(dialog).getByText("Curso · MAT")).toBeTruthy();
   expect(within(dialog).getAllByRole("listitem").map((item) => item.querySelector("strong").textContent)).toEqual([
     "Resuelve problemas de forma",
     "Resuelve problemas de cantidad",
@@ -102,10 +104,11 @@ test("Crea un curso con los datos del formulario", async () => {
   await rowOf("Matemática");
   await user.click(screen.getByText("+ Nuevo curso"));
   const dialog = screen.getByRole("dialog", { name: "Nuevo curso" });
+  expect(within(dialog).getByText("Agrega un curso al plan curricular de la institución.")).toBeTruthy();
   await user.type(within(dialog).getByLabelText(/^Código/), " art ");
   await user.type(within(dialog).getByLabelText(/^Nombre del curso/), " Arte y Cultura ");
   await user.type(within(dialog).getByLabelText(/^Horas semanales/), "2");
-  await user.click(within(dialog).getByText("Confirmar"));
+  await user.click(within(dialog).getByText("Crear curso"));
   expect(await screen.findByText("Curso Arte y Cultura creado.")).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toEqual({
     codigo: "art",
@@ -133,13 +136,13 @@ test("Edita un curso enviando su versión y muestra los conflictos del backend",
   expect(name.value).toBe("Matemática");
   await user.clear(name);
   await user.type(name, "Repetido");
-  await user.click(within(dialog).getByText("Confirmar"));
+  await user.click(within(dialog).getByText("Guardar cambios"));
   expect((await within(dialog).findByRole("alert")).textContent).toBe("Ya existe un curso con ese codigo");
   await user.clear(name);
   await user.type(name, "Matemática I");
   const description = within(dialog).getByLabelText(/Descripción/);
   await user.clear(description);
-  await user.click(within(dialog).getByText("Confirmar"));
+  await user.click(within(dialog).getByText("Guardar cambios"));
   expect(await screen.findByText("Curso Matemática I actualizado.")).toBeTruthy();
   expect(calls.filter((c) => c.method === "PUT").at(-1).body).toEqual({
     codigo: "MAT",
@@ -158,7 +161,7 @@ test("Desactiva un curso desde el menú de acciones", async () => {
   await user.click(screen.getByRole("menuitem", { name: "Desactivar" }));
   const dialog = screen.getByRole("dialog", { name: "Desactivar curso" });
   expect(within(dialog).getByText(/Inglés dejará de mostrarse/)).toBeTruthy();
-  await user.click(within(dialog).getByText("Confirmar"));
+  await user.click(within(dialog).getByRole("button", { name: "Desactivar curso" }));
   expect(await screen.findByText("Curso Inglés desactivado.")).toBeTruthy();
   expect(calls.find((c) => c.method === "DELETE").path).toBe("/api/cursos/2");
 });
@@ -170,7 +173,7 @@ test("Un error al desactivar se muestra en la ventana y Cancelar la cierra", asy
   await user.click(await screen.findByLabelText("Más acciones para Matemática"));
   await user.click(screen.getByRole("menuitem", { name: "Desactivar" }));
   const dialog = screen.getByRole("dialog");
-  await user.click(within(dialog).getByText("Confirmar"));
+  await user.click(within(dialog).getByRole("button", { name: "Desactivar curso" }));
   expect((await within(dialog).findByRole("alert")).textContent).toBe(
     "El curso tiene asignaciones activas",
   );

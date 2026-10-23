@@ -258,12 +258,15 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
       {dialog?.kind === "deactivate" && (
         <FormDialog
           title="Desactivar curso"
+          description={`${dialog.course.nombre} · ${dialog.course.codigo}`}
+          submitLabel="Desactivar curso"
+          danger
           busy={busy}
           error={error}
           onClose={close}
           onSubmit={deactivate}
         >
-          <p className="full-field">
+          <p className="full-field hint">
             {dialog.course.nombre} dejará de mostrarse en el plan curricular y
             no podrá usarse en nuevas asignaciones. Su historial se conserva.
           </p>
