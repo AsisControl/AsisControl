@@ -110,7 +110,16 @@ public class EntregaTareaService {
     @Transactional
     public EntregaTareaResponse calificar(Long id, CalificarEntregaRequest request) {
         EntregaTarea entrega = obtenerEntidad(id);
+        // Antes de cualquier otra validacion, para no revelar datos de entregas ajenas.
+        accessGuard.verificarAsignacionDocente(entrega.getTarea().getAsignacionCurso());
         exigirVersion(entrega.getVersion(), request.version());
+        EstadoPublicacionTarea estadoTarea = entrega.getTarea().getEstadoPublicacion();
+        if (estadoTarea != EstadoPublicacionTarea.PUBLICADA
+                && estadoTarea != EstadoPublicacionTarea.CERRADA) {
+            throw new BusinessRuleException(
+                    "TAREA_NO_CALIFICABLE",
+                    "Solo se pueden calificar entregas de tareas publicadas o cerradas");
+        }
         if (entrega.getEstado() == EstadoTarea.ANULADO) {
             throw new BusinessRuleException("ENTREGA_ANULADA", "No se puede calificar una entrega anulada");
         }
