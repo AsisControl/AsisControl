@@ -155,6 +155,10 @@ public class AuthService {
                                                 "La cuenta ya no esta disponible"));
         com.asiscontrol.security.PasswordPolicy.validate(
                 request.newPassword(), usuario.getUsername());
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new BusinessRuleException(
+                    "CONFIRMACION_INVALIDA", "La nueva contrasena y su confirmacion no coinciden");
+        }
         if (request.currentPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
                 || !passwordEncoder.matches(
                         request.currentPassword(), usuario.getContrasenaHash())) {
@@ -186,6 +190,7 @@ public class AuthService {
     private void registerFailedAttempt(String identifier) {
         usuarioRepository
                 .findActiveByIdentifier(identifier)
+                .filter(usuario -> usuario.getEstado() == EstadoAcceso.ACTIVO)
                 .ifPresent(
                         usuario -> {
                             int attempts = usuario.getIntentosFallidos() + 1;

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Annotation profile for AsisControl Backend" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
+        </processorPath>
+        <module name="asiscontrol-service" />
+        <module name="asiscontrol-repository" />
+        <module name="asiscontrol-dto" />
+        <module name="asiscontrol-entity" />
+        <module name="asiscontrol-controller" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="asiscontrol-controller" options="-parameters" />
+      <module name="asiscontrol-dto" options="-parameters" />
+      <module name="asiscontrol-entity" options="-parameters" />
+      <module name="asiscontrol-repository" options="-parameters" />
+      <module name="asiscontrol-service" options="-parameters" />
+    </option>
+  </component>
+</project>

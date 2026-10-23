@@ -234,7 +234,8 @@ public class UsuarioService {
     }
 
     @Transactional
-    public void resetPassword(Long id, UsuarioDtos.ResetPasswordRequest request) {
+    public UsuarioDtos.ResetPasswordResponse resetPassword(
+            Long id, UsuarioDtos.ResetPasswordRequest request) {
         AccesoUsuario usuario =
                 usuarioRepository
                         .bloquear(id)
@@ -249,14 +250,19 @@ public class UsuarioService {
                 || request.motivo().isBlank())
             throw new com.asiscontrol.exception.BusinessRuleException(
                     "IDENTIDAD_REQUERIDA", "Verifique la identidad y registre el motivo");
-        com.asiscontrol.security.PasswordPolicy.validate(
-                request.temporaryPassword(), usuario.getUsername());
-        if (passwordEncoder.matches(request.temporaryPassword(), usuario.getContrasenaHash()))
-            throw new ConflictException(
-                    "CONTRASENA_REPETIDA", "Use una contraseña temporal diferente");
+        if (usuario.getEstado() != EstadoAcceso.ACTIVO
+                && usuario.getEstado() != EstadoAcceso.BLOQUEADO_TEMPORALMENTE) {
+            throw new com.asiscontrol.exception.BusinessRuleException(
+                    "ACCESO_NO_HABILITADO", "Active el acceso antes de restablecerlo");
+        }
+        String temporal;
+        do {
+            temporal = com.asiscontrol.security.GeneradorContrasenaTemporal.generar(
+                    usuario.getUsername());
+        } while (passwordEncoder.matches(temporal, usuario.getContrasenaHash()));
         usuario.setContrasenaTemporalExpira(Instant.now().plus(java.time.Duration.ofHours(24)));
         recuperaciones.revocar(id, Instant.now());
-        usuario.setContrasenaHash(passwordEncoder.encode(request.temporaryPassword()));
+        usuario.setContrasenaHash(passwordEncoder.encode(temporal));
         usuario.setRequiereCambioContrasena(true);
         usuario.setIntentosFallidos(0);
         usuario.setBloqueadoHasta(null);
@@ -274,6 +280,8 @@ public class UsuarioService {
                 request.motivo().trim(),
                 null,
                 null);
+        return new UsuarioDtos.ResetPasswordResponse(
+                usuario.getId(), temporal, usuario.getContrasenaTemporalExpira());
     }
 
     @Transactional
@@ -289,7 +297,7 @@ public class UsuarioService {
         return rolRepository.findAllByActivoTrueOrderByNombreAsc().stream()
                 .filter(
                         r ->
-                                Set.of("ADMINISTRADOR", "DOCENTE", "ALUMNO", "APODERADO")
+                                com.asiscontrol.security.RolesInstitucionales.NOMBRES
                                         .contains(r.getNombre()))
                 .map(this::toRoleResponse)
                 .toList();
@@ -383,6 +391,8 @@ public class UsuarioService {
     private Rol findActiveRole(Long id) {
         return rolRepository
                 .findByIdAndActivoTrue(id)
+                .filter(role -> com.asiscontrol.security.RolesInstitucionales.NOMBRES
+                        .contains(role.getNombre()))
                 .orElseThrow(
                         () ->
                                 new ResourceNotFoundException(

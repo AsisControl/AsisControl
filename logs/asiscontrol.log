@@ -1,0 +1,1167 @@
+2026-10-22T07:38:52.664-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 36504 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T07:38:52.671-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : No active profile set, falling back to 1 default profile: "local"
+2026-10-22T07:38:55.363-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T07:38:55.727-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 348 ms. Found 45 JPA repository interfaces.
+2026-10-22T07:38:57.838-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T07:38:57.871-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T07:38:57.871-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T07:38:58.026-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5245 ms
+2026-10-22T07:38:58.884-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T07:38:59.052-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T07:39:00.261-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T07:39:00.326-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T07:39:00.792-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:asiscontrol user=SA
+2026-10-22T07:39:00.796-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T07:39:00.970-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:h2:mem:asiscontrol]
+	Database driver: H2 JDBC Driver
+	Database dialect: H2Dialect
+	Database version: 2.4.240
+	Default catalog/schema: asiscontrol/PUBLIC
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: 100
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T07:39:04.428-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T07:39:04.771-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T07:39:04.952-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T07:39:09.081-05:00  WARN [correlationId:] 36504 --- [asiscontrol-backend] [main] com.asiscontrol.config.JwtConfig         : JWT_SECRET no fue configurado: se usara una clave temporal solo para desarrollo
+2026-10-22T07:39:11.684-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T07:39:13.421-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T07:39:13.604-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T07:39:13.626-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 22.346 seconds (process running for 24.336)
+2026-10-22T07:39:14.101-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [main] c.a.config.BootstrapDataInitializer      : No se creo administrador inicial: configure BOOTSTRAP_ADMIN_DOCUMENT, BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si lo necesita
+2026-10-22T07:39:14.124-05:00  WARN [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T07:39:14.125-05:00  WARN [correlationId:] 36504 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T07:39:14.689-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T07:39:14.689-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T07:39:14.694-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Completed initialization in 4 ms
+2026-10-22T07:39:14.773-05:00  WARN [correlationId:] 36504 --- [asiscontrol-backend] [RMI TCP Connection(5)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T07:39:59.500-05:00  WARN [correlationId:] 36504 --- [asiscontrol-backend] [RMI TCP Connection(5)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T07:42:03.506-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T07:42:03.516-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T07:42:03.536-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T07:42:03.559-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T07:42:03.562-05:00  INFO [correlationId:] 36504 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T07:49:49.196-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 38572 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T07:49:49.200-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T07:49:51.486-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T07:49:51.774-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 269 ms. Found 45 JPA repository interfaces.
+2026-10-22T07:49:53.416-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T07:49:53.450-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T07:49:53.451-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T07:49:53.564-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4285 ms
+2026-10-22T07:49:54.304-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T07:49:54.650-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@6585df70
+2026-10-22T07:49:54.654-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T07:49:54.715-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T07:49:54.814-05:00  WARN [correlationId:] 38572 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T07:49:54.908-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 2 migrations (execution time 00:00.067s)
+2026-10-22T07:49:54.929-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 1
+2026-10-22T07:49:54.954-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Migrating schema `asiscontrol_pruebas` to version "2 - formalizar planificacion"
+2026-10-22T07:49:55.706-05:00 ERROR [correlationId:] 38572 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Migration of schema `asiscontrol_pruebas` to version "2 - formalizar planificacion" failed! Please restore backups and roll back database and code!
+2026-10-22T07:49:55.744-05:00  WARN [correlationId:] 38572 --- [asiscontrol-backend] [main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Failed to execute script V2__formalizar_planificacion.sql
+---------------------------------------------------------
+SQL State  : 42S02
+Error Code : 1146
+Message    : Table 'asiscontrol_pruebas.anioacademico' doesn't exist
+Location   : db/migration/V2__formalizar_planificacion.sql (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\db\migration\V2__formalizar_planificacion.sql)
+Line       : 2
+Statement  : Run Flyway with -X option to see the actual statement causing the problem
+
+2026-10-22T07:49:55.744-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T07:49:55.755-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T07:49:55.761-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-10-22T07:49:55.786-05:00  INFO [correlationId:] 38572 --- [asiscontrol-backend] [main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-10-22T07:49:55.815-05:00 ERROR [correlationId:] 38572 --- [asiscontrol-backend] [main] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Failed to execute script V2__formalizar_planificacion.sql
+---------------------------------------------------------
+SQL State  : 42S02
+Error Code : 1146
+Message    : Table 'asiscontrol_pruebas.anioacademico' doesn't exist
+Location   : db/migration/V2__formalizar_planificacion.sql (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\db\migration\V2__formalizar_planificacion.sql)
+Line       : 2
+Statement  : Run Flyway with -X option to see the actual statement causing the problem
+
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:322) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:977) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.1.1.jar:4.1.1]
+	at com.asiscontrol.AsisControlApplication.main(AsisControlApplication.java:12) ~[classes/:na]
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Failed to execute script V2__formalizar_planificacion.sql
+---------------------------------------------------------
+SQL State  : 42S02
+Error Code : 1146
+Message    : Table 'asiscontrol_pruebas.anioacademico' doesn't exist
+Location   : db/migration/V2__formalizar_planificacion.sql (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\db\migration\V2__formalizar_planificacion.sql)
+Line       : 2
+Statement  : Run Flyway with -X option to see the actual statement causing the problem
+
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1815) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:309) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 10 common frames omitted
+Caused by: org.flywaydb.core.internal.exception.FlywayMigrateException: Failed to execute script V2__formalizar_planificacion.sql
+---------------------------------------------------------
+SQL State  : 42S02
+Error Code : 1146
+Message    : Table 'asiscontrol_pruebas.anioacademico' doesn't exist
+Location   : db/migration/V2__formalizar_planificacion.sql (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\db\migration\V2__formalizar_planificacion.sql)
+Line       : 2
+Statement  : Run Flyway with -X option to see the actual statement causing the problem
+
+	at org.flywaydb.core.internal.command.DbMigrate.doMigrateGroup(DbMigrate.java:399) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.lambda$applyMigrations$1(DbMigrate.java:283) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.jdbc.TransactionalExecutionTemplate.execute(TransactionalExecutionTemplate.java:59) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.applyMigrations(DbMigrate.java:282) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.migrateGroup(DbMigrate.java:255) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.lambda$migrateAll$0(DbMigrate.java:153) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.database.mysql.MySQLNamedLockTemplate.execute(MySQLNamedLockTemplate.java:62) ~[flyway-mysql-12.4.0.jar:na]
+	at org.flywaydb.database.mysql.MySQLConnection.lock(MySQLConnection.java:159) ~[flyway-mysql-12.4.0.jar:na]
+	at org.flywaydb.core.internal.schemahistory.JdbcTableSchemaHistory.lock(JdbcTableSchemaHistory.java:165) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.migrateAll(DbMigrate.java:153) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.migrate(DbMigrate.java:104) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.Flyway.lambda$migrate$3(Flyway.java:231) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:236) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:120) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.Flyway.migrate(Flyway.java:181) ~[flyway-core-12.4.0.jar:na]
+	at org.springframework.boot.flyway.autoconfigure.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:67) ~[spring-boot-flyway-4.1.1.jar:4.1.1]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1862) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1811) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 17 common frames omitted
+Caused by: org.flywaydb.core.internal.sqlscript.FlywaySqlScriptException: Failed to execute script V2__formalizar_planificacion.sql
+---------------------------------------------------------
+SQL State  : 42S02
+Error Code : 1146
+Message    : Table 'asiscontrol_pruebas.anioacademico' doesn't exist
+Location   : db/migration/V2__formalizar_planificacion.sql (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\db\migration\V2__formalizar_planificacion.sql)
+Line       : 2
+Statement  : Run Flyway with -X option to see the actual statement causing the problem
+
+	at org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor.handleException(DefaultSqlScriptExecutor.java:251) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor.executeStatement(DefaultSqlScriptExecutor.java:212) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor.execute(DefaultSqlScriptExecutor.java:134) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.resolver.sql.SqlMigrationExecutor.executeOnce(SqlMigrationExecutor.java:75) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.resolver.sql.SqlMigrationExecutor.lambda$execute$0(SqlMigrationExecutor.java:66) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.database.DefaultExecutionStrategy.execute(DefaultExecutionStrategy.java:31) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.resolver.sql.SqlMigrationExecutor.execute(SqlMigrationExecutor.java:65) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.command.DbMigrate.doMigrateGroup(DbMigrate.java:391) ~[flyway-core-12.4.0.jar:na]
+	... 34 common frames omitted
+Caused by: java.sql.SQLSyntaxErrorException: Table 'asiscontrol_pruebas.anioacademico' doesn't exist
+	at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:112) ~[mysql-connector-j-9.7.0.jar:9.7.0]
+	at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:114) ~[mysql-connector-j-9.7.0.jar:9.7.0]
+	at com.mysql.cj.jdbc.StatementImpl.executeInternal(StatementImpl.java:839) ~[mysql-connector-j-9.7.0.jar:9.7.0]
+	at com.mysql.cj.jdbc.StatementImpl.execute(StatementImpl.java:687) ~[mysql-connector-j-9.7.0.jar:9.7.0]
+	at com.zaxxer.hikari.pool.ProxyStatement.execute(ProxyStatement.java:95) ~[HikariCP-7.0.2.jar:na]
+	at com.zaxxer.hikari.pool.HikariProxyStatement.execute(HikariProxyStatement.java) ~[HikariCP-7.0.2.jar:na]
+	at org.flywaydb.core.internal.jdbc.JdbcTemplate.executeStatement(JdbcTemplate.java:229) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.sqlscript.ParsedSqlStatement.execute(ParsedSqlStatement.java:88) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor.executeStatement(DefaultSqlScriptExecutor.java:207) ~[flyway-core-12.4.0.jar:na]
+	... 40 common frames omitted
+
+2026-10-22T08:11:52.644-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 37252 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T08:11:52.649-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T08:11:55.184-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T08:11:55.539-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 335 ms. Found 45 JPA repository interfaces.
+2026-10-22T08:11:57.496-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T08:11:57.530-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T08:11:57.530-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T08:11:57.651-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4924 ms
+2026-10-22T08:11:58.489-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T08:11:58.822-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@58a8ea6f
+2026-10-22T08:11:58.825-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T08:11:58.886-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T08:11:58.948-05:00  WARN [correlationId:] 37252 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T08:11:59.058-05:00  WARN [correlationId:] 37252 --- [asiscontrol-backend] [main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+2026-10-22T08:11:59.059-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T08:11:59.074-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T08:11:59.080-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-10-22T08:11:59.116-05:00  INFO [correlationId:] 37252 --- [asiscontrol-backend] [main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-10-22T08:11:59.149-05:00 ERROR [correlationId:] 37252 --- [asiscontrol-backend] [main] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:322) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:977) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.1.1.jar:4.1.1]
+	at com.asiscontrol.AsisControlApplication.main(AsisControlApplication.java:12) ~[classes/:na]
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1815) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:309) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 10 common frames omitted
+Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+	at org.flywaydb.core.Flyway.lambda$migrate$3(Flyway.java:187) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:236) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:120) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.Flyway.migrate(Flyway.java:181) ~[flyway-core-12.4.0.jar:na]
+	at org.springframework.boot.flyway.autoconfigure.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:67) ~[spring-boot-flyway-4.1.1.jar:4.1.1]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1862) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1811) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 17 common frames omitted
+
+2026-10-22T08:12:22.160-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 13516 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T08:12:22.165-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T08:12:24.212-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T08:12:24.473-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 246 ms. Found 45 JPA repository interfaces.
+2026-10-22T08:12:25.845-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T08:12:25.871-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T08:12:25.872-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T08:12:25.974-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3714 ms
+2026-10-22T08:12:26.669-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T08:12:26.931-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@55e5415d
+2026-10-22T08:12:26.935-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T08:12:26.987-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T08:12:27.031-05:00  WARN [correlationId:] 13516 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T08:12:27.121-05:00  WARN [correlationId:] 13516 --- [asiscontrol-backend] [main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+2026-10-22T08:12:27.122-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T08:12:27.132-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T08:12:27.138-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-10-22T08:12:27.165-05:00  INFO [correlationId:] 13516 --- [asiscontrol-backend] [main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-10-22T08:12:27.197-05:00 ERROR [correlationId:] 13516 --- [asiscontrol-backend] [main] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/hibernate/autoconfigure/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:322) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:977) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.1.1.jar:4.1.1]
+	at com.asiscontrol.AsisControlApplication.main(AsisControlApplication.java:12) ~[classes/:na]
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/flyway/autoconfigure/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1815) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:603) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:309) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 10 common frames omitted
+Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+Detected failed migration to version 2 (formalizar planificacion).
+Please remove any half-completed changes then run repair to fix the schema history.
+Detected resolved migration not applied to database: 1.1.
+To ignore this migration, set -ignoreMigrationPatterns='*:ignored'. To allow executing this migration, set -outOfOrder=true.
+Need more flexibility with validation rules? Learn more: https://help.red-gate.com/help/flyway-cli12/help_4.aspx?topic=flyway-blog/older-posts/customize-validation-rules-with-ignoremigrationpatterns
+	at org.flywaydb.core.Flyway.lambda$migrate$3(Flyway.java:187) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:236) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:120) ~[flyway-core-12.4.0.jar:na]
+	at org.flywaydb.core.Flyway.migrate(Flyway.java:181) ~[flyway-core-12.4.0.jar:na]
+	at org.springframework.boot.flyway.autoconfigure.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:67) ~[spring-boot-flyway-4.1.1.jar:4.1.1]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1862) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1811) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 17 common frames omitted
+
+2026-10-22T08:13:18.567-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 42412 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T08:13:18.573-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T08:13:20.593-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T08:13:20.880-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 274 ms. Found 45 JPA repository interfaces.
+2026-10-22T08:13:22.259-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T08:13:22.284-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T08:13:22.284-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T08:13:22.380-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3719 ms
+2026-10-22T08:13:23.073-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T08:13:23.336-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@b4d83ac
+2026-10-22T08:13:23.339-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T08:13:23.396-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T08:13:23.442-05:00  WARN [correlationId:] 42412 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T08:13:23.517-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.049s)
+2026-10-22T08:13:23.539-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 1
+2026-10-22T08:13:23.588-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Migrating schema `asiscontrol_pruebas` to version "1.1 - completar esquema"
+2026-10-22T08:13:24.430-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Migrating schema `asiscontrol_pruebas` to version "2 - formalizar planificacion"
+2026-10-22T08:13:24.497-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Successfully applied 2 migrations to schema `asiscontrol_pruebas`, now at version v2 (execution time 00:00.854s)
+2026-10-22T08:13:24.685-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T08:13:24.811-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T08:13:25.711-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T08:13:25.885-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T08:13:29.024-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T08:13:29.123-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T08:13:29.281-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T08:13:33.633-05:00  WARN [correlationId:] 42412 --- [asiscontrol-backend] [main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'authController' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\com\asiscontrol\controller\AuthController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'authService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\service\AuthService.class]: Unsatisfied dependency expressed through constructor parameter 3: Error creating bean with name 'jwtService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\security\JwtService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'jwtEncoder' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Unsatisfied dependency expressed through method 'jwtEncoder' parameter 0: Error creating bean with name 'jwtSecretKey' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+2026-10-22T08:13:33.636-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T08:13:33.641-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T08:13:33.652-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T08:13:33.656-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-10-22T08:13:33.680-05:00  INFO [correlationId:] 42412 --- [asiscontrol-backend] [main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-10-22T08:13:33.709-05:00 ERROR [correlationId:] 42412 --- [asiscontrol-backend] [main] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'authController' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes\com\asiscontrol\controller\AuthController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'authService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\service\AuthService.class]: Unsatisfied dependency expressed through constructor parameter 3: Error creating bean with name 'jwtService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\security\JwtService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'jwtEncoder' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Unsatisfied dependency expressed through method 'jwtEncoder' parameter 0: Error creating bean with name 'jwtSecretKey' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1380) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1219) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:196) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1225) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1191) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1121) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:994) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:621) ~[spring-context-7.0.9.jar:7.0.9]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143) ~[spring-boot-web-server-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365) ~[spring-boot-4.1.1.jar:4.1.1]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354) ~[spring-boot-4.1.1.jar:4.1.1]
+	at com.asiscontrol.AsisControlApplication.main(AsisControlApplication.java:12) ~[classes/:na]
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'authService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\service\AuthService.class]: Unsatisfied dependency expressed through constructor parameter 3: Error creating bean with name 'jwtService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\security\JwtService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'jwtEncoder' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Unsatisfied dependency expressed through method 'jwtEncoder' parameter 0: Error creating bean with name 'jwtSecretKey' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1380) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1219) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1232) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1711) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1658) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 21 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'jwtService' defined in file [C:\Users\alepr\proyectosUni\AsisControl\backend\service\target\classes\com\asiscontrol\security\JwtService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'jwtEncoder' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Unsatisfied dependency expressed through method 'jwtEncoder' parameter 0: Error creating bean with name 'jwtSecretKey' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.autowireConstructor(ConstructorResolver.java:240) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireConstructor(AbstractAutowireCapableBeanFactory.java:1380) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1219) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1232) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1711) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1658) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 35 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'jwtEncoder' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Unsatisfied dependency expressed through method 'jwtEncoder' parameter 0: Error creating bean with name 'jwtSecretKey' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:804) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:546) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1360) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1192) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1232) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1711) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1658) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 49 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'jwtSecretKey' defined in class path resource [com/asiscontrol/config/JwtConfig.class]: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:657) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:645) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1360) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1192) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:565) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:525) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:333) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:371) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:331) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:201) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveBean(DefaultListableBeanFactory.java:1232) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1711) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1658) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:912) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:791) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 63 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [javax.crypto.SecretKey]: Factory method 'jwtSecretKey' threw exception with message: JWT_SECRET es obligatorio para este perfil
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.lambda$instantiate$0(SimpleInstantiationStrategy.java:183) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiateWithFactoryMethod(SimpleInstantiationStrategy.java:72) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:152) ~[spring-beans-7.0.9.jar:7.0.9]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:653) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 77 common frames omitted
+Caused by: java.lang.IllegalStateException: JWT_SECRET es obligatorio para este perfil
+	at com.asiscontrol.config.JwtConfig.jwtSecretKey(JwtConfig.java:40) ~[classes/:na]
+	at com.asiscontrol.config.JwtConfig$$SpringCGLIB$$0.CGLIB$jwtSecretKey$2(<generated>) ~[classes/:na]
+	at com.asiscontrol.config.JwtConfig$$SpringCGLIB$$FastClass$$1.invoke(<generated>) ~[classes/:na]
+	at org.springframework.cglib.proxy.MethodProxy.invokeSuper(MethodProxy.java:258) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.context.annotation.ConfigurationClassEnhancer$BeanMethodInterceptor.intercept(ConfigurationClassEnhancer.java:398) ~[spring-context-7.0.9.jar:7.0.9]
+	at com.asiscontrol.config.JwtConfig$$SpringCGLIB$$0.jwtSecretKey(<generated>) ~[classes/:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.lambda$instantiate$0(SimpleInstantiationStrategy.java:155) ~[spring-beans-7.0.9.jar:7.0.9]
+	... 80 common frames omitted
+
+2026-10-22T08:15:48.687-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 22980 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T08:15:48.696-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T08:15:51.531-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T08:15:51.843-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 296 ms. Found 45 JPA repository interfaces.
+2026-10-22T08:15:53.851-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T08:15:53.883-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T08:15:53.883-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T08:15:53.997-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5220 ms
+2026-10-22T08:15:54.797-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T08:15:55.098-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@be1c08a
+2026-10-22T08:15:55.101-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T08:15:55.161-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T08:15:55.209-05:00  WARN [correlationId:] 22980 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T08:15:55.299-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.056s)
+2026-10-22T08:15:55.321-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 2
+2026-10-22T08:15:55.327-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Schema `asiscontrol_pruebas` is up to date. No migration necessary.
+2026-10-22T08:15:55.548-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T08:15:55.675-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T08:15:56.698-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T08:15:56.868-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T08:16:00.302-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T08:16:00.420-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T08:16:00.612-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T08:16:07.836-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T08:16:09.745-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T08:16:09.919-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T08:16:09.940-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 22.384 seconds (process running for 23.817)
+2026-10-22T08:16:10.493-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [main] c.a.config.BootstrapDataInitializer      : No se creo administrador inicial: configure BOOTSTRAP_ADMIN_DOCUMENT, BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si lo necesita
+2026-10-22T08:16:10.553-05:00  WARN [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T08:16:10.553-05:00  WARN [correlationId:] 22980 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T08:16:11.004-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T08:16:11.005-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T08:16:11.008-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
+2026-10-22T08:16:11.096-05:00  WARN [correlationId:] 22980 --- [asiscontrol-backend] [RMI TCP Connection(3)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T08:16:44.336-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T08:16:44.345-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T08:16:44.367-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T08:16:44.371-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T08:16:44.382-05:00  INFO [correlationId:] 22980 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T11:00:48.715-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 10732 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T11:00:48.719-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T11:00:51.863-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T11:00:52.389-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 503 ms. Found 45 JPA repository interfaces.
+2026-10-22T11:00:55.137-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T11:00:55.199-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T11:00:55.205-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T11:00:55.433-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 6642 ms
+2026-10-22T11:00:57.175-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T11:00:57.820-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@3b77940f
+2026-10-22T11:00:57.854-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T11:00:58.062-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T11:00:58.364-05:00  WARN [correlationId:] 10732 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T11:00:58.709-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.219s)
+2026-10-22T11:00:58.751-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 2
+2026-10-22T11:00:58.768-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Schema `asiscontrol_pruebas` is up to date. No migration necessary.
+2026-10-22T11:00:59.187-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T11:00:59.414-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T11:01:01.275-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T11:01:01.682-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T11:01:11.751-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T11:01:12.082-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T11:01:12.561-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T11:01:32.618-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T11:01:39.492-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T11:01:40.071-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T11:01:40.116-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 52.299 seconds (process running for 53.753)
+2026-10-22T11:01:41.307-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [main] c.a.config.BootstrapDataInitializer      : No se creo administrador inicial: configure BOOTSTRAP_ADMIN_DOCUMENT, BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si lo necesita
+2026-10-22T11:01:41.335-05:00  WARN [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T11:01:41.336-05:00  WARN [correlationId:] 10732 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T11:01:41.675-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T11:01:41.676-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T11:01:41.684-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [RMI TCP Connection(1)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Completed initialization in 7 ms
+2026-10-22T11:01:41.828-05:00  WARN [correlationId:] 10732 --- [asiscontrol-backend] [RMI TCP Connection(3)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T11:13:06.460-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T11:13:06.481-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T11:13:06.521-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T11:13:06.534-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T11:13:06.538-05:00  INFO [correlationId:] 10732 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T11:13:14.032-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 20120 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T11:13:14.041-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T11:13:17.254-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T11:13:17.699-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 420 ms. Found 45 JPA repository interfaces.
+2026-10-22T11:13:19.836-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T11:13:19.875-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T11:13:19.876-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T11:13:20.012-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5859 ms
+2026-10-22T11:13:20.985-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T11:13:21.342-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@be1c08a
+2026-10-22T11:13:21.346-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T11:13:21.417-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T11:13:21.492-05:00  WARN [correlationId:] 20120 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T11:13:21.604-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.079s)
+2026-10-22T11:13:21.626-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 2
+2026-10-22T11:13:21.634-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Schema `asiscontrol_pruebas` is up to date. No migration necessary.
+2026-10-22T11:13:22.030-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T11:13:22.215-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T11:13:23.460-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T11:13:23.675-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T11:13:27.651-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T11:13:27.774-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T11:13:27.985-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T11:13:36.478-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T11:13:38.608-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T11:13:38.800-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T11:13:38.832-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 25.799 seconds (process running for 27.209)
+2026-10-22T11:13:40.206-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [main] c.a.config.BootstrapDataInitializer      : Administrador inicial creado; debe cambiar su contrasena en el primer acceso
+2026-10-22T11:13:40.219-05:00  WARN [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T11:13:40.220-05:00  WARN [correlationId:] 20120 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T11:13:40.448-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [http-nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T11:13:40.449-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T11:13:40.455-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 6 ms
+2026-10-22T11:13:40.587-05:00  WARN [correlationId:] 20120 --- [asiscontrol-backend] [RMI TCP Connection(3)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T11:16:01.050-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T11:16:01.058-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T11:16:01.080-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T11:16:01.083-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T11:16:01.093-05:00  INFO [correlationId:] 20120 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T11:16:46.766-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 16992 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T11:16:46.772-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T11:16:49.806-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T11:16:50.118-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 291 ms. Found 45 JPA repository interfaces.
+2026-10-22T11:16:51.888-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T11:16:51.923-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T11:16:51.924-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T11:16:52.052-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5189 ms
+2026-10-22T11:16:53.462-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T11:16:53.812-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@72585e83
+2026-10-22T11:16:53.816-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T11:16:53.887-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T11:16:53.944-05:00  WARN [correlationId:] 16992 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T11:16:54.044-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 3 migrations (execution time 00:00.070s)
+2026-10-22T11:16:54.083-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 2
+2026-10-22T11:16:54.090-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Schema `asiscontrol_pruebas` is up to date. No migration necessary.
+2026-10-22T11:16:54.340-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T11:16:54.499-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T11:16:55.634-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T11:16:55.853-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T11:16:59.903-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T11:17:00.044-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T11:17:00.259-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T11:17:09.191-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T11:17:11.632-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T11:17:11.879-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T11:17:11.913-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 26.263 seconds (process running for 27.455)
+2026-10-22T11:17:12.756-05:00  WARN [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T11:17:12.757-05:00  WARN [correlationId:] 16992 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T11:17:12.958-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [RMI TCP Connection(4)-192.168.18.115] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T11:17:12.959-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [RMI TCP Connection(4)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T11:17:12.964-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [RMI TCP Connection(4)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+2026-10-22T11:17:13.087-05:00  WARN [correlationId:] 16992 --- [asiscontrol-backend] [RMI TCP Connection(3)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T11:24:43.368-05:00  WARN [correlationId:fa95e17d-c619-4964-a445-de4d3855f7fd] 16992 --- [asiscontrol-backend] [http-nio-8080-exec-4] ration$PageModule$WarningLoggingModifier : Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
+	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
+
+2026-10-22T11:27:53.759-05:00 ERROR [correlationId:8a6bd4d6-c957-49ca-ac3b-7531ff886e49] 16992 --- [asiscontrol-backend] [http-nio-8080-exec-4] c.a.exception.GlobalExceptionHandler     : Error no controlado (NoResourceFoundException)
+2026-10-22T11:27:53.761-05:00 ERROR [correlationId:e8d31dc7-d7ea-4e4f-856b-94f514f47f16] 16992 --- [asiscontrol-backend] [http-nio-8080-exec-7] c.a.exception.GlobalExceptionHandler     : Error no controlado (NoResourceFoundException)
+2026-10-22T11:27:53.768-05:00 ERROR [correlationId:aae4f3c8-1f23-44c3-852c-6eb114c80538] 16992 --- [asiscontrol-backend] [http-nio-8080-exec-3] c.a.exception.GlobalExceptionHandler     : Error no controlado (NoResourceFoundException)
+2026-10-22T11:27:53.768-05:00 ERROR [correlationId:9398ff7f-b987-4362-9f64-4fb2e68ffb1c] 16992 --- [asiscontrol-backend] [http-nio-8080-exec-6] c.a.exception.GlobalExceptionHandler     : Error no controlado (NoResourceFoundException)
+2026-10-22T15:16:21.021-05:00  WARN [correlationId:] 16992 --- [asiscontrol-backend] [HikariPool-1:housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3h35m56s713ms124µs100ns).
+2026-10-22T17:17:16.428-05:00  WARN [correlationId:] 16992 --- [asiscontrol-backend] [HikariPool-1:housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=2h57s189ms384µs400ns).
+2026-10-22T17:24:30.018-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T17:24:30.036-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T17:24:30.152-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T17:24:30.169-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T17:24:30.173-05:00  INFO [correlationId:] 16992 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T18:12:17.009-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 21112 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T18:12:17.016-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T18:12:19.371-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T18:12:19.682-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 297 ms. Found 46 JPA repository interfaces.
+2026-10-22T18:12:21.327-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T18:12:21.363-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T18:12:21.363-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T18:12:21.483-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4360 ms
+2026-10-22T18:12:22.393-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T18:12:22.752-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@6c9e74f3
+2026-10-22T18:12:22.756-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T18:12:22.836-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T18:12:22.915-05:00  WARN [correlationId:] 21112 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T18:12:23.024-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 4 migrations (execution time 00:00.072s)
+2026-10-22T18:12:23.044-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 3
+2026-10-22T18:12:23.050-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Schema `asiscontrol_pruebas` is up to date. No migration necessary.
+2026-10-22T18:12:23.236-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T18:12:23.368-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T18:12:24.320-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T18:12:24.496-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T18:12:27.674-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T18:12:27.779-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T18:12:27.936-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T18:12:34.916-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T18:12:36.906-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T18:12:37.067-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T18:12:37.088-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 21.1 seconds (process running for 22.876)
+2026-10-22T18:12:37.643-05:00  WARN [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T18:12:37.644-05:00  WARN [correlationId:] 21112 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T18:12:37.962-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [RMI TCP Connection(5)-192.168.18.115] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T18:12:37.962-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [RMI TCP Connection(5)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T18:12:37.968-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [RMI TCP Connection(5)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+2026-10-22T18:12:38.046-05:00  WARN [correlationId:] 21112 --- [asiscontrol-backend] [RMI TCP Connection(2)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T18:14:58.149-05:00  WARN [correlationId:9230a158-fbc7-4189-be06-d2360a944d12] 21112 --- [asiscontrol-backend] [http-nio-8080-exec-10] ration$PageModule$WarningLoggingModifier : Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!
+	For a stable JSON structure, please use Spring Data's PagedModel (globally via @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO))
+	or Spring HATEOAS and Spring Data's PagedResourcesAssembler as documented in https://docs.spring.io/spring-data/commons/reference/repositories/core-extensions.html#core.web.pageables.
+
+2026-10-22T18:19:36.556-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T18:19:36.564-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T18:19:36.589-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T18:19:36.595-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T18:19:36.606-05:00  INFO [correlationId:] 21112 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-10-22T19:12:30.834-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Starting AsisControlApplication using Java 21.0.12.1 with PID 27484 (C:\Users\alepr\proyectosUni\AsisControl\backend\controller\target\classes started by alepr in C:\Users\alepr\proyectosUni\AsisControl)
+2026-10-22T19:12:30.840-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : The following 1 profile is active: "mysql"
+2026-10-22T19:12:33.390-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-10-22T19:12:33.692-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 285 ms. Found 46 JPA repository interfaces.
+2026-10-22T19:12:35.285-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-10-22T19:12:35.327-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-10-22T19:12:35.328-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-10-22T19:12:35.468-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4554 ms
+2026-10-22T19:12:36.246-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-10-22T19:12:36.554-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@40cb95c1
+2026-10-22T19:12:36.557-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-10-22T19:12:36.616-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true (MySQL 26.10)
+2026-10-22T19:12:36.673-05:00  WARN [correlationId:] 27484 --- [asiscontrol-backend] [main] o.f.c.internal.database.base.Database    : Using MySQL 26.10 which is newer than the version Flyway has been verified with. The latest verified version of MySQL is 9.4.
+2026-10-22T19:12:36.764-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbValidate     : Successfully validated 4 migrations (execution time 00:00.066s)
+2026-10-22T19:12:36.787-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Current version of schema `asiscontrol_pruebas`: 3
+2026-10-22T19:12:36.794-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.f.core.internal.command.DbMigrate      : Schema `asiscontrol_pruebas` is up to date. No migration necessary.
+2026-10-22T19:12:37.009-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-10-22T19:12:37.136-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-10-22T19:12:38.122-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-10-22T19:12:38.301-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/asiscontrol_pruebas?useSSL=false&serverTimezone=America/Lima&allowPublicKeyRetrieval=true]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 26.10
+	Default catalog/schema: asiscontrol_pruebas/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-10-22T19:12:41.939-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-10-22T19:12:42.041-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T19:12:42.195-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-10-22T19:12:48.755-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name accessUserDetailsService
+2026-10-22T19:12:50.479-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 3 endpoints beneath base path '/actuator'
+2026-10-22T19:12:50.629-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-10-22T19:12:50.653-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [main] com.asiscontrol.AsisControlApplication   : Started AsisControlApplication in 20.715 seconds (process running for 22.149)
+2026-10-22T19:12:51.245-05:00  WARN [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-10-22T19:12:51.245-05:00  WARN [correlationId:] 27484 --- [asiscontrol-backend] [main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-10-22T19:12:51.787-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [RMI TCP Connection(2)-192.168.18.115] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-10-22T19:12:51.788-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [RMI TCP Connection(2)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-10-22T19:12:51.793-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [RMI TCP Connection(2)-192.168.18.115] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+2026-10-22T19:12:51.881-05:00  WARN [correlationId:] 27484 --- [asiscontrol-backend] [RMI TCP Connection(5)-192.168.18.115] o.s.b.mail.health.MailHealthIndicator    : Mail health check failed
+
+jakarta.mail.AuthenticationFailedException: failed to connect, no password specified?
+	at jakarta.mail.Service.connect(Service.java:379) ~[jakarta.mail-api-2.1.5.jar:na]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.connectTransport(JavaMailSenderImpl.java:467) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.mail.javamail.JavaMailSenderImpl.testConnection(JavaMailSenderImpl.java:347) ~[spring-context-support-7.0.9.jar:7.0.9]
+	at org.springframework.boot.mail.health.MailHealthIndicator.doHealthCheck(MailHealthIndicator.java:52) ~[spring-boot-mail-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.AbstractHealthIndicator.health(AbstractHealthIndicator.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.contributor.HealthIndicator.health(HealthIndicator.java:37) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:148) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.Contributor$Blocking.getDescriptor(Contributor.java:126) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptorAndLogIfSlow(HealthEndpointSupport.java:172) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:145) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getAggregateDescriptor(HealthEndpointSupport.java:157) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getDescriptor(HealthEndpointSupport.java:141) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:110) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpointSupport.getResult(HealthEndpointSupport.java:82) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:80) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at org.springframework.boot.health.actuate.endpoint.HealthEndpoint.health(HealthEndpoint.java:70) ~[spring-boot-health-4.1.1.jar:4.1.1]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:281) ~[spring-core-7.0.9.jar:7.0.9]
+	at org.springframework.boot.actuate.endpoint.invoke.reflect.ReflectiveOperationInvoker.invoke(ReflectiveOperationInvoker.java:76) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.annotation.AbstractDiscoveredOperation.invoke(AbstractDiscoveredOperation.java:62) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:127) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at org.springframework.boot.actuate.endpoint.jmx.EndpointMBean.invoke(EndpointMBean.java:99) ~[spring-boot-actuator-4.1.1.jar:4.1.1]
+	at java.management/com.sun.jmx.interceptor.DefaultMBeanServerInterceptor.invoke(DefaultMBeanServerInterceptor.java:803) ~[na:na]
+	at java.management/com.sun.jmx.mbeanserver.JmxMBeanServer.invoke(JmxMBeanServer.java:802) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doOperation(RMIConnectionImpl.java:1472) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl$PrivilegedOperation.run(RMIConnectionImpl.java:1310) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.doPrivilegedOperation(RMIConnectionImpl.java:1405) ~[na:na]
+	at java.management.rmi/javax.management.remote.rmi.RMIConnectionImpl.invoke(RMIConnectionImpl.java:829) ~[na:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714) ~[na:na]
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:598) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:844) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:721) ~[na:na]
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400) ~[na:na]
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:720) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+2026-10-22T19:20:44.016-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-10-22T19:20:44.029-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-10-22T19:20:44.061-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-10-22T19:20:44.070-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-10-22T19:20:44.082-05:00  INFO [correlationId:] 27484 --- [asiscontrol-backend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.

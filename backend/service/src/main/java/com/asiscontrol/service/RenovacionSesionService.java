@@ -65,7 +65,7 @@ public class RenovacionSesionService {
                 || !sesion.getUltimaActividad().isAfter(now.minus(Duration.ofMinutes(30)))
                 || !usuario.isActivo() || usuario.getEstado() != EstadoAcceso.ACTIVO
                 || !usuario.getPersona().isActivo() || !usuario.getRol().isActivo()
-                || !principal.isCredentialsNonExpired()) {
+                || !principal.isEnabled() || !principal.isCredentialsNonExpired()) {
             revocar(sesion);
             throw invalid();
         }

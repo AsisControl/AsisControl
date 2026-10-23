@@ -47,6 +47,7 @@ public class BootstrapDataInitializer implements ApplicationRunner {
     private final AdministradorRepository administradorRepository;
     private final AccesoUsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.asiscontrol.repository.SesionAccesoRepository sesionRepository;
     private final String adminDocument;
     private final String adminEmail;
     private final String adminPassword;
@@ -61,6 +62,7 @@ public class BootstrapDataInitializer implements ApplicationRunner {
             AdministradorRepository administradorRepository,
             AccesoUsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
+            com.asiscontrol.repository.SesionAccesoRepository sesionRepository,
             @Value("${app.bootstrap.admin-document:}") String adminDocument,
             @Value("${app.bootstrap.admin-email:}") String adminEmail,
             @Value("${app.bootstrap.admin-password:}") String adminPassword,
@@ -74,6 +76,7 @@ public class BootstrapDataInitializer implements ApplicationRunner {
         this.administradorRepository = administradorRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.sesionRepository = sesionRepository;
         this.adminDocument = adminDocument;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
@@ -139,14 +142,6 @@ public class BootstrapDataInitializer implements ApplicationRunner {
 
     private void initializeRoles(Map<String, Permiso> permissions) {
         createOrUpdateRole("ADMINISTRADOR", "Acceso total al sistema", permissions.keySet(), permissions);
-        createOrUpdateRole("DIRECTOR", "Supervision academica y administrativa", Set.of(
-                "ACADEMICO_LEER", "MATRICULA_LEER", "ASISTENCIA_LEER", "TAREAS_LEER",
-                "CALIFICACIONES_LEER", "PAGOS_LEER", "RIESGOS_LEER", "AUDITORIA_LEER"
-        ), permissions);
-        createOrUpdateRole("SECRETARIA", "Gestion de personas y matriculas", Set.of(
-                "USUARIOS_LEER", "ACADEMICO_LEER", "MATRICULA_LEER", "MATRICULA_ESCRIBIR",
-                "ASISTENCIA_LEER", "PAGOS_LEER", "ARCHIVOS_ESCRIBIR", "SOLICITUDES_ESCRIBIR"
-        ), permissions);
         createOrUpdateRole("DOCENTE", "Gestion pedagogica y asistencia", Set.of(
                 "ACADEMICO_LEER", "ASISTENCIA_LEER", "ASISTENCIA_ESCRIBIR", "TAREAS_LEER",
                 "TAREAS_ESCRIBIR", "CALIFICACIONES_LEER", "CALIFICACIONES_ESCRIBIR",
@@ -160,9 +155,14 @@ public class BootstrapDataInitializer implements ApplicationRunner {
                 "MATRICULA_LEER", "ASISTENCIA_LEER", "TAREAS_LEER", "CALIFICACIONES_LEER",
                 "PAGOS_LEER", "ARCHIVOS_ESCRIBIR", "SOLICITUDES_ESCRIBIR"
         ), permissions);
-        createOrUpdateRole("TESORERIA", "Gestion de compromisos y pagos", Set.of(
-                "PAGOS_LEER", "PAGOS_ESCRIBIR", "MATRICULA_LEER", "AUDITORIA_LEER"
-        ), permissions);
+        // Se conserva el historial de roles antiguos, pero se invalidan sus sesiones.
+        for (Rol role : rolRepository.findAllByActivoTrueOrderByNombreAsc()) {
+            if (!com.asiscontrol.security.RolesInstitucionales.NOMBRES.contains(role.getNombre())) {
+                role.setActivo(false);
+                rolRepository.save(role);
+                sesionRepository.revocarPorRol(role.getId(), java.time.Instant.now());
+            }
+        }
     }
 
     private void createOrUpdateRole(

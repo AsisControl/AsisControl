@@ -22,7 +22,7 @@ public class AccessUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = org.springframework.security.core.AuthenticationException.class)
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
         AccesoUsuario usuario =
                 usuarioRepository

@@ -142,13 +142,13 @@ class RenovacionSesionIntegrationTest {
         Jwt jwt = Jwt.withTokenValue(c.response().accessToken()).header("alg", "HS256")
                 .subject(user.username()).build();
         auth.changePassword(jwt,
-                new AuthDtos.ChangePasswordRequest("Temporal123!", "OtraSegura456!"));
+                new AuthDtos.ChangePasswordRequest("Temporal123!", "OtraSegura456!", "OtraSegura456!"));
         assertThatThrownBy(() -> service.renovar(c.refreshToken()))
                 .isInstanceOf(BadCredentialsException.class);
         var second = crear();
         var reset = login(second);
         usuarios.resetPassword(second.id(), new UsuarioDtos.ResetPasswordRequest(
-                "OtraSegura456!", true, "Verificacion presencial"));
+                true, "Verificacion presencial"));
         assertThatThrownBy(() -> service.renovar(reset.refreshToken()))
                 .isInstanceOf(BadCredentialsException.class);
     }

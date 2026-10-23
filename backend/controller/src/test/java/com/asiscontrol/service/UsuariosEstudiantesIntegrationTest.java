@@ -308,7 +308,7 @@ class UsuariosEstudiantesIntegrationTest {
         usuarios.resetPassword(
                 acceso.id(),
                 new UsuarioDtos.ResetPasswordRequest(
-                        "Temporal789!", true, "Identidad verificada presencialmente"));
+                        true, "Identidad verificada presencialmente"));
         AccesoUsuario persistido = accesoRepository.findById(acceso.id()).orElseThrow();
         assertThat(persistido.isRequiereCambioContrasena()).isTrue();
         assertThat(persistido.getContrasenaTemporalExpira()).isNotNull();
@@ -339,7 +339,7 @@ class UsuariosEstudiantesIntegrationTest {
                 .isInstanceOf(ConflictException.class);
         assertThatThrownBy(() -> usuarios.resetPassword(
                 acceso.id(), new UsuarioDtos.ResetPasswordRequest(
-                        "Temporal789!", false, "No verificada")))
+                        false, "No verificada")))
                 .isInstanceOf(BusinessRuleException.class);
     }
 

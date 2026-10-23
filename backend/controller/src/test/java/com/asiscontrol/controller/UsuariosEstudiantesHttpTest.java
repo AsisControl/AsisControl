@@ -84,7 +84,7 @@ class UsuariosEstudiantesHttpTest {
         call(put("/api/usuarios/{id}", id), new UsuarioDtos.UpdateRequest(
                 role, email, EstadoAcceso.ACTIVO, true, "Temporal456!", "Reactivacion"), 200);
         call(put("/api/usuarios/{id}/contrasena-temporal", id),
-                new UsuarioDtos.ResetPasswordRequest("Temporal789!", true, "Identidad verificada"), 204);
+                new UsuarioDtos.ResetPasswordRequest(true, "Identidad verificada"), 200);
         call(delete("/api/usuarios/{id}", id), null, 422);
         String p = key();
         var provisionado = call(post("/api/usuarios/provisionar"), new UsuarioDtos.ProvisionRequest(

@@ -59,7 +59,10 @@ public class AuthenticatedUser implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        if (!usuario.isActivo()) {
+        if (!usuario.isActivo()
+                || usuario.getPersona() == null || !usuario.getPersona().isActivo()
+                || !usuario.getRol().isActivo()
+                || !RolesInstitucionales.NOMBRES.contains(usuario.getRol().getNombre())) {
             return false;
         }
         if (usuario.getEstado() == com.asiscontrol.entity.enums.EstadoAcceso.ACTIVO) {

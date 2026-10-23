@@ -84,14 +84,16 @@ public final class UsuarioDtos {
     }
 
     public record ResetPasswordRequest(
-            @NotBlank(message = "La contrasena temporal es obligatoria") @Size(min = 8, max = 64)
-                    String temporaryPassword,
             @jakarta.validation.constraints.AssertTrue(
                             message = "Confirme que verificó la identidad del titular")
                     boolean identidadVerificada,
-            @NotBlank @Size(max = 700) String motivo) {
-        public ResetPasswordRequest(String password) {
-            this(password, false, null);
+            @NotBlank @Size(max = 700) String motivo) {}
+
+    public record ResetPasswordResponse(
+            Long usuarioId, String temporaryPassword, Instant expiresAt) {
+        @Override
+        public String toString() {
+            return "ResetPasswordResponse[credenciales=PROTEGIDAS]";
         }
     }
 

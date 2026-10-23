@@ -77,12 +77,13 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}/contrasena-temporal")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void resetPassword(
+    public org.springframework.http.ResponseEntity<UsuarioDtos.ResetPasswordResponse> resetPassword(
             @PathVariable Long id,
             @Valid @RequestBody UsuarioDtos.ResetPasswordRequest request
     ) {
-        usuarioService.resetPassword(id, request);
+        return org.springframework.http.ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(usuarioService.resetPassword(id, request));
     }
 
     @DeleteMapping("/{id}")

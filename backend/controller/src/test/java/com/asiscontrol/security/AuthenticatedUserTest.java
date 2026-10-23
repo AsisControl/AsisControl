@@ -41,6 +41,7 @@ class AuthenticatedUserTest {
         AccesoUsuario usuario = new AccesoUsuario();
         usuario.setActivo(true);
         usuario.setRol(rol);
+        usuario.setPersona(new com.asiscontrol.entity.Persona());
         usuario.setEstado(EstadoAcceso.ACTIVO);
         usuario.setContrasenaHash("hash");
         usuario.setUsername("alumno");
