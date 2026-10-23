@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [develop, chore/docker-ci, chore/ec2-deployment]
+    branches: [chore/docker-ci, chore/ec2-deployment]
   workflow_dispatch:
   workflow_call:
 
