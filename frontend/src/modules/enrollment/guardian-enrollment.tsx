@@ -243,6 +243,7 @@ export function GuardianEnrollment() {
       {creating && (
         <Dialog
           title="Nueva solicitud de matrícula"
+          description="Solicita año y grado; la administración asigna la sección."
           busy={busy}
           onClose={() => setCreating(false)}
         >
@@ -319,6 +320,8 @@ export function GuardianEnrollment() {
       {selected && (
         <Dialog
           title="Detalle de mi solicitud"
+          description={`${selected.alumno} · ${selected.codigoAlumno}`}
+          size="lg"
           busy={busy}
           onClose={() => {
             setSelected(null);
@@ -339,7 +342,11 @@ export function GuardianEnrollment() {
             </div>
             <div>
               <dt>Estado</dt>
-              <dd>{stateLabel(selected.estado)}</dd>
+              <dd>
+                <span className="status status-inactive">
+                  {stateLabel(selected.estado)}
+                </span>
+              </dd>
             </div>
             <div>
               <dt>Sección</dt>
@@ -365,12 +372,12 @@ export function GuardianEnrollment() {
             )}
           </ol>
           {selected.observaciones && (
-            <p>
+            <p className="dialog-note">
               <strong>Observaciones:</strong> {selected.observaciones}
             </p>
           )}
           {selected.motivoRechazo && (
-            <p>
+            <p className="dialog-note dialog-note-danger">
               <strong>Motivo de rechazo:</strong> {selected.motivoRechazo}
             </p>
           )}

@@ -6,13 +6,20 @@ import {
   useRef,
   type ReactNode,
 } from "react";
+/** md para formularios y detalles; lg para ventanas con listas o historial. */
+export type DialogSize = "md" | "lg";
 export function Dialog({
   title,
+  description,
+  size = "md",
   children,
   onClose,
   busy = false,
 }: {
   title: string;
+  /** Texto breve bajo el título: qué registro se está viendo o editando. */
+  description?: ReactNode;
+  size?: DialogSize;
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
@@ -57,24 +64,41 @@ export function Dialog({
     <div className="modal-backdrop">
       <div
         ref={ref}
-        className="user-form-card wide-dialog"
+        className={`dialog dialog-${size}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={id}
+        aria-labelledby={`${id}-title`}
+        aria-describedby={description ? `${id}-description` : undefined}
         tabIndex={-1}
       >
-        <div className="dialog-heading">
-          <h3 id={id}>{title}</h3>
+        <header className="dialog-header">
+          <div>
+            <h3 id={`${id}-title`}>{title}</h3>
+            {description && <p id={`${id}-description`}>{description}</p>}
+          </div>
           <button
             type="button"
+            className="dialog-close"
             disabled={busy}
             onClick={onClose}
             aria-label="Cerrar ventana"
+            title="Cerrar"
           >
-            Cerrar
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
-        </div>
-        {children}
+        </header>
+        <div className="dialog-body">{children}</div>
       </div>
     </div>
   );

@@ -45,6 +45,11 @@ const actionLabels: Record<string, string> = {
   FINALIZADA: "Finalizar año",
   ANULADA: "Anular matrícula",
 };
+/** Verde para matrículas vigentes o finalizadas; gris para el resto. */
+const statusClass = (state: string) =>
+  state === "ACTIVA" || state === "MATRICULA_FINALIZADA"
+    ? "status-active"
+    : "status-inactive";
 export function Enrollments() {
   const [tab, setTab] = useState("requests");
   return (
@@ -142,9 +147,7 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
                     {record.anioAcademico} · {record.grado}° {record.seccion}
                   </td>
                   <td data-label="Estado">
-                    <span
-                      className={`status ${record.estado === "ACTIVA" || record.estado === "MATRICULA_FINALIZADA" ? "status-active" : "status-inactive"}`}
-                    >
+                    <span className={`status ${statusClass(record.estado)}`}>
                       {stateLabel(record.estado)}
                     </span>
                   </td>
@@ -298,7 +301,13 @@ function NewRequest({
     }
   }
   return (
-    <Dialog title="Nueva solicitud de matrícula" onClose={onClose} busy={busy}>
+    <Dialog
+      title="Nueva solicitud de matrícula"
+      description="Elige al estudiante y la sección solicitada del año activo."
+      size="lg"
+      onClose={onClose}
+      busy={busy}
+    >
       <Feedback error={error || years.error} />
       <StudentPicker selected={student} onSelect={setStudent} />
       <form onSubmit={save}>
@@ -512,6 +521,8 @@ function EnrollmentDetail({
   return (
     <Dialog
       title={isRequest ? "Gestionar solicitud" : "Gestionar matrícula"}
+      description={`${record.alumno} · ${record.codigoAlumno}`}
+      size="lg"
       onClose={onClose}
       busy={busy}
     >
@@ -532,7 +543,11 @@ function EnrollmentDetail({
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>{stateLabel(record.estado)}</dd>
+          <dd>
+            <span className={`status ${statusClass(record.estado)}`}>
+              {stateLabel(record.estado)}
+            </span>
+          </dd>
         </div>
         <div>
           <dt>{isRequest ? "Última revisión" : "Matrícula"}</dt>
@@ -544,12 +559,12 @@ function EnrollmentDetail({
         </div>
       </dl>
       {record.observaciones && (
-        <p>
+        <p className="dialog-note">
           <strong>Observaciones:</strong> {record.observaciones}
         </p>
       )}
       {record.motivoRechazo && (
-        <p>
+        <p className="dialog-note dialog-note-danger">
           <strong>Motivo de rechazo:</strong> {record.motivoRechazo}
         </p>
       )}

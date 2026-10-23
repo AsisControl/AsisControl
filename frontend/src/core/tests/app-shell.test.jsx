@@ -317,3 +317,17 @@ test("La ruta interna de Next monta el shell y la pantalla de la URL", async () 
   );
   expect(await screen.findByText("Gestión de matrícula")).toBeTruthy();
 });
+
+test("Académico exige ACADEMICO_LEER y la escritura habilita la creación", async () => {
+  backend({
+    "GET /api/auth/me": summary({ permisos: ["ACADEMICO_LEER"] }),
+    "GET /api/cursos": page([]),
+    "GET /api/cursos-competencias": page([]),
+  });
+  sessionFor({ permissions: ["ACADEMICO_LEER"] });
+  setUrl("/academico");
+  renderApp();
+  expect(await screen.findByText("Gestión Curricular")).toBeTruthy();
+  expect(await screen.findByText("Aún no hay cursos registrados.")).toBeTruthy();
+  expect(screen.queryByText("+ Nuevo curso")).toBeNull();
+});

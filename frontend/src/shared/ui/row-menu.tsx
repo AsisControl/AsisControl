@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import styles from "./users.module.css";
+import styles from "./row-menu.module.css";
 export type MenuOption = {
   label: string;
   onSelect: () => void;
@@ -8,11 +8,12 @@ export type MenuOption = {
 };
 type MenuPosition = { top: number; right: number };
 /** Menú "⋮" de cada fila. Se posiciona fijo para no recortarse con el scroll de la tabla. */
-export function UserRowMenu({
-  userName,
+export function RowMenu({
+  itemName,
   options,
 }: {
-  userName: string;
+  /** Nombre del registro de la fila, para el nombre accesible del botón. */
+  itemName: string;
   options: MenuOption[];
 }) {
   const [position, setPosition] = useState<MenuPosition | null>(null);
@@ -53,11 +54,11 @@ export function UserRowMenu({
     option.onSelect();
   }
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className={styles.menu}>
       <button
         type="button"
-        className={styles.iconButton}
-        aria-label={`Más acciones para ${userName}`}
+        className={styles.trigger}
+        aria-label={`Más acciones para ${itemName}`}
         aria-haspopup="menu"
         aria-expanded={Boolean(position)}
         onClick={(event) => toggle(event.currentTarget)}
