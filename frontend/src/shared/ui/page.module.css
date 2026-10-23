@@ -1,0 +1,77 @@
+/* Encabezado de pantalla: mismo tamaño en Matrícula, Académico y Administración. */
+.pageHeader {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.pageHeader h2 {
+  color: var(--ink);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 36px;
+  margin: 0;
+}
+.pageHeader p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+/* Encabezado de una tarjeta: título, resumen y acciones a la derecha. */
+.panelHeading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.panelHeading h3 {
+  margin: 0;
+}
+.panelHeading p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.actions button:not(:global(.primary-action)) {
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+}
+.actions :global(.primary-action) {
+  border-radius: 8px;
+}
+/* Iniciales de una persona junto a su nombre en las tablas. */
+.person {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.avatar {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+  color: #1e3a8a;
+  display: flex;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+.person strong {
+  display: block;
+}

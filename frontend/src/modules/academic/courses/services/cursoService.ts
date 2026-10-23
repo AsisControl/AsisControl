@@ -1,11 +1,7 @@
 import { api } from "@/core/api/client";
-import { normalizePage } from "@/shared/lib/pagination";
-import type { Page } from "@/shared/types/api";
-import type { Course, CourseCompetency, CourseInput } from "../../types";
+import type { Course, CourseInput } from "../../types";
 /** Ruta base del recurso; el listado paginado se consume con usePaged. */
 export const CURSOS_PATH = "/api/cursos";
-/** El backend no filtra asociaciones por curso: se traen en una sola página. */
-const ASOCIACIONES_PATH = "/api/cursos-competencias?size=1000";
 export function crearCurso(input: CourseInput) {
   return api<Course>(CURSOS_PATH, {
     method: "POST",
@@ -21,15 +17,4 @@ export function actualizarCurso(course: Course, input: CourseInput) {
 /** El backend no borra el curso: lo marca inactivo y deja de listarlo. */
 export function desactivarCurso(id: number) {
   return api<null>(`${CURSOS_PATH}/${id}`, { method: "DELETE" });
-}
-/** Competencias activas de cada curso, ordenadas según el plan curricular. */
-export async function listarCompetenciasPorCurso() {
-  const page = normalizePage(
-    await api<Page<CourseCompetency>>(ASOCIACIONES_PATH),
-  );
-  const byCourse = new Map<number, CourseCompetency[]>();
-  for (const item of page.content.filter((value) => value.activo))
-    byCourse.set(item.cursoId, [...(byCourse.get(item.cursoId) ?? []), item]);
-  for (const list of byCourse.values()) list.sort((a, b) => a.orden - b.orden);
-  return byCourse;
 }

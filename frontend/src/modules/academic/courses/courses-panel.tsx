@@ -1,45 +1,19 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, RowMenu } from "@/shared/ui";
+import { Feedback, FormDialog, Pager, RowMenu, PanelHeading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Course, CourseCompetency } from "../types";
 import styles from "../academic.module.css";
 import { CourseDetailDialog } from "./course-detail-dialog";
 import { CourseFormDialog } from "./course-form-dialog";
-import {
-  CURSOS_PATH,
-  desactivarCurso,
-  listarCompetenciasPorCurso,
-} from "./services/cursoService";
+import { agruparPor, listarAsociaciones } from "../associations/services/asociacionService";
+import { countLabel, timeLabel } from "@/shared/lib/formatters";
+import { PencilIcon } from "../components/pencil-icon";
+import { CURSOS_PATH, desactivarCurso } from "./services/cursoService";
 type CourseDialog =
   | { kind: "create" }
   | { kind: "detail" | "edit" | "deactivate"; course: Course };
-const timeLabel = (date: Date) =>
-  date.toLocaleTimeString("es-PE", {
-    timeZone: "America/Lima",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-const competencyCount = (count: number) =>
-  `${count} ${count === 1 ? "competencia" : "competencias"}`;
-const PencilIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    width="16"
-    height="16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M12 20h9" />
-    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-  </svg>
-);
 /** Pestaña Cursos de Gestión Curricular: listado, detalle, alta, edición y baja. */
 export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
   const courses = usePaged<Course>(CURSOS_PATH);
@@ -56,10 +30,10 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
   const [success, setSuccess] = useState("");
   useEffect(() => {
     let active = true;
-    listarCompetenciasPorCurso()
+    listarAsociaciones()
       .then((value) => {
         if (!active) return;
-        setCompetencies(value);
+        setCompetencies(agruparPor(value, "cursoId"));
         setCompetenciesError(false);
       })
       .catch(() => {
@@ -109,31 +83,33 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
   const total = courses.data?.totalElements ?? 0;
   return (
     <section className="panel">
-      <div className={styles.listHeading}>
-        <div>
-          <h3>Cursos registrados</h3>
-          <p>
-            {courses.data
-              ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
-              : "Plan curricular de la institución"}
-            {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
-          </p>
-        </div>
-        <div className={styles.headingActions}>
-          <button type="button" disabled={courses.loading} onClick={refresh}>
-            Actualizar
-          </button>
-          {canWrite && (
-            <button
-              type="button"
-              className="primary-action"
-              onClick={() => open({ kind: "create" })}
-            >
-              + Nuevo curso
-            </button>
-          )}
-        </div>
-      </div>
+      <PanelHeading
+        title="Cursos registrados"
+        summary={
+          <>
+                {courses.data
+                  ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
+                  : "Plan curricular de la institución"}
+                {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
+          </>
+        }
+        actions={
+          <>
+              <button type="button" disabled={courses.loading} onClick={refresh}>
+                Actualizar
+              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={() => open({ kind: "create" })}
+                >
+                  + Nuevo curso
+                </button>
+              )}
+          </>
+        }
+      />
       <Feedback error={courses.error} success={success} />
       {competenciesError && (
         <p className="hint">
@@ -174,7 +150,9 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
                       </span>
                     </td>
                     <td data-label="Competencias">
-                      {linked ? competencyCount(linked.length) : "—"}
+                      {linked
+                        ? countLabel(linked.length, "competencia", "competencias")
+                        : "—"}
                     </td>
                     <td data-label="Acciones">
                       <div className={styles.actions}>

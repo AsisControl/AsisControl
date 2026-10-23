@@ -22,7 +22,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ADMINISTRADOR: {
-    Matrícula: () => <Enrollments />,
+    Matrícula: ({ subpath: [tab] }) => <Enrollments tab={tab} />,
     Académico: ({ user, subpath: [tab] }) => (
       <Academic
         tab={tab}

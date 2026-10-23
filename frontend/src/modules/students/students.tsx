@@ -1,9 +1,17 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
-import { Feedback, Field, Pager } from "@/shared/ui";
+import {
+  Feedback,
+  Field,
+  Pager,
+  PanelHeading,
+  PersonCell,
+  StatusPill,
+} from "@/shared/ui";
 import { PersonFields, personData } from "@/shared/forms/person-fields";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import type { Student } from "./types";
 export function Students() {
   const [query, setQuery] = useState("");
@@ -51,38 +59,29 @@ export function Students() {
       setError(message(e));
     }
   }
+  const total = list.data?.totalElements ?? 0;
   return (
-    <section>
-      <div className="management-heading">
-        <div>
-          <p className="eyebrow">MATRÍCULA</p>
-          <h2>Fichas de estudiantes</h2>
-          <p>Datos institucionales y apoderados asociados.</p>
-        </div>
-        {!detail && !formMode && (
-          <button
-            className="primary-action"
-            onClick={() => {
-              setDetail(null);
-              setFormMode(true);
-              setSuccess("");
-            }}
-          >
-            Registrar estudiante
-          </button>
-        )}
-      </div>
-      <Feedback error={error || list.error} success={success} />
+    <section className="panel">
       {formMode ? (
-        <form className="panel" onSubmit={save}>
-          <h3>{detail ? "Editar ficha" : "Registrar ficha"}</h3>
-          <Field
-            label="Código de estudiante"
-            name="codigoAlumno"
-            required
-            maxLength={30}
-            defaultValue={detail?.codigoAlumno}
+        <form onSubmit={save}>
+          <PanelHeading
+            title={detail ? "Editar ficha" : "Registrar ficha"}
+            summary={
+              detail
+                ? `${detail.persona.nombreCompleto} · ${detail.codigoAlumno}`
+                : "Datos institucionales del estudiante. El acceso se crea aparte."
+            }
           />
+          <Feedback error={error} />
+          <div className="form-grid">
+            <Field
+              label="Código de estudiante"
+              name="codigoAlumno"
+              required
+              maxLength={30}
+              defaultValue={detail?.codigoAlumno}
+            />
+          </div>
           <PersonFields person={detail?.persona} />
           <div className="form-actions">
             <button
@@ -98,25 +97,31 @@ export function Students() {
           </div>
         </form>
       ) : detail ? (
-        <article className="panel">
-          <div className="toolbar">
-            <button
-              onClick={() => {
-                setDetail(null);
-                setSuccess("");
-              }}
-            >
-              Volver a fichas
-            </button>
-            <button
-              className="primary-action"
-              onClick={() => setFormMode(true)}
-            >
-              Editar ficha
-            </button>
-          </div>
-          <h3>{detail.persona.nombreCompleto}</h3>
-          <dl className="detail-grid">
+        <article>
+          <PanelHeading
+            title={detail.persona.nombreCompleto}
+            summary={`Ficha del estudiante · ${detail.codigoAlumno}`}
+            actions={
+              <>
+                <button
+                  onClick={() => {
+                    setDetail(null);
+                    setSuccess("");
+                  }}
+                >
+                  Volver a fichas
+                </button>
+                <button
+                  className="primary-action"
+                  onClick={() => setFormMode(true)}
+                >
+                  Editar ficha
+                </button>
+              </>
+            }
+          />
+          <Feedback error={error} success={success} />
+          <dl className="detail-grid detail-card">
             <div>
               <dt>Código</dt>
               <dd>{detail.codigoAlumno}</dd>
@@ -146,20 +151,52 @@ export function Students() {
           </dl>
           <h4>Apoderados asociados</h4>
           {detail.apoderados.length ? (
-            <ul>
+            <ul className="choice-list">
               {detail.apoderados.map((a) => (
                 <li key={a.id}>
-                  {a.nombreCompleto}
-                  {a.principal ? " · Principal" : ""}
+                  <PersonCell
+                    name={a.nombreCompleto}
+                    detail={a.principal ? "Principal" : undefined}
+                  />
                 </li>
               ))}
             </ul>
           ) : (
-            <p>No tiene apoderados asociados.</p>
+            <p className="empty">No tiene apoderados asociados.</p>
           )}
         </article>
       ) : (
         <>
+          <PanelHeading
+            title="Fichas de estudiantes"
+            summary={
+              <>
+                {list.data
+                  ? countLabel(total, "estudiante", "estudiantes")
+                  : "Datos institucionales y apoderados asociados"}
+                {list.updatedAt &&
+                  ` · Última actualización: ${timeLabel(list.updatedAt)}`}
+              </>
+            }
+            actions={
+              <>
+                <button disabled={list.loading} onClick={list.refresh}>
+                  Actualizar
+                </button>
+                <button
+                  className="primary-action"
+                  onClick={() => {
+                    setDetail(null);
+                    setFormMode(true);
+                    setSuccess("");
+                  }}
+                >
+                  + Registrar estudiante
+                </button>
+              </>
+            }
+          />
+          <Feedback error={error || list.error} success={success} />
           <form
             className="toolbar"
             onSubmit={(e) => {
@@ -186,21 +223,33 @@ export function Students() {
                     <th>Código</th>
                     <th>Estudiante</th>
                     <th>Documento</th>
-                    <th>Acción</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {list.data.content.map((s) => (
                     <tr key={s.id}>
-                      <td data-label="Código">{s.codigoAlumno}</td>
+                      <td data-label="Código" className="muted-cell">
+                        {s.codigoAlumno}
+                      </td>
                       <td data-label="Estudiante">
-                        <strong>{s.persona.nombreCompleto}</strong>
-                        <small>{s.persona.correo}</small>
+                        <PersonCell
+                          name={s.persona.nombreCompleto}
+                          detail={s.persona.correo}
+                        />
                       </td>
                       <td data-label="Documento">
                         {s.persona.numeroDocumento}
                       </td>
-                      <td data-label="Acción">
+                      <td data-label="Estado">
+                        <StatusPill
+                          state={s.activo ? "ACTIVO" : "INACTIVO"}
+                          label={s.activo ? "Activo" : "Inactivo"}
+                          tone={s.activo ? "success" : "neutral"}
+                        />
+                      </td>
+                      <td data-label="Acciones">
                         <button onClick={() => open(s.id)}>Ver ficha</button>
                       </td>
                     </tr>

@@ -1,8 +1,17 @@
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
+import { usePathname } from "next/navigation";
+import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
 import { Enrollments } from "@/modules/enrollment";
+
+vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
+
+/** Como ModuleOutlet: la pestaña sale de /matricula/{pestaña}. */
+function EnrollmentsScreen() {
+  return <Enrollments tab={usePathname().split("/")[2]} />;
+}
 
 const persona = (nombreCompleto, overrides = {}) => ({
   id: 500,
@@ -107,27 +116,30 @@ function backend(routes = {}) {
   });
 }
 
-async function openRequest(user, label = "Ver y gestionar") {
+async function openRequest(user, label = "Ver detalle") {
   await user.click(await screen.findByText(label));
   return screen.getByRole("dialog");
 }
 
 beforeEach(() => {
   signIn();
+  setUrl("/matricula/solicitudes");
 });
 
 test("Lista solicitudes y matrículas en pestañas", async () => {
   backend();
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const row = (await screen.findByText("Lucía Flores")).closest("tr");
-  expect(within(row).getByText("2026 · 1° A")).toBeTruthy();
-  expect(within(row).getByText("Borrador")).toBeTruthy();
+  expect(within(row).getByText("1° A")).toBeTruthy();
+  expect(within(row).getByText("Año 2026")).toBeTruthy();
+  expect(within(row).getByText("Borrador").className).toContain("status-neutral");
   expect(within(row).getByText("—")).toBeTruthy();
   await user.click(screen.getByText("Matrículas"));
-  expect(await screen.findByText("EST-042 · MAT-2026-0001")).toBeTruthy();
-  expect(screen.getByText("Activa").className).toContain("status-active");
-  expect(screen.queryByText("Nueva solicitud")).toBeNull();
+  expect(currentUrl()).toBe("/matricula/matriculas");
+  expect(await screen.findByText("MAT-2026-0001")).toBeTruthy();
+  expect(screen.getByText("Activa").className).toContain("status-success");
+  expect(screen.queryByText("+ Nueva solicitud")).toBeNull();
 });
 
 test("Sin registros muestra el mensaje y un error del backend se informa", async () => {
@@ -136,7 +148,7 @@ test("Sin registros muestra el mensaje y un error del backend se informa", async
     "GET /api/matriculas": reply(500, { message: "Matrículas no disponibles" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   expect(await screen.findByText("No hay solicitudes registradas.")).toBeTruthy();
   await user.click(screen.getByText("Matrículas"));
   expect((await screen.findByRole("alert")).textContent).toBe("Matrículas no disponibles");
@@ -147,8 +159,8 @@ test("Crea una solicitud eligiendo estudiante, grado y sección del año activo"
     "POST /api/solicitudes-matricula": request({ id: 101 }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
-  await user.click(await screen.findByText("Nueva solicitud"));
+  render(<EnrollmentsScreen />);
+  await user.click(await screen.findByText("+ Nueva solicitud"));
   const dialog = screen.getByRole("dialog", { name: "Nueva solicitud de matrícula" });
   expect(within(dialog).getByText("Guardar solicitud").disabled).toBe(true);
   const mario = (await within(dialog).findByText("Mario Díaz")).closest("li");
@@ -186,8 +198,8 @@ test("La nueva solicitud busca estudiantes, informa errores y avisa si no hay a�
     "POST /api/solicitudes-matricula": reply(409, { message: "Ya existe una solicitud" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
-  await user.click(await screen.findByText("Nueva solicitud"));
+  render(<EnrollmentsScreen />);
+  await user.click(await screen.findByText("+ Nueva solicitud"));
   const dialog = screen.getByRole("dialog");
   expect(
     await within(dialog).findByText("Configure y active un año académico en Administración."),
@@ -206,8 +218,8 @@ test("Informa el rechazo del backend al guardar la solicitud", async () => {
     "POST /api/solicitudes-matricula": reply(409, { message: "Ya existe una solicitud" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
-  await user.click(await screen.findByText("Nueva solicitud"));
+  render(<EnrollmentsScreen />);
+  await user.click(await screen.findByText("+ Nueva solicitud"));
   const dialog = screen.getByRole("dialog");
   await user.click(within((await within(dialog).findByText("Lucía Flores")).closest("li")).getByText("Elegir"));
   await user.selectOptions(within(dialog).getByLabelText(/^Grado/), "1");
@@ -222,7 +234,7 @@ test("El detalle muestra historial y apoderados, y envía la solicitud", async (
     "PUT /api/solicitudes-matricula/:id": ({ body }) => request({ ...body, version: 4 }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   expect(await within(dialog).findByText("Registro inicial", { exact: false })).toBeTruthy();
   expect(within(dialog).getByText("Nuevo: BORRADOR")).toBeTruthy();
@@ -249,7 +261,7 @@ test("Edita la sección y las observaciones de un borrador", async () => {
     "PUT /api/solicitudes-matricula/:id": ({ body }) => request({ ...body, seccion: "B" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await user.click(within(dialog).getByText("Editar sección / observaciones"));
   const sectionSelect = await within(dialog).findByLabelText(/Sección del mismo grado y año/);
@@ -278,7 +290,7 @@ test("Rechaza una solicitud en revisión con motivo y muestra el error del servi
         : request({ estado: "RECHAZADA", motivoRechazo: body.motivoRechazo }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await user.click(within(dialog).getByText("Rechazar"));
   await user.type(within(dialog).getByLabelText(/^Motivo/), "Error");
@@ -301,7 +313,7 @@ test("Observar pide el detalle a subsanar y Volver cierra el formulario", async 
     "PUT /api/solicitudes-matricula/:id": ({ body }) => request({ estado: "OBSERVADA", observaciones: body.observaciones }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await user.click(within(dialog).getByText("Observar"));
   await user.click(within(dialog).getByText("Volver"));
@@ -320,7 +332,7 @@ test("Finaliza la matrícula de una solicitud en revisión", async () => {
     "GET /api/solicitudes-matricula/:id": request({ estado: "MATRICULA_FINALIZADA" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await user.click(within(dialog).getByText("Finalizar matrícula", { selector: ".primary-action" }));
   expect(within(dialog).getByText(/Se creará la matrícula y finalizará la solicitud/)).toBeTruthy();
@@ -338,7 +350,7 @@ test("Retira una matrícula activa con motivo", async () => {
     "PUT /api/matriculas/:id": ({ body }) => enrollment({ estado: body.estado }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   await user.click(await screen.findByText("Matrículas"));
   const dialog = await openRequest(user);
   expect(await within(dialog).findByText("Sin cambios registrados.")).toBeTruthy();
@@ -363,7 +375,7 @@ test("Informa errores al cargar el detalle y al actualizarlo", async () => {
     "GET /api/alumnos/:id": reply(403, null),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await waitFor(() =>
     expect(within(dialog).getAllByRole("alert").map((a) => a.textContent)).toEqual(
@@ -395,7 +407,7 @@ test("Asocia un apoderado existente al estudiante", async () => {
     },
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   expect(await within(dialog).findByText("Sin apoderados asociados.")).toBeTruthy();
   await user.click(within(dialog).getByText("Asociar apoderado"));
@@ -423,7 +435,7 @@ test("Un error al asociar el apoderado se muestra en la sección", async () => {
     "POST /api/alumnos/:id/apoderados": reply(409, { message: "Ya está asociado" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
+  render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await user.click(await within(dialog).findByText("Asociar apoderado"));
   await within(dialog).findByText("Inés Ramos");
@@ -442,13 +454,13 @@ test("La pestaña de fichas registra, consulta y edita estudiantes", async () =>
     "PUT /api/alumnos/:id": ({ body }) => ({ ...lucia, codigoAlumno: body.codigoAlumno }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
-  await user.click(screen.getByText("Fichas de estudiantes"));
+  render(<EnrollmentsScreen />);
+  await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
   expect(await screen.findByText("Mario Díaz")).toBeTruthy();
   await user.type(screen.getByLabelText(/Buscar por nombre, código o documento/), "flores");
   await user.click(screen.getByText("Buscar"));
   await waitFor(() => expect(calls.at(-1).query.search).toBe("flores"));
-  await user.click(screen.getByText("Registrar estudiante"));
+  await user.click(screen.getByText("+ Registrar estudiante"));
   await user.type(screen.getByLabelText(/Código de estudiante/), " EST-050 ");
   await user.type(screen.getByLabelText(/^Nombres/), "Ana");
   await user.type(screen.getByLabelText(/^Apellido paterno/), "Soto");
@@ -465,7 +477,8 @@ test("La pestaña de fichas registra, consulta y edita estudiantes", async () =>
   });
   await user.click(screen.getByText("Volver a fichas"));
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
-  expect(await screen.findByText("Carmen Flores · Principal")).toBeTruthy();
+  expect(await screen.findByText("Carmen Flores")).toBeTruthy();
+  expect(screen.getByText("Principal")).toBeTruthy();
   expect(screen.getAllByText("Sin registrar")).toHaveLength(2);
   await user.click(screen.getByText("Editar ficha"));
   expect(screen.getByLabelText(/Código de estudiante/).value).toBe("EST-042");
@@ -481,10 +494,10 @@ test("La pestaña de fichas informa errores al abrir y guardar", async () => {
     "POST /api/alumnos": reply(409, { message: "Código repetido" }),
   });
   const user = userEvent.setup();
-  render(<Enrollments />);
-  await user.click(screen.getByText("Fichas de estudiantes"));
+  render(<EnrollmentsScreen />);
+  await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
   expect(await screen.findByText("No se encontraron estudiantes.")).toBeTruthy();
-  await user.click(screen.getByText("Registrar estudiante"));
+  await user.click(screen.getByText("+ Registrar estudiante"));
   await user.type(screen.getByLabelText(/Código de estudiante/), "EST-1");
   await user.type(screen.getByLabelText(/^Nombres/), "Ana");
   await user.type(screen.getByLabelText(/^Apellido paterno/), "Soto");
@@ -495,14 +508,14 @@ test("La pestaña de fichas informa errores al abrir y guardar", async () => {
   await user.click(screen.getByText("Guardar ficha"));
   expect((await screen.findByRole("alert")).textContent).toBe("Código repetido");
   await user.click(screen.getByText("Cancelar"));
-  expect(screen.getByText("Registrar estudiante")).toBeTruthy();
+  expect(screen.getByText("+ Registrar estudiante")).toBeTruthy();
 });
 
 test("Abrir una ficha que no existe muestra el error", async () => {
   backend({ "GET /api/alumnos/:id": reply(404, { message: "Ficha no encontrada" }) });
   const user = userEvent.setup();
-  render(<Enrollments />);
-  await user.click(screen.getByText("Fichas de estudiantes"));
+  render(<EnrollmentsScreen />);
+  await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
   expect((await screen.findByRole("alert")).textContent).toBe("Ficha no encontrada");
 });

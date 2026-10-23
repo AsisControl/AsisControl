@@ -28,3 +28,24 @@ export type CourseCompetency = {
   activo: boolean;
   version: number;
 };
+/** Respuesta de /api/competencias (CompetenciaResponse). */
+export type Competency = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+  version: number;
+};
+/** Datos editables de una competencia; la versión se agrega al actualizar. */
+export type CompetencyInput = {
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+};
+/** Curso, competencia y posición de la competencia dentro del curso. */
+export type AssociationInput = {
+  cursoId: number;
+  competenciaId: number;
+  orden: number;
+};

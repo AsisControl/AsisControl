@@ -1,9 +1,10 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { TabNav, type TabItem } from "@/shared/ui";
+import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
+import { AssociationsPanel } from "./associations/associations-panel";
+import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
-import styles from "./academic.module.css";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
 const tabs: TabItem[] = [
   { id: "cursos", label: "Cursos" },
@@ -14,6 +15,12 @@ const tabs: TabItem[] = [
   { id: "evaluaciones", label: "Evaluaciones" },
   { id: "reportes", label: "Reportes" },
 ];
+/** Pestañas con pantalla; las demás muestran el aviso de pendiente. */
+const panels: Record<string, (canWrite: boolean) => ReactNode> = {
+  cursos: (canWrite) => <CoursesPanel canWrite={canWrite} />,
+  competencias: (canWrite) => <CompetenciesPanel canWrite={canWrite} />,
+  asociaciones: (canWrite) => <AssociationsPanel canWrite={canWrite} />,
+};
 export const ACADEMIC_PATH = "/academico";
 const DEFAULT_TAB = "cursos";
 /** Gestión Curricular (menú Académico). Cada pestaña vive en su propia carpeta. */
@@ -33,18 +40,18 @@ export function Academic({
   if (!current) return null;
   return (
     <section>
-      <div className={styles.heading}>
-        <h2>Gestión Curricular</h2>
-        <p>Cursos, competencias, asociaciones y reglas académicas</p>
-      </div>
+      <PageHeader
+        title="Gestión Curricular"
+        description="Cursos, competencias, asociaciones y reglas académicas"
+      />
       <TabNav
         label="Secciones de gestión curricular"
         tabs={tabs}
         current={current.id}
         onSelect={(id) => router.push(`${ACADEMIC_PATH}/${id}`)}
       />
-      {current.id === DEFAULT_TAB ? (
-        <CoursesPanel canWrite={canWrite} />
+      {panels[current.id] ? (
+        panels[current.id](canWrite)
       ) : (
         <article className="role-message">
           <span className="message-mark">!</span>
