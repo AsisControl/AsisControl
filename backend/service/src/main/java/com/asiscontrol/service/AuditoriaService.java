@@ -81,6 +81,21 @@ public class AuditoriaService {
         auditoriaRepository.save(audit);
     }
 
+    /**
+     * Registra una operacion rechazada o fallida en una transaccion propia, para que el
+     * registro sobreviva al rollback de la operacion que la origino.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarRechazo(
+            String accion,
+            String modulo,
+            String entidad,
+            String registroId,
+            ResultadoAuditoria resultado,
+            String motivo) {
+        registrar(accion, modulo, entidad, registroId, resultado, motivo, null, null);
+    }
+
     @Transactional
     public void registrarAcceso(String accion, AccesoUsuario actor, ResultadoAuditoria resultado) {
         RegistroAuditoria audit = new RegistroAuditoria();

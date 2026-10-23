@@ -10,6 +10,7 @@ import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.Tarea;
 import com.asiscontrol.entity.enums.EstadoPublicacionTarea;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -30,16 +31,19 @@ public class TareaService {
     private final ArchivoStorageService archivoService;
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
 
     public TareaService(
             TareaRepository tareaRepository,
             ArchivoStorageService archivoService,
             EntityManager entityManager,
-            ModuloAccessGuard accessGuard) {
+            ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria) {
         this.tareaRepository = tareaRepository;
         this.archivoService = archivoService;
         this.entityManager = entityManager;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -60,7 +64,10 @@ public class TareaService {
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.BORRADOR);
         tarea.setActivo(true);
-        return mapResponse(tareaRepository.save(tarea));
+        Tarea saved = tareaRepository.save(tarea);
+        auditoria.registrar("CREAR_TAREA", "TAREAS", "Tarea",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
+        return mapResponse(saved);
     }
 
     @Transactional
@@ -70,6 +77,7 @@ public class TareaService {
         exigirVersion(tarea.getVersion(), request.version());
         exigirEstado(tarea, EstadoPublicacionTarea.BORRADOR, "Solo se puede editar una tarea en borrador");
         validarFechas(request.fechaPublicacion(), request.fechaLimite());
+        String anterior = describir(tarea);
 
         tarea.setNombre(request.nombre().trim());
         tarea.setDescripcion(request.descripcion().trim());
@@ -78,7 +86,10 @@ public class TareaService {
         tarea.setPuntajeMaximo(request.puntajeMaximo());
         tarea.setMaxArchivosEntrega(request.maxArchivosEntrega());
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
-        return mapResponse(tareaRepository.save(tarea));
+        Tarea saved = tareaRepository.save(tarea);
+        auditoria.registrar("ACTUALIZAR_TAREA", "TAREAS", "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        return mapResponse(saved);
     }
 
     @Transactional
@@ -98,7 +109,11 @@ public class TareaService {
             tarea.setFechaPublicacion(ahora);
         }
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.PUBLICADA);
-        return mapResponse(tareaRepository.save(tarea));
+        Tarea saved = tareaRepository.save(tarea);
+        auditoria.registrar("PUBLICAR_TAREA", "TAREAS", "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "estado=" + EstadoPublicacionTarea.BORRADOR, "estado=" + saved.getEstadoPublicacion());
+        return mapResponse(saved);
     }
 
     @Transactional
@@ -111,7 +126,11 @@ public class TareaService {
                     "TAREA_AUN_VIGENTE", "La tarea todavía acepta entregas y no puede cerrarse antes de su fecha límite");
         }
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.CERRADA);
-        return mapResponse(tareaRepository.save(tarea));
+        Tarea saved = tareaRepository.save(tarea);
+        auditoria.registrar("CERRAR_TAREA", "TAREAS", "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "estado=" + EstadoPublicacionTarea.PUBLICADA, "estado=" + saved.getEstadoPublicacion());
+        return mapResponse(saved);
     }
 
     @Transactional
@@ -120,7 +139,11 @@ public class TareaService {
         accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
         exigirEstado(tarea, EstadoPublicacionTarea.CERRADA, "Solo se puede archivar una tarea cerrada");
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.ARCHIVADA);
-        return mapResponse(tareaRepository.save(tarea));
+        Tarea saved = tareaRepository.save(tarea);
+        auditoria.registrar("ARCHIVAR_TAREA", "TAREAS", "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "estado=" + EstadoPublicacionTarea.CERRADA, "estado=" + saved.getEstadoPublicacion());
+        return mapResponse(saved);
     }
 
     @Transactional
@@ -134,6 +157,8 @@ public class TareaService {
         }
         tarea.setActivo(false);
         tareaRepository.save(tarea);
+        auditoria.registrar("ELIMINAR_TAREA", "TAREAS", "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, describir(tarea), null);
     }
 
     public TareaResponse obtener(Long id) {
@@ -175,6 +200,15 @@ public class TareaService {
                 tarea.getEstadoPublicacion(),
                 tarea.getArchivos().stream().map(archivoService::mapResponse).toList(),
                 tarea.getVersion());
+    }
+
+    private String describir(Tarea tarea) {
+        return "nombre=" + tarea.getNombre()
+                + ",asignacionCursoId=" + tarea.getAsignacionCurso().getId()
+                + ",estado=" + tarea.getEstadoPublicacion()
+                + ",fechaLimite=" + tarea.getFechaLimite()
+                + ",puntajeMaximo=" + tarea.getPuntajeMaximo()
+                + ",archivos=" + tarea.getArchivos().size();
     }
 
     private void validarFechas(LocalDateTime fechaPublicacion, LocalDateTime fechaLimite) {
