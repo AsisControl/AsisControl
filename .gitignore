@@ -1,0 +1,6 @@
+# Configuracion, indices y caches locales de los editores.
+.idea/
+.vs/
+
+# Registros locales de ejecucion.
+logs/
