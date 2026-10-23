@@ -1,13 +1,16 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
 import { Feedback, Field, FormDialog, Pager, ReasonField } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PeriodsPanel } from "./periods/periods-panel";
+import { PeriodFormDialog } from "./periods/period-form-dialog";
+import { pendingFeatures } from "./pending/pending-features";
 import { NonTeachingDaysPanel } from "./periods/non-teaching-days-panel";
 import { GradesPanel } from "./sections/grades-panel";
 import { SectionsPanel } from "./sections/sections-panel";
+import styles from "./academic-config.module.css";
 import type { AcademicYear, YearPanelProps } from "./types";
 type YearAction = { kind: "year" | "admission" | "year-state"; next?: string };
 const titles: Record<YearAction["kind"], string> = {
@@ -22,11 +25,31 @@ const titles: Record<YearAction["kind"], string> = {
  */
 export function AcademicConfiguration() {
   const years = usePaged<AcademicYear>("/api/configuracion-academica/anios");
-  const [year, setYear] = useState<AcademicYear | null>(null);
+  const [loaded, setYear] = useState<AcademicYear | null>(null);
+  const [chosen, setChosen] = useState<number | null>(null);
   const [action, setAction] = useState<YearAction | null>(null);
+  const [periodOpen, setPeriodOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
+  // Más reciente primero; por defecto el año ACTIVO o, si no hay, el más reciente.
+  const sorted = useMemo(
+    () => [...(years.data?.content ?? [])].sort((a, b) => b.anio - a.anio),
+    [years.data],
+  );
+  const selected =
+    chosen ?? (sorted.find((y) => y.estado === "ACTIVO") ?? sorted[0])?.anio;
+  const year = loaded && loaded.anio === selected ? loaded : null;
+  useEffect(() => {
+    if (selected == null) return;
+    let active = true;
+    api<AcademicYear>(`/api/configuracion-academica/anios/${selected}`)
+      .then((value) => active && setYear(value))
+      .catch((e) => active && setError(message(e)));
+    return () => {
+      active = false;
+    };
+  }, [selected]);
   const open = (value: YearAction) => {
     setError("");
     setSuccess("");
@@ -79,9 +102,12 @@ export function AcademicConfiguration() {
     setError("");
     setSuccess("");
     try {
-      applyYear(
-        await api<AcademicYear>(path, { method, body: JSON.stringify(body) }),
-      );
+      const saved = await api<AcademicYear>(path, {
+        method,
+        body: JSON.stringify(body),
+      });
+      if (action.kind === "year") setChosen(saved.anio);
+      applyYear(saved);
       setAction(null);
       setSuccess("Configuración guardada.");
     } catch (error) {
@@ -91,6 +117,10 @@ export function AcademicConfiguration() {
     }
   }
   const editable = year?.estado !== "CERRADO";
+  const periodHint =
+    year && year.estado !== "BORRADOR"
+      ? pendingFeatures.periodOnActiveYear.hint
+      : "";
   const panelProps: YearPanelProps | null = year && {
     year,
     editable,
@@ -104,41 +134,67 @@ export function AcademicConfiguration() {
   return (
     <>
       <Feedback error={!action ? error : ""} success={success} />
-      <div className="section-heading">
-        <h3>Años académicos</h3>
-        <button
-          className="primary-action"
-          onClick={() => open({ kind: "year" })}
-        >
-          Crear año
-        </button>
-      </div>
       <Feedback error={years.error} />
-      {years.loading ? (
-        <p role="status">Cargando configuración…</p>
-      ) : (
-        <div className="year-list">
-          {years.data?.content.map((value) => (
+      <div className={styles.header}>
+        <div>
+          <h3>Configuración académica</h3>
+          <p>Años académicos, períodos, grados y secciones</p>
+        </div>
+        <div className={styles.controls}>
+          {sorted.length > 0 && (
+            <label className={styles.yearPicker}>
+              Año académico
+              <select
+                className={styles.yearSelect}
+                value={selected}
+                onChange={(e) => {
+                  setError("");
+                  setSuccess("");
+                  setChosen(Number(e.target.value));
+                }}
+              >
+                {sorted.map((value) => (
+                  <option key={value.id} value={value.anio}>
+                    {value.anio} · {stateLabel(value.estado)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {year?.estado === "ACTIVO" && (
+            <span className={styles.activeTag}>Año activo</span>
+          )}
+          <button
+            className="primary-action"
+            onClick={() => open({ kind: "year" })}
+          >
+            Crear año
+          </button>
+          <div className={styles.newPeriod}>
             <button
-              key={value.id}
-              className={
-                year?.id === value.id ? "year-card selected" : "year-card"
-              }
+              className={styles.newPeriodButton}
+              disabled={year?.estado !== "BORRADOR"}
+              aria-describedby={periodHint ? "new-period-hint" : undefined}
               onClick={() => {
                 setError("");
-                reload(value.anio).catch((e) => setError(message(e)));
+                setSuccess("");
+                setPeriodOpen(true);
               }}
             >
-              <strong>{value.anio}</strong>
-              <span>{stateLabel(value.estado)}</span>
-              <small>
-                {value.fechaInicio} a {value.fechaFin}
-              </small>
+              + Nuevo período
             </button>
-          ))}
+            {periodHint && (
+              <span id="new-period-hint" className={styles.newPeriodHint}>
+                {periodHint}
+              </span>
+            )}
+          </div>
         </div>
+      </div>
+      {years.loading && !years.data && (
+        <p role="status">Cargando configuración…</p>
       )}
-      {!years.loading && !years.error && !years.data?.content.length && (
+      {!years.loading && !years.error && !sorted.length && (
         <p className="empty">
           Crea el año y configura los períodos, grados y secciones.
         </p>
@@ -192,10 +248,21 @@ export function AcademicConfiguration() {
             <p className="hint">Año cerrado: consulta histórica disponible.</p>
           )}
           <PeriodsPanel {...panelProps} />
-          <NonTeachingDaysPanel {...panelProps} />
-          <GradesPanel {...panelProps} />
+          <NonTeachingDaysPanel key={year.anio} {...panelProps} />
           <SectionsPanel {...panelProps} />
+          <GradesPanel {...panelProps} />
         </div>
+      )}
+      {periodOpen && year?.estado === "BORRADOR" && (
+        <PeriodFormDialog
+          year={year}
+          onClose={() => setPeriodOpen(false)}
+          onCreated={(updated) => {
+            applyYear(updated);
+            setPeriodOpen(false);
+            setSuccess("Período creado.");
+          }}
+        />
       )}
       {action && (
         <FormDialog

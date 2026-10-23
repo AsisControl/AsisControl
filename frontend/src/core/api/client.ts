@@ -1,5 +1,5 @@
 import { clearSession, readSession } from "@/core/auth/session-storage";
-const base = (
+export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"
 ).replace(/\/$/, "");
 export async function api<T>(
@@ -16,7 +16,7 @@ export async function api<T>(
     const session = readSession();
     if (session && authenticated)
       headers.set("Authorization", `Bearer ${session.accessToken}`);
-    const response = await fetch(`${base}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers,
       signal: controller.signal,

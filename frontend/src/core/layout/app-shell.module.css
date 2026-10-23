@@ -1,0 +1,158 @@
+/* Con iconos el menú es más ancho: se desplaza dentro de sí mismo en vez de
+   ensanchar la página. "safe" evita recortar la primera opción al centrar. */
+.navBar {
+  justify-content: safe center;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.navBar::-webkit-scrollbar {
+  display: none;
+}
+/* .navBar eleva la especificidad sobre las reglas globales de .top-nav nav button. */
+.navBar .navItem {
+  flex: none;
+  align-items: center;
+  border: 1px solid transparent;
+  display: inline-flex;
+  gap: 7px;
+}
+.navBar .navItem svg {
+  flex: none;
+}
+.navBar .navItem:hover {
+  border-color: transparent;
+}
+.navBar .navItem[aria-current="page"] {
+  background: #ffffff26;
+  border: 1px solid #8ec5ff80;
+  color: var(--sky);
+}
+/* Entre 1000 y 1280 px el menú con iconos no cabe en una fila: pasa debajo,
+   igual que hace globals.css por debajo de 1000 px. */
+@media (max-width: 1280px) {
+  .header:global(.top-nav) {
+    flex-wrap: wrap;
+    gap: 12px;
+    height: auto;
+    min-height: 64px;
+    padding-bottom: 10px;
+    padding-top: 10px;
+  }
+  .header:global(.top-nav) .navBar {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .header :global(.account) {
+    margin-left: auto;
+  }
+}
+/* El botón de menú solo existe en móvil; en pantallas mayores el menú queda visible. */
+.menuButton {
+  display: none;
+}
+/* Por debajo de 760 px el menú se pliega en un desplegable bajo el encabezado. */
+@media (max-width: 760px) {
+  .header:global(.top-nav) {
+    position: relative;
+    flex-wrap: nowrap;
+    gap: 8px;
+    height: 60px;
+    min-height: 60px;
+    padding: 8px 16px;
+  }
+  .header :global(.brand) {
+    flex: 1 1 0;
+    gap: 8px;
+    min-width: 0;
+  }
+  .header :global(.brand) > span:last-child {
+    display: block;
+    min-width: 0;
+  }
+  .header :global(.brand b) {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .header :global(.brand small),
+  .header :global(.account-name) {
+    display: none;
+  }
+  .header :global(.account) {
+    flex: none;
+    margin-left: 0;
+  }
+  .header :global(.account-menu) {
+    max-width: calc(100vw - 32px);
+    right: 0;
+  }
+  .header .menuButton {
+    align-items: center;
+    background: transparent;
+    border: 1px solid #ffffff66;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 44px;
+    height: 44px;
+    justify-content: center;
+    padding: 8px;
+  }
+  .menuButton:focus-visible {
+    outline: 2px solid var(--sky);
+    outline-offset: 2px;
+  }
+  .header:global(.top-nav) .navBar {
+    background: #1e3a8a;
+    border: 1px solid #ffffff33;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px #0000001a;
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    left: 16px;
+    max-height: min(360px, calc(100dvh - 76px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px;
+    position: absolute;
+    right: 16px;
+    top: 100%;
+    z-index: 20;
+  }
+  .header:global(.top-nav) .navBar.open {
+    display: flex;
+  }
+  .navBar .navItem {
+    border-radius: 4px;
+    min-height: 44px;
+    padding: 6px 12px;
+    white-space: normal;
+    width: 100%;
+  }
+}
+/* Aviso no bloqueante: la pantalla actual se conserva mientras se reintenta. */
+.sessionAlert {
+  align-items: center;
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #b91c1c;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 24px;
+}
+.sessionAlert button {
+  background: #fff;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #b91c1c;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 12px;
+}

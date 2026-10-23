@@ -3,7 +3,8 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { Eye } from "@/shared/ui";
 import type { useAuth } from "@/core/auth/use-auth";
-import { Brand } from "./brand";
+import { AuthIdentityPanel } from "./auth-identity-panel";
+import identityStyles from "./auth-identity-panel.module.css";
 export function LoginScreen({
   onLogin,
 }: {
@@ -27,33 +28,8 @@ export function LoginScreen({
   }
 
   return (
-    <main className="login-screen">
-      <section className="login-identity">
-        <div className="orb orb-one" />
-        <div className="orb orb-two" />
-        <div className="orb orb-three" />
-        <Brand />
-        <div className="identity-content">
-          <h1>
-            Plataforma
-            <br />
-            Académica
-            <br />
-            Integrada
-          </h1>
-          <p>
-            Accede a la información académica, administrativa y de comunicación
-            del Colegio PUCP.
-          </p>
-          <ul>
-            <li>Administrador</li>
-            <li>Docente</li>
-            <li>Estudiante</li>
-            <li>Apoderado</li>
-          </ul>
-        </div>
-        <small className="version">AsisControl · Prototipo académico</small>
-      </section>
+    <main className={identityStyles.screen}>
+      <AuthIdentityPanel />
       <section className="login-form-panel">
         <form className="login-form" onSubmit={login}>
           <h2>Iniciar sesión</h2>

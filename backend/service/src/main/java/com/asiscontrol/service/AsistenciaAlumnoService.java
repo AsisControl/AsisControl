@@ -14,6 +14,7 @@ import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoMatricula;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -43,14 +44,17 @@ public class AsistenciaAlumnoService {
     private final AsistenciaAlumnoRepository asistenciaRepository;
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
 
     public AsistenciaAlumnoService(
             AsistenciaAlumnoRepository asistenciaRepository,
             EntityManager entityManager,
-            ModuloAccessGuard accessGuard) {
+            ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria) {
         this.asistenciaRepository = asistenciaRepository;
         this.entityManager = entityManager;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -112,7 +116,11 @@ public class AsistenciaAlumnoService {
         validarEstadoDirecto(request.estado());
         asistencia.setEstadoAsistencia(request.estado());
         asistencia.setComentario(normalizar(request.comentario()));
-        return mapResponse(asistenciaRepository.save(asistencia));
+        AsistenciaAlumno saved = asistenciaRepository.save(asistencia);
+        auditoria.registrar("ACTUALIZAR_ASISTENCIA_ALUMNO", ModuloAuditoria.ASISTENCIA, "AsistenciaAlumno",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "estado=" + request.estado());
+        return mapResponse(saved);
     }
 
     public AsistenciaAlumnoResponse obtener(Long id) {
@@ -167,7 +175,11 @@ public class AsistenciaAlumnoService {
         asistencia.setEstadoAsistencia(estado);
         asistencia.setComentario(normalizar(comentario));
         asistencia.setActivo(true);
-        return asistenciaRepository.save(asistencia);
+        AsistenciaAlumno saved = asistenciaRepository.save(asistencia);
+        auditoria.registrar("REGISTRAR_ASISTENCIA_ALUMNO", ModuloAuditoria.ASISTENCIA, "AsistenciaAlumno",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "alumno=" + alumno.getId() + ",estado=" + estado + ",fecha=" + fecha);
+        return saved;
     }
 
     private void validarFecha(LocalDate fecha) {

@@ -44,6 +44,9 @@ class PagoServiceTest {
     @Mock
     private ArchivoAdjuntoRepository archivoAdjuntoRepository;
 
+    @Mock
+    private AuditoriaService auditoria;
+
     @InjectMocks
     private PagoService pagoService;
 
