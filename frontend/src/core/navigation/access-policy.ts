@@ -3,6 +3,7 @@ import { roleDetails } from "./navigation";
 /** Permiso que exige cada opción con pantalla; las pendientes dependen solo del rol. */
 const requiredPermissions: Record<string, string> = {
   Matrícula: "MATRICULA_LEER",
+  Académico: "ACADEMICO_LEER",
   Administración: "USUARIOS_LEER",
 };
 const USERS_WRITE_PERMISSION = "USUARIOS_ESCRIBIR";

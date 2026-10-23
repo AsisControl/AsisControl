@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
+import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { canAccess } from "./access-policy";
@@ -22,6 +23,12 @@ type Screen = (context: ScreenContext) => ReactNode;
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ADMINISTRADOR: {
     Matrícula: () => <Enrollments />,
+    Académico: ({ user, subpath: [tab] }) => (
+      <Academic
+        tab={tab}
+        canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+      />
+    ),
     Administración: ({ user, subpath: [tab, view] }) => (
       <Administration currentUserId={user.id} tab={tab} view={view} />
     ),
