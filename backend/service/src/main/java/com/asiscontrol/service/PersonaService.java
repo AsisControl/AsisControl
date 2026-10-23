@@ -55,6 +55,7 @@ public class PersonaService {
     private final AccesoUsuarioRepository usuarioRepository;
     private final SesionAccesoRepository sesionRepository;
     private final AuditoriaService auditoriaService;
+    private final com.asiscontrol.repository.AdministradorRepository administradorRepository;
 
     public PersonaService(
             PersonaRepository personaRepository,
@@ -65,7 +66,8 @@ public class PersonaService {
             AlumnoApoderadoRepository alumnoApoderadoRepository,
             AccesoUsuarioRepository usuarioRepository,
             SesionAccesoRepository sesionRepository,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            com.asiscontrol.repository.AdministradorRepository administradorRepository) {
         this.personaRepository = personaRepository;
         this.nacionalidadRepository = nacionalidadRepository;
         this.alumnoRepository = alumnoRepository;
@@ -75,6 +77,7 @@ public class PersonaService {
         this.usuarioRepository = usuarioRepository;
         this.sesionRepository = sesionRepository;
         this.auditoriaService = auditoriaService;
+        this.administradorRepository = administradorRepository;
     }
 
     @Transactional
@@ -135,9 +138,9 @@ public class PersonaService {
     @Transactional
     public void deleteAlumno(Long id) {
         Alumno alumno = findAlumno(id);
-        deactivateProfile(alumno.getPersona());
         alumno.setActivo(false);
         alumnoRepository.save(alumno);
+        deactivateProfile(alumno.getPersona(), "ALUMNO");
         auditDelete("Alumno", id);
     }
 
@@ -216,9 +219,9 @@ public class PersonaService {
     @Transactional
     public void deleteDocente(Long id) {
         Docente docente = findDocente(id);
-        deactivateProfile(docente.getPersona());
         docente.setActivo(false);
         docenteRepository.save(docente);
+        deactivateProfile(docente.getPersona(), "DOCENTE");
         auditDelete("Docente", id);
     }
 
@@ -265,9 +268,9 @@ public class PersonaService {
     @Transactional
     public void deleteApoderado(Long id) {
         Apoderado apoderado = findApoderado(id);
-        deactivateProfile(apoderado.getPersona());
         apoderado.setActivo(false);
         apoderadoRepository.save(apoderado);
+        deactivateProfile(apoderado.getPersona(), "APODERADO");
         alumnoApoderadoRepository
                 .findAllByApoderadoIdAndActivoTrue(id)
                 .forEach(
@@ -304,14 +307,22 @@ public class PersonaService {
                                 alumnoApoderadoRepository.save(link);
                             });
         }
-        AlumnoApoderado link = new AlumnoApoderado();
-        link.setAlumno(alumno);
-        link.setApoderado(apoderado);
+        AlumnoApoderado link =
+                alumnoApoderadoRepository
+                        .findByAlumnoIdAndApoderadoId(alumnoId, apoderado.getId())
+                        .orElseGet(
+                                () -> {
+                                    AlumnoApoderado nuevo = new AlumnoApoderado();
+                                    nuevo.setAlumno(alumno);
+                                    nuevo.setApoderado(apoderado);
+                                    return nuevo;
+                                });
         link.setParentesco(
                 request.parentesco() == null
                         ? com.asiscontrol.entity.enums.Parentesco.NO_DECLARADO
                         : request.parentesco());
         link.setPrincipal(request.principal());
+        link.setActivo(true);
         alumnoApoderadoRepository.saveAndFlush(link);
         auditoriaService.registrar(
                 "ASOCIAR_APODERADO",
@@ -435,11 +446,20 @@ public class PersonaService {
                         });
     }
 
-    private void deactivateProfile(Persona persona) {
-        persona.setActivo(false);
-        personaRepository.save(persona);
+    private void deactivateProfile(Persona persona, String role) {
+        boolean tieneOtroPerfil =
+                alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
+                        || docenteRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
+                        || apoderadoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
+                        || administradorRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent();
+        if (!tieneOtroPerfil) {
+            persona.setActivo(false);
+            personaRepository.save(persona);
+        }
         usuarioRepository
                 .findAllByPersonaIdAndActivoTrue(persona.getId())
+                .stream()
+                .filter(usuario -> role.equals(usuario.getRol().getNombre()))
                 .forEach(this::deactivateUser);
     }
 

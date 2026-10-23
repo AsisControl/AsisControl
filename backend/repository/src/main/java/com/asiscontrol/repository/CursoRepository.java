@@ -15,6 +15,8 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
 
     Optional<Curso> findByCodigoIgnoreCaseAndActivoTrue(String codigo);
 
+    Optional<Curso> findByCodigoIgnoreCase(String codigo);
+
     @Query("""
             SELECT c FROM Curso c
             WHERE c.activo = true
