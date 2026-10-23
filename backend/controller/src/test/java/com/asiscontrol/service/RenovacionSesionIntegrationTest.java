@@ -42,6 +42,7 @@ class RenovacionSesionIntegrationTest {
     @Autowired SesionActividadService actividad;
     @Autowired PlatformTransactionManager manager;
     @Autowired WebApplicationContext context;
+    @Autowired RegistroAuditoriaRepository auditorias;
     private MockMvc mvc;
     private static final String COOKIE = "asiscontrol_refresh";
     private static final String ORIGIN = "http://localhost:3000";
@@ -72,6 +73,76 @@ class RenovacionSesionIntegrationTest {
             change.accept(s);
             sesiones.saveAndFlush(s);
         });
+    }
+
+    private Long sesionId(RenovacionSesionService.Credenciales c) {
+        return sesiones.findByTokenHashAndEstado(HashUtils.sha256(c.response().accessToken()),
+                EstadoSesion.VIGENTE).orElseThrow().getId();
+    }
+
+    private List<com.asiscontrol.entity.RegistroAuditoria> auditoria(Long sesionId, String accion) {
+        return auditorias.findByEntidadAndRegistroIdOrderByFechaHoraAsc("SesionAcceso", sesionId.toString())
+                .stream().filter(r -> r.getAccion().equals(accion)).toList();
+    }
+
+    @Test void renovacionExitosaNoGeneraAuditoria() {
+        var c = login(crear());
+        Long id = sesionId(c);
+        service.renovar(c.refreshToken());
+        assertThat(auditorias.findByEntidadAndRegistroIdOrderByFechaHoraAsc("SesionAcceso", id.toString()))
+                .isEmpty();
+    }
+
+    @Test void reutilizarTokenSeAuditaANombreDelDuenoDeLaSesion() {
+        var user = crear();
+        var first = login(user);
+        Long id = sesionId(first);
+        var second = service.renovar(first.refreshToken());
+        assertThatThrownBy(() -> service.renovar(first.refreshToken()))
+                .isInstanceOf(BadCredentialsException.class);
+
+        var reutilizacion = auditoria(id, "REUTILIZACION_TOKEN_RENOVACION");
+        assertThat(reutilizacion).hasSize(1);
+        var registro = reutilizacion.getFirst();
+        assertThat(registro.getResultado()).isEqualTo(ResultadoAuditoria.RECHAZADO);
+        assertThat(registro.getModulo()).isEqualTo(ModuloAuditoria.SEGURIDAD);
+        assertThat(registro.getActorIdentificador()).isEqualTo(user.username());
+        assertThat(registro.getValorAnterior()).startsWith("estado=VIGENTE,tokenUsadoEn=");
+        assertThat(registro.getNuevoValor()).isEqualTo("estado=REVOCADA");
+
+        // Un intento posterior sobre la sesion ya revocada se registra como rechazo, no como revocacion.
+        assertThatThrownBy(() -> service.renovar(second.refreshToken()))
+                .isInstanceOf(BadCredentialsException.class);
+        var rechazo = auditoria(id, "RENOVACION_SESION_RECHAZADA");
+        assertThat(rechazo).hasSize(1);
+        assertThat(rechazo.getFirst().getMotivo()).isEqualTo("La sesion ya estaba REVOCADA");
+        assertThat(auditoria(id, "REVOCAR_SESION")).isEmpty();
+    }
+
+    @Test void revocarPorInactividadSeAuditaConElMotivo() {
+        var user = crear();
+        var idle = login(user);
+        Long id = sesionId(idle);
+        mutate(idle, s -> s.setUltimaActividad(Instant.now().minus(Duration.ofMinutes(31))));
+        assertThatThrownBy(() -> service.renovar(idle.refreshToken()))
+                .isInstanceOf(BadCredentialsException.class);
+
+        var revocacion = auditoria(id, "REVOCAR_SESION");
+        assertThat(revocacion).hasSize(1);
+        assertThat(revocacion.getFirst().getMotivo()).isEqualTo("Inactividad mayor a 30 minutos");
+        assertThat(revocacion.getFirst().getActorIdentificador()).isEqualTo(user.username());
+        assertThat(revocacion.getFirst().getValorAnterior()).isEqualTo("estado=VIGENTE");
+    }
+
+    @Test void cerrarConTokenDeRenovacionSeAuditaUnaSolaVez() {
+        var c = login(crear());
+        Long id = sesionId(c);
+        service.cerrar(c.refreshToken(), null);
+        service.cerrar(c.refreshToken(), null);
+
+        var cierre = auditoria(id, "CERRAR_SESION");
+        assertThat(cierre).hasSize(1);
+        assertThat(cierre.getFirst().getResultado()).isEqualTo(ResultadoAuditoria.EXITOSO);
     }
 
     @Test void renuevaRotaYConservaElLimiteAbsoluto() {

@@ -23,6 +23,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.asiscontrol.service.AuditoriaService;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -43,6 +45,7 @@ public class JustificacionAsistenciaService {
     private final ArchivoStorageService archivoService;
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
 
     public JustificacionAsistenciaService(
             JustificacionAsistenciaRepository justificacionRepository,
@@ -50,13 +53,15 @@ public class JustificacionAsistenciaService {
             AsistenciaAlumnoService asistenciaService,
             ArchivoStorageService archivoService,
             EntityManager entityManager,
-            ModuloAccessGuard accessGuard) {
+            ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria) {
         this.justificacionRepository = justificacionRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.asistenciaService = asistenciaService;
         this.archivoService = archivoService;
         this.entityManager = entityManager;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -79,7 +84,17 @@ public class JustificacionAsistenciaService {
         justificacion.setEstado(EstadoJustificacion.ENVIADA);
         justificacion.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         justificacion.setActivo(true);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "CREAR_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     @Transactional
@@ -87,7 +102,17 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia justificacion = obtenerEntidad(id);
         exigirEstado(justificacion, EstadoJustificacion.ENVIADA, "Solo se revisan justificaciones enviadas");
         aplicarRevision(justificacion, request, EstadoJustificacion.EN_REVISION);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "INICIAR_REVISION_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     @Transactional
@@ -99,7 +124,17 @@ public class JustificacionAsistenciaService {
                     "JUSTIFICACION_OBSERVACION_REQUERIDA", "Debe indicar qué información debe subsanarse");
         }
         aplicarRevision(justificacion, request, EstadoJustificacion.OBSERVADA);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "OBSERVAR_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     @Transactional
@@ -119,7 +154,17 @@ public class JustificacionAsistenciaService {
                 : EstadoAsistencia.INASISTENCIA_JUSTIFICADA;
         asistencia.setEstadoAsistencia(justificado);
         asistenciaRepository.save(asistencia);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "APROBAR_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     @Transactional
@@ -131,7 +176,17 @@ public class JustificacionAsistenciaService {
                     "JUSTIFICACION_MOTIVO_REQUERIDO", "El rechazo debe incluir un motivo");
         }
         aplicarRevision(justificacion, request, EstadoJustificacion.RECHAZADA);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "RECHAZAR_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     @Transactional
@@ -147,7 +202,17 @@ public class JustificacionAsistenciaService {
         justificacion.setDocenteRevisor(null);
         justificacion.setObservacionRevision(null);
         justificacion.setEstado(EstadoJustificacion.ENVIADA);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "SUBSANAR_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     @Transactional
@@ -160,7 +225,17 @@ public class JustificacionAsistenciaService {
                     "JUSTIFICACION_NO_CANCELABLE", "Solo se cancela una justificación enviada u observada");
         }
         justificacion.setEstado(EstadoJustificacion.CANCELADA);
-        return mapResponse(justificacionRepository.save(justificacion));
+        JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
+        auditoria.registrar(
+                "CANCELAR_JUSTIFICACION",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
+                savedJustificacion.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                null);
+        return mapResponse(savedJustificacion);
     }
 
     public JustificacionAsistenciaResponse obtener(Long id) {

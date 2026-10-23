@@ -27,7 +27,7 @@ class ImportacionAlumnoServiceTest {
     @BeforeEach void setup() {
         personas = mock(PersonaService.class);
         factory = Validation.buildDefaultValidatorFactory();
-        service = new ImportacionAlumnoService(personas, factory.getValidator());
+        service = new ImportacionAlumnoService(personas, factory.getValidator(), mock(AuditoriaService.class));
     }
     @AfterEach void close() { factory.close(); }
 

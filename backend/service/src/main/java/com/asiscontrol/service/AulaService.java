@@ -4,6 +4,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
 import com.asiscontrol.entity.Aula;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AulaRepository;
@@ -17,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AulaService {
 
     private final AulaRepository aulaRepository;
+    private final AuditoriaService auditoria;
 
-    public AulaService(AulaRepository aulaRepository) {
+    public AulaService(AulaRepository aulaRepository, AuditoriaService auditoria) {
         this.aulaRepository = aulaRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -28,7 +31,11 @@ public class AulaService {
         Aula aula = new Aula();
         aplicar(aula, request);
         aula.setActivo(true);
-        return mapear(aulaRepository.save(aula));
+        Aula saved = aulaRepository.save(aula);
+        auditoria.registrar("CREAR_AULA", ModuloAuditoria.ACADEMICO, "Aula",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
+        return mapear(saved);
     }
 
     @Transactional
@@ -36,12 +43,17 @@ public class AulaService {
         Aula aula = obtenerEntidad(id);
         exigirVersion(aula.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
+        String anterior = "codigo=" + aula.getCodigo() + ",nombre=" + aula.getNombre();
         aula.setCodigo(request.codigo().trim().toUpperCase());
         aula.setNombre(request.nombre().trim());
         aula.setTipoAula(request.tipoAula());
         aula.setCapacidad(request.capacidad());
         aula.setUbicacion(request.ubicacion().trim());
-        return mapear(aulaRepository.save(aula));
+        Aula saved = aulaRepository.save(aula);
+        auditoria.registrar("ACTUALIZAR_AULA", ModuloAuditoria.ACADEMICO, "Aula",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
+        return mapear(saved);
     }
 
     public AulaResponse obtener(Long id) {
@@ -57,6 +69,9 @@ public class AulaService {
         Aula aula = obtenerEntidad(id);
         aula.setActivo(false);
         aulaRepository.save(aula);
+        auditoria.registrar("ELIMINAR_AULA", ModuloAuditoria.ACADEMICO, "Aula",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "codigo=" + aula.getCodigo() + ",nombre=" + aula.getNombre(), null);
     }
 
     public Aula obtenerEntidad(Long id) {

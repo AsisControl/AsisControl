@@ -7,6 +7,7 @@ import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.CursoCompetencia;
 import com.asiscontrol.exception.ConflictException;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.CompetenciaRepository;
 import com.asiscontrol.repository.CursoCompetenciaRepository;
@@ -25,14 +26,17 @@ public class CursoCompetenciaService {
     private final CursoCompetenciaRepository cursoCompetenciaRepository;
     private final CursoRepository cursoRepository;
     private final CompetenciaRepository competenciaRepository;
+    private final AuditoriaService auditoria;
 
     public CursoCompetenciaService(
             CursoCompetenciaRepository cursoCompetenciaRepository,
             CursoRepository cursoRepository,
-            CompetenciaRepository competenciaRepository) {
+            CompetenciaRepository competenciaRepository,
+            AuditoriaService auditoria) {
         this.cursoCompetenciaRepository = cursoCompetenciaRepository;
         this.cursoRepository = cursoRepository;
         this.competenciaRepository = competenciaRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -52,8 +56,14 @@ public class CursoCompetenciaService {
         relacion.setCompetencia(competencia);
         relacion.setOrden(request.orden());
         relacion.setActivo(true);
-        return new ResultadoAsociacion(
-                mapear(cursoCompetenciaRepository.saveAndFlush(relacion)), existente.isEmpty());
+        CursoCompetencia saved = cursoCompetenciaRepository.saveAndFlush(relacion);
+        boolean creada = existente.isEmpty();
+        auditoria.registrar(creada ? "CREAR_CURSO_COMPETENCIA" : "REACTIVAR_CURSO_COMPETENCIA",
+                ModuloAuditoria.ACADEMICO, "CursoCompetencia",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null,
+                creada ? null : "activo=false",
+                "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId());
+        return new ResultadoAsociacion(mapear(saved), creada);
     }
 
     @Transactional
@@ -61,10 +71,17 @@ public class CursoCompetenciaService {
         CursoCompetencia relacion = obtenerEntidad(id);
         exigirVersion(relacion.getVersion(), request.version());
         validarUnica(request.cursoId(), request.competenciaId(), id);
+        String anterior = "cursoId=" + relacion.getCurso().getId()
+                + ",competenciaId=" + relacion.getCompetencia().getId() + ",orden=" + relacion.getOrden();
         relacion.setCurso(buscarCurso(request.cursoId()));
         relacion.setCompetencia(buscarCompetencia(request.competenciaId()));
         relacion.setOrden(request.orden());
-        return mapear(cursoCompetenciaRepository.saveAndFlush(relacion));
+        CursoCompetencia saved = cursoCompetenciaRepository.saveAndFlush(relacion);
+        auditoria.registrar("ACTUALIZAR_CURSO_COMPETENCIA", ModuloAuditoria.ACADEMICO, "CursoCompetencia",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId()
+                        + ",orden=" + saved.getOrden());
+        return mapear(saved);
     }
 
     public CursoCompetenciaResponse obtener(Long id) {
@@ -86,6 +103,9 @@ public class CursoCompetenciaService {
         CursoCompetencia relacion = obtenerEntidad(id);
         relacion.setActivo(false);
         cursoCompetenciaRepository.save(relacion);
+        auditoria.registrar("ELIMINAR_CURSO_COMPETENCIA", ModuloAuditoria.ACADEMICO, "CursoCompetencia",
+                relacion.getId().toString(), ResultadoAuditoria.EXITOSO, null,
+                "cursoId=" + relacion.getCurso().getId() + ",competenciaId=" + relacion.getCompetencia().getId(), null);
     }
 
     private CursoCompetencia obtenerEntidad(Long id) {

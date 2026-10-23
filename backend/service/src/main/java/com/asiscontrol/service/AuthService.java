@@ -100,7 +100,7 @@ public class AuthService {
             if (!bloqueado) registerFailedAttempt(identifier);
             auditoriaService.registrar(
                     "INICIAR_SESION",
-                    "SEGURIDAD",
+                    ModuloAuditoria.SEGURIDAD,
                     "AccesoUsuario",
                     locked == null ? "NO_IDENTIFICADO" : locked.getId().toString(),
                     ResultadoAuditoria.RECHAZADO,
@@ -122,7 +122,7 @@ public class AuthService {
                             sesionRepository.save(session);
                             auditoriaService.registrar(
                                     "CERRAR_SESION",
-                                    "SEGURIDAD",
+                                    ModuloAuditoria.SEGURIDAD,
                                     "SesionAcceso",
                                     session.getId().toString(),
                                     ResultadoAuditoria.EXITOSO,
@@ -174,7 +174,7 @@ public class AuthService {
                 usuario.getId(), EstadoSesion.REVOCADA, Instant.now());
         auditoriaService.registrar(
                 "CAMBIAR_CONTRASENA",
-                "SEGURIDAD",
+                ModuloAuditoria.SEGURIDAD,
                 "AccesoUsuario",
                 usuario.getId().toString(),
                 ResultadoAuditoria.EXITOSO,

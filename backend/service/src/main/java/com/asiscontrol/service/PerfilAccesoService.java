@@ -97,7 +97,7 @@ public class PerfilAccesoService {
                 }
                 default -> invalid("El rol no pertenece a los cuatro perfiles institucionales");
             }
-            auditoria.registrar("CREAR_PERFIL", "PERSONAS", role, p.getId().toString(),
+            auditoria.registrar("CREAR_PERFIL", ModuloAuditoria.PERSONAS, role.charAt(0) + role.substring(1).toLowerCase(), p.getId().toString(),
                 ResultadoAuditoria.EXITOSO, null, null, "personaId=" + p.getId());
         }
         if (role.equals("APODERADO") && r.alumnoIds() != null) {
@@ -106,6 +106,7 @@ public class PerfilAccesoService {
                 alumnos.findByIdAndActivoTrue(id).filter(s -> s.getPersona().isActivo())
                     .orElseThrow(() -> new ResourceNotFoundException("ALUMNO_NO_ENCONTRADO", "No se encontro un estudiante habilitado"));
                 if (vinculos.findByAlumnoIdAndApoderadoIdAndActivoTrue(id, a.getId()).isEmpty()) {
+                    // linkGuardian ya audita ASOCIAR_APODERADO.
                     personaService.linkGuardian(id,
                         new com.asiscontrol.dto.persona.PersonaDtos.VinculoApoderadoRequest(
                             a.getId(), Parentesco.NO_DECLARADO, false));

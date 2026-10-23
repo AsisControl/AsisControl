@@ -4,6 +4,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarCompetenciaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CompetenciaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearCompetenciaRequest;
 import com.asiscontrol.entity.Competencia;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.CompetenciaRepository;
@@ -17,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompetenciaService {
 
     private final CompetenciaRepository competenciaRepository;
+    private final AuditoriaService auditoria;
 
-    public CompetenciaService(CompetenciaRepository competenciaRepository) {
+    public CompetenciaService(CompetenciaRepository competenciaRepository, AuditoriaService auditoria) {
         this.competenciaRepository = competenciaRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -28,7 +31,11 @@ public class CompetenciaService {
         Competencia competencia = new Competencia();
         aplicar(competencia, request.codigo(), request.nombre(), request.descripcion());
         competencia.setActivo(true);
-        return mapear(competenciaRepository.save(competencia));
+        Competencia saved = competenciaRepository.save(competencia);
+        auditoria.registrar("CREAR_COMPETENCIA", ModuloAuditoria.ACADEMICO, "Competencia",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
+        return mapear(saved);
     }
 
     @Transactional
@@ -36,8 +43,13 @@ public class CompetenciaService {
         Competencia competencia = obtenerEntidad(id);
         exigirVersion(competencia.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
+        String anterior = "codigo=" + competencia.getCodigo() + ",nombre=" + competencia.getNombre();
         aplicar(competencia, request.codigo(), request.nombre(), request.descripcion());
-        return mapear(competenciaRepository.save(competencia));
+        Competencia saved = competenciaRepository.save(competencia);
+        auditoria.registrar("ACTUALIZAR_COMPETENCIA", ModuloAuditoria.ACADEMICO, "Competencia",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
+        return mapear(saved);
     }
 
     public CompetenciaResponse obtener(Long id) {
@@ -54,6 +66,9 @@ public class CompetenciaService {
         Competencia competencia = obtenerEntidad(id);
         competencia.setActivo(false);
         competenciaRepository.save(competencia);
+        auditoria.registrar("ELIMINAR_COMPETENCIA", ModuloAuditoria.ACADEMICO, "Competencia",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "codigo=" + competencia.getCodigo() + ",nombre=" + competencia.getNombre(), null);
     }
 
     public Competencia obtenerEntidad(Long id) {

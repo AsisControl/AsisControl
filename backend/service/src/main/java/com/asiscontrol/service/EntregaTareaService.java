@@ -14,6 +14,7 @@ import com.asiscontrol.entity.Tarea;
 import com.asiscontrol.entity.enums.EstadoPublicacionTarea;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoTarea;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -35,18 +36,21 @@ public class EntregaTareaService {
     private final ArchivoStorageService archivoService;
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
 
     public EntregaTareaService(
             EntregaTareaRepository entregaRepository,
             TareaService tareaService,
             ArchivoStorageService archivoService,
             EntityManager entityManager,
-            ModuloAccessGuard accessGuard) {
+            ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria) {
         this.entregaRepository = entregaRepository;
         this.tareaService = tareaService;
         this.archivoService = archivoService;
         this.entityManager = entityManager;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -73,7 +77,10 @@ public class EntregaTareaService {
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
         entrega.setActivo(true);
-        return mapResponse(entregaRepository.save(entrega));
+        EntregaTarea saved = entregaRepository.save(entrega);
+        auditoria.registrar("REGISTRAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
+        return mapResponse(saved);
     }
 
     @Transactional
@@ -86,6 +93,7 @@ public class EntregaTareaService {
             throw new BusinessRuleException("ENTREGA_YA_CALIFICADA", "No se puede reemplazar una entrega calificada");
         }
         validarCantidadArchivos(entrega.getTarea(), request.archivoIds().size());
+        String anterior = describir(entrega);
         LocalDateTime ahora = LocalDateTime.now();
         entrega.setFechaHoraEntrega(ahora);
         entrega.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
@@ -93,13 +101,25 @@ public class EntregaTareaService {
         entrega.setEstado(ahora.isAfter(entrega.getTarea().getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
-        return mapResponse(entregaRepository.save(entrega));
+        EntregaTarea saved = entregaRepository.save(entrega);
+        auditoria.registrar("ACTUALIZAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        return mapResponse(saved);
     }
 
     @Transactional
     public EntregaTareaResponse calificar(Long id, CalificarEntregaRequest request) {
         EntregaTarea entrega = obtenerEntidad(id);
+        // Antes de cualquier otra validacion, para no revelar datos de entregas ajenas.
+        accessGuard.verificarAsignacionDocente(entrega.getTarea().getAsignacionCurso());
         exigirVersion(entrega.getVersion(), request.version());
+        EstadoPublicacionTarea estadoTarea = entrega.getTarea().getEstadoPublicacion();
+        if (estadoTarea != EstadoPublicacionTarea.PUBLICADA
+                && estadoTarea != EstadoPublicacionTarea.CERRADA) {
+            throw new BusinessRuleException(
+                    "TAREA_NO_CALIFICABLE",
+                    "Solo se pueden calificar entregas de tareas publicadas o cerradas");
+        }
         if (entrega.getEstado() == EstadoTarea.ANULADO) {
             throw new BusinessRuleException("ENTREGA_ANULADA", "No se puede calificar una entrega anulada");
         }
@@ -107,10 +127,15 @@ public class EntregaTareaService {
             throw new BusinessRuleException(
                     "NOTA_FUERA_DE_RANGO", "La nota no puede superar el puntaje máximo de la tarea");
         }
+        String anterior = "estado=" + entrega.getEstado() + ",nota=" + entrega.getNota();
         entrega.setNota(request.nota());
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(EstadoTarea.CALIFICADO);
-        return mapResponse(entregaRepository.save(entrega));
+        EntregaTarea saved = entregaRepository.save(entrega);
+        auditoria.registrar("CALIFICAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "estado=" + saved.getEstado() + ",nota=" + saved.getNota());
+        return mapResponse(saved);
     }
 
     public EntregaTareaResponse obtener(Long id) {
@@ -187,6 +212,13 @@ public class EntregaTareaService {
                 entrega.getComentario(),
                 entrega.getEstado(),
                 entrega.getVersion());
+    }
+
+    private String describir(EntregaTarea entrega) {
+        return "tareaId=" + entrega.getTarea().getId()
+                + ",alumnoId=" + entrega.getAlumno().getId()
+                + ",estado=" + entrega.getEstado()
+                + ",archivos=" + entrega.getArchivos().size();
     }
 
     private String normalizar(String valor) {
