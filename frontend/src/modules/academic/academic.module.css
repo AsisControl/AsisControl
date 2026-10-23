@@ -123,3 +123,36 @@
   color: var(--muted);
   font-size: 12px;
 }
+.search {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  height: 40px;
+  margin-bottom: 16px;
+  max-width: 420px;
+  padding: 0 14px;
+  width: 100%;
+}
+.clamp {
+  color: #475569;
+  display: -webkit-box;
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-width: 360px;
+  overflow: hidden;
+}
+.order {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+  color: var(--blue);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
