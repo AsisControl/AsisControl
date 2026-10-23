@@ -1,5 +1,6 @@
 package com.asiscontrol.controller;
 
+import com.asiscontrol.entity.CursoCompetencia;
 import com.asiscontrol.entity.Tarea;
 import org.junit.jupiter.api.Test;
 import java.time.*;
@@ -84,6 +85,21 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         var draft=postOk("/api/evaluaciones",evaluacion("Borrador"));
         String dp="/api/evaluaciones/"+draft.path("id").asLong();
         putOk(dp+"/estado",data("estado","ANULADA")); deleteOk(dp);
+    }
+
+    @Test void rechazaEvaluacionCuandoLaAsociacionCursoCompetenciaEstaInactiva() throws Exception {
+        var relation = em.createQuery(
+                "from CursoCompetencia cc where cc.curso = :curso and cc.competencia = :competencia",
+                CursoCompetencia.class)
+                .setParameter("curso", course)
+                .setParameter("competencia", competence)
+                .getSingleResult();
+        relation.setActivo(false);
+        em.flush();
+
+        var error = request("POST", "/api/evaluaciones", evaluacion("Sin asociacion activa"), 422);
+
+        assertThat(error.path("code").asText()).isEqualTo("COMPETENCIA_NO_DISPONIBLE_PARA_CURSO");
     }
 
     private Map<String,Object> evaluacion(String title) {

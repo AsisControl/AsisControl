@@ -72,6 +72,9 @@ abstract class ApiIntegrationSupport {
         course = new Curso(); course.setCodigo("MAT" + key()); course.setNombre("Matematica");
         course.setHorasSemanales(4); em.persist(course);
         competence = new Competencia(); competence.setCodigo("COMP" + key()); competence.setNombre("Resuelve problemas"); em.persist(competence);
+        var courseCompetence = new CursoCompetencia();
+        courseCompetence.setCurso(course); courseCompetence.setCompetencia(competence);
+        courseCompetence.setOrden(1); em.persist(courseCompetence);
         assignment = new AsignacionCurso(); assignment.setCurso(course); assignment.setDocente(teacher);
         assignment.setSeccion(section); em.persist(assignment);
         var request = new SolicitudMatricula(); request.setAlumno(student); request.setSeccion(section);
