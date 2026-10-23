@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { TabNav, type TabItem } from "@/shared/ui";
+import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
 import { AssociationsPanel } from "./associations/associations-panel";
 import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
-import styles from "./academic.module.css";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
 const tabs: TabItem[] = [
   { id: "cursos", label: "Cursos" },
@@ -41,10 +40,10 @@ export function Academic({
   if (!current) return null;
   return (
     <section>
-      <div className={styles.heading}>
-        <h2>Gestión Curricular</h2>
-        <p>Cursos, competencias, asociaciones y reglas académicas</p>
-      </div>
+      <PageHeader
+        title="Gestión Curricular"
+        description="Cursos, competencias, asociaciones y reglas académicas"
+      />
       <TabNav
         label="Secciones de gestión curricular"
         tabs={tabs}

@@ -49,9 +49,10 @@ test("Lista las solicitudes de sus estudiantes", async () => {
   });
   render(<GuardianEnrollment />);
   const row = (await screen.findByText("Mateo Flores", { selector: "strong" })).closest("tr");
-  expect(within(row).getByText("2027 · 2°")).toBeTruthy();
+  expect(within(row).getByText("2°")).toBeTruthy();
+  expect(within(row).getByText("Año 2027")).toBeTruthy();
   expect(within(row).getByText("Enviada")).toBeTruthy();
-  expect(screen.getByText("Nueva solicitud").disabled).toBe(false);
+  expect(screen.getByText("+ Nueva solicitud").disabled).toBe(false);
 });
 
 test("Guarda un borrador con estudiante, año y grado ofertados", async () => {
@@ -60,7 +61,7 @@ test("Guarda un borrador con estudiante, año y grado ofertados", async () => {
   });
   const user = userEvent.setup();
   render(<GuardianEnrollment />);
-  await user.click(await screen.findByText("Nueva solicitud"));
+  await user.click(await screen.findByText("+ Nueva solicitud"));
   const dialog = screen.getByRole("dialog", { name: "Nueva solicitud de matrícula" });
   const grade = within(dialog).getByLabelText(/Grado solicitado/);
   expect(grade.disabled).toBe(true);
@@ -85,7 +86,7 @@ test("Un error al guardar el borrador se muestra en la ventana", async () => {
   });
   const user = userEvent.setup();
   render(<GuardianEnrollment />);
-  await user.click(await screen.findByText("Nueva solicitud"));
+  await user.click(await screen.findByText("+ Nueva solicitud"));
   const dialog = screen.getByRole("dialog");
   await user.selectOptions(within(dialog).getByLabelText(/Estudiante asociado/), "42");
   await user.selectOptions(within(dialog).getByLabelText(/Año con admisión abierta/), "2027");
@@ -113,7 +114,7 @@ test("Envía un borrador y luego lo cancela con motivo", async () => {
   });
   const user = userEvent.setup();
   render(<GuardianEnrollment />);
-  await user.click(await screen.findByText("Ver solicitud"));
+  await user.click(await screen.findByText("Ver detalle"));
   const dialog = screen.getByRole("dialog", { name: "Detalle de mi solicitud" });
   await user.click(within(dialog).getByText("Enviar solicitud"));
   expect(within(dialog).getByText("Confirmar envío")).toBeTruthy();
@@ -146,7 +147,7 @@ test("Edita las observaciones y reenvía una solicitud observada", async () => {
   });
   const user = userEvent.setup();
   render(<GuardianEnrollment />);
-  await user.click(await screen.findByText("Ver solicitud"));
+  await user.click(await screen.findByText("Ver detalle"));
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByText("Última revisión")).toBeTruthy();
   expect(within(dialog).getByText(/Motivo de rechazo:/)).toBeTruthy();
@@ -176,7 +177,7 @@ test("Informa errores al actualizar y al cambiar la solicitud", async () => {
   });
   const user = userEvent.setup();
   render(<GuardianEnrollment />);
-  await user.click(await screen.findByText("Ver solicitud"));
+  await user.click(await screen.findByText("Ver detalle"));
   const dialog = screen.getByRole("dialog");
   await user.click(within(dialog).getByText("Enviar solicitud"));
   await user.click(within(dialog).getByText("Confirmar"));
@@ -197,7 +198,7 @@ test("Sin estudiantes asociados ni convocatoria no permite crear solicitudes", a
   expect(await screen.findByText(/No tienes estudiantes asociados y habilitados/)).toBeTruthy();
   expect(screen.getByText(/no tiene una convocatoria abierta/)).toBeTruthy();
   expect(screen.getByText("Todavía no tienes solicitudes registradas.")).toBeTruthy();
-  expect(screen.getByText("Nueva solicitud").disabled).toBe(true);
+  expect(screen.getByText("+ Nueva solicitud").disabled).toBe(true);
 });
 
 test("Un error al cargar los estudiantes se informa y Actualizar reintenta", async () => {

@@ -1,9 +1,27 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { api, message } from "@/core/api/client";
-import { Dialog, Feedback, Field, Pager } from "@/shared/ui";
+import {
+  Dialog,
+  Feedback,
+  Field,
+  PageHeader,
+  Pager,
+  PanelHeading,
+  PersonCell,
+  StatusPill,
+  TabNav,
+  type TabItem,
+} from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { dateLabel, stateLabel } from "@/shared/lib/formatters";
+import {
+  countLabel,
+  dateLabel,
+  shortDateLabel,
+  stateLabel,
+  timeLabel,
+} from "@/shared/lib/formatters";
 import type { Persona } from "@/shared/types/person";
 import { Students, type Student } from "@/modules/students";
 import type { AcademicYear } from "@/modules/academic-config";
@@ -45,44 +63,40 @@ const actionLabels: Record<string, string> = {
   FINALIZADA: "Finalizar año",
   ANULADA: "Anular matrícula",
 };
-/** Verde para matrículas vigentes o finalizadas; gris para el resto. */
-const statusClass = (state: string) =>
-  state === "ACTIVA" || state === "MATRICULA_FINALIZADA"
-    ? "status-active"
-    : "status-inactive";
-export function Enrollments() {
-  const [tab, setTab] = useState("requests");
+const ENROLLMENT_TABS: TabItem[] = [
+  { id: "solicitudes", label: "Solicitudes" },
+  { id: "matriculas", label: "Matrículas" },
+  { id: "fichas", label: "Fichas de estudiantes" },
+];
+export const ENROLLMENT_PATH = "/matricula";
+const DEFAULT_TAB = "solicitudes";
+/** Gestión de Matrícula del administrador; la pestaña sale de la URL: /matricula/{id}. */
+export function Enrollments({ tab = DEFAULT_TAB }: { tab?: string }) {
+  const router = useRouter();
+  const current = ENROLLMENT_TABS.find((item) => item.id === tab);
+  useEffect(() => {
+    if (!current) router.replace(`${ENROLLMENT_PATH}/${DEFAULT_TAB}`);
+  }, [current, router]);
+  if (!current) return null;
   return (
     <section>
-      <div className="management-heading">
-        <div>
-          <p className="eyebrow">MATRÍCULA</p>
-          <h2>Gestión de matrícula</h2>
-          <p>
-            Solicitudes, asignación de vacantes y matrículas. Las fichas
-            conservan los datos del estudiante.
-          </p>
-        </div>
-      </div>
-      <div className="management-tabs">
-        {[
-          ["requests", "Solicitudes"],
-          ["enrollments", "Matrículas"],
-          ["students", "Fichas de estudiantes"],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            className={tab === id ? "active" : ""}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {tab === "students" ? (
+      <PageHeader
+        title="Gestión de Matrícula"
+        description="Solicitudes, asignación de vacantes y matrículas. Las fichas conservan los datos del estudiante."
+      />
+      <TabNav
+        label="Secciones de matrícula"
+        tabs={ENROLLMENT_TABS}
+        current={current.id}
+        onSelect={(id) => router.push(`${ENROLLMENT_PATH}/${id}`)}
+      />
+      {current.id === "fichas" ? (
         <Students />
       ) : (
-        <EnrollmentList key={tab} isRequest={tab === "requests"} />
+        <EnrollmentList
+          key={current.id}
+          isRequest={current.id === DEFAULT_TAB}
+        />
       )}
     </section>
   );
@@ -93,29 +107,41 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<EnrollmentRecord | null>(null);
   const [success, setSuccess] = useState("");
+  const total = list.data?.totalElements ?? 0;
   return (
-    <>
-      <div className="section-heading">
-        <h3>
-          {isRequest ? "Solicitudes de matrícula" : "Matrículas registradas"}
-        </h3>
-        <div className="row-actions">
-          <button disabled={list.loading} onClick={list.refresh}>
-            Actualizar
-          </button>
-          {isRequest && (
-            <button
-              className="primary-action"
-              onClick={() => {
-                setSuccess("");
-                setCreating(true);
-              }}
-            >
-              Nueva solicitud
+    <section className="panel">
+      <PanelHeading
+        title={isRequest ? "Solicitudes de matrícula" : "Matrículas registradas"}
+        summary={
+          <>
+            {list.data
+              ? isRequest
+                ? countLabel(total, "solicitud", "solicitudes")
+                : countLabel(total, "matrícula", "matrículas")
+              : "Registros del año académico"}
+            {list.updatedAt &&
+              ` · Última actualización: ${timeLabel(list.updatedAt)}`}
+          </>
+        }
+        actions={
+          <>
+            <button disabled={list.loading} onClick={list.refresh}>
+              Actualizar
             </button>
-          )}
-        </div>
-      </div>
+            {isRequest && (
+              <button
+                className="primary-action"
+                onClick={() => {
+                  setSuccess("");
+                  setCreating(true);
+                }}
+              >
+                + Nueva solicitud
+              </button>
+            )}
+          </>
+        }
+      />
       <Feedback error={list.error} success={success} />
       {list.loading ? (
         <p role="status">Cargando registros…</p>
@@ -124,41 +150,41 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
           <table className="user-table">
             <thead>
               <tr>
+                <th>Código</th>
                 <th>Estudiante</th>
-                <th>Año / Grado / Sección</th>
+                <th>Grado / Sección</th>
+                <th>{isRequest ? "Fecha de envío" : "Fecha de matrícula"}</th>
                 <th>Estado</th>
-                <th>Fecha</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {list.data.content.map((record) => (
                 <tr key={record.id}>
+                  <td data-label="Código" className="muted-cell">
+                    {record.codigoMatricula ?? record.codigoAlumno}
+                  </td>
                   <td data-label="Estudiante">
-                    <strong>{record.alumno}</strong>
-                    <small>
-                      {record.codigoAlumno}
-                      {record.codigoMatricula
-                        ? ` · ${record.codigoMatricula}`
-                        : ""}
-                    </small>
+                    <PersonCell
+                      name={record.alumno}
+                      detail={record.codigoMatricula ? record.codigoAlumno : undefined}
+                    />
                   </td>
-                  <td data-label="Asignación">
-                    {record.anioAcademico} · {record.grado}° {record.seccion}
-                  </td>
-                  <td data-label="Estado">
-                    <span className={`status ${statusClass(record.estado)}`}>
-                      {stateLabel(record.estado)}
-                    </span>
+                  <td data-label="Grado / Sección">
+                    <strong className="grade-cell">
+                      {record.grado}° {record.seccion}
+                    </strong>
+                    <small>Año {record.anioAcademico}</small>
                   </td>
                   <td data-label="Fecha">
-                    {dateLabel(
-                      record.fechaMatricula || record.fechaEnvio || null,
-                    )}
+                    {shortDateLabel(record.fechaMatricula || record.fechaEnvio)}
+                  </td>
+                  <td data-label="Estado">
+                    <StatusPill state={record.estado} />
                   </td>
                   <td data-label="Acciones">
                     <button onClick={() => setSelected(record)}>
-                      Ver y gestionar
+                      Ver detalle
                     </button>
                   </td>
                 </tr>
@@ -197,7 +223,7 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
           onChanged={list.refresh}
         />
       )}
-    </>
+    </section>
   );
 }
 function StudentPicker({
@@ -544,9 +570,7 @@ function EnrollmentDetail({
         <div>
           <dt>Estado</dt>
           <dd>
-            <span className={`status ${statusClass(record.estado)}`}>
-              {stateLabel(record.estado)}
-            </span>
+            <StatusPill state={record.estado} />
           </dd>
         </div>
         <div>

@@ -234,29 +234,36 @@ test("Logs: lista vacía", async () => {
   expect(await screen.findByText("No hay errores con estos filtros.")).toBeTruthy();
 });
 
-test("Roles: compara permisos por rol y filtra por texto y módulo", async () => {
+test("Roles: muestra los permisos del rol elegido agrupados por módulo", async () => {
   fakeBackend({
     "GET /api/roles": roles,
     "GET /api/roles/permisos": [writeUsers, readEnrollment, general],
   });
   const user = userEvent.setup();
   render(<Administration currentUserId="1" tab="roles-y-permisos" />);
-  expect(await screen.findByText("3 de 3 permisos.", { exact: false })).toBeTruthy();
-  expect(screen.getByText("2 permisos habilitados")).toBeTruthy();
-  expect(screen.getByText("Sin configurar")).toBeTruthy();
-  const row = screen.getByText("Ver solicitudes").closest("tr");
-  expect(within(row).getAllByText("✓ Permitido")).toHaveLength(2);
-  await user.click(screen.getByRole("button", { name: /Apoderado/ }));
-  expect(screen.getAllByRole("columnheader")).toHaveLength(2);
-  await user.click(screen.getByRole("button", { name: /Apoderado/ }));
-  expect(screen.getAllByRole("columnheader")).toHaveLength(5);
-  await user.selectOptions(screen.getByLabelText("Comparar rol"), "DOCENTE");
-  await user.selectOptions(screen.getByLabelText("Módulo"), "General");
-  expect(screen.getByText("1 de 3 permisos.", { exact: false })).toBeTruthy();
+  expect(await screen.findByText("Permisos — Administrador")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Administrador.*2 permisos/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: /Estudiante.*Sin configurar/ })).toBeTruthy();
+  expect(screen.getByText("2 de 3 permisos habilitados para este rol.")).toBeTruthy();
+  expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual([
+    "General",
+    "Matrícula",
+    "Usuarios",
+  ]);
+  expect(screen.getByText("Ver solicitudes").closest("li").textContent).toContain("(permitido)");
+  expect(screen.getByText("Ver perfil").closest("li").textContent).toContain("(sin permiso)");
+  expect(screen.queryByText(/Guardar/)).toBeNull();
+  await user.click(screen.getByRole("button", { name: /Docente/ }));
+  expect(screen.getByText("Permisos — Docente")).toBeTruthy();
+  expect(screen.getByText("Ver perfil").closest("li").textContent).toContain("(permitido)");
+  expect(screen.getByText("1 de 3 permisos habilitados para este rol.")).toBeTruthy();
+  await user.type(screen.getByLabelText("Buscar permiso o módulo"), "matrícula");
+  expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["Matrícula"]);
+  await user.clear(screen.getByLabelText("Buscar permiso o módulo"));
   await user.type(screen.getByLabelText("Buscar permiso o módulo"), "inexistente");
-  expect(screen.getByText("No hay permisos que coincidan con estos filtros.")).toBeTruthy();
-  await user.click(screen.getByText("Limpiar filtros"));
-  expect(screen.getByText("3 de 3 permisos.", { exact: false })).toBeTruthy();
+  expect(screen.getByText("No hay permisos que coincidan con la búsqueda.")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: /Estudiante/ }));
+  expect(screen.getByText("Este rol todavía no está configurado en el servidor.")).toBeTruthy();
 });
 
 test("Roles: informa el error y permite volver a cargar", async () => {
@@ -268,7 +275,9 @@ test("Roles: informa el error y permite volver a cargar", async () => {
   const user = userEvent.setup();
   render(<Administration currentUserId="1" tab="roles-y-permisos" />);
   expect((await screen.findByRole("alert")).textContent).toBe("Sin conexión");
-  await user.click(screen.getByText("Actualizar matriz"));
-  expect(await screen.findByText("0 de 0 permisos.", { exact: false })).toBeTruthy();
+  await user.click(screen.getByText("Reintentar"));
+  expect(await screen.findByText("0 de 0 permisos habilitados para este rol.")).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Actualizar" }));
+  expect(attempts).toBe(3);
 });

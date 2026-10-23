@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, RowMenu } from "@/shared/ui";
+import { Feedback, FormDialog, RowMenu, PanelHeading } from "@/shared/ui";
 import type { CourseCompetency } from "../types";
 import styles from "../academic.module.css";
-import { countLabel, timeLabel } from "../components/labels";
+import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
 import { AssociationFormDialog, type Option } from "./association-form-dialog";
 import {
@@ -100,32 +100,34 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
     catalog.courses.length > 0 && catalog.competencies.length > 0;
   return (
     <section className="panel">
-      <div className={styles.listHeading}>
-        <div>
-          <h3>Competencias por curso</h3>
-          <p>
-            {associations
-              ? countLabel(visible.length, "asociación", "asociaciones")
-              : "Relación entre cursos y competencias"}
-            {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
-          </p>
-        </div>
-        <div className={styles.headingActions}>
-          <button type="button" disabled={loading} onClick={refresh}>
-            Actualizar
-          </button>
-          {canWrite && (
-            <button
-              type="button"
-              className="primary-action"
-              disabled={!canCreate}
-              onClick={() => open({ kind: "create" })}
-            >
-              + Nueva asociación
-            </button>
-          )}
-        </div>
-      </div>
+      <PanelHeading
+        title="Competencias por curso"
+        summary={
+          <>
+                {associations
+                  ? countLabel(visible.length, "asociación", "asociaciones")
+                  : "Relación entre cursos y competencias"}
+                {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
+          </>
+        }
+        actions={
+          <>
+              <button type="button" disabled={loading} onClick={refresh}>
+                Actualizar
+              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="primary-action"
+                  disabled={!canCreate}
+                  onClick={() => open({ kind: "create" })}
+                >
+                  + Nueva asociación
+                </button>
+              )}
+          </>
+        }
+      />
       <select
         className={styles.search}
         aria-label="Filtrar por curso"

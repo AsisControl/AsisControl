@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, RowMenu } from "@/shared/ui";
+import { Feedback, FormDialog, Pager, RowMenu, PanelHeading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Competency, CourseCompetency } from "../types";
 import styles from "../academic.module.css";
@@ -9,7 +9,7 @@ import {
   agruparPor,
   listarAsociaciones,
 } from "../associations/services/asociacionService";
-import { countLabel, timeLabel } from "../components/labels";
+import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
 import { CompetencyDetailDialog } from "./competency-detail-dialog";
 import { CompetencyFormDialog } from "./competency-form-dialog";
@@ -102,36 +102,38 @@ export function CompetenciesPanel({ canWrite }: { canWrite: boolean }) {
     dialog?.kind === "deactivate" ? coursesOf(dialog.competency) : null;
   return (
     <section className="panel">
-      <div className={styles.listHeading}>
-        <div>
-          <h3>Competencias registradas</h3>
-          <p>
-            {competencies.data
-              ? countLabel(total, "competencia", "competencias") +
-                (search ? " encontradas" : " en el sistema")
-              : "Catálogo de competencias del plan curricular"}
-            {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
-          </p>
-        </div>
-        <div className={styles.headingActions}>
-          <button
-            type="button"
-            disabled={competencies.loading}
-            onClick={refresh}
-          >
-            Actualizar
-          </button>
-          {canWrite && (
-            <button
-              type="button"
-              className="primary-action"
-              onClick={() => open({ kind: "create" })}
-            >
-              + Nueva competencia
-            </button>
-          )}
-        </div>
-      </div>
+      <PanelHeading
+        title="Competencias registradas"
+        summary={
+          <>
+                {competencies.data
+                  ? countLabel(total, "competencia", "competencias") +
+                    (search ? " encontradas" : " en el sistema")
+                  : "Catálogo de competencias del plan curricular"}
+                {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
+          </>
+        }
+        actions={
+          <>
+              <button
+                type="button"
+                disabled={competencies.loading}
+                onClick={refresh}
+              >
+                Actualizar
+              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={() => open({ kind: "create" })}
+                >
+                  + Nueva competencia
+                </button>
+              )}
+          </>
+        }
+      />
       <input
         type="search"
         className={styles.search}

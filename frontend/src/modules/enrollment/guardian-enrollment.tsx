@@ -1,9 +1,23 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
-import { Dialog, Feedback, Pager } from "@/shared/ui";
+import {
+  Dialog,
+  Feedback,
+  PageHeader,
+  Pager,
+  PanelHeading,
+  PersonCell,
+  StatusPill,
+} from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { dateLabel, stateLabel } from "@/shared/lib/formatters";
+import {
+  countLabel,
+  dateLabel,
+  shortDateLabel,
+  stateLabel,
+  timeLabel,
+} from "@/shared/lib/formatters";
 type Child = { id: number; codigoAlumno: string; nombreCompleto: string };
 type Offer = { anio: number; grados: number[] };
 type Request = {
@@ -136,110 +150,121 @@ export function GuardianEnrollment() {
     selected && ["BORRADOR", "OBSERVADA"].includes(selected.estado);
   const cancellable =
     selected && ["BORRADOR", "ENVIADA", "OBSERVADA"].includes(selected.estado);
+  const total = list.data?.totalElements ?? 0;
   return (
     <section>
-      <div className="management-heading">
-        <div>
-          <p className="eyebrow">MATRÍCULA · APODERADO</p>
-          <h2>Solicitudes de mis estudiantes</h2>
-          <p>
-            Solicita año y grado. La administración revisa la solicitud y asigna
-            la sección. Enviar una solicitud no reserva una vacante.
+      <PageHeader
+        title="Solicitudes de mis estudiantes"
+        description="Solicita año y grado. La administración revisa la solicitud y asigna la sección. Enviar una solicitud no reserva una vacante."
+      />
+      <div className="panel">
+        <PanelHeading
+          title="Mis solicitudes de matrícula"
+          summary={
+            <>
+              {list.data
+                ? countLabel(total, "solicitud", "solicitudes")
+                : "Solicitudes de tus estudiantes asociados"}
+              {list.updatedAt &&
+                ` · Última actualización: ${timeLabel(list.updatedAt)}`}
+            </>
+          }
+          actions={
+            <>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  list.refresh();
+                  setReload((v) => v + 1);
+                }}
+              >
+                Actualizar
+              </button>
+              <button
+                className="primary-action"
+                disabled={busy || !students?.length || !offers.length}
+                onClick={() => {
+                  setCreating(true);
+                  setYear("");
+                  setError("");
+                  setSuccess("");
+                }}
+              >
+                + Nueva solicitud
+              </button>
+            </>
+          }
+        />
+        <Feedback error={error || list.error} success={success} />
+        {!students && !error && (
+          <p role="status">Cargando estudiantes asociados…</p>
+        )}
+        {students?.length === 0 && (
+          <p className="hint">
+            No tienes estudiantes asociados y habilitados. Solicita a la
+            administración revisar el vínculo.
           </p>
-        </div>
-        <div className="row-actions">
-          <button
-            disabled={busy}
-            onClick={() => {
-              list.refresh();
-              setReload((v) => v + 1);
-            }}
-          >
-            Actualizar
-          </button>
-          <button
-            className="primary-action"
-            disabled={busy || !students?.length || !offers.length}
-            onClick={() => {
-              setCreating(true);
-              setYear("");
-              setError("");
-              setSuccess("");
-            }}
-          >
-            Nueva solicitud
-          </button>
-        </div>
-      </div>
-      <Feedback error={error || list.error} success={success} />
-      {!students && !error && (
-        <p role="status">Cargando estudiantes asociados…</p>
-      )}
-      {students?.length === 0 && (
-        <p className="empty">
-          No tienes estudiantes asociados y habilitados. Solicita a la
-          administración revisar el vínculo.
-        </p>
-      )}
-      {students && !offers.length && (
-        <p className="notice">
-          La institución no tiene una convocatoria abierta. Puedes consultar tus
-          solicitudes existentes.
-        </p>
-      )}
-      {list.loading ? (
-        <p role="status">Cargando solicitudes…</p>
-      ) : list.data?.content.length ? (
-        <div className="user-table-wrap">
-          <table className="user-table">
-            <thead>
-              <tr>
-                <th>Estudiante</th>
-                <th>Año y grado</th>
-                <th>Estado</th>
-                <th>Último envío</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data.content.map((item) => (
-                <tr key={item.id}>
-                  <td data-label="Estudiante">
-                    <strong>{item.alumno}</strong>
-                    <small>{item.codigoAlumno}</small>
-                  </td>
-                  <td data-label="Año y grado">
-                    {item.anioAcademico} · {item.grado}°
-                  </td>
-                  <td data-label="Estado">
-                    <span className="status">{stateLabel(item.estado)}</span>
-                  </td>
-                  <td data-label="Último envío">
-                    {dateLabel(item.fechaEnvio)}
-                  </td>
-                  <td data-label="Acciones">
-                    <button
-                      onClick={() => {
-                        setSelected(item);
-                        setAction("");
-                        setError("");
-                        setSuccess("");
-                      }}
-                    >
-                      Ver solicitud
-                    </button>
-                  </td>
+        )}
+        {students && !offers.length && (
+          <p className="dialog-note">
+            La institución no tiene una convocatoria abierta. Puedes consultar
+            tus solicitudes existentes.
+          </p>
+        )}
+        {list.loading ? (
+          <p role="status">Cargando solicitudes…</p>
+        ) : list.data?.content.length ? (
+          <div className="user-table-wrap">
+            <table className="user-table">
+              <thead>
+                <tr>
+                  <th>Estudiante</th>
+                  <th>Año y grado</th>
+                  <th>Último envío</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        !list.error && (
-          <p className="empty">Todavía no tienes solicitudes registradas.</p>
-        )
-      )}
-      <Pager data={list.data} loading={list.loading} setPage={list.setPage} />
+              </thead>
+              <tbody>
+                {list.data.content.map((item) => (
+                  <tr key={item.id}>
+                    <td data-label="Estudiante">
+                      <PersonCell name={item.alumno} detail={item.codigoAlumno} />
+                    </td>
+                    <td data-label="Año y grado">
+                      <strong className="grade-cell">{item.grado}°</strong>
+                      <small>Año {item.anioAcademico}</small>
+                    </td>
+                    <td data-label="Último envío">
+                      {shortDateLabel(item.fechaEnvio)}
+                    </td>
+                    <td data-label="Estado">
+                      <StatusPill state={item.estado} />
+                    </td>
+                    <td data-label="Acciones">
+                      <button
+                        onClick={() => {
+                          setSelected(item);
+                          setAction("");
+                          setError("");
+                          setSuccess("");
+                        }}
+                      >
+                        Ver detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          !list.error && (
+            <p className="empty">Todavía no tienes solicitudes registradas.</p>
+          )
+        )}
+        <Pager data={list.data} loading={list.loading} setPage={list.setPage} />
+      </div>
       {creating && (
         <Dialog
           title="Nueva solicitud de matrícula"
@@ -343,9 +368,7 @@ export function GuardianEnrollment() {
             <div>
               <dt>Estado</dt>
               <dd>
-                <span className="status status-inactive">
-                  {stateLabel(selected.estado)}
-                </span>
+                <StatusPill state={selected.estado} />
               </dd>
             </div>
             <div>

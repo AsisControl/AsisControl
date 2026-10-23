@@ -148,7 +148,7 @@ test("Administración recibe la pestaña desde la URL", async () => {
   sessionFor();
   setUrl("/administracion/roles-y-permisos");
   renderApp();
-  expect(await screen.findByText("Actualizar matriz")).toBeTruthy();
+  expect(await screen.findByText("Permisos — Administrador")).toBeTruthy();
 });
 
 test("El menú de cuenta lleva a cambiar la contraseña y cierra la sesión", async () => {
@@ -315,7 +315,7 @@ test("La ruta interna de Next monta el shell y la pantalla de la URL", async () 
       <AppPage />
     </AppLayout>,
   );
-  expect(await screen.findByText("Gestión de matrícula")).toBeTruthy();
+  expect(await screen.findByText("Gestión de Matrícula")).toBeTruthy();
 });
 
 test("Académico exige ACADEMICO_LEER y la escritura habilita la creación", async () => {

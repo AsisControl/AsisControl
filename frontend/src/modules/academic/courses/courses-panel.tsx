@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, RowMenu } from "@/shared/ui";
+import { Feedback, FormDialog, Pager, RowMenu, PanelHeading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Course, CourseCompetency } from "../types";
 import styles from "../academic.module.css";
 import { CourseDetailDialog } from "./course-detail-dialog";
 import { CourseFormDialog } from "./course-form-dialog";
 import { agruparPor, listarAsociaciones } from "../associations/services/asociacionService";
-import { countLabel, timeLabel } from "../components/labels";
+import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
 import { CURSOS_PATH, desactivarCurso } from "./services/cursoService";
 type CourseDialog =
@@ -83,31 +83,33 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
   const total = courses.data?.totalElements ?? 0;
   return (
     <section className="panel">
-      <div className={styles.listHeading}>
-        <div>
-          <h3>Cursos registrados</h3>
-          <p>
-            {courses.data
-              ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
-              : "Plan curricular de la institución"}
-            {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
-          </p>
-        </div>
-        <div className={styles.headingActions}>
-          <button type="button" disabled={courses.loading} onClick={refresh}>
-            Actualizar
-          </button>
-          {canWrite && (
-            <button
-              type="button"
-              className="primary-action"
-              onClick={() => open({ kind: "create" })}
-            >
-              + Nuevo curso
-            </button>
-          )}
-        </div>
-      </div>
+      <PanelHeading
+        title="Cursos registrados"
+        summary={
+          <>
+                {courses.data
+                  ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
+                  : "Plan curricular de la institución"}
+                {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
+          </>
+        }
+        actions={
+          <>
+              <button type="button" disabled={courses.loading} onClick={refresh}>
+                Actualizar
+              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={() => open({ kind: "create" })}
+                >
+                  + Nuevo curso
+                </button>
+              )}
+          </>
+        }
+      />
       <Feedback error={courses.error} success={success} />
       {competenciesError && (
         <p className="hint">
