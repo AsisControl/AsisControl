@@ -62,12 +62,50 @@ public class AuditoriaService {
                 authentication != null && authentication.isAuthenticated()
                         ? authentication.getName()
                         : "SISTEMA";
-        RegistroAuditoria audit = new RegistroAuditoria();
+        RegistroAuditoria audit =
+                nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
+                        valorAnterior, nuevoValor);
         audit.setActorIdentificador(identifier);
         usuarioRepository
                 .findActiveByIdentifier(identifier)
                 .map(AccesoUsuario::getRol)
                 .ifPresent(audit::setRolActor);
+        auditoriaRepository.save(audit);
+    }
+
+    /**
+     * Igual que registrar, pero a nombre de un usuario concreto. Sirve cuando la peticion no esta
+     * autenticada, como al renovar una sesion, donde el actor es el dueno de la sesion.
+     */
+    @Transactional
+    public void registrarComo(
+            AccesoUsuario actor,
+            String accion,
+            String modulo,
+            String entidad,
+            String registroId,
+            ResultadoAuditoria resultado,
+            String motivo,
+            String valorAnterior,
+            String nuevoValor) {
+        RegistroAuditoria audit =
+                nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
+                        valorAnterior, nuevoValor);
+        audit.setActorIdentificador(actor.getUsername());
+        audit.setRolActor(actor.getRol());
+        auditoriaRepository.save(audit);
+    }
+
+    private RegistroAuditoria nuevoRegistro(
+            String accion,
+            String modulo,
+            String entidad,
+            String registroId,
+            ResultadoAuditoria resultado,
+            String motivo,
+            String valorAnterior,
+            String nuevoValor) {
+        RegistroAuditoria audit = new RegistroAuditoria();
         // Se recortan a las longitudes de RegistroAuditoria para que un texto largo del usuario
         // no haga fallar la operacion auditada.
         audit.setAccion(recortar(accion, 80));
@@ -80,7 +118,7 @@ public class AuditoriaService {
         audit.setValorAnterior(valorAnterior);
         audit.setNuevoValor(nuevoValor);
         audit.setCorrelacionId(correlationId());
-        auditoriaRepository.save(audit);
+        return audit;
     }
 
     /**
