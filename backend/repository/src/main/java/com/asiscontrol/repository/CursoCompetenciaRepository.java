@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.Set;
 
 public interface CursoCompetenciaRepository extends JpaRepository<CursoCompetencia, Long> {
 
@@ -36,4 +37,13 @@ public interface CursoCompetenciaRepository extends JpaRepository<CursoCompetenc
           AND cc.competencia.activo = true
         """)
     Optional<CursoCompetencia> buscarDisponiblePorId(@Param("id") Long id);
+
+    @Query("""
+        SELECT cc.competencia.id FROM CursoCompetencia cc
+        WHERE cc.curso.id = :cursoId
+          AND cc.activo = true
+          AND cc.curso.activo = true
+          AND cc.competencia.activo = true
+        """)
+    Set<Long> buscarIdsCompetenciasDisponiblesPorCurso(@Param("cursoId") Long cursoId);
 }
