@@ -51,7 +51,7 @@ public class AsignacionCursoService {
         asignacion.setDocente(buscarDocente(request.docenteId()));
         asignacion.setActivo(true);
         AsignacionCurso saved = asignacionRepository.save(asignacion);
-        auditoria.registrar("CREAR_ASIGNACION_CURSO", "CURRICULA", "AsignacionCurso",
+        auditoria.registrar("CREAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "curso=" + saved.getCurso().getNombre() + ",seccion=" + saved.getSeccion().getNombre());
         return mapear(saved);
@@ -67,7 +67,7 @@ public class AsignacionCursoService {
         asignacion.setSeccion(buscarSeccion(request.seccionId()));
         asignacion.setDocente(buscarDocente(request.docenteId()));
         AsignacionCurso saved = asignacionRepository.save(asignacion);
-        auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", "CURRICULA", "AsignacionCurso",
+        auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "curso=" + saved.getCurso().getNombre() + ",seccion=" + saved.getSeccion().getNombre());
         return mapear(saved);
@@ -86,7 +86,7 @@ public class AsignacionCursoService {
         AsignacionCurso asignacion = obtenerEntidad(id);
         asignacion.setActivo(false);
         asignacionRepository.save(asignacion);
-        auditoria.registrar("ELIMINAR_ASIGNACION_CURSO", "CURRICULA", "AsignacionCurso",
+        auditoria.registrar("ELIMINAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "curso=" + asignacion.getCurso().getNombre(), null);
     }

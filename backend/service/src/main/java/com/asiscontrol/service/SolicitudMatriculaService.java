@@ -106,7 +106,7 @@ public class SolicitudMatriculaService {
         solicitudRepository.saveAndFlush(solicitud);
         auditoria.registrar(
                 "GUARDAR_SOLICITUD",
-                "MATRICULA",
+                ModuloAuditoria.MATRICULA,
                 "SolicitudMatricula",
                 solicitud.getId().toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
@@ -195,7 +195,7 @@ public class SolicitudMatriculaService {
             solicitudRepository.saveAndFlush(solicitud);
             auditoria.registrar(
                     "GUARDAR_SOLICITUD",
-                    "MATRICULA",
+                    ModuloAuditoria.MATRICULA,
                     "SolicitudMatricula",
                     solicitud.getId().toString(),
                     com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
@@ -216,7 +216,7 @@ public class SolicitudMatriculaService {
         solicitudRepository.saveAndFlush(solicitud);
         auditoria.registrar(
                 "GUARDAR_SOLICITUD",
-                "MATRICULA",
+                ModuloAuditoria.MATRICULA,
                 "SolicitudMatricula",
                 solicitud.getId().toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,

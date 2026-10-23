@@ -120,8 +120,8 @@ public class PagoService {
         CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
         auditoria.registrar(
                 "CREAR_COMPROMISO",
-                "PAGO",
-                "COMPROMISO_PAGO",
+                ModuloAuditoria.FINANZAS,
+                "CompromisoPago",
                 savedCompromiso.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -182,8 +182,8 @@ public class PagoService {
         CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
         auditoria.registrar(
                 "ACTUALIZAR_COMPROMISO",
-                "PAGO",
-                "COMPROMISO_PAGO",
+                ModuloAuditoria.FINANZAS,
+                "CompromisoPago",
                 savedCompromiso.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -211,8 +211,8 @@ public class PagoService {
         CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
         auditoria.registrar(
                 "ELIMINAR_COMPROMISO",
-                "PAGO",
-                "COMPROMISO_PAGO",
+                ModuloAuditoria.FINANZAS,
+                "CompromisoPago",
                 savedCompromiso.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -320,8 +320,8 @@ public class PagoService {
         compromisoPagoRepository.save(compromiso);
         auditoria.registrar(
                 "REGISTRAR_TRANSACCION",
-                "PAGO",
-                "TRANSACCION_PAGO",
+                ModuloAuditoria.FINANZAS,
+                "TransaccionPago",
                 guardada.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -411,8 +411,8 @@ public class PagoService {
         Comprobante guardado = comprobanteRepository.save(comprobante);
         auditoria.registrar(
                 "EMITIR_COMPROBANTE",
-                "PAGO",
-                "COMPROBANTE",
+                ModuloAuditoria.FINANZAS,
+                "Comprobante",
                 guardado.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,

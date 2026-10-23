@@ -121,7 +121,7 @@ public class UsuarioService {
         AccesoUsuario saved = usuarioRepository.save(usuario);
         auditoriaService.registrar(
                 "CREAR_USUARIO",
-                "SEGURIDAD",
+                ModuloAuditoria.SEGURIDAD,
                 "AccesoUsuario",
                 saved.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -151,7 +151,7 @@ public class UsuarioService {
         // incluida la persona cuando se crea en el mismo paso.
         auditoriaService.registrar(
                 "PROVISIONAR_ACCESO",
-                "SEGURIDAD",
+                ModuloAuditoria.SEGURIDAD,
                 "AccesoUsuario",
                 creado.id().toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -237,7 +237,7 @@ public class UsuarioService {
         }
         auditoriaService.registrar(
                 "ACTUALIZAR_USUARIO",
-                "SEGURIDAD",
+                ModuloAuditoria.SEGURIDAD,
                 "AccesoUsuario",
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -286,7 +286,7 @@ public class UsuarioService {
         sesionRepository.revokeAllByUsuarioId(id, EstadoSesion.REVOCADA, Instant.now());
         auditoriaService.registrar(
                 "RESTABLECER_CONTRASENA",
-                "SEGURIDAD",
+                ModuloAuditoria.SEGURIDAD,
                 "AccesoUsuario",
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,

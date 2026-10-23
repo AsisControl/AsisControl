@@ -67,7 +67,7 @@ public class AsistenciaDocenteService {
         validarSinAsistenciaEnJornada(docente.getId(), LocalDate.now());
         invalidarCodigosVigentes(docente.getId());
         CodigoQRResponse response = crearCodigo(docente, request.vigenciaSegundos());
-        auditoria.registrar("EMITIR_QR_DOCENTE", "ASISTENCIA", "CodigoQRAsistencia",
+        auditoria.registrar("EMITIR_QR_DOCENTE", ModuloAuditoria.ASISTENCIA, "CodigoQRAsistencia",
                 response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "docente=" + docente.getId());
         return response;
@@ -94,7 +94,7 @@ public class AsistenciaDocenteService {
         validarSinAsistenciaEnJornada(anterior.getDocente().getId(), LocalDate.now());
         invalidarCodigosVigentes(anterior.getDocente().getId());
         CodigoQRResponse nuevo = crearCodigo(anterior.getDocente(), vigenciaSegundos);
-        auditoria.registrar("RENOVAR_QR_DOCENTE", "ASISTENCIA", "CodigoQRAsistencia",
+        auditoria.registrar("RENOVAR_QR_DOCENTE", ModuloAuditoria.ASISTENCIA, "CodigoQRAsistencia",
                 nuevo.id().toString(), ResultadoAuditoria.EXITOSO, null,
                 "codigoAnteriorId=" + codigoId + ",estado=" + anterior.getEstado(),
                 "docente=" + anterior.getDocente().getId() + ",vigenciaSegundos=" + vigenciaSegundos);
@@ -112,7 +112,7 @@ public class AsistenciaDocenteService {
         codigo.setEstado(EstadoCodigoQR.INVALIDADO);
         codigo.setFechaHoraCancelacion(LocalDateTime.now());
         codigoRepository.save(codigo);
-        auditoria.registrar("CANCELAR_QR_DOCENTE", "ASISTENCIA", "CodigoQRAsistencia",
+        auditoria.registrar("CANCELAR_QR_DOCENTE", ModuloAuditoria.ASISTENCIA, "CodigoQRAsistencia",
                 codigoId.toString(), ResultadoAuditoria.EXITOSO, null, null, null);
     }
 
@@ -151,7 +151,7 @@ public class AsistenciaDocenteService {
         codigo.setFechaHoraUso(ahora);
         codigoRepository.save(codigo);
         AsistenciaDocenteResponse response = mapResponse(asistenciaRepository.save(asistencia));
-        auditoria.registrar("MARCAR_ASISTENCIA_DOCENTE", "ASISTENCIA", "AsistenciaDocente",
+        auditoria.registrar("MARCAR_ASISTENCIA_DOCENTE", ModuloAuditoria.ASISTENCIA, "AsistenciaDocente",
                 response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "docente=" + codigo.getDocente().getId() + ",estado=PRESENTE");
         return response;
@@ -192,7 +192,7 @@ public class AsistenciaDocenteService {
         asistencia.setMotivoContingencia(request.motivo().trim());
         asistencia.setActivo(true);
         AsistenciaDocenteResponse response = mapResponse(asistenciaRepository.save(asistencia));
-        auditoria.registrar("REGISTRAR_CONTINGENCIA_DOCENTE", "ASISTENCIA", "AsistenciaDocente",
+        auditoria.registrar("REGISTRAR_CONTINGENCIA_DOCENTE", ModuloAuditoria.ASISTENCIA, "AsistenciaDocente",
                 response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "docente=" + docente.getId() + ",estado=" + request.estado() + ",motivo=" + request.motivo().trim());
         return response;

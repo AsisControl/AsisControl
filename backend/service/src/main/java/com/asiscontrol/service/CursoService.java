@@ -32,7 +32,7 @@ public class CursoService {
         aplicar(curso, request.codigo(), request.nombre(), request.descripcion(), request.horasSemanales());
         curso.setActivo(true);
         Curso saved = cursoRepository.save(curso);
-        auditoria.registrar("CREAR_CURSO", "CURRICULA", "Curso",
+        auditoria.registrar("CREAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
         return mapear(saved);
@@ -46,7 +46,7 @@ public class CursoService {
         String anterior = "codigo=" + curso.getCodigo() + ",nombre=" + curso.getNombre();
         aplicar(curso, request.codigo(), request.nombre(), request.descripcion(), request.horasSemanales());
         Curso saved = cursoRepository.save(curso);
-        auditoria.registrar("ACTUALIZAR_CURSO", "CURRICULA", "Curso",
+        auditoria.registrar("ACTUALIZAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
         return mapear(saved);
@@ -66,7 +66,7 @@ public class CursoService {
         Curso curso = obtenerEntidad(id);
         curso.setActivo(false);
         cursoRepository.save(curso);
-        auditoria.registrar("ELIMINAR_CURSO", "CURRICULA", "Curso",
+        auditoria.registrar("ELIMINAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "codigo=" + curso.getCodigo() + ",nombre=" + curso.getNombre(), null);
     }

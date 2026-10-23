@@ -78,7 +78,7 @@ public class EntregaTareaService {
                 : EstadoTarea.ENTREGADO);
         entrega.setActivo(true);
         EntregaTarea saved = entregaRepository.save(entrega);
-        auditoria.registrar("REGISTRAR_ENTREGA_TAREA", "TAREAS", "EntregaTarea",
+        auditoria.registrar("REGISTRAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return mapResponse(saved);
     }
@@ -102,7 +102,7 @@ public class EntregaTareaService {
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
         EntregaTarea saved = entregaRepository.save(entrega);
-        auditoria.registrar("ACTUALIZAR_ENTREGA_TAREA", "TAREAS", "EntregaTarea",
+        auditoria.registrar("ACTUALIZAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return mapResponse(saved);
     }
@@ -132,7 +132,7 @@ public class EntregaTareaService {
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(EstadoTarea.CALIFICADO);
         EntregaTarea saved = entregaRepository.save(entrega);
-        auditoria.registrar("CALIFICAR_ENTREGA_TAREA", "TAREAS", "EntregaTarea",
+        auditoria.registrar("CALIFICAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "estado=" + saved.getEstado() + ",nota=" + saved.getNota());
         return mapResponse(saved);

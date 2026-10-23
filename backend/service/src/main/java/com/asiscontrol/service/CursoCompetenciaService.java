@@ -59,7 +59,7 @@ public class CursoCompetenciaService {
         CursoCompetencia saved = cursoCompetenciaRepository.saveAndFlush(relacion);
         boolean creada = existente.isEmpty();
         auditoria.registrar(creada ? "CREAR_CURSO_COMPETENCIA" : "REACTIVAR_CURSO_COMPETENCIA",
-                "ACADEMICO", "CursoCompetencia",
+                ModuloAuditoria.ACADEMICO, "CursoCompetencia",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null,
                 creada ? null : "activo=false",
                 "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId());
@@ -77,7 +77,7 @@ public class CursoCompetenciaService {
         relacion.setCompetencia(buscarCompetencia(request.competenciaId()));
         relacion.setOrden(request.orden());
         CursoCompetencia saved = cursoCompetenciaRepository.saveAndFlush(relacion);
-        auditoria.registrar("ACTUALIZAR_CURSO_COMPETENCIA", "ACADEMICO", "CursoCompetencia",
+        auditoria.registrar("ACTUALIZAR_CURSO_COMPETENCIA", ModuloAuditoria.ACADEMICO, "CursoCompetencia",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId()
                         + ",orden=" + saved.getOrden());
@@ -103,7 +103,7 @@ public class CursoCompetenciaService {
         CursoCompetencia relacion = obtenerEntidad(id);
         relacion.setActivo(false);
         cursoCompetenciaRepository.save(relacion);
-        auditoria.registrar("ELIMINAR_CURSO_COMPETENCIA", "ACADEMICO", "CursoCompetencia",
+        auditoria.registrar("ELIMINAR_CURSO_COMPETENCIA", ModuloAuditoria.ACADEMICO, "CursoCompetencia",
                 relacion.getId().toString(), ResultadoAuditoria.EXITOSO, null,
                 "cursoId=" + relacion.getCurso().getId() + ",competenciaId=" + relacion.getCompetencia().getId(), null);
     }

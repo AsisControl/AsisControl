@@ -68,13 +68,15 @@ public class AuditoriaService {
                 .findActiveByIdentifier(identifier)
                 .map(AccesoUsuario::getRol)
                 .ifPresent(audit::setRolActor);
-        audit.setAccion(accion);
-        audit.setModulo(modulo);
-        audit.setEntidad(entidad);
-        audit.setRegistroId(registroId);
+        // Se recortan a las longitudes de RegistroAuditoria para que un texto largo del usuario
+        // no haga fallar la operacion auditada.
+        audit.setAccion(recortar(accion, 80));
+        audit.setModulo(recortar(modulo, 80));
+        audit.setEntidad(recortar(entidad, 80));
+        audit.setRegistroId(recortar(registroId, 80));
         audit.setFechaHora(Instant.now());
         audit.setResultado(resultado);
-        audit.setMotivo(motivo);
+        audit.setMotivo(recortar(motivo, 500));
         audit.setValorAnterior(valorAnterior);
         audit.setNuevoValor(nuevoValor);
         audit.setCorrelacionId(correlationId());
@@ -102,7 +104,7 @@ public class AuditoriaService {
         audit.setActorIdentificador(actor.getUsername());
         audit.setRolActor(actor.getRol());
         audit.setAccion(accion);
-        audit.setModulo("SEGURIDAD");
+        audit.setModulo(ModuloAuditoria.SEGURIDAD);
         audit.setEntidad("AccesoUsuario");
         audit.setRegistroId(actor.getId().toString());
         audit.setFechaHora(Instant.now());
@@ -297,6 +299,10 @@ public class AuditoriaService {
                 error.getEstado(),
                 error.getObservacionSeguimiento(),
                 error.getVersion());
+    }
+
+    static String recortar(String valor, int maximo) {
+        return valor == null || valor.length() <= maximo ? valor : valor.substring(0, maximo);
     }
 
     private String correlationId() {

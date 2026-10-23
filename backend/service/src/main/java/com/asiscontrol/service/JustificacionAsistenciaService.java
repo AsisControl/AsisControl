@@ -87,8 +87,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "CREAR_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -105,8 +105,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "INICIAR_REVISION_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -127,8 +127,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "OBSERVAR_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -157,8 +157,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "APROBAR_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -179,8 +179,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "RECHAZAR_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -205,8 +205,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "SUBSANAR_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
@@ -228,8 +228,8 @@ public class JustificacionAsistenciaService {
         JustificacionAsistencia savedJustificacion = justificacionRepository.save(justificacion);
         auditoria.registrar(
                 "CANCELAR_JUSTIFICACION",
-                "ASISTENCIA",
-                "JUSTIFICACION_ASISTENCIA",
+                ModuloAuditoria.ASISTENCIA,
+                "JustificacionAsistencia",
                 savedJustificacion.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,

@@ -70,7 +70,7 @@ public class RiesgoService {
         CriterioRiesgo criterio = new CriterioRiesgo();
         aplicarCriterio(criterio, request);
         CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
-        auditoria.registrar("CREAR_CRITERIO_RIESGO", "RIESGO", "CriterioRiesgo",
+        auditoria.registrar("CREAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return toCriterioResponse(saved);
     }
@@ -84,7 +84,7 @@ public class RiesgoService {
         String anterior = describir(criterio);
         aplicarCriterio(criterio, request);
         CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
-        auditoria.registrar("ACTUALIZAR_CRITERIO_RIESGO", "RIESGO", "CriterioRiesgo",
+        auditoria.registrar("ACTUALIZAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return toCriterioResponse(saved);
     }
@@ -100,7 +100,7 @@ public class RiesgoService {
         }
         criterio.setActivo(false);
         criterioRiesgoRepository.save(criterio);
-        auditoria.registrar("ELIMINAR_CRITERIO_RIESGO", "RIESGO", "CriterioRiesgo",
+        auditoria.registrar("ELIMINAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(criterio), null);
     }
 
@@ -164,7 +164,7 @@ public class RiesgoService {
                 AlertaRiesgo guardada = alertaRiesgoRepository.save(alerta);
                 auditoria.registrar(
                         alertaAbierta == null ? "GENERAR_ALERTA_RIESGO" : "ACTUALIZAR_ALERTA_RIESGO",
-                        "RIESGO", "AlertaRiesgo", guardada.getId().toString(),
+                        ModuloAuditoria.RIESGO, "AlertaRiesgo", guardada.getId().toString(),
                         ResultadoAuditoria.EXITOSO, "Evaluacion de indicadores", null,
                         "alumnoId=" + alumno.getId() + ",criterioId=" + criterio.getId()
                                 + ",valor=" + valor + ",nivel=" + guardada.getNivelRiesgo()
@@ -179,7 +179,7 @@ public class RiesgoService {
                         "Resuelta automaticamente: el indicador dejo de cumplir el criterio"
                 );
                 AlertaRiesgo guardada = alertaRiesgoRepository.save(alertaAbierta);
-                auditoria.registrar("RESOLVER_ALERTA_RIESGO_AUTOMATICA", "RIESGO", "AlertaRiesgo",
+                auditoria.registrar("RESOLVER_ALERTA_RIESGO_AUTOMATICA", ModuloAuditoria.RIESGO, "AlertaRiesgo",
                         guardada.getId().toString(), ResultadoAuditoria.EXITOSO,
                         "El indicador dejo de cumplir el criterio",
                         "estado=" + estadoPrevio,
@@ -214,7 +214,7 @@ public class RiesgoService {
         alerta.setObservacion(limpiar(request.observacion()));
         alerta.setFechaAtencion(destino == EstadoAlerta.RESUELTA ? Instant.now() : null);
         AlertaRiesgo saved = alertaRiesgoRepository.save(alerta);
-        auditoria.registrar("CAMBIAR_ESTADO_ALERTA_RIESGO", "RIESGO", "AlertaRiesgo",
+        auditoria.registrar("CAMBIAR_ESTADO_ALERTA_RIESGO", ModuloAuditoria.RIESGO, "AlertaRiesgo",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + actual,
                 "estado=" + destino + ",observacion=" + saved.getObservacion());

@@ -328,7 +328,7 @@ public class PersonaService {
         alumnoApoderadoRepository.saveAndFlush(link);
         auditoriaService.registrar(
                 "ASOCIAR_APODERADO",
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 "AlumnoApoderado",
                 link.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -364,7 +364,7 @@ public class PersonaService {
         alumnoApoderadoRepository.save(link);
         auditoriaService.registrar(
                 "DESVINCULAR_APODERADO",
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 "AlumnoApoderado",
                 link.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -581,7 +581,7 @@ public class PersonaService {
     private void auditCreate(String entity, Long id) {
         auditoriaService.registrar(
                 "CREAR_" + entity.toUpperCase(),
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 entity,
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -608,7 +608,7 @@ public class PersonaService {
                         .collect(java.util.stream.Collectors.joining("|"));
         auditoriaService.registrar(
                 "ACTUALIZAR_" + entity.toUpperCase(),
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 entity,
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -642,7 +642,7 @@ public class PersonaService {
     private void auditDelete(String entity, Long id) {
         auditoriaService.registrar(
                 "DESACTIVAR_" + entity.toUpperCase(),
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 entity,
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,

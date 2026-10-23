@@ -32,7 +32,7 @@ public class AulaService {
         aplicar(aula, request);
         aula.setActivo(true);
         Aula saved = aulaRepository.save(aula);
-        auditoria.registrar("CREAR_AULA", "ACADEMICO", "Aula",
+        auditoria.registrar("CREAR_AULA", ModuloAuditoria.ACADEMICO, "Aula",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
         return mapear(saved);
@@ -50,7 +50,7 @@ public class AulaService {
         aula.setCapacidad(request.capacidad());
         aula.setUbicacion(request.ubicacion().trim());
         Aula saved = aulaRepository.save(aula);
-        auditoria.registrar("ACTUALIZAR_AULA", "ACADEMICO", "Aula",
+        auditoria.registrar("ACTUALIZAR_AULA", ModuloAuditoria.ACADEMICO, "Aula",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
         return mapear(saved);
@@ -69,7 +69,7 @@ public class AulaService {
         Aula aula = obtenerEntidad(id);
         aula.setActivo(false);
         aulaRepository.save(aula);
-        auditoria.registrar("ELIMINAR_AULA", "ACADEMICO", "Aula",
+        auditoria.registrar("ELIMINAR_AULA", ModuloAuditoria.ACADEMICO, "Aula",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "codigo=" + aula.getCodigo() + ",nombre=" + aula.getNombre(), null);
     }

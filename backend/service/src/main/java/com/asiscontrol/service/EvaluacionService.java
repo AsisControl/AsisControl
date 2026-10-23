@@ -85,7 +85,7 @@ public class EvaluacionService {
         aplicarDatosEditables(evaluacion, request);
         evaluacion.setEstado(EstadoEvaluacion.BORRADOR);
         Evaluacion saved = evaluacionRepository.save(evaluacion);
-        auditoria.registrar("CREAR_EVALUACION", "ACADEMICO", "Evaluacion",
+        auditoria.registrar("CREAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return toResponse(saved);
     }
@@ -103,7 +103,7 @@ public class EvaluacionService {
         String anterior = describir(evaluacion);
         aplicarDatosEditables(evaluacion, request);
         Evaluacion saved = evaluacionRepository.save(evaluacion);
-        auditoria.registrar("ACTUALIZAR_EVALUACION", "ACADEMICO", "Evaluacion",
+        auditoria.registrar("ACTUALIZAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return toResponse(saved);
     }
@@ -126,7 +126,7 @@ public class EvaluacionService {
             evaluacion.setFechaCierre(Instant.now());
         }
         Evaluacion saved = evaluacionRepository.save(evaluacion);
-        auditoria.registrar(accionEstado(estadoDestino), "ACADEMICO", "Evaluacion",
+        auditoria.registrar(accionEstado(estadoDestino), ModuloAuditoria.ACADEMICO, "Evaluacion",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + estadoActual, "estado=" + estadoDestino);
         return toResponse(saved);
@@ -145,7 +145,7 @@ public class EvaluacionService {
         }
         evaluacion.setActivo(false);
         evaluacionRepository.save(evaluacion);
-        auditoria.registrar("ELIMINAR_EVALUACION", "ACADEMICO", "Evaluacion",
+        auditoria.registrar("ELIMINAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(evaluacion), null);
     }
 

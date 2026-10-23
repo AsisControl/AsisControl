@@ -32,7 +32,7 @@ public class CompetenciaService {
         aplicar(competencia, request.codigo(), request.nombre(), request.descripcion());
         competencia.setActivo(true);
         Competencia saved = competenciaRepository.save(competencia);
-        auditoria.registrar("CREAR_COMPETENCIA", "CURRICULA", "Competencia",
+        auditoria.registrar("CREAR_COMPETENCIA", ModuloAuditoria.ACADEMICO, "Competencia",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
         return mapear(saved);
@@ -46,7 +46,7 @@ public class CompetenciaService {
         String anterior = "codigo=" + competencia.getCodigo() + ",nombre=" + competencia.getNombre();
         aplicar(competencia, request.codigo(), request.nombre(), request.descripcion());
         Competencia saved = competenciaRepository.save(competencia);
-        auditoria.registrar("ACTUALIZAR_COMPETENCIA", "CURRICULA", "Competencia",
+        auditoria.registrar("ACTUALIZAR_COMPETENCIA", ModuloAuditoria.ACADEMICO, "Competencia",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
         return mapear(saved);
@@ -66,7 +66,7 @@ public class CompetenciaService {
         Competencia competencia = obtenerEntidad(id);
         competencia.setActivo(false);
         competenciaRepository.save(competencia);
-        auditoria.registrar("ELIMINAR_COMPETENCIA", "CURRICULA", "Competencia",
+        auditoria.registrar("ELIMINAR_COMPETENCIA", ModuloAuditoria.ACADEMICO, "Competencia",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "codigo=" + competencia.getCodigo() + ",nombre=" + competencia.getNombre(), null);
     }

@@ -51,7 +51,7 @@ public class HorarioService {
         aplicar(horario, asignacion, aula, request.diaSemana(), request.horaInicio(), request.horaFin());
         horario.setActivo(true);
         Horario saved = horarioRepository.save(horario);
-        auditoria.registrar("CREAR_HORARIO", "ACADEMICO", "Horario",
+        auditoria.registrar("CREAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return mapear(saved);
     }
@@ -66,7 +66,7 @@ public class HorarioService {
         String anterior = describir(horario);
         aplicar(horario, asignacion, aula, request.diaSemana(), request.horaInicio(), request.horaFin());
         Horario saved = horarioRepository.save(horario);
-        auditoria.registrar("ACTUALIZAR_HORARIO", "ACADEMICO", "Horario",
+        auditoria.registrar("ACTUALIZAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return mapear(saved);
     }
@@ -84,7 +84,7 @@ public class HorarioService {
         Horario horario = obtenerEntidad(id);
         horario.setActivo(false);
         horarioRepository.save(horario);
-        auditoria.registrar("ELIMINAR_HORARIO", "ACADEMICO", "Horario",
+        auditoria.registrar("ELIMINAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(horario), null);
     }
 

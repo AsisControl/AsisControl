@@ -117,7 +117,7 @@ public class AsistenciaAlumnoService {
         asistencia.setEstadoAsistencia(request.estado());
         asistencia.setComentario(normalizar(request.comentario()));
         AsistenciaAlumno saved = asistenciaRepository.save(asistencia);
-        auditoria.registrar("ACTUALIZAR_ASISTENCIA_ALUMNO", "ASISTENCIA", "AsistenciaAlumno",
+        auditoria.registrar("ACTUALIZAR_ASISTENCIA_ALUMNO", ModuloAuditoria.ASISTENCIA, "AsistenciaAlumno",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "estado=" + request.estado());
         return mapResponse(saved);
@@ -176,7 +176,7 @@ public class AsistenciaAlumnoService {
         asistencia.setComentario(normalizar(comentario));
         asistencia.setActivo(true);
         AsistenciaAlumno saved = asistenciaRepository.save(asistencia);
-        auditoria.registrar("REGISTRAR_ASISTENCIA_ALUMNO", "ASISTENCIA", "AsistenciaAlumno",
+        auditoria.registrar("REGISTRAR_ASISTENCIA_ALUMNO", ModuloAuditoria.ASISTENCIA, "AsistenciaAlumno",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "alumno=" + alumno.getId() + ",estado=" + estado + ",fecha=" + fecha);
         return saved;

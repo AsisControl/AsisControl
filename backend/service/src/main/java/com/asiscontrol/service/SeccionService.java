@@ -68,7 +68,7 @@ public class SeccionService {
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
                 "CREAR_SECCION",
-                "CONFIGURACION_ACADEMICA",
+                ModuloAuditoria.CONFIGURACION_ACADEMICA,
                 "Seccion",
                 seccion.getId().toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
@@ -114,7 +114,7 @@ public class SeccionService {
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
                 "ACTUALIZAR_SECCION",
-                "CONFIGURACION_ACADEMICA",
+                ModuloAuditoria.CONFIGURACION_ACADEMICA,
                 "Seccion",
                 seccion.getId().toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
@@ -160,7 +160,7 @@ public class SeccionService {
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
                 "CAMBIAR_ESTADO_SECCION",
-                "CONFIGURACION_ACADEMICA",
+                ModuloAuditoria.CONFIGURACION_ACADEMICA,
                 "Seccion",
                 id.toString(),
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,

@@ -1,6 +1,7 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.persona.PersonaDtos;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.entity.enums.Sexo;
 import com.asiscontrol.entity.enums.TipoDocumento;
 import com.asiscontrol.exception.BusinessRuleException;
@@ -44,10 +45,12 @@ public class ImportacionAlumnoService {
     );
 
     private final PersonaService personaService;
+    private final AuditoriaService auditoria;
     private final DataFormatter formatter = new DataFormatter(Locale.ROOT);
 
-    public ImportacionAlumnoService(PersonaService personaService) {
+    public ImportacionAlumnoService(PersonaService personaService, AuditoriaService auditoria) {
         this.personaService = personaService;
+        this.auditoria = auditoria;
     }
 
     public PersonaDtos.ImportResult importStudents(MultipartFile file) {
@@ -84,7 +87,31 @@ public class ImportacionAlumnoService {
                     "No fue posible leer el archivo Excel"
             );
         }
+        auditarImportacion(file, total, imported, issues);
         return new PersonaDtos.ImportResult(total, imported, total - imported, List.copyOf(issues));
+    }
+
+    /**
+     * Resume la importacion en un solo registro. Cada alumno creado ya deja su CREAR_ALUMNO, con
+     * el mismo correlacionId que este resumen, asi que se pueden relacionar.
+     */
+    private void auditarImportacion(
+            MultipartFile file, int total, int imported, List<PersonaDtos.ImportIssue> issues) {
+        String filasConError = issues.stream()
+                .map(issue -> String.valueOf(issue.row()))
+                .collect(java.util.stream.Collectors.joining(","));
+        auditoria.registrar(
+                "IMPORTAR_ALUMNOS",
+                ModuloAuditoria.PERSONAS,
+                "Alumno",
+                null,
+                imported > 0 || total == 0 ? ResultadoAuditoria.EXITOSO : ResultadoAuditoria.RECHAZADO,
+                issues.isEmpty() ? null : "Filas con errores: " + filasConError,
+                null,
+                "archivo=" + file.getOriginalFilename()
+                        + ",filas=" + total
+                        + ",importados=" + imported
+                        + ",fallidos=" + (total - imported));
     }
 
     public byte[] generateTemplate() {

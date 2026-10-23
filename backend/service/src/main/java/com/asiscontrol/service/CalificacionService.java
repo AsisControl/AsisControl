@@ -122,7 +122,7 @@ public class CalificacionService {
         }
         calificacion.setActivo(false);
         calificacionRepository.save(calificacion);
-        auditoria.registrar("ELIMINAR_CALIFICACION", "ACADEMICO", "Calificacion",
+        auditoria.registrar("ELIMINAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "nivelLogro=" + calificacion.getNivelLogro() + ",observacion=" + calificacion.getObservacion());    }
 
@@ -239,7 +239,7 @@ public class CalificacionService {
             calificacion.setFechaRegistro(Instant.now());
         }
         Calificacion saved = calificacionRepository.save(calificacion);
-        auditoria.registrar(nueva ? "REGISTRAR_CALIFICACION" : "ACTUALIZAR_CALIFICACION", "ACADEMICO", "Calificacion",
+        auditoria.registrar(nueva ? "REGISTRAR_CALIFICACION" : "ACTUALIZAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "nivelLogro=" + saved.getNivelLogro() + ",observacion=" + saved.getObservacion());
         return saved;

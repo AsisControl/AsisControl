@@ -77,14 +77,14 @@ public class GlobalExceptionHandler {
                                                     .toList())
                                     .replace('-', '_')
                                     .toUpperCase(java.util.Locale.ROOT);
-            String motivo = codigo + ": " + mensaje;
+            // AuditoriaService recorta los campos a la longitud de la tabla.
             auditoria.registrarRechazo(
-                    recortar(accion, 80),
-                    recortar(recurso.replace('-', '_').toUpperCase(java.util.Locale.ROOT), 80),
-                    recortar(recurso, 80),
+                    accion,
+                    com.asiscontrol.service.ModuloAuditoria.deRecurso(recurso),
+                    entidadDeRecurso(recurso),
                     registroId,
                     resultado,
-                    recortar(motivo, 500));
+                    codigo + ": " + mensaje);
         } catch (Exception registroFallido) {
             LOGGER.error(
                     "No se pudo auditar una operación no completada ({})",
@@ -92,8 +92,15 @@ public class GlobalExceptionHandler {
         }
     }
 
-    private static String recortar(String valor, int maximo) {
-        return valor.length() <= maximo ? valor : valor.substring(0, maximo);
+    /** "cursos-competencias" -> "CursosCompetencias", en el formato PascalCase de las entidades. */
+    private static String entidadDeRecurso(String recurso) {
+        StringBuilder entidad = new StringBuilder();
+        for (String parte : recurso.split("-")) {
+            if (!parte.isEmpty()) {
+                entidad.append(Character.toUpperCase(parte.charAt(0))).append(parte.substring(1));
+            }
+        }
+        return entidad.isEmpty() ? "Desconocido" : entidad.toString();
     }
 
     @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)

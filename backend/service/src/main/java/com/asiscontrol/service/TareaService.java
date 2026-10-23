@@ -65,7 +65,7 @@ public class TareaService {
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.BORRADOR);
         tarea.setActivo(true);
         Tarea saved = tareaRepository.save(tarea);
-        auditoria.registrar("CREAR_TAREA", "TAREAS", "Tarea",
+        auditoria.registrar("CREAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return mapResponse(saved);
     }
@@ -87,7 +87,7 @@ public class TareaService {
         tarea.setMaxArchivosEntrega(request.maxArchivosEntrega());
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         Tarea saved = tareaRepository.save(tarea);
-        auditoria.registrar("ACTUALIZAR_TAREA", "TAREAS", "Tarea",
+        auditoria.registrar("ACTUALIZAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return mapResponse(saved);
     }
@@ -110,7 +110,7 @@ public class TareaService {
         }
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.PUBLICADA);
         Tarea saved = tareaRepository.save(tarea);
-        auditoria.registrar("PUBLICAR_TAREA", "TAREAS", "Tarea",
+        auditoria.registrar("PUBLICAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + EstadoPublicacionTarea.BORRADOR, "estado=" + saved.getEstadoPublicacion());
         return mapResponse(saved);
@@ -127,7 +127,7 @@ public class TareaService {
         }
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.CERRADA);
         Tarea saved = tareaRepository.save(tarea);
-        auditoria.registrar("CERRAR_TAREA", "TAREAS", "Tarea",
+        auditoria.registrar("CERRAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + EstadoPublicacionTarea.PUBLICADA, "estado=" + saved.getEstadoPublicacion());
         return mapResponse(saved);
@@ -140,7 +140,7 @@ public class TareaService {
         exigirEstado(tarea, EstadoPublicacionTarea.CERRADA, "Solo se puede archivar una tarea cerrada");
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.ARCHIVADA);
         Tarea saved = tareaRepository.save(tarea);
-        auditoria.registrar("ARCHIVAR_TAREA", "TAREAS", "Tarea",
+        auditoria.registrar("ARCHIVAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + EstadoPublicacionTarea.CERRADA, "estado=" + saved.getEstadoPublicacion());
         return mapResponse(saved);
@@ -157,7 +157,7 @@ public class TareaService {
         }
         tarea.setActivo(false);
         tareaRepository.save(tarea);
-        auditoria.registrar("ELIMINAR_TAREA", "TAREAS", "Tarea",
+        auditoria.registrar("ELIMINAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(tarea), null);
     }
 
