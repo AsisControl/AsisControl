@@ -249,8 +249,8 @@ export function AcademicConfiguration() {
           )}
           <PeriodsPanel {...panelProps} />
           <NonTeachingDaysPanel key={year.anio} {...panelProps} />
-          <GradesPanel {...panelProps} />
           <SectionsPanel {...panelProps} />
+          <GradesPanel {...panelProps} />
         </div>
       )}
       {periodOpen && year?.estado === "BORRADOR" && (
