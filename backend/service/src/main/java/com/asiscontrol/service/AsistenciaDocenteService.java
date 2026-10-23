@@ -12,6 +12,7 @@ import com.asiscontrol.entity.CodigoQRAsistencia;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoCodigoQR;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -40,6 +41,7 @@ public class AsistenciaDocenteService {
     private final CodigoQRAsistenciaRepository codigoRepository;
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
     private final SecureRandom secureRandom = new SecureRandom();
     private final int vigenciaPredeterminadaSegundos;
 
@@ -48,11 +50,13 @@ public class AsistenciaDocenteService {
             CodigoQRAsistenciaRepository codigoRepository,
             EntityManager entityManager,
             ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria,
             @Value("${app.asistencia.qr-vigencia-segundos:120}") int vigenciaPredeterminadaSegundos) {
         this.asistenciaRepository = asistenciaRepository;
         this.codigoRepository = codigoRepository;
         this.entityManager = entityManager;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
         this.vigenciaPredeterminadaSegundos = vigenciaPredeterminadaSegundos;
     }
 
@@ -62,7 +66,11 @@ public class AsistenciaDocenteService {
         accessGuard.verificarDocentePropietario(docente);
         validarSinAsistenciaEnJornada(docente.getId(), LocalDate.now());
         invalidarCodigosVigentes(docente.getId());
-        return crearCodigo(docente, request.vigenciaSegundos());
+        CodigoQRResponse response = crearCodigo(docente, request.vigenciaSegundos());
+        auditoria.registrar("EMITIR_QR_DOCENTE", "ASISTENCIA", "CodigoQRAsistencia",
+                response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "docente=" + docente.getId());
+        return response;
     }
 
     @Transactional
@@ -99,6 +107,8 @@ public class AsistenciaDocenteService {
         codigo.setEstado(EstadoCodigoQR.INVALIDADO);
         codigo.setFechaHoraCancelacion(LocalDateTime.now());
         codigoRepository.save(codigo);
+        auditoria.registrar("CANCELAR_QR_DOCENTE", "ASISTENCIA", "CodigoQRAsistencia",
+                codigoId.toString(), ResultadoAuditoria.EXITOSO, null, null, null);
     }
 
     @Transactional(noRollbackFor = BusinessRuleException.class)
@@ -135,7 +145,11 @@ public class AsistenciaDocenteService {
         codigo.setEstado(EstadoCodigoQR.UTILIZADO);
         codigo.setFechaHoraUso(ahora);
         codigoRepository.save(codigo);
-        return mapResponse(asistenciaRepository.save(asistencia));
+        AsistenciaDocenteResponse response = mapResponse(asistenciaRepository.save(asistencia));
+        auditoria.registrar("MARCAR_ASISTENCIA_DOCENTE", "ASISTENCIA", "AsistenciaDocente",
+                response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "docente=" + codigo.getDocente().getId() + ",estado=PRESENTE");
+        return response;
     }
 
     @Transactional
@@ -172,7 +186,11 @@ public class AsistenciaDocenteService {
         asistencia.setContingencia(true);
         asistencia.setMotivoContingencia(request.motivo().trim());
         asistencia.setActivo(true);
-        return mapResponse(asistenciaRepository.save(asistencia));
+        AsistenciaDocenteResponse response = mapResponse(asistenciaRepository.save(asistencia));
+        auditoria.registrar("REGISTRAR_CONTINGENCIA_DOCENTE", "ASISTENCIA", "AsistenciaDocente",
+                response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "docente=" + docente.getId() + ",estado=" + request.estado() + ",motivo=" + request.motivo().trim());
+        return response;
     }
 
     public Page<AsistenciaDocenteResponse> listar(

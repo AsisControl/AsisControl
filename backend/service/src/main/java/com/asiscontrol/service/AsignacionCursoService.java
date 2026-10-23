@@ -7,6 +7,7 @@ import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Seccion;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
@@ -26,16 +27,19 @@ public class AsignacionCursoService {
     private final CursoRepository cursoRepository;
     private final SeccionRepository seccionRepository;
     private final DocenteRepository docenteRepository;
+    private final AuditoriaService auditoria;
 
     public AsignacionCursoService(
             AsignacionCursoRepository asignacionRepository,
             CursoRepository cursoRepository,
             SeccionRepository seccionRepository,
-            DocenteRepository docenteRepository) {
+            DocenteRepository docenteRepository,
+            AuditoriaService auditoria) {
         this.asignacionRepository = asignacionRepository;
         this.cursoRepository = cursoRepository;
         this.seccionRepository = seccionRepository;
         this.docenteRepository = docenteRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -46,7 +50,11 @@ public class AsignacionCursoService {
         asignacion.setSeccion(buscarSeccion(request.seccionId()));
         asignacion.setDocente(buscarDocente(request.docenteId()));
         asignacion.setActivo(true);
-        return mapear(asignacionRepository.save(asignacion));
+        AsignacionCurso saved = asignacionRepository.save(asignacion);
+        auditoria.registrar("CREAR_ASIGNACION_CURSO", "CURRICULA", "AsignacionCurso",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "curso=" + saved.getCurso().getNombre() + ",seccion=" + saved.getSeccion().getNombre());
+        return mapear(saved);
     }
 
     @Transactional
@@ -54,10 +62,15 @@ public class AsignacionCursoService {
         AsignacionCurso asignacion = obtenerEntidad(id);
         exigirVersion(asignacion.getVersion(), request.version());
         validarUnica(request.cursoId(), request.seccionId(), id);
+        String anterior = "curso=" + asignacion.getCurso().getNombre() + ",seccion=" + asignacion.getSeccion().getNombre();
         asignacion.setCurso(buscarCurso(request.cursoId()));
         asignacion.setSeccion(buscarSeccion(request.seccionId()));
         asignacion.setDocente(buscarDocente(request.docenteId()));
-        return mapear(asignacionRepository.save(asignacion));
+        AsignacionCurso saved = asignacionRepository.save(asignacion);
+        auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", "CURRICULA", "AsignacionCurso",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "curso=" + saved.getCurso().getNombre() + ",seccion=" + saved.getSeccion().getNombre());
+        return mapear(saved);
     }
 
     public AsignacionCursoResponse obtener(Long id) {
@@ -73,6 +86,9 @@ public class AsignacionCursoService {
         AsignacionCurso asignacion = obtenerEntidad(id);
         asignacion.setActivo(false);
         asignacionRepository.save(asignacion);
+        auditoria.registrar("ELIMINAR_ASIGNACION_CURSO", "CURRICULA", "AsignacionCurso",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "curso=" + asignacion.getCurso().getNombre(), null);
     }
 
     public AsignacionCurso obtenerEntidad(Long id) {
