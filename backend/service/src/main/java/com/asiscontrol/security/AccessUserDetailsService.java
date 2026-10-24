@@ -22,7 +22,9 @@ public class AccessUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    @Transactional
+    // Un usuario inexistente no debe marcar la transaccion del login para rollback: si lo hace,
+    // el login responde 500 en lugar de 401 y revela que el usuario no existe.
+    @Transactional(noRollbackFor = UsernameNotFoundException.class)
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
         AccesoUsuario usuario =
                 usuarioRepository

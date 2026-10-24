@@ -93,48 +93,61 @@ public class BootstrapDataInitializer implements ApplicationRunner {
         Map<String, String[]> definitions = new LinkedHashMap<>();
         definitions.put("USUARIOS_LEER", new String[]{"Seguridad", "Consultar usuarios y roles"});
         definitions.put("USUARIOS_ESCRIBIR", new String[]{"Seguridad", "Gestionar usuarios y roles"});
-        definitions.put("ACADEMICO_LEER", new String[]{"Academico", "Consultar estructura academica"});
-        definitions.put("ACADEMICO_ESCRIBIR", new String[]{"Academico", "Gestionar estructura academica"});
-        definitions.put("SOLICITUDES_ESCRIBIR", new String[]{"Matricula", "Crear y enviar solicitudes de estudiantes asociados"});
-        definitions.put("MATRICULA_LEER", new String[]{"Matricula", "Consultar solicitudes y matriculas"});
-        definitions.put("MATRICULA_ESCRIBIR", new String[]{"Matricula", "Gestionar solicitudes y matriculas"});
+        definitions.put("ACADEMICO_LEER", new String[]{"Académico", "Consultar estructura académica"});
+        definitions.put("ACADEMICO_ESCRIBIR", new String[]{"Académico", "Gestionar estructura académica"});
+        definitions.put("SOLICITUDES_ESCRIBIR", new String[]{"Matrícula", "Crear y enviar solicitudes de estudiantes asociados"});
+        definitions.put("MATRICULA_LEER", new String[]{"Matrícula", "Consultar solicitudes y matrículas"});
+        definitions.put("MATRICULA_ESCRIBIR", new String[]{"Matrícula", "Gestionar solicitudes y matrículas"});
         definitions.put("ASISTENCIA_LEER", new String[]{"Asistencia", "Consultar asistencias"});
         definitions.put("ASISTENCIA_ESCRIBIR", new String[]{"Asistencia", "Registrar y corregir asistencias"});
         definitions.put("TAREAS_LEER", new String[]{"Tareas", "Consultar tareas y entregas"});
         definitions.put("TAREAS_ESCRIBIR", new String[]{"Tareas", "Gestionar tareas y calificar entregas"});
         definitions.put("TAREAS_ENTREGAR", new String[]{"Tareas", "Entregar tareas"});
-        definitions.put("CALIFICACIONES_LEER", new String[]{"Evaluacion", "Consultar calificaciones"});
-        definitions.put("CALIFICACIONES_ESCRIBIR", new String[]{"Evaluacion", "Gestionar evaluaciones y notas"});
+        definitions.put("CALIFICACIONES_LEER", new String[]{"Evaluación", "Consultar calificaciones"});
+        definitions.put("CALIFICACIONES_ESCRIBIR", new String[]{"Evaluación", "Gestionar evaluaciones y notas"});
         definitions.put("PAGOS_LEER", new String[]{"Pagos", "Consultar obligaciones y pagos"});
         definitions.put("PAGOS_ESCRIBIR", new String[]{"Pagos", "Registrar y anular pagos"});
         definitions.put("RIESGOS_LEER", new String[]{"Riesgo", "Consultar alertas de riesgo"});
         definitions.put("RIESGOS_ESCRIBIR", new String[]{"Riesgo", "Configurar y gestionar alertas"});
-        definitions.put("AUDITORIA_LEER", new String[]{"Auditoria", "Consultar auditoria y errores"});
+        definitions.put("AUDITORIA_LEER", new String[]{"Auditoría", "Consultar auditoría y errores"});
         definitions.put("ARCHIVOS_ESCRIBIR", new String[]{"Archivos", "Cargar y vincular archivos"});
 
         Map<String, CategoriaPermiso> categories = new LinkedHashMap<>();
         Map<String, Permiso> result = new LinkedHashMap<>();
         definitions.forEach((code, data) -> {
-            CategoriaPermiso category = categories.computeIfAbsent(
-                    data[0],
-                    name -> categoriaRepository.findByNombreIgnoreCase(name).orElseGet(() -> {
-                        CategoriaPermiso created = new CategoriaPermiso();
-                        created.setNombre(name);
-                        created.setDescripcion("Permisos del modulo " + name);
-                        return categoriaRepository.save(created);
-                    })
-            );
+            CategoriaPermiso category = categories.computeIfAbsent(data[0], this::categoriaPermiso);
             Permiso permission = permisoRepository.findByCodigoIgnoreCase(code).orElseGet(() -> {
                 Permiso created = new Permiso();
                 created.setCodigo(code);
                 created.setNombre(code.replace('_', ' '));
-                created.setDescripcion(data[1]);
-                created.setCategoria(category);
-                return permisoRepository.save(created);
+                return created;
             });
-            result.put(code, permission);
+            // Se actualizan tambien los permisos existentes para corregir textos en bases ya creadas.
+            permission.setDescripcion(data[1]);
+            permission.setCategoria(category);
+            result.put(code, permisoRepository.save(permission));
         });
         return result;
+    }
+
+    /**
+     * Busca la categoria sin distinguir tildes ni mayusculas y la renombra si hace falta: asi una
+     * base creada con "Academico" pasa a "Académico" sin duplicar la categoria.
+     */
+    private CategoriaPermiso categoriaPermiso(String nombre) {
+        String clave = sinTildes(nombre);
+        CategoriaPermiso categoria = categoriaRepository.findAll().stream()
+                .filter(existente -> sinTildes(existente.getNombre()).equalsIgnoreCase(clave))
+                .findFirst()
+                .orElseGet(CategoriaPermiso::new);
+        categoria.setNombre(nombre);
+        categoria.setDescripcion("Permisos del módulo " + nombre);
+        return categoriaRepository.save(categoria);
+    }
+
+    private static String sinTildes(String texto) {
+        return java.text.Normalizer.normalize(texto, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
     }
 
     private void initializeRoles(Map<String, Permiso> permissions) {
