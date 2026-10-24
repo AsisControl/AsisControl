@@ -138,6 +138,43 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    /** Archivos: sin estos manejadores, un envio mal armado terminaba en un 500 generico. */
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> handleMissingPart(
+            org.springframework.web.multipart.support.MissingServletRequestPartException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "ARCHIVO_REQUERIDO",
+                "Falta el archivo: envíelo en el campo '" + exception.getRequestPartName() + "'",
+                request,
+                List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(
+            org.springframework.web.multipart.MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "ARCHIVO_DEMASIADO_GRANDE",
+                "El archivo supera el tamaño máximo permitido",
+                request,
+                List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleUnsupportedMediaType(
+            org.springframework.web.HttpMediaTypeNotSupportedException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "FORMATO_DE_ENVIO_NO_SOPORTADO",
+                "El formato de la solicitud no es el esperado; los archivos se envían como multipart/form-data",
+                request,
+                List.of());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
             ResourceNotFoundException exception, HttpServletRequest request) {
@@ -251,10 +288,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiError> handleAuthentication(
             AuthenticationException exception, HttpServletRequest request) {
+        // En el login no hay sesion que expire. El mensaje es el mismo para un usuario
+        // inexistente y para una contrasena incorrecta, para no revelar que usuarios existen.
+        if ("/api/auth/login".equals(request.getRequestURI())) {
+            return build(
+                    HttpStatus.UNAUTHORIZED,
+                    "CREDENCIALES_INVALIDAS",
+                    "Usuario o contraseña incorrectos.",
+                    request,
+                    List.of());
+        }
         return build(
                 HttpStatus.UNAUTHORIZED,
                 "AUTENTICACION_REQUERIDA",
-                "Las credenciales no son validas o la sesion expiro",
+                com.asiscontrol.security.RestAuthenticationEntryPoint.MENSAJE_SESION,
                 request,
                 List.of());
     }
