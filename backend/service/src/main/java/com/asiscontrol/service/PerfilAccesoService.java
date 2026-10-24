@@ -97,20 +97,19 @@ public class PerfilAccesoService {
                 }
                 default -> invalid("El rol no pertenece a los cuatro perfiles institucionales");
             }
-            auditoria.registrar("CREAR_PERFIL", "PERSONAS", role, p.getId().toString(),
+            auditoria.registrar("CREAR_PERFIL", ModuloAuditoria.PERSONAS, role.charAt(0) + role.substring(1).toLowerCase(), p.getId().toString(),
                 ResultadoAuditoria.EXITOSO, null, null, "personaId=" + p.getId());
         }
         if (role.equals("APODERADO") && r.alumnoIds() != null) {
             Apoderado a = apoderados.findByPersonaIdAndActivoTrue(p.getId()).orElseThrow();
             for (Long id : r.alumnoIds()) {
-                Alumno student = alumnos.findByIdAndActivoTrue(id).filter(s -> s.getPersona().isActivo())
+                alumnos.findByIdAndActivoTrue(id).filter(s -> s.getPersona().isActivo())
                     .orElseThrow(() -> new ResourceNotFoundException("ALUMNO_NO_ENCONTRADO", "No se encontro un estudiante habilitado"));
                 if (vinculos.findByAlumnoIdAndApoderadoIdAndActivoTrue(id, a.getId()).isEmpty()) {
-                    AlumnoApoderado link = new AlumnoApoderado(); link.setAlumno(student); link.setApoderado(a);
-                    // No se atribuye un parentesco que el administrador no ha declarado.
-                    link.setParentesco(Parentesco.NO_DECLARADO); link.setPrincipal(false); vinculos.save(link);
-                    auditoria.registrar("ASOCIAR_APODERADO", "PERSONAS", "AlumnoApoderado", link.getId().toString(),
-                        ResultadoAuditoria.EXITOSO, null, null, "alumnoId=" + id + ",apoderadoId=" + a.getId());
+                    // linkGuardian ya audita ASOCIAR_APODERADO.
+                    personaService.linkGuardian(id,
+                        new com.asiscontrol.dto.persona.PersonaDtos.VinculoApoderadoRequest(
+                            a.getId(), Parentesco.NO_DECLARADO, false));
                 }
             }
         }

@@ -55,6 +55,7 @@ public class PersonaService {
     private final AccesoUsuarioRepository usuarioRepository;
     private final SesionAccesoRepository sesionRepository;
     private final AuditoriaService auditoriaService;
+    private final com.asiscontrol.repository.AdministradorRepository administradorRepository;
 
     public PersonaService(
             PersonaRepository personaRepository,
@@ -65,7 +66,8 @@ public class PersonaService {
             AlumnoApoderadoRepository alumnoApoderadoRepository,
             AccesoUsuarioRepository usuarioRepository,
             SesionAccesoRepository sesionRepository,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            com.asiscontrol.repository.AdministradorRepository administradorRepository) {
         this.personaRepository = personaRepository;
         this.nacionalidadRepository = nacionalidadRepository;
         this.alumnoRepository = alumnoRepository;
@@ -75,6 +77,7 @@ public class PersonaService {
         this.usuarioRepository = usuarioRepository;
         this.sesionRepository = sesionRepository;
         this.auditoriaService = auditoriaService;
+        this.administradorRepository = administradorRepository;
     }
 
     @Transactional
@@ -127,17 +130,22 @@ public class PersonaService {
                             throw new ConflictException(
                                     "CODIGO_ALUMNO_DUPLICADO", "El codigo del alumno ya existe");
                         });
+        java.util.Map<String, Object> personaAntes = snapshotPersona(alumno.getPersona());
+        String anterior = "codigoAlumno=" + alumno.getCodigoAlumno();
         updatePersona(alumno.getPersona(), request.persona());
         alumno.setCodigoAlumno(request.codigoAlumno().trim().toUpperCase());
-        return toAlumnoResponse(alumnoRepository.save(alumno));
+        Alumno saved = alumnoRepository.save(alumno);
+        auditUpdate("Alumno", id, personaAntes, saved.getPersona(),
+                anterior, "codigoAlumno=" + saved.getCodigoAlumno());
+        return toAlumnoResponse(saved);
     }
 
     @Transactional
     public void deleteAlumno(Long id) {
         Alumno alumno = findAlumno(id);
-        deactivateProfile(alumno.getPersona());
         alumno.setActivo(false);
         alumnoRepository.save(alumno);
+        deactivateProfile(alumno.getPersona(), "ALUMNO");
         auditDelete("Alumno", id);
     }
 
@@ -206,19 +214,24 @@ public class PersonaService {
                             throw new ConflictException(
                                     "CODIGO_DOCENTE_DUPLICADO", "El codigo del docente ya existe");
                         });
+        java.util.Map<String, Object> personaAntes = snapshotPersona(docente.getPersona());
+        String anterior = describirDocente(docente);
         updatePersona(docente.getPersona(), request.persona());
         docente.setCodigoDocente(request.codigoDocente().trim().toUpperCase());
         docente.setFechaIngreso(request.fechaIngreso());
         docente.setEspecialidad(request.especialidad());
-        return toDocenteResponse(docenteRepository.save(docente));
+        Docente saved = docenteRepository.save(docente);
+        auditUpdate("Docente", id, personaAntes, saved.getPersona(),
+                anterior, describirDocente(saved));
+        return toDocenteResponse(saved);
     }
 
     @Transactional
     public void deleteDocente(Long id) {
         Docente docente = findDocente(id);
-        deactivateProfile(docente.getPersona());
         docente.setActivo(false);
         docenteRepository.save(docente);
+        deactivateProfile(docente.getPersona(), "DOCENTE");
         auditDelete("Docente", id);
     }
 
@@ -258,16 +271,19 @@ public class PersonaService {
     public PersonaDtos.ApoderadoResponse updateApoderado(
             Long id, PersonaDtos.ApoderadoUpdateRequest request) {
         Apoderado apoderado = findApoderado(id);
+        java.util.Map<String, Object> personaAntes = snapshotPersona(apoderado.getPersona());
         updatePersona(apoderado.getPersona(), request.persona());
-        return toApoderadoResponse(apoderadoRepository.save(apoderado));
+        Apoderado saved = apoderadoRepository.save(apoderado);
+        auditUpdate("Apoderado", id, personaAntes, saved.getPersona(), null, null);
+        return toApoderadoResponse(saved);
     }
 
     @Transactional
     public void deleteApoderado(Long id) {
         Apoderado apoderado = findApoderado(id);
-        deactivateProfile(apoderado.getPersona());
         apoderado.setActivo(false);
         apoderadoRepository.save(apoderado);
+        deactivateProfile(apoderado.getPersona(), "APODERADO");
         alumnoApoderadoRepository
                 .findAllByApoderadoIdAndActivoTrue(id)
                 .forEach(
@@ -304,18 +320,26 @@ public class PersonaService {
                                 alumnoApoderadoRepository.save(link);
                             });
         }
-        AlumnoApoderado link = new AlumnoApoderado();
-        link.setAlumno(alumno);
-        link.setApoderado(apoderado);
+        AlumnoApoderado link =
+                alumnoApoderadoRepository
+                        .findByAlumnoIdAndApoderadoId(alumnoId, apoderado.getId())
+                        .orElseGet(
+                                () -> {
+                                    AlumnoApoderado nuevo = new AlumnoApoderado();
+                                    nuevo.setAlumno(alumno);
+                                    nuevo.setApoderado(apoderado);
+                                    return nuevo;
+                                });
         link.setParentesco(
                 request.parentesco() == null
                         ? com.asiscontrol.entity.enums.Parentesco.NO_DECLARADO
                         : request.parentesco());
         link.setPrincipal(request.principal());
+        link.setActivo(true);
         alumnoApoderadoRepository.saveAndFlush(link);
         auditoriaService.registrar(
                 "ASOCIAR_APODERADO",
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 "AlumnoApoderado",
                 link.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -349,6 +373,18 @@ public class PersonaService {
         }
         link.setActivo(false);
         alumnoApoderadoRepository.save(link);
+        auditoriaService.registrar(
+                "DESVINCULAR_APODERADO",
+                ModuloAuditoria.PERSONAS,
+                "AlumnoApoderado",
+                link.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                "alumno=" + alumnoId
+                        + ",apoderado=" + apoderadoId
+                        + ",parentesco=" + link.getParentesco()
+                        + ",principal=" + link.isPrincipal(),
+                null);
     }
 
     @Transactional(readOnly = true)
@@ -435,11 +471,20 @@ public class PersonaService {
                         });
     }
 
-    private void deactivateProfile(Persona persona) {
-        persona.setActivo(false);
-        personaRepository.save(persona);
+    private void deactivateProfile(Persona persona, String role) {
+        boolean tieneOtroPerfil =
+                alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
+                        || docenteRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
+                        || apoderadoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
+                        || administradorRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent();
+        if (!tieneOtroPerfil) {
+            persona.setActivo(false);
+            personaRepository.save(persona);
+        }
         usuarioRepository
                 .findAllByPersonaIdAndActivoTrue(persona.getId())
+                .stream()
+                .filter(usuario -> role.equals(usuario.getRol().getNombre()))
                 .forEach(this::deactivateUser);
     }
 
@@ -556,7 +601,7 @@ public class PersonaService {
     private void auditCreate(String entity, Long id) {
         auditoriaService.registrar(
                 "CREAR_" + entity.toUpperCase(),
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 entity,
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,
@@ -565,10 +610,59 @@ public class PersonaService {
                 null);
     }
 
+    /**
+     * Para los datos personales solo se registran los nombres de los campos modificados, no sus
+     * valores, para no copiar documentos, telefonos o direcciones a la tabla de auditoria.
+     */
+    private void auditUpdate(
+            String entity,
+            Long id,
+            java.util.Map<String, Object> personaAntes,
+            Persona personaDespues,
+            String anterior,
+            String nuevo) {
+        java.util.Map<String, Object> despues = snapshotPersona(personaDespues);
+        String campos =
+                personaAntes.keySet().stream()
+                        .filter(campo -> !java.util.Objects.equals(personaAntes.get(campo), despues.get(campo)))
+                        .collect(java.util.stream.Collectors.joining("|"));
+        auditoriaService.registrar(
+                "ACTUALIZAR_" + entity.toUpperCase(),
+                ModuloAuditoria.PERSONAS,
+                entity,
+                id.toString(),
+                ResultadoAuditoria.EXITOSO,
+                campos.isEmpty() ? null : "datosPersonalesModificados=" + campos,
+                anterior,
+                nuevo);
+    }
+
+    private java.util.Map<String, Object> snapshotPersona(Persona persona) {
+        java.util.Map<String, Object> datos = new java.util.LinkedHashMap<>();
+        datos.put("nombres", persona.getNombres());
+        datos.put("apellidoPaterno", persona.getApellidoPaterno());
+        datos.put("apellidoMaterno", persona.getApellidoMaterno());
+        datos.put("tipoDocumento", persona.getTipoDocumento());
+        datos.put("numeroDocumento", persona.getNumeroDocumento());
+        datos.put("nacionalidad", persona.getNacionalidad() == null ? null : persona.getNacionalidad().getId());
+        datos.put("sexo", persona.getSexo());
+        datos.put("fechaNacimiento", persona.getFechaNacimiento());
+        datos.put("telefono", persona.getTelefono());
+        datos.put("correo", persona.getCorreo());
+        datos.put("direccion", persona.getDireccion());
+        return datos;
+    }
+
+    private String describirDocente(Docente docente) {
+        return "codigoDocente=" + docente.getCodigoDocente()
+                + ",fechaIngreso=" + docente.getFechaIngreso()
+                + ",especialidad=" + docente.getEspecialidad();
+    }
+
     private void auditDelete(String entity, Long id) {
         auditoriaService.registrar(
                 "DESACTIVAR_" + entity.toUpperCase(),
-                "PERSONAS",
+                ModuloAuditoria.PERSONAS,
                 entity,
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,

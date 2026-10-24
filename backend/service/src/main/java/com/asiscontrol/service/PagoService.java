@@ -13,6 +13,9 @@ import com.asiscontrol.entity.enums.EstadoTransaccionPago;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
+
+import com.asiscontrol.service.AuditoriaService;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.repository.AdministradorRepository;
 import com.asiscontrol.repository.ApoderadoRepository;
 import com.asiscontrol.repository.ArchivoAdjuntoRepository;
@@ -47,6 +50,7 @@ public class PagoService {
     private final ApoderadoRepository apoderadoRepository;
     private final AdministradorRepository administradorRepository;
     private final ArchivoAdjuntoRepository archivoAdjuntoRepository;
+    private final AuditoriaService auditoria;
 
     public PagoService(
             CompromisoPagoRepository compromisoPagoRepository,
@@ -55,7 +59,8 @@ public class PagoService {
             MatriculaRepository matriculaRepository,
             ApoderadoRepository apoderadoRepository,
             AdministradorRepository administradorRepository,
-            ArchivoAdjuntoRepository archivoAdjuntoRepository
+            ArchivoAdjuntoRepository archivoAdjuntoRepository,
+            AuditoriaService auditoria
     ) {
         this.compromisoPagoRepository = compromisoPagoRepository;
         this.transaccionPagoRepository = transaccionPagoRepository;
@@ -64,6 +69,7 @@ public class PagoService {
         this.apoderadoRepository = apoderadoRepository;
         this.administradorRepository = administradorRepository;
         this.archivoAdjuntoRepository = archivoAdjuntoRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -111,7 +117,17 @@ public class PagoService {
         compromiso.setMoneda(request.moneda().trim().toUpperCase());
         compromiso.setFechaVencimiento(request.fechaVencimiento());
         compromiso.setEstado(calcularEstado(compromiso));
-        return toCompromisoResponse(compromisoPagoRepository.save(compromiso));
+        CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
+        auditoria.registrar(
+                "CREAR_COMPROMISO",
+                ModuloAuditoria.FINANZAS,
+                "CompromisoPago",
+                savedCompromiso.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                describirCompromiso(savedCompromiso));
+        return toCompromisoResponse(savedCompromiso);
     }
 
     @Transactional
@@ -148,6 +164,7 @@ public class PagoService {
 
         String codigo = normalizarCodigo(request.codigoCompromiso());
         validarCodigoDisponible(codigo, id);
+        String anterior = describirCompromiso(compromiso);
         Matricula matricula = matriculaRepository.findByIdAndActivoTrue(request.idMatricula())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "MATRICULA_NO_ENCONTRADA",
@@ -162,7 +179,17 @@ public class PagoService {
         compromiso.setMoneda(request.moneda().trim().toUpperCase());
         compromiso.setFechaVencimiento(request.fechaVencimiento());
         compromiso.setEstado(calcularEstado(compromiso));
-        return toCompromisoResponse(compromisoPagoRepository.save(compromiso));
+        CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
+        auditoria.registrar(
+                "ACTUALIZAR_COMPROMISO",
+                ModuloAuditoria.FINANZAS,
+                "CompromisoPago",
+                savedCompromiso.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                anterior,
+                describirCompromiso(savedCompromiso));
+        return toCompromisoResponse(savedCompromiso);
     }
 
     @Transactional
@@ -178,9 +205,19 @@ public class PagoService {
                     "No se puede eliminar un compromiso que ya tiene pagos registrados"
             );
         }
+        String anterior = describirCompromiso(compromiso);
         compromiso.setEstado(EstadoCompromisoPago.ANULADO);
         compromiso.setActivo(false);
-        compromisoPagoRepository.save(compromiso);
+        CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
+        auditoria.registrar(
+                "ELIMINAR_COMPROMISO",
+                ModuloAuditoria.FINANZAS,
+                "CompromisoPago",
+                savedCompromiso.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                anterior,
+                "estado=" + savedCompromiso.getEstado() + ",activo=false");
     }
 
     @Transactional(readOnly = true)
@@ -275,9 +312,28 @@ public class PagoService {
         transaccion.setObservacion(limpiar(request.observacion()));
         TransaccionPago guardada = transaccionPagoRepository.save(transaccion);
 
+        String compromisoAnterior = "compromisoId=" + compromiso.getId()
+                + ",montoPagado=" + compromiso.getMontoPagado()
+                + ",estado=" + compromiso.getEstado();
         compromiso.setMontoPagado(dinero(compromiso.getMontoPagado().add(monto)));
         compromiso.setEstado(calcularEstado(compromiso));
         compromisoPagoRepository.save(compromiso);
+        auditoria.registrar(
+                "REGISTRAR_TRANSACCION",
+                ModuloAuditoria.FINANZAS,
+                "TransaccionPago",
+                guardada.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                compromisoAnterior,
+                "numeroOperacion=" + guardada.getNumeroOperacion()
+                        + ",monto=" + guardada.getMonto()
+                        + ",medioPago=" + guardada.getMedioPago()
+                        + ",apoderadoId=" + (apoderado == null ? null : apoderado.getId())
+                        + ",administradorId=" + (administrador == null ? null : administrador.getId())
+                        + ",compromisoId=" + compromiso.getId()
+                        + ",montoPagado=" + compromiso.getMontoPagado()
+                        + ",estado=" + compromiso.getEstado());
         return toTransaccionResponse(guardada);
     }
 
@@ -352,7 +408,33 @@ public class PagoService {
         comprobante.setNumero(numero);
         comprobante.setFechaEmision(Instant.now());
         comprobante.setMontoTotal(transaccion.getMonto());
-        return toComprobanteResponse(comprobanteRepository.save(comprobante));
+        Comprobante guardado = comprobanteRepository.save(comprobante);
+        auditoria.registrar(
+                "EMITIR_COMPROBANTE",
+                ModuloAuditoria.FINANZAS,
+                "Comprobante",
+                guardado.getId().toString(),
+                ResultadoAuditoria.EXITOSO,
+                null,
+                null,
+                "tipo=" + guardado.getTipoComprobante()
+                        + ",serie=" + guardado.getSerie()
+                        + ",numero=" + guardado.getNumero()
+                        + ",montoTotal=" + guardado.getMontoTotal()
+                        + ",transaccionId=" + transaccion.getId()
+                        + ",archivoId=" + (archivo == null ? null : archivo.getId()));
+        return toComprobanteResponse(guardado);
+    }
+
+    private String describirCompromiso(CompromisoPago compromiso) {
+        return "codigo=" + compromiso.getCodigoCompromiso()
+                + ",matriculaId=" + compromiso.getMatricula().getId()
+                + ",concepto=" + compromiso.getConcepto()
+                + ",montoTotal=" + compromiso.getMontoTotal()
+                + ",montoPagado=" + compromiso.getMontoPagado()
+                + ",moneda=" + compromiso.getMoneda()
+                + ",vencimiento=" + compromiso.getFechaVencimiento()
+                + ",estado=" + compromiso.getEstado();
     }
 
     public PagoDto.SimulacionResponse simular(PagoDto.SimulacionRequest request) {

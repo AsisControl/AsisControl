@@ -10,6 +10,7 @@ import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.NivelLogro;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
@@ -42,6 +43,7 @@ public class CalificacionService {
     private final CompetenciaRepository competenciaRepository;
     private final MatriculaRepository matriculaRepository;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
 
     public CalificacionService(
             CalificacionRepository calificacionRepository,
@@ -49,14 +51,15 @@ public class CalificacionService {
             AlumnoRepository alumnoRepository,
             CompetenciaRepository competenciaRepository,
             MatriculaRepository matriculaRepository,
-            ModuloAccessGuard accessGuard
-    ) {
+            ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria) {
         this.calificacionRepository = calificacionRepository;
         this.evaluacionRepository = evaluacionRepository;
         this.alumnoRepository = alumnoRepository;
         this.competenciaRepository = competenciaRepository;
         this.matriculaRepository = matriculaRepository;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -119,7 +122,9 @@ public class CalificacionService {
         }
         calificacion.setActivo(false);
         calificacionRepository.save(calificacion);
-    }
+        auditoria.registrar("ELIMINAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "nivelLogro=" + calificacion.getNivelLogro() + ",observacion=" + calificacion.getObservacion());    }
 
     @Transactional(readOnly = true)
     public List<CalificacionDto.ConsolidadoResponse> obtenerConsolidado(
@@ -220,6 +225,10 @@ public class CalificacionService {
                 )
                 .orElseGet(Calificacion::new);
         boolean nueva = calificacion.getId() == null;
+        String anterior = null;
+        if (!nueva) {
+            anterior = "nivelLogro=" + calificacion.getNivelLogro() + ",observacion=" + calificacion.getObservacion();
+        }
         calificacion.setEvaluacion(evaluacion);
         calificacion.setAlumno(alumno);
         calificacion.setCompetencia(competencia);
@@ -229,7 +238,11 @@ public class CalificacionService {
         if (nueva) {
             calificacion.setFechaRegistro(Instant.now());
         }
-        return calificacionRepository.save(calificacion);
+        Calificacion saved = calificacionRepository.save(calificacion);
+        auditoria.registrar(nueva ? "REGISTRAR_CALIFICACION" : "ACTUALIZAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "nivelLogro=" + saved.getNivelLogro() + ",observacion=" + saved.getObservacion());
+        return saved;
     }
 
     private Calificacion buscarActiva(Long id) {

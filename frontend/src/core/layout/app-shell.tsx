@@ -2,46 +2,134 @@
 
 /* eslint-disable @next/next/no-img-element -- SVG assets are served from public/. */
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ChangePassword } from "@/core/auth/change-password";
 import { useAuth } from "@/core/auth/use-auth";
 import type { AuthenticatedUser } from "@/core/auth/types";
-import { roleDetails, roleLabels } from "@/core/navigation/navigation";
-import { resolveScreen } from "@/core/navigation/module-outlet";
+import { canAccess } from "@/core/navigation/access-policy";
+import {
+  CHANGE_PASSWORD_PATH,
+  navFromSegment,
+  navPath,
+  roleDetails,
+  roleLabels,
+} from "@/core/navigation/navigation";
+import { NavIcon } from "@/core/navigation/nav-icons";
 import { Brand } from "./brand";
 import { LoginScreen } from "./login-screen";
+import { SessionUserProvider } from "./session-user";
+import styles from "./app-shell.module.css";
+
+const MOBILE_BREAKPOINT_PX = 760;
 
 function Dashboard({
   user,
   onLogout,
-  initialNav = "Inicio",
-  startCreate = false,
+  validationError,
+  onRetryValidation,
+  children,
 }: {
   user: AuthenticatedUser;
   onLogout: () => Promise<void>;
-  initialNav?: string;
-  startCreate?: boolean;
+  validationError: string;
+  onRetryValidation: () => Promise<void>;
+  children: ReactNode;
 }) {
-  const [activeNav, setActiveNav] = useState(initialNav);
+  const router = useRouter();
+  const pathname = usePathname();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const header = useRef<HTMLElement>(null);
   const details = roleDetails[user.role];
   const roleLabel = roleLabels[user.role];
+  const activeNav = navFromSegment(user.role, pathname.split("/")[1]);
+  const visibleNav = details.nav.filter((item) => canAccess(user, item));
 
-  if (changingPassword)
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setIsMobileMenuOpen(false);
+      menuButton.current?.focus();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !header.current?.contains(event.target)
+      )
+        setIsMobileMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth > MOBILE_BREAKPOINT_PX) setIsMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [isMobileMenuOpen]);
+
+  if (pathname === CHANGE_PASSWORD_PATH)
     return <ChangePassword onLogout={onLogout} mandatory={false} />;
-  const screen = resolveScreen(activeNav, { user, startCreate });
+  function go(path: string) {
+    setIsAccountMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    router.push(path);
+  }
   return (
     <main className="role-home">
-      <header className="top-nav">
+      <header ref={header} className={`top-nav ${styles.header}`}>
+        <button
+          ref={menuButton}
+          type="button"
+          className={styles.menuButton}
+          aria-label={
+            isMobileMenuOpen
+              ? "Cerrar menú de navegación"
+              : "Abrir menú de navegación"
+          }
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="main-navigation"
+          onClick={() => {
+            setIsMobileMenuOpen(!isMobileMenuOpen);
+            setIsAccountMenuOpen(false);
+          }}
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            {isMobileMenuOpen ? (
+              <path d="m6 6 12 12M6 18 18 6" />
+            ) : (
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
         <Brand compact />
-        <nav aria-label="Navegación principal">
-          {details.nav.map((item) => (
+        <nav
+          id="main-navigation"
+          className={`${styles.navBar} ${isMobileMenuOpen ? styles.open : ""}`}
+          aria-label="Navegación principal"
+        >
+          {visibleNav.map((item) => (
             <button
-              className={activeNav === item ? "selected" : ""}
+              className={`${styles.navItem} ${activeNav === item ? "selected" : ""}`}
+              aria-current={activeNav === item ? "page" : undefined}
               key={item}
-              onClick={() => setActiveNav(item)}
+              onClick={() => go(navPath(item))}
             >
+              <NavIcon label={item} />
               {item}
             </button>
           ))}
@@ -51,7 +139,10 @@ function Dashboard({
             className="account-trigger"
             aria-expanded={isAccountMenuOpen}
             aria-label="Abrir menú de usuario"
-            onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
+            onClick={() => {
+              setIsAccountMenuOpen(!isAccountMenuOpen);
+              setIsMobileMenuOpen(false);
+            }}
           >
             <span className="account-name">
               <strong>{user.fullName}</strong>
@@ -74,7 +165,7 @@ function Dashboard({
               </div>
               <button
                 className="logout-option"
-                onClick={() => setChangingPassword(true)}
+                onClick={() => go(CHANGE_PASSWORD_PATH)}
               >
                 Cambiar contraseña
               </button>
@@ -86,68 +177,59 @@ function Dashboard({
           )}
         </div>
       </header>
-      <section className="home-content">
-        {screen ?? (
-          <>
-            <div className="page-title">
-              <div>
-                <h1>
-                  {activeNav === "Inicio"
-                    ? ["DOCENTE", "ESTUDIANTE"].includes(user.role)
-                      ? `Bienvenido/a, ${user.fullName}`
-                      : details.title
-                    : activeNav}
-                </h1>
-                <p>
-                  {new Date().toLocaleDateString("es-PE", {
-                    timeZone: "America/Lima",
-                    dateStyle: "long",
-                  })}
-                </p>
-              </div>
-            </div>
-            <article className="role-message">
-              <span className="message-mark">✓</span>
-              <div>
-                <p className="eyebrow">{activeNav.toUpperCase()}</p>
-                <h2>Has ingresado como {roleLabel.toLowerCase()}.</h2>
-                <p>
-                  {activeNav === "Inicio"
-                    ? "Selecciona una opción del menú para continuar."
-                    : "Este módulo todavía está pendiente de implementación."}
-                </p>
-              </div>
-            </article>
-          </>
-        )}
-      </section>
+      {validationError && (
+        <div className={styles.sessionAlert} role="alert">
+          <span>
+            <strong>No se pudo comprobar la sesión.</strong> {validationError}
+          </span>
+          <button type="button" onClick={() => void onRetryValidation()}>
+            Reintentar
+          </button>
+        </div>
+      )}
+      <section className="home-content">{children}</section>
     </main>
   );
 }
 
-export default function AsisApp({
-  initialNav,
-  startCreate,
-}: {
-  initialNav?: string;
-  startCreate?: boolean;
-}) {
-  const { session, isRestoringSession, login, logout } = useAuth();
-  if (isRestoringSession)
+/**
+ * Shell de la aplicación: exige sesión y muestra el menú principal.
+ * La pantalla visible la decide la URL (ver module-outlet.tsx).
+ */
+export function AppShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const {
+    session,
+    isRestoringSession,
+    isEndingSession,
+    sessionValidationError,
+    retrySession,
+    login,
+    logout,
+  } = useAuth();
+  async function logoutToHome() {
+    await logout();
+    router.replace("/");
+  }
+  if (isRestoringSession || isEndingSession)
     return (
       <main className="app-loading" aria-live="polite">
-        Cargando sesión…
+        {isEndingSession ? "Cerrando sesión…" : "Cargando sesión…"}
       </main>
     );
   if (!session) return <LoginScreen onLogin={login} />;
   if (session.user.requiresPasswordChange)
-    return <ChangePassword onLogout={logout} />;
+    return <ChangePassword onLogout={logoutToHome} />;
   return (
-    <Dashboard
-      user={session.user}
-      onLogout={logout}
-      initialNav={initialNav}
-      startCreate={startCreate}
-    />
+    <SessionUserProvider value={session.user}>
+      <Dashboard
+        user={session.user}
+        onLogout={logoutToHome}
+        validationError={sessionValidationError}
+        onRetryValidation={retrySession}
+      >
+        {children}
+      </Dashboard>
+    </SessionUserProvider>
   );
 }

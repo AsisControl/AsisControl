@@ -1,0 +1,9 @@
+.idea/
+.vs/
+logs/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key

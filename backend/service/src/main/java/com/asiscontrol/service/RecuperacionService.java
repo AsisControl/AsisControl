@@ -76,7 +76,7 @@ public class RecuperacionService {
                             events.publishEvent(new CorreoRecuperacion(user.getCorreo(), raw));
                             audit.registrar(
                                     "SOLICITAR_RECUPERACION",
-                                    "SEGURIDAD",
+                                    ModuloAuditoria.SEGURIDAD,
                                     "AccesoUsuario",
                                     user.getId().toString(),
                                     ResultadoAuditoria.EXITOSO,

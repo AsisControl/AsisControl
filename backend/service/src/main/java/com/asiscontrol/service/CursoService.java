@@ -4,6 +4,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarCursoRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearCursoRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CursoResponse;
 import com.asiscontrol.entity.Curso;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.CursoRepository;
@@ -17,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CursoService {
 
     private final CursoRepository cursoRepository;
+    private final AuditoriaService auditoria;
 
-    public CursoService(CursoRepository cursoRepository) {
+    public CursoService(CursoRepository cursoRepository, AuditoriaService auditoria) {
         this.cursoRepository = cursoRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional
@@ -28,7 +31,11 @@ public class CursoService {
         Curso curso = new Curso();
         aplicar(curso, request.codigo(), request.nombre(), request.descripcion(), request.horasSemanales());
         curso.setActivo(true);
-        return mapear(cursoRepository.save(curso));
+        Curso saved = cursoRepository.save(curso);
+        auditoria.registrar("CREAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
+        return mapear(saved);
     }
 
     @Transactional
@@ -36,8 +43,13 @@ public class CursoService {
         Curso curso = obtenerEntidad(id);
         exigirVersion(curso.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
+        String anterior = "codigo=" + curso.getCodigo() + ",nombre=" + curso.getNombre();
         aplicar(curso, request.codigo(), request.nombre(), request.descripcion(), request.horasSemanales());
-        return mapear(cursoRepository.save(curso));
+        Curso saved = cursoRepository.save(curso);
+        auditoria.registrar("ACTUALIZAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                "codigo=" + saved.getCodigo() + ",nombre=" + saved.getNombre());
+        return mapear(saved);
     }
 
     public CursoResponse obtener(Long id) {
@@ -54,6 +66,9 @@ public class CursoService {
         Curso curso = obtenerEntidad(id);
         curso.setActivo(false);
         cursoRepository.save(curso);
+        auditoria.registrar("ELIMINAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "codigo=" + curso.getCodigo() + ",nombre=" + curso.getNombre(), null);
     }
 
     public Curso obtenerEntidad(Long id) {
@@ -63,10 +78,10 @@ public class CursoService {
     }
 
     private void validarCodigoUnico(String codigo, Long idActual) {
-        cursoRepository.findByCodigoIgnoreCaseAndActivoTrue(codigo.trim())
+        cursoRepository.findByCodigoIgnoreCase(codigo.trim())
                 .filter(existente -> idActual == null || !existente.getId().equals(idActual))
                 .ifPresent(existente -> {
-                    throw new ConflictException("CURSO_CODIGO_DUPLICADO", "Ya existe un curso con ese codigo");
+                    throw new ConflictException("CURSO_CODIGO_DUPLICADO", "Ya existe un curso con ese codigo , puede estar activo o no");
                 });
     }
 

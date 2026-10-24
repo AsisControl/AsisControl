@@ -62,37 +62,100 @@ public class AuditoriaService {
                 authentication != null && authentication.isAuthenticated()
                         ? authentication.getName()
                         : "SISTEMA";
-        RegistroAuditoria audit = new RegistroAuditoria();
+        RegistroAuditoria audit =
+                nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
+                        valorAnterior, nuevoValor);
         audit.setActorIdentificador(identifier);
         usuarioRepository
                 .findActiveByIdentifier(identifier)
                 .map(AccesoUsuario::getRol)
                 .ifPresent(audit::setRolActor);
-        audit.setAccion(accion);
-        audit.setModulo(modulo);
-        audit.setEntidad(entidad);
-        audit.setRegistroId(registroId);
+        auditoriaRepository.save(audit);
+    }
+
+    /**
+     * Igual que registrar, pero a nombre de un usuario concreto. Sirve cuando la peticion no esta
+     * autenticada, como al renovar una sesion, donde el actor es el dueno de la sesion.
+     */
+    @Transactional
+    public void registrarComo(
+            AccesoUsuario actor,
+            String accion,
+            String modulo,
+            String entidad,
+            String registroId,
+            ResultadoAuditoria resultado,
+            String motivo,
+            String valorAnterior,
+            String nuevoValor) {
+        RegistroAuditoria audit =
+                nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
+                        valorAnterior, nuevoValor);
+        audit.setActorIdentificador(actor.getUsername());
+        audit.setRolActor(actor.getRol());
+        auditoriaRepository.save(audit);
+    }
+
+    private RegistroAuditoria nuevoRegistro(
+            String accion,
+            String modulo,
+            String entidad,
+            String registroId,
+            ResultadoAuditoria resultado,
+            String motivo,
+            String valorAnterior,
+            String nuevoValor) {
+        RegistroAuditoria audit = new RegistroAuditoria();
+        // Se recortan a las longitudes de RegistroAuditoria para que un texto largo del usuario
+        // no haga fallar la operacion auditada.
+        audit.setAccion(recortar(accion, 80));
+        audit.setModulo(recortar(modulo, 80));
+        audit.setEntidad(recortar(entidad, 80));
+        audit.setRegistroId(recortar(registroId, 80));
         audit.setFechaHora(Instant.now());
         audit.setResultado(resultado);
-        audit.setMotivo(motivo);
+        audit.setMotivo(recortar(motivo, 500));
         audit.setValorAnterior(valorAnterior);
         audit.setNuevoValor(nuevoValor);
         audit.setCorrelacionId(correlationId());
-        auditoriaRepository.save(audit);
+        audit.setDireccionIp(recortar(direccionIpActual(), 64));
+        return audit;
+    }
+
+    /**
+     * IP de la conexion, o null fuera de una peticion HTTP (tareas internas). Igual que en
+     * AuthController, no se usa X-Forwarded-For porque el cliente puede falsificarlo.
+     */
+    private String direccionIpActual() {
+        if (org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+                instanceof org.springframework.web.context.request.ServletRequestAttributes atributos) {
+            return atributos.getRequest().getRemoteAddr();
+        }
+        return null;
+    }
+
+    /**
+     * Registra una operacion rechazada o fallida en una transaccion propia, para que el
+     * registro sobreviva al rollback de la operacion que la origino.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarRechazo(
+            String accion,
+            String modulo,
+            String entidad,
+            String registroId,
+            ResultadoAuditoria resultado,
+            String motivo) {
+        registrar(accion, modulo, entidad, registroId, resultado, motivo, null, null);
     }
 
     @Transactional
     public void registrarAcceso(String accion, AccesoUsuario actor, ResultadoAuditoria resultado) {
-        RegistroAuditoria audit = new RegistroAuditoria();
+        RegistroAuditoria audit =
+                nuevoRegistro(accion, ModuloAuditoria.SEGURIDAD, "AccesoUsuario",
+                        actor.getId().toString(), resultado, null, null, null);
         audit.setActorIdentificador(actor.getUsername());
         audit.setRolActor(actor.getRol());
-        audit.setAccion(accion);
-        audit.setModulo("SEGURIDAD");
-        audit.setEntidad("AccesoUsuario");
-        audit.setRegistroId(actor.getId().toString());
-        audit.setFechaHora(Instant.now());
-        audit.setResultado(resultado);
-        audit.setCorrelacionId(correlationId());
         auditoriaRepository.save(audit);
     }
 
@@ -113,13 +176,67 @@ public class AuditoriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<AuditoriaDtos.AuditResponse> listarAuditorias(int page, int size) {
+    public PageResponse<AuditoriaDtos.AuditResponse> listarAuditorias(
+            String busqueda,
+            Long rolId,
+            String modulo,
+            String accion,
+            ResultadoAuditoria resultado,
+            int page,
+            int size) {
         PageRequest pageable =
                 PageRequest.of(
                         Math.max(page, 0),
                         Math.min(Math.max(size, 1), 100),
                         Sort.by(Sort.Direction.DESC, "fechaHora"));
-        return PageResponse.from(auditoriaRepository.findAll(pageable), this::toAuditResponse);
+        org.springframework.data.jpa.domain.Specification<RegistroAuditoria> spec =
+                (root, query, cb) -> {
+                    java.util.List<jakarta.persistence.criteria.Predicate> filtros =
+                            new java.util.ArrayList<>();
+                    if (rolId != null) filtros.add(cb.equal(root.get("rolActor").get("id"), rolId));
+                    if (modulo != null && !modulo.isBlank())
+                        filtros.add(cb.equal(root.get("modulo"), modulo.trim()));
+                    if (accion != null && !accion.isBlank())
+                        filtros.add(cb.equal(root.get("accion"), accion.trim()));
+                    if (resultado != null) filtros.add(cb.equal(root.get("resultado"), resultado));
+                    if (busqueda != null && !busqueda.isBlank()) {
+                        String patron =
+                                "%" + busqueda.trim().toLowerCase(java.util.Locale.ROOT) + "%";
+                        filtros.add(
+                                cb.or(
+                                        cb.like(cb.lower(root.get("actorIdentificador")), patron),
+                                        cb.like(cb.lower(root.get("accion")), patron),
+                                        cb.like(cb.lower(root.get("entidad")), patron),
+                                        cb.like(cb.lower(root.get("registroId")), patron),
+                                        cb.like(cb.lower(root.get("motivo")), patron)));
+                    }
+                    return cb.and(filtros.toArray(jakarta.persistence.criteria.Predicate[]::new));
+                };
+        var registros = auditoriaRepository.findAll(spec, pageable);
+        // Un nombre por actor distinto de la pagina, en vez de una consulta por fila.
+        java.util.Map<String, String> nombres = new java.util.HashMap<>();
+        registros.forEach(
+                registro ->
+                        nombres.computeIfAbsent(
+                                registro.getActorIdentificador(),
+                                identificador ->
+                                        usuarioRepository
+                                                .findActiveByIdentifier(identificador)
+                                                .map(usuario -> usuario.getPersona().nombreCompleto())
+                                                .orElse(null)));
+        return PageResponse.from(
+                registros,
+                registro -> toAuditResponse(registro, nombres.get(registro.getActorIdentificador())));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<String> listarModulos() {
+        return auditoriaRepository.findModulos();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<String> listarAcciones() {
+        return auditoriaRepository.findAcciones();
     }
 
     @Transactional(readOnly = true)
@@ -256,10 +373,11 @@ public class AuditoriaService {
                 .toList();
     }
 
-    private AuditoriaDtos.AuditResponse toAuditResponse(RegistroAuditoria audit) {
+    private AuditoriaDtos.AuditResponse toAuditResponse(RegistroAuditoria audit, String actorNombre) {
         return new AuditoriaDtos.AuditResponse(
                 audit.getId(),
                 audit.getActorIdentificador(),
+                actorNombre,
                 audit.getRolActor() == null ? null : audit.getRolActor().getNombre(),
                 audit.getAccion(),
                 audit.getModulo(),
@@ -268,7 +386,8 @@ public class AuditoriaService {
                 audit.getFechaHora(),
                 audit.getResultado(),
                 audit.getMotivo(),
-                audit.getCorrelacionId());
+                audit.getCorrelacionId(),
+                audit.getDireccionIp());
     }
 
     private AuditoriaDtos.ErrorResponse toErrorResponse(RegistroError error) {
@@ -282,6 +401,10 @@ public class AuditoriaService {
                 error.getEstado(),
                 error.getObservacionSeguimiento(),
                 error.getVersion());
+    }
+
+    static String recortar(String valor, int maximo) {
+        return valor == null || valor.length() <= maximo ? valor : valor.substring(0, maximo);
     }
 
     private String correlationId() {

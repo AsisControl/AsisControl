@@ -167,7 +167,7 @@ public class DiaNoLectivoService {
             String accion, Long id, String anterior, String nuevoValor) {
         auditoria.registrar(
                 accion,
-                "CONFIGURACION_ACADEMICA",
+                ModuloAuditoria.CONFIGURACION_ACADEMICA,
                 "DiaNoLectivo",
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,

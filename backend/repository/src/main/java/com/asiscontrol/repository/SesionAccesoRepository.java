@@ -13,6 +13,10 @@ import java.util.Optional;
 
 public interface SesionAccesoRepository extends JpaRepository<SesionAcceso, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from SesionAcceso s where s.id = :id")
+    Optional<SesionAcceso> bloquear(@Param("id") Long id);
+
     Optional<SesionAcceso> findByTokenHashAndEstado(String tokenHash, EstadoSesion estado);
 
     @Modifying
@@ -22,6 +26,7 @@ update SesionAcceso s set s.ultimaActividad=:ahora
 where s.tokenHash=:hash and s.estado=com.asiscontrol.entity.enums.EstadoSesion.VIGENTE
 and s.fechaExpiracion>:ahora and s.ultimaActividad>:limite
 and s.usuario.activo=true and s.usuario.estado=com.asiscontrol.entity.enums.EstadoAcceso.ACTIVO
+and s.usuario.persona.activo=true and s.usuario.rol.activo=true
       and (s.usuario.requiereCambioContrasena=false or s.usuario.contrasenaTemporalExpira>:ahora)
 """)
     int registrarActividad(

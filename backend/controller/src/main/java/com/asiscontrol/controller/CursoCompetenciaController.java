@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,10 +33,11 @@ public class CursoCompetenciaController {
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
-    public CursoCompetenciaResponse crear(@Valid @RequestBody CrearCursoCompetenciaRequest request) {
-        return cursoCompetenciaService.crear(request);
+    public ResponseEntity<CursoCompetenciaResponse> crear(@Valid @RequestBody CrearCursoCompetenciaRequest request) {
+        var resultado = cursoCompetenciaService.crear(request);
+        return ResponseEntity.status(resultado.creada() ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(resultado.relacion());
     }
 
     @PutMapping("/{id}")

@@ -64,6 +64,8 @@ public class SecurityConfig {
                                 authorize
                                         .requestMatchers(
                                                 "/api/auth/login",
+                                                "/api/auth/refresh",
+                                                "/api/auth/logout",
                                                 "/api/auth/recovery/request",
                                                 "/api/auth/recovery/validate",
                                                 "/api/auth/recovery/reset",

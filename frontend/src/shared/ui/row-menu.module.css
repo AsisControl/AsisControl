@@ -1,0 +1,45 @@
+/* .menu eleva la especificidad sobre la regla global .user-table button. */
+.menu .trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #64748b;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+.menu .trigger:hover,
+.menu .trigger[aria-expanded="true"] {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.menuList {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px #0000001a;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 4px;
+  position: fixed;
+  z-index: 30;
+}
+.menuList[role="menu"] button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  padding: 8px 10px;
+  text-align: left;
+}
+.menuList[role="menu"] button:hover {
+  background: #f1f5f9;
+}
+.menuList[role="menu"] .dangerItem {
+  color: #b91c1c;
+}

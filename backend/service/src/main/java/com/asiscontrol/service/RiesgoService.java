@@ -7,6 +7,7 @@ import com.asiscontrol.entity.CriterioRiesgo;
 import com.asiscontrol.entity.enums.EstadoAlerta;
 import com.asiscontrol.entity.enums.IndicadorRiesgo;
 import com.asiscontrol.entity.enums.NivelRiesgo;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.entity.enums.OperadorComparacion;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
@@ -39,15 +40,18 @@ public class RiesgoService {
     private final CriterioRiesgoRepository criterioRiesgoRepository;
     private final AlertaRiesgoRepository alertaRiesgoRepository;
     private final AlumnoRepository alumnoRepository;
+    private final AuditoriaService auditoria;
 
     public RiesgoService(
             CriterioRiesgoRepository criterioRiesgoRepository,
             AlertaRiesgoRepository alertaRiesgoRepository,
-            AlumnoRepository alumnoRepository
+            AlumnoRepository alumnoRepository,
+            AuditoriaService auditoria
     ) {
         this.criterioRiesgoRepository = criterioRiesgoRepository;
         this.alertaRiesgoRepository = alertaRiesgoRepository;
         this.alumnoRepository = alumnoRepository;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -65,7 +69,10 @@ public class RiesgoService {
     public RiesgoDto.CriterioResponse crearCriterio(RiesgoDto.CriterioRequest request) {
         CriterioRiesgo criterio = new CriterioRiesgo();
         aplicarCriterio(criterio, request);
-        return toCriterioResponse(criterioRiesgoRepository.save(criterio));
+        CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
+        auditoria.registrar("CREAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
+        return toCriterioResponse(saved);
     }
 
     @Transactional
@@ -74,8 +81,12 @@ public class RiesgoService {
             RiesgoDto.CriterioRequest request
     ) {
         CriterioRiesgo criterio = buscarCriterioActivo(id);
+        String anterior = describir(criterio);
         aplicarCriterio(criterio, request);
-        return toCriterioResponse(criterioRiesgoRepository.save(criterio));
+        CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
+        auditoria.registrar("ACTUALIZAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        return toCriterioResponse(saved);
     }
 
     @Transactional
@@ -89,6 +100,8 @@ public class RiesgoService {
         }
         criterio.setActivo(false);
         criterioRiesgoRepository.save(criterio);
+        auditoria.registrar("ELIMINAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, describir(criterio), null);
     }
 
     @Transactional(readOnly = true)
@@ -148,15 +161,30 @@ public class RiesgoService {
                 alerta.setNivelRiesgo(criterio.getNivelRiesgo());
                 alerta.setMensaje(construirMensaje(criterio, valor));
                 alerta.setFechaAtencion(null);
-                afectadas.add(alertaRiesgoRepository.save(alerta));
+                AlertaRiesgo guardada = alertaRiesgoRepository.save(alerta);
+                auditoria.registrar(
+                        alertaAbierta == null ? "GENERAR_ALERTA_RIESGO" : "ACTUALIZAR_ALERTA_RIESGO",
+                        ModuloAuditoria.RIESGO, "AlertaRiesgo", guardada.getId().toString(),
+                        ResultadoAuditoria.EXITOSO, "Evaluacion de indicadores", null,
+                        "alumnoId=" + alumno.getId() + ",criterioId=" + criterio.getId()
+                                + ",valor=" + valor + ",nivel=" + guardada.getNivelRiesgo()
+                                + ",estado=" + guardada.getEstado());
+                afectadas.add(guardada);
             } else if (alertaAbierta != null) {
+                EstadoAlerta estadoPrevio = alertaAbierta.getEstado();
                 alertaAbierta.setValorDetectado(valor);
                 alertaAbierta.setEstado(EstadoAlerta.RESUELTA);
                 alertaAbierta.setFechaAtencion(Instant.now());
                 alertaAbierta.setObservacion(
                         "Resuelta automaticamente: el indicador dejo de cumplir el criterio"
                 );
-                afectadas.add(alertaRiesgoRepository.save(alertaAbierta));
+                AlertaRiesgo guardada = alertaRiesgoRepository.save(alertaAbierta);
+                auditoria.registrar("RESOLVER_ALERTA_RIESGO_AUTOMATICA", ModuloAuditoria.RIESGO, "AlertaRiesgo",
+                        guardada.getId().toString(), ResultadoAuditoria.EXITOSO,
+                        "El indicador dejo de cumplir el criterio",
+                        "estado=" + estadoPrevio,
+                        "estado=" + guardada.getEstado() + ",valor=" + valor);
+                afectadas.add(guardada);
             }
         }
 
@@ -185,7 +213,20 @@ public class RiesgoService {
         alerta.setEstado(destino);
         alerta.setObservacion(limpiar(request.observacion()));
         alerta.setFechaAtencion(destino == EstadoAlerta.RESUELTA ? Instant.now() : null);
-        return toAlertaResponse(alertaRiesgoRepository.save(alerta));
+        AlertaRiesgo saved = alertaRiesgoRepository.save(alerta);
+        auditoria.registrar("CAMBIAR_ESTADO_ALERTA_RIESGO", ModuloAuditoria.RIESGO, "AlertaRiesgo",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "estado=" + actual,
+                "estado=" + destino + ",observacion=" + saved.getObservacion());
+        return toAlertaResponse(saved);
+    }
+
+    private String describir(CriterioRiesgo criterio) {
+        return "nombre=" + criterio.getNombre()
+                + ",indicador=" + criterio.getIndicador()
+                + ",operador=" + criterio.getOperador()
+                + ",umbral=" + criterio.getUmbral()
+                + ",nivel=" + criterio.getNivelRiesgo();
     }
 
     private void aplicarCriterio(CriterioRiesgo criterio, RiesgoDto.CriterioRequest request) {

@@ -1,5 +1,27 @@
 import type { UserRole } from "@/core/auth/types";
 type RolePresentation = { initials: string; title: string; nav: string[] };
+export const HOME_NAV = "Inicio";
+export const CHANGE_PASSWORD_PATH = "/cambiar-contrasena";
+/** Segmento de URL de una opción: "Mis cursos" → "mis-cursos". */
+export const navSlug = (label: string) =>
+  label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-");
+export const navPath = (label: string) =>
+  label === HOME_NAV ? "/" : `/${navSlug(label)}`;
+/** Opción del menú que corresponde al primer segmento de la URL. */
+export function navFromSegment(
+  role: UserRole,
+  segment: string | undefined,
+): string | null {
+  if (!segment) return HOME_NAV;
+  return (
+    roleDetails[role].nav.find((item) => navSlug(item) === segment) ?? null
+  );
+}
 export const roleLabels: Record<UserRole, string> = {
   ADMINISTRADOR: "Administrador",
   DOCENTE: "Docente",

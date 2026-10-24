@@ -11,6 +11,12 @@
     </parent>
     <artifactId>asiscontrol-controller</artifactId>
     <name>AsisControl Controller</name>
+    <properties>
+        <coverage.minimum>0.90</coverage.minimum>
+        <!-- Con -DskipTests no hay datos nuevos de cobertura: se omiten el reporte y el umbral
+             para no evaluar un jacoco.exec antiguo. -->
+        <skipTests>false</skipTests>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>com.asiscontrol</groupId>
@@ -99,6 +105,31 @@
                         <goals>
                             <goal>report-aggregate</goal>
                         </goals>
+                        <configuration>
+                            <skip>${skipTests}</skip>
+                            <includeCurrentProject>true</includeCurrentProject>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>global-coverage-gate</id>
+                        <phase>verify</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <skip>${skipTests}</skip>
+                            <mainClass>com.asiscontrol.quality.CoverageGate</mainClass>
+                            <classpathScope>test</classpathScope>
+                            <arguments>
+                                <argument>${project.build.directory}/site/jacoco-aggregate/jacoco.xml</argument>
+                                <argument>${coverage.minimum}</argument>
+                            </arguments>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

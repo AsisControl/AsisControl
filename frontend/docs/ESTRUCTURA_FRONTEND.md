@@ -88,10 +88,16 @@ Cada módulo tiene un `index.ts` con su API pública. Es lo único que otros mó
 9. **Ramas y PR:** no trabajar en `main`. Haz PR pequeños y frecuentes desde el día 1, con historia
    asociada, captura y resultado de `npm run lint`, `npm test` y `npm run build`.
 
+10. **Pruebas:** cada módulo guarda las suyas en `<modulo>/tests/*.test.jsx` (Vitest + Testing
+    Library sobre jsdom). Simula el backend con `fakeBackend` y la sesión con `signIn` de
+    `tests/support/backend.js`. Si la pantalla usa `next/navigation`, agrega
+    `vi.mock("next/navigation", () => import(".../tests/support/navigation.js"))`.
+    `npm run test:coverage` falla si la cobertura baja de los umbrales de `vitest.config.mts`.
+
 ## Verificación antes de abrir un PR
 
 ```bash
 npm run lint
-npm test
+npm run test:coverage
 npm run build
 ```

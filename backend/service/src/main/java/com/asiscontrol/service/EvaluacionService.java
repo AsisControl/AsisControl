@@ -8,10 +8,12 @@ import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.CompetenciaRepository;
+import com.asiscontrol.repository.CursoCompetenciaRepository;
 import com.asiscontrol.repository.EvaluacionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,18 +32,24 @@ public class EvaluacionService {
     private final EvaluacionRepository evaluacionRepository;
     private final AsignacionCursoRepository asignacionCursoRepository;
     private final CompetenciaRepository competenciaRepository;
+    private final CursoCompetenciaRepository cursoCompetenciaRepository;
     private final ModuloAccessGuard accessGuard;
+    private final AuditoriaService auditoria;
 
     public EvaluacionService(
             EvaluacionRepository evaluacionRepository,
             AsignacionCursoRepository asignacionCursoRepository,
             CompetenciaRepository competenciaRepository,
-            ModuloAccessGuard accessGuard
+            CursoCompetenciaRepository cursoCompetenciaRepository,
+            ModuloAccessGuard accessGuard,
+            AuditoriaService auditoria
     ) {
         this.evaluacionRepository = evaluacionRepository;
         this.asignacionCursoRepository = asignacionCursoRepository;
         this.competenciaRepository = competenciaRepository;
+        this.cursoCompetenciaRepository = cursoCompetenciaRepository;
         this.accessGuard = accessGuard;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -76,7 +84,10 @@ public class EvaluacionService {
         Evaluacion evaluacion = new Evaluacion();
         aplicarDatosEditables(evaluacion, request);
         evaluacion.setEstado(EstadoEvaluacion.BORRADOR);
-        return toResponse(evaluacionRepository.save(evaluacion));
+        Evaluacion saved = evaluacionRepository.save(evaluacion);
+        auditoria.registrar("CREAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
+        return toResponse(saved);
     }
 
     @Transactional
@@ -89,8 +100,12 @@ public class EvaluacionService {
                     "Solo una evaluacion en borrador puede modificar sus datos principales"
             );
         }
+        String anterior = describir(evaluacion);
         aplicarDatosEditables(evaluacion, request);
-        return toResponse(evaluacionRepository.save(evaluacion));
+        Evaluacion saved = evaluacionRepository.save(evaluacion);
+        auditoria.registrar("ACTUALIZAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        return toResponse(saved);
     }
 
     @Transactional
@@ -110,7 +125,11 @@ public class EvaluacionService {
         } else if (estadoDestino == EstadoEvaluacion.CERRADA) {
             evaluacion.setFechaCierre(Instant.now());
         }
-        return toResponse(evaluacionRepository.save(evaluacion));
+        Evaluacion saved = evaluacionRepository.save(evaluacion);
+        auditoria.registrar(accionEstado(estadoDestino), ModuloAuditoria.ACADEMICO, "Evaluacion",
+                id.toString(), ResultadoAuditoria.EXITOSO, null,
+                "estado=" + estadoActual, "estado=" + estadoDestino);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -126,6 +145,28 @@ public class EvaluacionService {
         }
         evaluacion.setActivo(false);
         evaluacionRepository.save(evaluacion);
+        auditoria.registrar("ELIMINAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, describir(evaluacion), null);
+    }
+
+    private String accionEstado(EstadoEvaluacion destino) {
+        return switch (destino) {
+            case PUBLICADA -> "PUBLICAR_EVALUACION";
+            case CERRADA -> "CERRAR_EVALUACION";
+            case ANULADA -> "ANULAR_EVALUACION";
+            case BORRADOR -> "CAMBIAR_ESTADO_EVALUACION";
+        };
+    }
+
+    private String describir(Evaluacion evaluacion) {
+        String competencias = evaluacion.getCompetencias().stream()
+                .map(competencia -> competencia.getId().toString())
+                .collect(Collectors.joining("|"));
+        return "titulo=" + evaluacion.getTitulo()
+                + ",asignacionCursoId=" + evaluacion.getAsignacionCurso().getId()
+                + ",estado=" + evaluacion.getEstado()
+                + ",ponderacion=" + evaluacion.getPonderacionPorcentaje()
+                + ",competencias=" + competencias;
     }
 
     private void aplicarDatosEditables(Evaluacion evaluacion, EvaluacionDto.Request request) {
@@ -144,6 +185,8 @@ public class EvaluacionService {
             );
         }
 
+        validarCompetenciasDisponibles(asignacion, idsUnicos);
+
         evaluacion.setAsignacionCurso(asignacion);
         evaluacion.setTitulo(request.titulo().trim());
         evaluacion.setDescripcion(limpiar(request.descripcion()));
@@ -152,6 +195,18 @@ public class EvaluacionService {
         evaluacion.setFechaEvaluacion(request.fechaEvaluacion());
         evaluacion.setPonderacionPorcentaje(request.ponderacionPorcentaje());
         evaluacion.setCompetencias(new LinkedHashSet<>(competencias));
+    }
+
+    private void validarCompetenciasDisponibles(AsignacionCurso asignacion, Set<Long> idsCompetencia) {
+        Set<Long> disponibles = cursoCompetenciaRepository
+                .buscarIdsCompetenciasDisponiblesPorCurso(asignacion.getCurso().getId());
+        if (!disponibles.containsAll(idsCompetencia)) {
+            throw new BusinessRuleException(
+                    "COMPETENCIA_NO_DISPONIBLE_PARA_CURSO",
+                    "Todas las competencias deben estar asociadas al curso y tanto la relacion "
+                            + "como el curso y la competencia deben estar activos"
+            );
+        }
     }
 
     private void validarTransicion(Evaluacion evaluacion, EstadoEvaluacion destino) {
@@ -172,6 +227,12 @@ public class EvaluacionService {
                     "EVALUACION_SIN_COMPETENCIAS",
                     "La evaluacion debe incluir al menos una competencia antes de publicarse"
             );
+        }
+        if (destino == EstadoEvaluacion.PUBLICADA) {
+            Set<Long> idsCompetencia = evaluacion.getCompetencias().stream()
+                    .map(Competencia::getId)
+                    .collect(Collectors.toSet());
+            validarCompetenciasDisponibles(evaluacion.getAsignacionCurso(), idsCompetencia);
         }
     }
 

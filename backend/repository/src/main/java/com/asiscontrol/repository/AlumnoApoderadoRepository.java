@@ -17,5 +17,10 @@ public interface AlumnoApoderadoRepository extends JpaRepository<AlumnoApoderado
             Long apoderadoId
     );
 
+    Optional<AlumnoApoderado> findByAlumnoIdAndApoderadoId(
+            Long alumnoId,
+            Long apoderadoId
+    );
+
     boolean existsByAlumnoIdAndPrincipalTrueAndActivoTrue(Long alumnoId);
 }

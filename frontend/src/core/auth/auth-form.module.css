@@ -1,0 +1,210 @@
+/* Columna derecha común a recuperación y cambio de contraseña. */
+.content {
+  align-items: center;
+  background: #f8fafc;
+  color: #0f172a;
+  display: flex;
+  font-family: Inter, Arial, sans-serif;
+  justify-content: center;
+  min-width: 0;
+  padding: 48px;
+}
+.successContent {
+  background: #fff;
+}
+.card {
+  max-width: 420px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+.card h1 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  margin: 0;
+}
+.card p {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 20px;
+}
+.description {
+  margin: 4px 0 0;
+}
+.icon {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 12px;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  margin-bottom: 16px;
+  width: 48px;
+}
+.successIcon {
+  background: #e6f4ea;
+}
+.backLink {
+  align-items: center;
+  color: #64748b;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 6px;
+  line-height: 16px;
+  margin: 6px 0 32px;
+  text-decoration: none;
+}
+.backLink:hover {
+  color: #1e3a8a;
+  text-decoration: underline;
+}
+.form {
+  margin-top: 16px;
+}
+.form fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+.fields {
+  display: grid;
+  gap: 16px;
+}
+.form :global(.field) {
+  color: #374151;
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 16px;
+  margin: 0;
+  text-transform: uppercase;
+}
+.form :global(.field) input {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  display: block;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  height: 40px;
+  letter-spacing: normal;
+  margin-top: 4px;
+  min-height: 0;
+  min-width: 0;
+  padding: 8px 12px;
+  width: 100%;
+}
+.form input::placeholder {
+  color: #94a3b8;
+}
+.form :global(.password-field) {
+  display: block;
+  position: relative;
+}
+.form :global(.field) :global(.password-field) input {
+  padding-right: 44px;
+}
+.form :global(.password-field) button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #64748b;
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  position: absolute;
+  right: 4px;
+  top: 0;
+  width: 30px;
+}
+.form :global(.password-field) button svg {
+  height: 13px;
+  width: 13px;
+}
+.card :global(.hint) {
+  font-size: 12px;
+  line-height: 18px;
+  margin: 12px 0 0;
+}
+.feedback :global(.form-error),
+.feedback :global(.action-feedback) {
+  border-radius: 8px;
+  margin: 16px 0 0;
+  padding: 12px 16px;
+}
+.feedback :global(.form-error) {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+.feedback :global(.action-feedback) {
+  background: #f0fdf4;
+  border: 1px solid #b9f8cf;
+  color: #016630;
+}
+.primaryButton {
+  align-items: center;
+  background: #1e3a8a;
+  border: 1px solid #1e3a8a;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  justify-content: center;
+  line-height: 20px;
+  margin-top: 24px;
+  min-height: 44px;
+  padding: 10px 24px;
+  text-align: center;
+  text-decoration: none;
+  width: 100%;
+}
+.primaryButton:hover:not(:disabled) {
+  background: #172e76;
+}
+.secondaryButton {
+  background: transparent;
+  border: 0;
+  color: #1e3a8a;
+  cursor: pointer;
+  display: block;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  margin: 12px auto 0;
+  padding: 8px 12px;
+}
+.secondaryButton:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.card a:focus-visible,
+.card button:focus-visible,
+.form input:focus-visible {
+  outline: 3px solid #38bdf8;
+  outline-offset: 3px;
+}
+@media (max-width: 1150px) {
+  .content {
+    padding: 40px 32px;
+  }
+}
+@media (max-width: 760px) {
+  .content {
+    align-items: flex-start;
+    padding: 32px 24px 40px;
+  }
+}

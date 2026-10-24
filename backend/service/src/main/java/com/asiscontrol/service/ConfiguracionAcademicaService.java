@@ -378,7 +378,7 @@ public class ConfiguracionAcademicaService {
             String accion, String entidad, Long id, String motivo, String anterior, String nuevo) {
         auditoria.registrar(
                 accion,
-                "CONFIGURACION_ACADEMICA",
+                ModuloAuditoria.CONFIGURACION_ACADEMICA,
                 entidad,
                 id.toString(),
                 ResultadoAuditoria.EXITOSO,

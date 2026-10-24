@@ -1,0 +1,75 @@
+name: Pruebas y Docker
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [chore/docker-ci, chore/ec2-deployment]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/**/pom.xml
+      - name: Pruebas y umbral de cobertura
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress clean verify
+      - name: Informes de pruebas y cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-informes
+          path: |
+            backend/**/target/surefire-reports/
+            backend/controller/target/site/jacoco-aggregate/
+          retention-days: 7
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+
+  docker:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar construccion de imagen
+        run: docker build --tag asiscontrol-${{ matrix.component }}:ci ./${{ matrix.component }}
