@@ -216,14 +216,6 @@ public class ConfiguracionAcademicaService {
                                         seccion ->
                                                 seccion.getGrado() == gradoAcademico.getNumero()
                                                         && seccion.isActivo())))
-            rechazarRegla("Primero inhabilite las secciones del grado");
-                && secciones
-                        .findByAnioAcademicoOrderByGradoAscNombreAsc(anioAcademico.getAnio())
-                        .stream()
-                        .anyMatch(
-                                seccion ->
-                                        seccion.getGrado() == gradoAcademico.getNumero()
-                                                && seccion.isActivo()))
             rechazarRegla("GRADO_CON_SECCIONES_ACTIVAS", "Primero inhabilite las secciones del grado");
         String valorAnterior =
                 "activo="
