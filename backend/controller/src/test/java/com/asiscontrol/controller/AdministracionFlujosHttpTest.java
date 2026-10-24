@@ -50,10 +50,11 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
 
     @Test void conservaSeguimientoDeErroresYNotificacionesPorDestinatario() throws Exception {
         var error=new RegistroError(); error.setFechaHora(Instant.now()); error.setSeveridad(SeveridadError.ERROR);
+        var fechaError = error.getFechaHora().atZone(ZoneId.of("America/Lima")).toLocalDate();
         error.setComponente("Integracion"); error.setMensajeSeguro("Error controlado de prueba");
         error.setCorrelacionId("correlacion-prueba"); em.persist(error); em.flush();
         getOk("/api/auditoria/registros"); getOk("/api/auditoria/errores");
-        var result=getOk("/api/auditoria/errores?estado=PENDIENTE&severidad=ERROR&componente=Integracion&correlacion=correlacion-prueba&desde="+LocalDate.now()+"&hasta="+LocalDate.now());
+        var result=getOk("/api/auditoria/errores?estado=PENDIENTE&severidad=ERROR&componente=Integracion&correlacion=correlacion-prueba&desde="+fechaError+"&hasta="+fechaError);
         assertThat(result.path("content").size()).isGreaterThanOrEqualTo(1);
         putOk("/api/auditoria/errores/"+error.getId(),data("estado","EN_SEGUIMIENTO","observacionSeguimiento","Investigando causa","version",0));
         assertThat(getOk("/api/auditoria/errores/"+error.getId()+"/seguimientos")).hasSize(1);
