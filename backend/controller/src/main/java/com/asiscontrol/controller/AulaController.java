@@ -2,7 +2,12 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResponse;
+import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
+import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
+import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
 import com.asiscontrol.service.AulaService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -12,13 +17,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/aulas")
@@ -44,15 +53,38 @@ public class AulaController {
         return aulaService.actualizar(id, request);
     }
 
+    @PatchMapping("/{id}/inhabilitar")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    public AulaResponse inhabilitar(@PathVariable Long id, @Valid @RequestBody InhabilitarAulaRequest request) {
+        return aulaService.inhabilitar(id, request);
+    }
+
+    @PatchMapping("/{id}/habilitar")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    public AulaResponse habilitar(@PathVariable Long id, @Valid @RequestBody HabilitarAulaRequest request) {
+        return aulaService.habilitar(id, request);
+    }
+
+    @GetMapping("/{id}/horarios")
+    public List<HorarioResponse> horarios(@PathVariable Long id) {
+        return aulaService.horarios(id);
+    }
+
     @GetMapping("/{id}")
     public AulaResponse obtener(@PathVariable Long id) {
         return aulaService.obtener(id);
     }
 
+    @GetMapping("/resumen")
+    public AulaResumenResponse resumen() {
+        return aulaService.resumen();
+    }
+
     @GetMapping
     public Page<AulaResponse> listar(
+            @RequestParam(required = false) EstadoAula estado,
             @PageableDefault(size = 20, sort = "codigo") Pageable pageable) {
-        return aulaService.listar(pageable);
+        return aulaService.listar(estado, pageable);
     }
 
     @DeleteMapping("/{id}")

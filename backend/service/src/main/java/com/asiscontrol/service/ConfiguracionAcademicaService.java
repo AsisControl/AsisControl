@@ -207,13 +207,15 @@ public class ConfiguracionAcademicaService {
         exigirEditable(anioAcademico);
         validarVersion(gradoAcademico.getVersion(), request.version());
         if (!request.activo()
-                && secciones
-                        .findByAnioAcademicoOrderByGradoAscNombreAsc(anioAcademico.getAnio())
-                        .stream()
-                        .anyMatch(
-                                seccion ->
-                                        seccion.getGrado() == gradoAcademico.getNumero()
-                                                && seccion.isActivo()))
+                && (secciones.existsByGradoAcademicoIdAndActivoTrue(gradoAcademico.getId())
+                        || secciones
+                                .findByAnioAcademicoOrderByGradoAscNombreAsc(
+                                        anioAcademico.getAnio())
+                                .stream()
+                                .anyMatch(
+                                        seccion ->
+                                                seccion.getGrado() == gradoAcademico.getNumero()
+                                                        && seccion.isActivo())))
             rechazarRegla("GRADO_CON_SECCIONES_ACTIVAS", "Primero inhabilite las secciones del grado");
         String valorAnterior =
                 "activo="

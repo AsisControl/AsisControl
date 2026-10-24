@@ -25,11 +25,28 @@ public interface SeccionRepository extends JpaRepository<Seccion, Long> {
     Optional<Seccion> findByAnioAcademicoAndGradoAndNombreIgnoreCase(
             int anioAcademico, int grado, String nombre);
 
+    Optional<Seccion> findByGradoAcademicoIdAndNombreIgnoreCase(Long gradoAcademicoId, String nombre);
+
+    boolean existsByGradoAcademicoIdAndActivoTrue(Long gradoAcademicoId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Seccion s WHERE s.id = :id")
     Optional<Seccion> bloquearPorId(@Param("id") Long id);
 
     Page<Seccion> findByActivoTrue(Pageable pageable);
+
+    @Query(
+            """
+            SELECT s FROM Seccion s
+            WHERE (:activo IS NULL OR s.activo = :activo)
+              AND (:anioAcademico IS NULL OR s.anioAcademico = :anioAcademico)
+              AND (:grado IS NULL OR s.grado = :grado)
+            """)
+    Page<Seccion> buscarConFiltros(
+            @Param("activo") Boolean activo,
+            @Param("anioAcademico") Integer anioAcademico,
+            @Param("grado") Integer grado,
+            Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Seccion s WHERE s.id = :id AND s.activo = true")

@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface AsignacionCursoRepository extends JpaRepository<AsignacionCurso, Long> {
     boolean existsBySeccionId(Long id);
 
+    boolean existsBySeccionIdAndActivoTrue(Long id);
+
     Optional<AsignacionCurso> findByIdAndActivoTrue(Long id);
 
     Optional<AsignacionCurso> findByCursoIdAndSeccionIdAndActivoTrue(Long cursoId, Long seccionId);

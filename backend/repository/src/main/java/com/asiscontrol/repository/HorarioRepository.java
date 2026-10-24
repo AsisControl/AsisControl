@@ -18,6 +18,32 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
 
     Page<Horario> findByActivoTrue(Pageable pageable);
 
+    boolean existsByAulaId(Long aulaId);
+
+    @Query("""
+            SELECT h FROM Horario h
+            JOIN FETCH h.asignacionCurso a
+            JOIN FETCH a.seccion
+            JOIN FETCH a.curso
+            WHERE h.aula.id = :aulaId
+              AND h.activo = true
+            ORDER BY h.id
+            """)
+    List<Horario> findActivosPorAulaConSeccion(@Param("aulaId") Long aulaId);
+
+    @Query("""
+            SELECT h FROM Horario h
+            JOIN FETCH h.aula
+            JOIN FETCH h.asignacionCurso a
+            JOIN FETCH a.curso
+            JOIN FETCH a.seccion
+            JOIN FETCH a.docente d
+            JOIN FETCH d.persona
+            WHERE h.aula.id = :aulaId
+            ORDER BY h.activo DESC, h.id
+            """)
+    List<Horario> findHistorialPorAula(@Param("aulaId") Long aulaId);
+
     @Query("""
             SELECT h FROM Horario h
             WHERE h.activo = true

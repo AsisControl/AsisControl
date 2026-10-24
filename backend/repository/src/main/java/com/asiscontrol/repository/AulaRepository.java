@@ -13,5 +13,11 @@ public interface AulaRepository extends JpaRepository<Aula, Long> {
 
     Optional<Aula> findByCodigoIgnoreCaseAndActivoTrue(String codigo);
 
+    Optional<Aula> findByCodigoIgnoreCase(String codigo);
+
     Page<Aula> findByActivoTrue(Pageable pageable);
+
+    Page<Aula> findByActivoFalse(Pageable pageable);
+
+    long countByActivoTrue();
 }

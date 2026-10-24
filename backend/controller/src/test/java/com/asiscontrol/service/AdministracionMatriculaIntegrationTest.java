@@ -16,6 +16,7 @@ import com.asiscontrol.repository.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -285,6 +286,38 @@ class AdministracionMatriculaIntegrationTest {
                                         section.id(),
                                         new EstadoSeccion(false, section.version(), "Cerrar")))
                 .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void listaSeccionesActivasEInactivasYNoPermiteUsarLasInactivas() {
+        oferta(2);
+        var section = configuracion.obtener(2060).secciones().getFirst();
+
+        assertThat(
+                        secciones
+                                .listar(true, 2060, 1, PageRequest.of(0, 20))
+                                .getContent())
+                .extracting(response -> response.id())
+                .containsExactly(section.id());
+
+        secciones.cambiarEstado(
+                section.id(), new EstadoSeccion(false, section.version(), "Retirar oferta"));
+
+        assertThat(
+                        secciones
+                                .listar(false, 2060, 1, PageRequest.of(0, 20))
+                                .getContent())
+                .extracting(response -> response.id())
+                .containsExactly(section.id());
+        assertThat(
+                        secciones.listar(null, 2060, 1, PageRequest.of(0, 20)).getContent())
+                .isEmpty();
+        assertThatThrownBy(
+                        () ->
+                                solicitudes.crear(
+                                        new CrearSolicitudMatriculaRequest(
+                                                estudiante(), section.id(), null)))
+                .isInstanceOf(com.asiscontrol.exception.ResourceNotFoundException.class);
     }
 
     @Test

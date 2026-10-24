@@ -18,6 +18,9 @@ import java.util.Optional;
 public interface SolicitudMatriculaRepository extends JpaRepository<SolicitudMatricula, Long> {
     boolean existsBySeccionId(Long id);
 
+    boolean existsBySeccionIdAndActivoTrueAndEstadoIn(
+            Long id, Collection<EstadoSolicitudMatricula> estados);
+
     Optional<SolicitudMatricula> findByIdAndActivoTrue(Long id);
 
     Page<SolicitudMatricula> findByActivoTrue(Pageable pageable);

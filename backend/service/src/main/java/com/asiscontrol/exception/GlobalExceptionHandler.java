@@ -198,7 +198,8 @@ public class GlobalExceptionHandler {
                 exception.getCode(),
                 exception.getMessage(),
                 request,
-                List.of());
+                List.of(),
+                exception.getDetails());
     }
 
     @ExceptionHandler(BusinessRuleException.class)
@@ -353,6 +354,16 @@ public class GlobalExceptionHandler {
             String message,
             HttpServletRequest request,
             List<FieldValidationError> fieldErrors) {
+        return build(status, code, message, request, fieldErrors, List.of());
+    }
+
+    private ResponseEntity<ApiError> build(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request,
+            List<FieldValidationError> fieldErrors,
+            List<?> details) {
         ApiError error =
                 new ApiError(
                         Instant.now(),
@@ -361,7 +372,8 @@ public class GlobalExceptionHandler {
                         message,
                         request.getRequestURI(),
                         MDC.get("correlationId"),
-                        fieldErrors);
+                        fieldErrors,
+                        details);
         return ResponseEntity.status(status).body(error);
     }
 }
