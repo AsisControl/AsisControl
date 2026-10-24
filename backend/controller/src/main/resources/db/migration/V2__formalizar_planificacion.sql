@@ -41,16 +41,3 @@ CREATE TABLE DiaNoLectivo (
 
     INDEX idx_dia_no_lectivo_fecha (fecha)
 ) ENGINE=InnoDB;
-
-//////////
-
-ALTER TABLE Seccion
-    ADD COLUMN id_grado_academico BIGINT;
-
-ALTER TABLE Seccion
-    ADD CONSTRAINT fk_seccion_grado_academico
-    FOREIGN KEY (id_grado_academico)
-    REFERENCES GradoAcademico(id_grado_academico);
-
-CREATE INDEX idx_seccion_grado_academico
-    ON Seccion(id_grado_academico);
