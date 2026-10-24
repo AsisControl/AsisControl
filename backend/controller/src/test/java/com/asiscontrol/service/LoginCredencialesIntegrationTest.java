@@ -43,13 +43,19 @@ class LoginCredencialesIntegrationTest {
                 .content("{\"identifier\":\"" + usuario + "\",\"password\":\"" + clave + "\"}"));
     }
 
+    // Sin transaccion de test a proposito: el error original (500) solo aparecia al confirmar
+    // la transaccion del login, y una transaccion de test lo ocultaria.
     @Test void usuarioInexistenteRecibeErrorDeCredenciales() throws Exception {
         login("usuario-que-no-existe-" + UUID.randomUUID(), "Cualquiera123!")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTENTICACION_REQUERIDA"));
     }
 
-    @Test void claveIncorrectaRecibeLaMismaRespuestaQueUnUsuarioInexistente() throws Exception {
+    // Se deshace al terminar para no dejar el usuario creado: otros tests, como el del
+    // dashboard, esperan no encontrar datos de una persona concreta.
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void claveIncorrectaRecibeLaMismaRespuestaQueUnUsuarioInexistente() throws Exception {
         String key = UUID.randomUUID().toString().replace("-", "").substring(0, 14);
         var persona = new PersonaDtos.PersonaRequest("Persona", "Prueba", "Login",
                 TipoDocumento.PASAPORTE, key, null, Sexo.PREFIERE_NO_INDICAR,
