@@ -288,10 +288,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiError> handleAuthentication(
             AuthenticationException exception, HttpServletRequest request) {
+        // En el login no hay sesion que expire. El mensaje es el mismo para un usuario
+        // inexistente y para una contrasena incorrecta, para no revelar que usuarios existen.
+        if ("/api/auth/login".equals(request.getRequestURI())) {
+            return build(
+                    HttpStatus.UNAUTHORIZED,
+                    "CREDENCIALES_INVALIDAS",
+                    "Usuario o contraseña incorrectos.",
+                    request,
+                    List.of());
+        }
         return build(
                 HttpStatus.UNAUTHORIZED,
                 "AUTENTICACION_REQUERIDA",
-                "Las credenciales no son validas o la sesion expiro",
+                com.asiscontrol.security.RestAuthenticationEntryPoint.MENSAJE_SESION,
                 request,
                 List.of());
     }

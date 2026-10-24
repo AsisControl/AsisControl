@@ -20,6 +20,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,7 +49,8 @@ class LoginCredencialesIntegrationTest {
     @Test void usuarioInexistenteRecibeErrorDeCredenciales() throws Exception {
         login("usuario-que-no-existe-" + UUID.randomUUID(), "Cualquiera123!")
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTENTICACION_REQUERIDA"));
+                .andExpect(jsonPath("$.code").value("CREDENCIALES_INVALIDAS"))
+                .andExpect(jsonPath("$.message").value("Usuario o contraseña incorrectos."));
     }
 
     // Se deshace al terminar para no dejar el usuario creado: otros tests, como el del
@@ -67,6 +69,15 @@ class LoginCredencialesIntegrationTest {
 
         login(usuario.username(), "Incorrecta123!")
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTENTICACION_REQUERIDA"));
+                .andExpect(jsonPath("$.code").value("CREDENCIALES_INVALIDAS"))
+                .andExpect(jsonPath("$.message").value("Usuario o contraseña incorrectos."));
+    }
+
+    @Test void unaPeticionSinSesionExplicaQueLaSesionExpiro() throws Exception {
+        mvc.perform(get("/api/auth/me").header("Origin", ORIGIN))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTENTICACION_REQUERIDA"))
+                .andExpect(jsonPath("$.message")
+                        .value("Tu sesión expiró o no es válida. Inicia sesión nuevamente."));
     }
 }
