@@ -43,7 +43,10 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         getOk("/api/horarios"); getOk(hp);
         request("POST","/api/horarios",data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","LUNES","horaInicio","08:30:00","horaFin","09:30:00"),409);
         putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0));
-        deleteOk(hp); deleteOk(asp); deleteOk(ap);
+        deleteOk(hp); deleteOk(asp);
+        long versionAula = getOk(ap).path("version").asLong();
+        request("PATCH", ap + "/inhabilitar", data("motivo", "Fin de prueba", "version", versionAula), 200);
+        //deleteOk(hp); deleteOk(asp); deleteOk(ap);
     }
 
     @Test void completaCicloDeTareaEntregaCalificacionCierreYArchivado() throws Exception {

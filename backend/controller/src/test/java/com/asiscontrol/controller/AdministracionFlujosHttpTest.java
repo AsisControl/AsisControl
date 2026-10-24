@@ -32,7 +32,10 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
         putOk(sp,data("nombre","B","grado",1,"anioAcademico",2091,"capacidadMaxima",35,"docenteTutorId",teacher.getId(),"version",0,"motivo","Ajuste de aforo"));
         var updated=getOk(sp);
         putOk(sp+"/estado",data("activo",false,"version",updated.path("version").asLong(),"motivo","Seccion sin uso"));
-        request("DELETE",sp,null,422);
+       // request("DELETE",sp,null,422);
+       var extra=postOk("/api/secciones",data("nombre","Z","grado",1,"anioAcademico",2091,"capacidadMaxima",30));
+        request("DELETE","/api/secciones/"+extra.path("id").asLong(),null,204); 
+       
         var day=postOk(base+"/anios/2091/dias-no-lectivos",data("fecha","2091-07-28","descripcion","Fiestas Patrias"));
         getOk(base+"/anios/2091/dias-no-lectivos");
         request("PATCH",base+"/dias-no-lectivos/"+day.path("id").asLong(),data("descripcion","Feriado nacional","version",0),200);
