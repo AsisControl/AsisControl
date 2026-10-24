@@ -138,6 +138,43 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    /** Archivos: sin estos manejadores, un envio mal armado terminaba en un 500 generico. */
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> handleMissingPart(
+            org.springframework.web.multipart.support.MissingServletRequestPartException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "ARCHIVO_REQUERIDO",
+                "Falta el archivo: envíelo en el campo '" + exception.getRequestPartName() + "'",
+                request,
+                List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(
+            org.springframework.web.multipart.MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "ARCHIVO_DEMASIADO_GRANDE",
+                "El archivo supera el tamaño máximo permitido",
+                request,
+                List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleUnsupportedMediaType(
+            org.springframework.web.HttpMediaTypeNotSupportedException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "FORMATO_DE_ENVIO_NO_SOPORTADO",
+                "El formato de la solicitud no es el esperado; los archivos se envían como multipart/form-data",
+                request,
+                List.of());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
             ResourceNotFoundException exception, HttpServletRequest request) {
