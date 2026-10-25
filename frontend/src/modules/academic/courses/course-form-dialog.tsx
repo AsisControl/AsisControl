@@ -4,6 +4,7 @@ import { message } from "@/core/api/client";
 import { Field, FormDialog } from "@/shared/ui";
 import type { Course } from "../types";
 import { actualizarCurso, crearCurso } from "./services/cursoService";
+import { CourseContextFields } from "./course-context";
 /** Alta de un curso o edición de uno existente (mismo formulario). */
 export function CourseFormDialog({
   course,
@@ -21,11 +22,17 @@ export function CourseFormDialog({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const text = (key: string) => String(form.get(key) || "").trim();
+    const gradoAcademicoId = Number(form.get("gradoAcademicoId"));
+    if (!gradoAcademicoId) {
+      setError("Selecciona el año académico y el grado del curso.");
+      return;
+    }
     const input = {
       codigo: text("codigo"),
       nombre: text("nombre"),
       descripcion: text("descripcion") || null,
       horasSemanales: Number(form.get("horasSemanales")),
+      gradoAcademicoId,
     };
     setBusy(true);
     setError("");
@@ -44,7 +51,7 @@ export function CourseFormDialog({
       description={
         course
           ? `${course.nombre} · ${course.codigo}`
-          : "Agrega un curso al plan curricular de la institución."
+          : "Agrega un curso al plan curricular de un grado y año académico."
       }
       submitLabel={course ? "Guardar cambios" : "Crear curso"}
       busy={busy}
@@ -70,6 +77,7 @@ export function CourseFormDialog({
         hint="Único y en mayúsculas, aunque el curso esté inactivo."
         defaultValue={course?.codigo}
       />
+      <CourseContextFields course={course} />
       <Field
         label="Horas semanales"
         name="horasSemanales"

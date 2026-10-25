@@ -1,16 +1,26 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, RowMenu, PanelHeading } from "@/shared/ui";
+import {
+  Feedback,
+  FormDialog,
+  Pager,
+  RowMenu,
+  PanelHeading,
+} from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Course, CourseCompetency } from "../types";
 import styles from "../academic.module.css";
 import { CourseDetailDialog } from "./course-detail-dialog";
 import { CourseFormDialog } from "./course-form-dialog";
-import { agruparPor, listarAsociaciones } from "../associations/services/asociacionService";
+import {
+  agruparPor,
+  listarAsociaciones,
+} from "../associations/services/asociacionService";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
 import { CURSOS_PATH, desactivarCurso } from "./services/cursoService";
+import { courseContextLabel } from "./course-context";
 type CourseDialog =
   | { kind: "create" }
   | { kind: "detail" | "edit" | "deactivate"; course: Course };
@@ -87,26 +97,26 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
         title="Cursos registrados"
         summary={
           <>
-                {courses.data
-                  ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
-                  : "Plan curricular de la institución"}
-                {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
+            {courses.data
+              ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
+              : "Plan curricular de la institución"}
+            {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
           </>
         }
         actions={
           <>
-              <button type="button" disabled={courses.loading} onClick={refresh}>
-                Actualizar
+            <button type="button" disabled={courses.loading} onClick={refresh}>
+              Actualizar
+            </button>
+            {canWrite && (
+              <button
+                type="button"
+                className="primary-action"
+                onClick={() => open({ kind: "create" })}
+              >
+                + Nuevo curso
               </button>
-              {canWrite && (
-                <button
-                  type="button"
-                  className="primary-action"
-                  onClick={() => open({ kind: "create" })}
-                >
-                  + Nuevo curso
-                </button>
-              )}
+            )}
           </>
         }
       />
@@ -124,6 +134,7 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
             <thead>
               <tr>
                 <th>Curso</th>
+                <th>Año y grado</th>
                 <th>Horas semanales</th>
                 <th>Estado</th>
                 <th>Competencias</th>
@@ -139,6 +150,15 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
                       <strong>{course.nombre}</strong>
                       <small>{course.codigo}</small>
                     </td>
+                    <td data-label="Año y grado">
+                      {course.grado === null ? (
+                        <span className="hint">
+                          {courseContextLabel(course)}
+                        </span>
+                      ) : (
+                        courseContextLabel(course)
+                      )}
+                    </td>
                     <td data-label="Horas semanales">
                       {course.horasSemanales} h
                     </td>
@@ -151,7 +171,11 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
                     </td>
                     <td data-label="Competencias">
                       {linked
-                        ? countLabel(linked.length, "competencia", "competencias")
+                        ? countLabel(
+                            linked.length,
+                            "competencia",
+                            "competencias",
+                          )
                         : "—"}
                     </td>
                     <td data-label="Acciones">
