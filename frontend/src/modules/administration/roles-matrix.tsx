@@ -50,6 +50,8 @@ export function RolesMatrix() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [selected, setSelected] = useState(fixedRoles[0]);
   const [search, setSearch] = useState("");
+  const [onlyGranted, setOnlyGranted] = useState(false);
+  const [category, setCategory] = useState("");
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -73,10 +75,16 @@ export function RolesMatrix() {
   const role = roles?.find((item) => item.nombre === selected);
   const granted = new Set(role?.permisos.map((item) => item.codigo));
   const term = search.trim().toLocaleLowerCase("es");
-  const visible = permissions.filter((p) =>
-    `${p.nombre} ${p.descripcion || ""} ${categoryOf(p)} ${p.codigo}`
-      .toLocaleLowerCase("es")
-      .includes(term),
+  const categories = [...new Set(permissions.map(categoryOf))].sort((a, b) =>
+    a.localeCompare(b, "es"),
+  );
+  const visible = permissions.filter(
+    (p) =>
+      (!onlyGranted || granted.has(p.codigo)) &&
+      (!category || categoryOf(p) === category) &&
+      `${p.nombre} ${p.descripcion || ""} ${categoryOf(p)} ${p.codigo}`
+        .toLocaleLowerCase("es")
+        .includes(term),
   );
   const groups = [...new Set(visible.map(categoryOf))]
     .sort((a, b) => a.localeCompare(b, "es"))
@@ -141,14 +149,37 @@ export function RolesMatrix() {
                 </button>
               }
             />
-            <input
-              type="search"
-              className={styles.search}
-              aria-label="Buscar permiso o módulo"
-              placeholder="Buscar permiso o módulo…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
+            <div className={styles.filters}>
+              <input
+                type="search"
+                className={styles.search}
+                aria-label="Buscar permiso o módulo"
+                placeholder="Buscar permiso o módulo…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <select
+                className={styles.moduleSelect}
+                aria-label="Filtrar por módulo"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                <option value="">Todos los módulos</option>
+                {categories.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className={styles.toggle}
+                aria-pressed={onlyGranted}
+                onClick={() => setOnlyGranted((value) => !value)}
+              >
+                Solo habilitados
+              </button>
+            </div>
             <p className={styles.count}>
               {role
                 ? `${visible.filter((p) => granted.has(p.codigo)).length} de ${visible.length} permisos habilitados para este rol.`

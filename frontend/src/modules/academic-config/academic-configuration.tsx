@@ -1,15 +1,15 @@
 "use client";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { api, message } from "@/core/api/client";
+import { api, fieldErrorsOf, message } from "@/core/api/client";
 import { Feedback, Field, FormDialog, Pager, ReasonField } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PeriodsPanel } from "./periods/periods-panel";
 import { PeriodFormDialog } from "./periods/period-form-dialog";
-import { pendingFeatures } from "./pending/pending-features";
 import { NonTeachingDaysPanel } from "./periods/non-teaching-days-panel";
 import { GradesPanel } from "./sections/grades-panel";
 import { SectionsPanel } from "./sections/sections-panel";
+import { hasErrors, validateYear, YEAR_MAX, YEAR_MIN, type YearErrors } from "./lib/validation";
 import styles from "./academic-config.module.css";
 import type { AcademicYear, YearPanelProps } from "./types";
 type YearAction = { kind: "year" | "admission" | "year-state"; next?: string };
@@ -30,6 +30,7 @@ export function AcademicConfiguration() {
   const [action, setAction] = useState<YearAction | null>(null);
   const [periodOpen, setPeriodOpen] = useState(false);
   const [error, setError] = useState("");
+  const [yearErrors, setYearErrors] = useState<YearErrors>({});
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
   // Más reciente primero; por defecto el año ACTIVO o, si no hay, el más reciente.
@@ -53,6 +54,7 @@ export function AcademicConfiguration() {
   const open = (value: YearAction) => {
     setError("");
     setSuccess("");
+    setYearErrors({});
     setAction(value);
   };
   async function reload(number: number) {
@@ -74,13 +76,17 @@ export function AcademicConfiguration() {
     let path = "/api/configuracion-academica/anios",
       method = "POST",
       body: object;
-    if (action.kind === "year")
-      body = {
-        anio: Number(form.get("anio")),
+    if (action.kind === "year") {
+      const input = {
+        anio: str("anio"),
         fechaInicio: str("fechaInicio"),
         fechaFin: str("fechaFin"),
       };
-    else if (!year) return;
+      const found = validateYear(input, sorted);
+      setYearErrors(found);
+      if (hasErrors(found)) return;
+      body = { ...input, anio: Number(input.anio) };
+    } else if (!year) return;
     else if (action.kind === "admission") {
       path += `/${year.anio}/admision`;
       method = "PUT";
@@ -111,16 +117,22 @@ export function AcademicConfiguration() {
       setAction(null);
       setSuccess("Configuración guardada.");
     } catch (error) {
-      setError(message(error));
+      const fields = fieldErrorsOf(error);
+      // Un error que ya se muestra junto a su campo no se repite arriba.
+      if (action.kind === "year" && hasErrors(fields)) setYearErrors(fields);
+      else setError(message(error));
     } finally {
       setBusy(false);
     }
   }
   const editable = year?.estado !== "CERRADO";
-  const periodHint =
-    year && year.estado !== "BORRADOR"
-      ? pendingFeatures.periodOnActiveYear.hint
-      : "";
+  // Por qué "+ Nuevo período" está deshabilitado. El aviso visible está en la
+  // sección Períodos (o en la lista vacía); aquí solo queda como ayuda del botón.
+  const periodHint = year
+    ? year.estado !== "BORRADOR"
+      ? `El año ${year.anio} ya no está en borrador; no admite períodos nuevos.`
+      : ""
+    : "Crea primero un año académico.";
   const panelProps: YearPanelProps | null = year && {
     year,
     editable,
@@ -170,34 +182,33 @@ export function AcademicConfiguration() {
           >
             Crear año
           </button>
-          <div className={styles.newPeriod}>
-            <button
-              className={styles.newPeriodButton}
-              disabled={year?.estado !== "BORRADOR"}
-              aria-describedby={periodHint ? "new-period-hint" : undefined}
-              onClick={() => {
-                setError("");
-                setSuccess("");
-                setPeriodOpen(true);
-              }}
-            >
-              + Nuevo período
-            </button>
-            {periodHint && (
-              <span id="new-period-hint" className={styles.newPeriodHint}>
-                {periodHint}
-              </span>
-            )}
-          </div>
+          <button
+            className={styles.newPeriodButton}
+            disabled={year?.estado !== "BORRADOR"}
+            title={periodHint || undefined}
+            aria-describedby={
+              year && periodHint ? "period-notice" : undefined
+            }
+            onClick={() => {
+              setError("");
+              setSuccess("");
+              setPeriodOpen(true);
+            }}
+          >
+            + Nuevo período
+          </button>
         </div>
       </div>
       {years.loading && !years.data && (
         <p role="status">Cargando configuración…</p>
       )}
       {!years.loading && !years.error && !sorted.length && (
-        <p className="empty">
-          Crea el año y configura los períodos, grados y secciones.
-        </p>
+        <div className={styles.infoNotice} role="note">
+          <p>
+            <strong>Aún no hay años académicos.</strong> Usa «Crear año» para
+            empezar; después podrás agregar sus períodos, grados y secciones.
+          </p>
+        </div>
       )}
       <Pager
         data={years.data}
@@ -295,17 +306,32 @@ export function AcademicConfiguration() {
                 label="Año"
                 name="anio"
                 type="number"
-                min={2000}
-                max={2100}
+                min={YEAR_MIN}
+                max={YEAR_MAX}
                 required
+                error={yearErrors.anio}
+                onChange={() => setYearErrors((e) => ({ ...e, anio: undefined }))}
               />
               <Field
                 label="Fecha inicial"
                 name="fechaInicio"
                 type="date"
                 required
+                error={yearErrors.fechaInicio}
+                onChange={() =>
+                  setYearErrors((e) => ({ ...e, fechaInicio: undefined }))
+                }
               />
-              <Field label="Fecha final" name="fechaFin" type="date" required />
+              <Field
+                label="Fecha final"
+                name="fechaFin"
+                type="date"
+                required
+                error={yearErrors.fechaFin}
+                onChange={() =>
+                  setYearErrors((e) => ({ ...e, fechaFin: undefined }))
+                }
+              />
             </>
           ) : (
             <ReasonField />

@@ -5,6 +5,7 @@ import { fakeBackend, inOneHour, page, reply, signIn, signOut } from "../../../t
 import { currentUrl, setUrl } from "../../../tests/support/navigation.js";
 import { AppShell } from "@/core/layout/app-shell";
 import { ModuleOutlet } from "@/core/navigation/module-outlet";
+import { setSessionStatus } from "@/core/auth/session-storage";
 import AppLayout from "@/app/(app)/layout";
 import AppPage from "@/app/(app)/[[...ruta]]/page";
 
@@ -330,4 +331,157 @@ test("Académico exige ACADEMICO_LEER y la escritura habilita la creación", asy
   expect(await screen.findByText("Gestión Curricular")).toBeTruthy();
   expect(await screen.findByText("Aún no hay cursos registrados.")).toBeTruthy();
   expect(screen.queryByText("+ Nuevo curso")).toBeNull();
+});
+
+test("Horarios exige ACADEMICO_LEER y abre la pestaña Aulas", async () => {
+  backend({
+    "GET /api/auth/me": summary({ permisos: ["ACADEMICO_LEER"] }),
+    "GET /api/aulas": page([]),
+    "GET /api/aulas/resumen": { habilitadas: 0 },
+  });
+  sessionFor({ permissions: ["ACADEMICO_LEER"] });
+  setUrl("/horarios");
+  renderApp();
+  expect(await screen.findByText("Horario Académico")).toBeTruthy();
+  expect(screen.getByText("Aulas", { selector: "button" }).getAttribute("aria-current")).toBe("page");
+  expect(await screen.findByText("Aún no hay aulas registradas.")).toBeTruthy();
+  expect(screen.queryByText("+ Nueva aula")).toBeNull();
+});
+
+/** Respuesta de login/refresh con un token que vence en `seconds`. */
+const authResponse = (accessToken, seconds = 900) => ({
+  accessToken,
+  expiresAt: new Date(Date.now() + seconds * 1000).toISOString(),
+  user: summary({ permisos: ["ACADEMICO_LEER"] }),
+});
+/** Llamadas reales a fetch con su método, credenciales y token. */
+const fetchCalls = (path) =>
+  fetch.mock.calls
+    .filter(([url]) => new URL(url).pathname === path)
+    .map(([, options = {}]) => ({
+      method: options.method ?? "GET",
+      credentials: options.credentials,
+      authorization: new Headers(options.headers).get("Authorization"),
+    }));
+/** Como al abrir o recargar la página: sin sesión en memoria y comprobando. */
+const reloadPage = () => setSessionStatus("checking");
+
+test("Al recargar la página la cookie de renovación recupera la sesión", async () => {
+  backend({ "POST /api/auth/refresh": authResponse("renovado") });
+  reloadPage();
+  renderApp();
+  expect(screen.getByText("Cargando sesión…")).toBeTruthy();
+  // pageshow llega junto con el montaje: no debe enviarse la cookie dos veces.
+  window.dispatchEvent(new Event("pageshow"));
+  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(fetchCalls("/api/auth/refresh")).toEqual([
+    { method: "POST", credentials: "include", authorization: null },
+  ]);
+});
+
+test("Sin cookie válida muestra el login sin cerrar las otras pestañas", async () => {
+  backend({ "POST /api/auth/refresh": reply(401, { message: "Sesion invalida" }) });
+  const mark = window.localStorage.getItem("asiscontrol:session-invalidation");
+  reloadPage();
+  renderApp();
+  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(window.localStorage.getItem("asiscontrol:session-invalidation")).toBe(mark);
+  await act(async () => {
+    window.dispatchEvent(new Event("pageshow"));
+  });
+  expect(fetchCalls("/api/auth/refresh")).toHaveLength(1);
+});
+
+test("Si no hay conexión al recargar se muestra el login y se reintenta al volver", async () => {
+  let offline = true;
+  backend({ "POST /api/auth/refresh": () => authResponse("renovado") });
+  const backendFetch = fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url, options) => {
+      if (offline) throw new TypeError("Failed to fetch");
+      return backendFetch(url, options);
+    }),
+  );
+  reloadPage();
+  renderApp();
+  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  offline = false;
+  await act(async () => {
+    window.dispatchEvent(new Event("pageshow"));
+  });
+  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+});
+
+test("Renueva el token un minuto antes de que venza y usa el nuevo", async () => {
+  backend({
+    "POST /api/auth/refresh": () => authResponse("renovado"),
+    "GET /api/cursos": page([]),
+    "GET /api/cursos-competencias": page([]),
+  });
+  sessionFor({ permissions: ["ACADEMICO_LEER"] }).expiresAt = new Date(Date.now() + 60_300).toISOString();
+  renderApp();
+  await screen.findByText("Panel de administración");
+  await waitFor(() => expect(fetchCalls("/api/auth/refresh")).toHaveLength(1), { timeout: 3000 });
+  act(() => setUrl("/academico"));
+  await screen.findByText("Aún no hay cursos registrados.");
+  expect(fetchCalls("/api/cursos").at(-1).authorization).toBe("Bearer renovado");
+});
+
+test("Un 401 renueva el token y repite la petición una sola vez", async () => {
+  let attempts = 0;
+  backend({
+    "GET /api/auth/me": summary({ permisos: ["ACADEMICO_LEER"] }),
+    "POST /api/auth/refresh": authResponse("renovado"),
+    "GET /api/cursos": () => (++attempts === 1 ? reply(401, null) : page([])),
+    "GET /api/cursos-competencias": page([]),
+  });
+  sessionFor({ permissions: ["ACADEMICO_LEER"] });
+  setUrl("/academico");
+  renderApp();
+  expect(await screen.findByText("Aún no hay cursos registrados.")).toBeTruthy();
+  expect(fetchCalls("/api/cursos").map((c) => c.authorization)).toEqual(["Bearer test-token", "Bearer renovado"]);
+  expect(fetchCalls("/api/auth/refresh")).toHaveLength(1);
+});
+
+test("Si la renovación es rechazada, el 401 devuelve al login", async () => {
+  backend({
+    "GET /api/auth/me": summary({ permisos: ["ACADEMICO_LEER"] }),
+    "POST /api/auth/refresh": reply(401, null),
+    "GET /api/cursos": reply(401, null),
+    "GET /api/cursos-competencias": page([]),
+  });
+  sessionFor({ permissions: ["ACADEMICO_LEER"] });
+  setUrl("/academico");
+  renderApp();
+  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(fetchCalls("/api/cursos")).toHaveLength(1);
+});
+
+test("Un token vencido al volver a la pestaña se renueva en lugar de cerrar la sesión", async () => {
+  backend({ "POST /api/auth/refresh": authResponse("renovado") });
+  sessionFor();
+  renderApp();
+  await screen.findByText("Panel de administración");
+  sessionFor().expiresAt = "2000-01-01T00:00:00Z";
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(fetchCalls("/api/auth/refresh")).toHaveLength(1);
+});
+
+test("Con Web Locks las pestañas renuevan por turnos", async () => {
+  backend({ "POST /api/auth/refresh": authResponse("renovado") });
+  const request = vi.fn((_name, task) => task());
+  Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+  try {
+    reloadPage();
+    renderApp();
+    expect(await screen.findByText("Panel de administración")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0]).toBe("asiscontrol:session-refresh");
+  } finally {
+    delete navigator.locks;
+  }
 });

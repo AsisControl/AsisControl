@@ -178,3 +178,14 @@
   font-size: 12px;
   word-break: break-all;
 }
+/* Motivo de un rechazo automático: puede ser largo, se deja partir en líneas. */
+.reason {
+  max-width: 280px;
+}
+/* Valores antes/después: texto del backend tal cual (p. ej. "activo=true,capacidad=30"). */
+.change {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

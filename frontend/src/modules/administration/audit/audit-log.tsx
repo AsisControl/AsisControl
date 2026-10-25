@@ -11,8 +11,10 @@ import { dateTimeLabel, initialsOf, rolePillClass } from "../users/user-format";
 import { AuditDetailDialog } from "./audit-detail-dialog";
 import {
   actionLabel,
+  actionSummary,
   actorDisplayName,
   entityLabel,
+  isAutomaticRejection,
   modulePillClass,
   moduleLabel,
   resultLabels,
@@ -126,8 +128,8 @@ export function AuditLog() {
         <div className={styles.filters}>
           <input
             type="search"
-            aria-label="Buscar usuario"
-            placeholder="Buscar usuario…"
+            aria-label="Buscar en la auditoría"
+            placeholder="Buscar en la auditoría…"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -207,9 +209,19 @@ export function AuditLog() {
                           {moduleLabel(audit.modulo)}
                         </span>
                       </td>
-                      <td data-label="Acción" className={styles.nowrap}>
-                        <span className={styles.action}>
-                          {actionLabel(audit.accion)}
+                      <td
+                        data-label="Acción"
+                        className={
+                          isAutomaticRejection(audit)
+                            ? styles.reason
+                            : styles.nowrap
+                        }
+                      >
+                        <span
+                          className={styles.action}
+                          title={actionLabel(audit.accion)}
+                        >
+                          {actionSummary(audit)}
                         </span>
                         {audit.resultado !== "EXITOSO" && (
                           <span className={styles.failed}>

@@ -35,6 +35,18 @@ const capitalize = (text: string) =>
 /** CREAR_USUARIO → "Crear usuario", CAMBIAR_CONTRASENA → "Cambiar contraseña". */
 export const actionLabel = (action: string) => capitalize(toWords(action));
 export const moduleLabel = (module: string) => capitalize(toWords(module));
+/**
+ * Rechazos que registra el manejador global: la acción se arma con el método
+ * y la ruta ("POST_CURSOS"), así que el motivo explica mejor qué pasó.
+ */
+const AUTOMATIC_ACTION = /^(POST|PUT|PATCH|DELETE)_/;
+export const isAutomaticRejection = (audit: Audit) =>
+  audit.resultado !== "EXITOSO" &&
+  AUTOMATIC_ACTION.test(audit.accion) &&
+  !!audit.motivo;
+/** Texto principal de la acción en la tabla. */
+export const actionSummary = (audit: Audit) =>
+  isAutomaticRejection(audit) ? audit.motivo! : actionLabel(audit.accion);
 /** AlumnoApoderado → "Estudiante apoderado" para el registro afectado. */
 export const entityLabel = (entity: string) =>
   actionLabel(entity.replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase());

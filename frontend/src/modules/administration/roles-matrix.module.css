@@ -128,3 +128,25 @@
     grid-template-columns: 1fr;
   }
 }
+.filters {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.moduleSelect,
+.toggle {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  height: 40px;
+  padding: 0 12px;
+}
+.toggle[aria-pressed="true"] {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: var(--blue);
+  font-weight: 600;
+}

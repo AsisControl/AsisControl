@@ -1,6 +1,7 @@
 import { stateLabel } from "@/shared/lib/formatters";
 import { formatDate } from "../lib/format-date";
 import { PendingBadge } from "../pending/pending-badge";
+import { pendingFeatures } from "../pending/pending-features";
 import styles from "../academic-config.module.css";
 import type { Period } from "../types";
 type Props = {
@@ -51,7 +52,9 @@ export function PeriodCard({ period, canChangeState, onChangeState }: Props) {
             {planned ? "Activar" : "Cerrar"}
           </button>
         )}
-        <button disabled>Editar</button>
+        <button disabled title={pendingFeatures.editPeriod.hint}>
+          Editar
+        </button>
         <PendingBadge feature="editPeriod" />
       </div>
     </article>

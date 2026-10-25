@@ -4,6 +4,7 @@ import { roleDetails } from "./navigation";
 const requiredPermissions: Record<string, string> = {
   Matrícula: "MATRICULA_LEER",
   Académico: "ACADEMICO_LEER",
+  Horarios: "ACADEMICO_LEER",
   Administración: "USUARIOS_LEER",
 };
 const USERS_WRITE_PERMISSION = "USUARIOS_ESCRIBIR";

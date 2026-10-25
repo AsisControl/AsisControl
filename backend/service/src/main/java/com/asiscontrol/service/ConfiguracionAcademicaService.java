@@ -354,7 +354,8 @@ public class ConfiguracionAcademicaService {
 
     private void validarFechas(LocalDate inicio, LocalDate fin) {
         if (fin.isBefore(inicio))
-            rechazarRegla("FECHAS_INVALIDAS", "La fecha final no puede ser anterior a la inicial");
+            throw new BusinessRuleException(
+                    "FECHAS_INVALIDAS", "La fecha final no puede ser anterior a la inicial", "fechaFin");
     }
 
     private void exigirEditable(AnioAcademico anioAcademico) {

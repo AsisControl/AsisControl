@@ -31,4 +31,6 @@ export type LoginResult =
 export interface AuthService {
   login(credentials: LoginCredentials): Promise<LoginResult>;
   logout(): Promise<void>;
+  /** Sesión nueva desde la cookie de renovación; null si no hay sesión que renovar. */
+  refresh(): Promise<AuthSession | null>;
 }

@@ -387,7 +387,9 @@ public class AuditoriaService {
                 audit.getResultado(),
                 audit.getMotivo(),
                 audit.getCorrelacionId(),
-                audit.getDireccionIp());
+                audit.getDireccionIp(),
+                audit.getValorAnterior(),
+                audit.getNuevoValor());
     }
 
     private AuditoriaDtos.ErrorResponse toErrorResponse(RegistroError error) {

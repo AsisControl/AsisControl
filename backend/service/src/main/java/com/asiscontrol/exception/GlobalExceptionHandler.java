@@ -212,7 +212,9 @@ public class GlobalExceptionHandler {
                 exception.getCode(),
                 exception.getMessage(),
                 request,
-                List.of());
+                exception.getField() == null
+                        ? List.of()
+                        : List.of(new FieldValidationError(exception.getField(), exception.getMessage())));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

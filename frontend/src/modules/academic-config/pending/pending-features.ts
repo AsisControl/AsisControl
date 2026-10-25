@@ -1,20 +1,19 @@
-/** Funciones del diseño sin respaldo en el backend: se muestran deshabilitadas. */
+/**
+ * Funciones del diseño que todavía no están disponibles: se muestran
+ * deshabilitadas con una explicación pensada para quien usa la pantalla.
+ */
 export const pendingFeatures = {
   editPeriod: {
     label: "Editar período",
-    hint: "El backend aún no expone la edición de nombre y fechas.",
-  },
-  periodOnActiveYear: {
-    label: "Nuevo período con año activo",
-    hint: "El backend solo acepta períodos nuevos con el año en borrador.",
+    hint: "La edición del nombre y las fechas de un período estará disponible próximamente.",
   },
   sectionClassroom: {
     label: "Aula asignada",
-    hint: "La sección todavía no tiene aula en el backend.",
+    hint: "La asignación de aulas a las secciones estará disponible próximamente.",
   },
   deleteNonTeachingDay: {
     label: "Eliminar día no lectivo",
-    hint: "El backend no expone DELETE de días no lectivos; solo se puede editar la descripción.",
+    hint: "Por ahora solo se puede editar la descripción; la eliminación estará disponible próximamente.",
   },
 } as const;
 

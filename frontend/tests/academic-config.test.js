@@ -236,3 +236,24 @@ test("validateGrade: crear no pide motivo; editar sí", () => {
     false,
   );
 });
+test("Año: la fecha final no puede ser anterior a la inicial", () => {
+  const errors = v.validateYear(
+    { anio: "2027", fechaInicio: "2027-03-01", fechaFin: "2027-02-28" },
+    [],
+  );
+  assert.ok(errors.fechaFin);
+  assert.equal(errors.fechaInicio, undefined);
+  empty(
+    v.validateYear(
+      { anio: "2027", fechaInicio: "2027-03-01", fechaFin: "2027-03-01" },
+      [],
+    ),
+  );
+});
+test("Año: obligatorio, entre 2000 y 2100 y sin repetir", () => {
+  const dates = { fechaInicio: "2027-03-01", fechaFin: "2027-12-20" };
+  assert.ok(v.validateYear({ anio: "", ...dates }, []).anio);
+  assert.ok(v.validateYear({ anio: "1999", ...dates }, []).anio);
+  assert.ok(v.validateYear({ anio: "2101", ...dates }, []).anio);
+  assert.ok(v.validateYear({ anio: "2026", ...dates }, [{ anio: 2026 }]).anio);
+});
