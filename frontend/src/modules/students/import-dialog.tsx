@@ -1,19 +1,28 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useId, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { api, apiBlob, message } from "@/core/api/client";
 import { Dialog, Feedback } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import type { ImportResult } from "./types";
+import styles from "./import-dialog.module.css";
 /** Mismos límites que ImportacionAlumnoService: solo .xlsx y hasta 5 MB. */
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 const IMPORT_TIMEOUT_MS = 120000;
 const TEMPLATE_NAME = "plantilla_alumnos.xlsx";
+const XLSX_ACCEPT =
+  ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 export function validateImportFile(file: File | null): string {
   if (!file) return "Selecciona el archivo Excel con los estudiantes.";
   if (!file.name.toLowerCase().endsWith(".xlsx"))
     return "El archivo debe tener formato .xlsx.";
   if (file.size > IMPORT_MAX_BYTES) return "El archivo no puede superar 5 MB.";
   return "";
+}
+/** "850 B", "24 KB", "1.2 MB" (formato es-PE). */
+export function fileSizeLabel(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString("es-PE", { maximumFractionDigits: 1 })} MB`;
 }
 /** Carga masiva de fichas: plantilla, subida del Excel y resultado por fila. */
 export function StudentImportDialog({
@@ -29,6 +38,13 @@ export function StudentImportDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  /** Archivo elegido con el explorador o soltado en la zona; null al quitarlo. */
+  function choose(next: File | null) {
+    setFile(next);
+    // Se avisa al elegir, no recién al importar.
+    setFileError(next ? validateImportFile(next) : "");
+    setResult(null);
+  }
   async function downloadTemplate() {
     setError("");
     try {
@@ -78,38 +94,39 @@ export function StudentImportDialog({
     >
       <form onSubmit={submit} noValidate>
         <Feedback error={error} />
-        <p className="hint">
-          1. Descarga la plantilla y completa una fila por estudiante. 2. Sube
-          el archivo (.xlsx, máximo 5 MB). Las filas con errores no se
-          registran; el resto sí.
-        </p>
-        <div className="form-actions">
-          <button type="button" disabled={busy} onClick={downloadTemplate}>
-            Descargar plantilla
-          </button>
-        </div>
-        <div className="form-grid">
-          <label className="field full-field">
-            Archivo Excel
-            <span className="field-required"> *</span>
-            <input
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              disabled={busy}
-              aria-invalid={!!fileError}
-              onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null);
-                setFileError("");
-                setResult(null);
-              }}
-            />
-            {fileError && (
-              <small className="field-error" role="alert">
-                {fileError}
-              </small>
-            )}
-          </label>
-        </div>
+        <ol className={styles.steps}>
+          <li className={styles.step}>
+            <p className={styles.stepTitle}>Descarga la plantilla</p>
+            <p className={styles.stepText}>
+              Completa una fila por estudiante sin cambiar los encabezados.
+            </p>
+            <div className={styles.stepBody}>
+              <button
+                type="button"
+                className={styles.templateButton}
+                disabled={busy}
+                onClick={downloadTemplate}
+              >
+                <DownloadIcon />
+                Descargar plantilla
+              </button>
+            </div>
+          </li>
+          <li className={styles.step}>
+            <p className={styles.stepTitle}>Sube el archivo completado</p>
+            <p className={styles.stepText}>
+              Las filas con errores no se registran; el resto sí.
+            </p>
+            <div className={styles.stepBody}>
+              <FilePicker
+                file={file}
+                error={fileError}
+                disabled={busy}
+                onChoose={choose}
+              />
+            </div>
+          </li>
+        </ol>
         {result && <ImportSummary result={result} />}
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={onClose}>
@@ -123,6 +140,140 @@ export function StudentImportDialog({
     </Dialog>
   );
 }
+/** Zona para soltar o elegir el Excel; con archivo, muestra su nombre y tamaño. */
+function FilePicker({
+  file,
+  error,
+  disabled,
+  onChoose,
+}: {
+  file: File | null;
+  error: string;
+  disabled: boolean;
+  onChoose: (file: File | null) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const hintId = useId();
+  const [dragging, setDragging] = useState(false);
+  function drop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (!disabled) onChoose(event.dataTransfer.files[0] ?? null);
+  }
+  function clear() {
+    // Sin limpiar el valor, elegir de nuevo el mismo archivo no dispararía onChange.
+    if (input.current) input.current.value = "";
+    onChoose(null);
+  }
+  const fileInput = (
+    <input
+      ref={input}
+      type="file"
+      className={styles.fileInput}
+      accept={XLSX_ACCEPT}
+      disabled={disabled}
+      aria-invalid={!!error}
+      aria-describedby={hintId}
+      onChange={(e) => onChoose(e.target.files?.[0] ?? null)}
+    />
+  );
+  return (
+    <>
+      {file ? (
+        <div
+          className={`${styles.fileCard} ${error ? styles.fileCardInvalid : ""}`}
+        >
+          <span className={styles.fileIcon} aria-hidden="true">
+            <SheetIcon />
+          </span>
+          <span className={styles.fileInfo}>
+            <span className={styles.fileName} title={file.name}>
+              {file.name}
+            </span>
+            <span className={styles.fileSize} id={hintId}>
+              {fileSizeLabel(file.size)}
+            </span>
+          </span>
+          <span className={styles.fileActions}>
+            <label className={styles.fileAction}>
+              Cambiar
+              <span className={styles.srOnly}> archivo {file.name}</span>
+              {fileInput}
+            </label>
+            <button
+              type="button"
+              className={styles.fileAction}
+              disabled={disabled}
+              aria-label={`Quitar ${file.name}`}
+              onClick={clear}
+            >
+              Quitar
+            </button>
+          </span>
+        </div>
+      ) : (
+        <label
+          className={[
+            styles.dropzone,
+            dragging && styles.dropzoneActive,
+            error && styles.dropzoneInvalid,
+            disabled && styles.dropzoneDisabled,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (!disabled) setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={drop}
+        >
+          {fileInput}
+          <span className={styles.dropzoneIcon} aria-hidden="true">
+            <UploadIcon />
+          </span>
+          <span className={styles.dropzoneTitle}>
+            Arrastra el archivo aquí o{" "}
+            <span className={styles.browse}>selecciónalo</span>
+          </span>
+          <span className={styles.dropzoneHint} id={hintId}>
+            Solo Excel (.xlsx), máximo 5 MB
+          </span>
+        </label>
+      )}
+      {error && (
+        <small className={styles.fileError} role="alert">
+          {error}
+        </small>
+      )}
+    </>
+  );
+}
+const iconProps = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+const DownloadIcon = () => (
+  <svg {...iconProps} width="16" height="16" aria-hidden="true">
+    <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
+  </svg>
+);
+const UploadIcon = () => (
+  <svg {...iconProps} width="32" height="32">
+    <path d="M12 16V5m0 0-4 4m4-4 4 4" />
+    <path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+const SheetIcon = () => (
+  <svg {...iconProps} width="22" height="22">
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 13l3 4m0-4-3 4" />
+  </svg>
+);
 function ImportSummary({ result }: { result: ImportResult }) {
   return (
     <section aria-live="polite">
