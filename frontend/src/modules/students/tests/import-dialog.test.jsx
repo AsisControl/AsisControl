@@ -2,7 +2,8 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { signIn, page } from "../../../../tests/support/backend.js";
-import { StudentImportDialog } from "../import-dialog";
+import { FamilyImportDialog } from "../import-dialog";
+import { fileSizeLabel } from "../excel-file-picker";
 import { Students } from "../students";
 
 const NativeURL = URL;
@@ -12,7 +13,18 @@ const reply = (body, status = 200) => ({
   json: async () => body,
   blob: async () => new Blob(["plantilla"]),
 });
-const excel = () => new File(["contenido"], "alumnos.xlsx");
+const excel = (name = "alumnos.xlsx", size) => {
+  const file = new File(["contenido"], name);
+  if (size) Object.defineProperty(file, "size", { value: size });
+  return file;
+};
+const emptyResult = { totalRows: 0, importedRows: 0, rejectedRows: 0, issues: [] };
+const renderDialog = (props = {}) =>
+  render(<FamilyImportDialog onClose={vi.fn()} onImported={vi.fn()} {...props} />);
+/** Tarjeta de un paso de la carga: Estudiantes, Apoderados o Parentescos. */
+const slot = (title) =>
+  screen.getByRole("heading", { name: new RegExp(`^${title}`) }).closest("li");
+const studentsInput = () => screen.getByLabelText("Archivo Excel de estudiantes");
 
 beforeEach(() => {
   signIn();
@@ -22,7 +34,28 @@ beforeEach(() => {
   });
 });
 
-test("La ficha conserva la carga masiva y actualiza el listado tras una importación parcial", async () => {
+test("El tamaño del archivo se muestra en B, KB o MB", () => {
+  expect(fileSizeLabel(850)).toBe("850 B");
+  expect(fileSizeLabel(24 * 1024)).toBe("24 KB");
+  expect(fileSizeLabel(1.25 * 1024 * 1024)).toBe("1.3 MB");
+});
+
+test("Las tres plantillas se descargan y los tres archivos se pueden subir", () => {
+  renderDialog();
+  const templates = screen.getByRole("region", { name: "1. Prepara las plantillas" });
+  for (const name of ["estudiantes", "apoderados", "parentescos"])
+    expect(within(templates).getByRole("button", { name: `Descargar plantilla de ${name}` }).disabled).toBe(false);
+  expect(
+    screen.getAllByRole("heading", { level: 5 }).map((heading) => heading.firstChild.textContent),
+  ).toEqual(["Estudiantes", "Apoderados", "Parentescos"]);
+  expect(screen.queryByText("Próximamente")).toBeNull();
+  for (const title of ["Estudiantes", "Apoderados", "Parentescos"])
+    expect(within(slot(title)).getByRole("button", { name: "Seleccionar archivo Excel" }).disabled).toBe(false);
+  expect(studentsInput().accept).toContain(".xlsx");
+  expect(within(slot("Estudiantes")).getByText("Solo Excel (.xlsx), máximo 5 MB")).toBeTruthy();
+});
+
+test("La ficha abre la carga masiva y actualiza el listado tras una importación parcial", async () => {
   const fetcher = vi.fn(async (_, options = {}) => options.method === "POST"
     ? reply({ totalRows: 3, importedRows: 1, rejectedRows: 2, issues: [
       { row: 3, field: "nombres", message: "Solo letras" },
@@ -35,10 +68,11 @@ test("La ficha conserva la carga masiva y actualiza el listado tras una importac
   await screen.findByText("Todavía no hay fichas de estudiantes registradas.");
   await user.click(screen.getByRole("button", { name: "Carga masiva" }));
   const dialog = screen.getByRole("dialog");
-  await user.upload(within(dialog).getByLabelText(/Archivo Excel/), excel());
-  await user.click(within(dialog).getByRole("button", { name: "Importar archivo" }));
+  await user.upload(within(dialog).getByLabelText("Archivo Excel de estudiantes"), excel());
+  await user.click(within(dialog).getByRole("button", { name: "Importar archivos" }));
   expect(await within(dialog).findByText("Solo letras")).toBeTruthy();
   expect(within(dialog).getByText("Fila incompleta")).toBeTruthy();
+  expect(within(dialog).getByText("2 filas con error")).toBeTruthy();
   const upload = fetcher.mock.calls.find(([, options]) => options.method === "POST");
   expect(upload[0]).toContain("/api/alumnos/importaciones");
   expect(upload[1].body.get("archivo").name).toBe("alumnos.xlsx");
@@ -47,41 +81,40 @@ test("La ficha conserva la carga masiva y actualiza el listado tras una importac
   await waitFor(() => expect(fetcher.mock.calls.filter(([, options]) => !options.method).length).toBe(2));
   await user.click(within(dialog).getByRole("button", { name: "Cerrar", exact: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.getByRole("button", { name: /Registrar estudiante/ })).toBeTruthy();
 });
 
 test("Valida la selección, permite corregir un rechazo y no refresca si ninguna fila se importó", async () => {
   const imported = vi.fn(), close = vi.fn();
   const fetcher = vi.fn()
     .mockResolvedValueOnce(reply({ message: "El archivo está dañado" }, 400))
-    .mockResolvedValueOnce(reply({ totalRows: 0, importedRows: 0, rejectedRows: 0, issues: [] }));
+    .mockResolvedValueOnce(reply(emptyResult));
   vi.stubGlobal("fetch", fetcher);
   const user = userEvent.setup();
-  render(<StudentImportDialog onClose={close} onImported={imported} />);
-  await user.click(screen.getByRole("button", { name: "Importar archivo" }));
-  expect(await screen.findByText("Selecciona el archivo Excel con los estudiantes.")).toBeTruthy();
+  renderDialog({ onClose: close, onImported: imported });
+  await user.click(screen.getByRole("button", { name: "Importar archivos" }));
+  expect(await screen.findByText("Selecciona al menos un archivo Excel para importar.")).toBeTruthy();
   expect(fetcher).not.toHaveBeenCalled();
-  await user.upload(screen.getByLabelText(/Archivo Excel/), excel());
-  expect(screen.queryByText("Selecciona el archivo Excel con los estudiantes.")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "Importar archivo" }));
+  await user.upload(studentsInput(), excel());
+  expect(screen.queryByText("Selecciona al menos un archivo Excel para importar.")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Importar archivos" }));
   expect(await screen.findByText("El archivo está dañado")).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "Importar archivo" }));
-  await screen.findByText("Estudiantes en el archivo");
+  await user.click(screen.getByRole("button", { name: "Importar archivos" }));
+  await screen.findByText("Filas en el archivo");
   expect(screen.queryByText("El archivo está dañado")).toBeNull();
   expect(imported).not.toHaveBeenCalled();
-  await user.upload(screen.getByLabelText(/Archivo Excel/), excel());
-  expect(screen.queryByText("Estudiantes en el archivo")).toBeNull();
+  await user.upload(studentsInput(), excel());
+  expect(screen.queryByText("Filas en el archivo")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Cancelar" }));
   expect(close).toHaveBeenCalledOnce();
 });
 
-test("Descarga la plantilla con la sesión actual y libera el recurso", async () => {
+test("Descarga la plantilla de estudiantes con la sesión actual y libera el recurso", async () => {
   const fetcher = vi.fn(async () => reply(null));
   vi.stubGlobal("fetch", fetcher);
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   const user = userEvent.setup();
-  render(<StudentImportDialog onClose={vi.fn()} onImported={vi.fn()} />);
-  await user.click(screen.getByRole("button", { name: "Descargar plantilla" }));
+  renderDialog();
+  await user.click(screen.getByRole("button", { name: "Descargar plantilla de estudiantes" }));
   expect(fetcher.mock.calls[0][0]).toContain("/api/alumnos/importaciones/plantilla");
   expect(fetcher.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer test-token");
   expect(click).toHaveBeenCalledOnce();
@@ -89,39 +122,101 @@ test("Descarga la plantilla con la sesión actual y libera el recurso", async ()
   await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:plantilla"), { timeout: 2000 });
 });
 
+test("Sube los archivos elegidos en orden y muestra el resultado de cada uno", async () => {
+  const uploads = [];
+  const imported = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async (url, options) => {
+    uploads.push([new URL(url).pathname, options.body.get("archivo").name]);
+    return uploads.length === 1
+      ? reply({ totalRows: 2, importedRows: 2, rejectedRows: 0, issues: [] })
+      : reply({ totalRows: 2, importedRows: 1, rejectedRows: 1, issues: [
+        { row: 3, field: "fila", message: "No hay un estudiante habilitado con el codigo X" },
+      ] });
+  }));
+  const user = userEvent.setup();
+  renderDialog({ onImported: imported });
+  await user.upload(screen.getByLabelText("Archivo Excel de parentescos"), excel("parentescos.xlsx"));
+  await user.upload(screen.getByLabelText("Archivo Excel de apoderados"), excel("apoderados.xlsx"));
+  await user.click(screen.getByRole("button", { name: "Importar archivos" }));
+  expect(await within(slot("Parentescos")).findByText("No hay un estudiante habilitado con el codigo X")).toBeTruthy();
+  expect(uploads).toEqual([
+    ["/api/apoderados/importaciones", "apoderados.xlsx"],
+    ["/api/apoderados/parentescos/importaciones", "parentescos.xlsx"],
+  ]);
+  expect(within(slot("Apoderados")).getByText("Registradas").nextSibling.textContent).toBe("2");
+  expect(within(slot("Estudiantes")).queryByText("Registradas")).toBeNull();
+  expect(imported).toHaveBeenCalledTimes(2);
+});
+
+test("Descarga las plantillas de apoderados y parentescos con su nombre", async () => {
+  const fetcher = vi.fn(async () => reply(null));
+  vi.stubGlobal("fetch", fetcher);
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const user = userEvent.setup();
+  renderDialog();
+  await user.click(screen.getByRole("button", { name: "Descargar plantilla de apoderados" }));
+  await user.click(screen.getByRole("button", { name: "Descargar plantilla de parentescos" }));
+  expect(fetcher.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
+    "/api/apoderados/importaciones/plantilla",
+    "/api/apoderados/parentescos/importaciones/plantilla",
+  ]);
+  expect(click.mock.instances.map((link) => link.download)).toEqual([
+    "plantilla_apoderados.xlsx",
+    "plantilla_parentescos.xlsx",
+  ]);
+});
+
 test("Muestra el error de descarga y mantiene disponible el formulario", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => reply({ message: "Plantilla no disponible" }, 503)));
   const user = userEvent.setup();
-  render(<StudentImportDialog onClose={vi.fn()} onImported={vi.fn()} />);
-  await user.click(screen.getByRole("button", { name: "Descargar plantilla" }));
+  renderDialog();
+  await user.click(screen.getByRole("button", { name: "Descargar plantilla de estudiantes" }));
   expect(await screen.findByText("Plantilla no disponible")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Importar archivo" }).disabled).toBe(false);
+  expect(screen.getByRole("button", { name: "Importar archivos" }).disabled).toBe(false);
 });
 
-test("El selector se activa con teclado, anuncia el nombre y permite cambiar el archivo", async () => {
+test("Al elegir el archivo muestra nombre y tamaño, y se puede cambiar o quitar", async () => {
   const user = userEvent.setup();
-  render(<StudentImportDialog onClose={vi.fn()} onImported={vi.fn()} />);
-  const input = screen.getByLabelText(/Archivo Excel/);
-  const chooseFile = screen.getByRole("button", { name: "Seleccionar archivo Excel" });
-  const activateInput = vi.spyOn(input, "click");
+  renderDialog();
+  const card = slot("Estudiantes");
+  const chooseFile = within(card).getByRole("button", { name: "Seleccionar archivo Excel" });
+  const activateInput = vi.spyOn(studentsInput(), "click");
   chooseFile.focus();
   await user.keyboard("{Enter}");
   expect(activateInput).toHaveBeenCalledOnce();
-  await user.upload(input, new File(["contenido"], "estudiantes-segundo-grado.xlsx"));
-  expect(screen.getByRole("status").textContent).toBe("estudiantes-segundo-grado.xlsx");
-  expect(screen.getByRole("button", { name: "Cambiar archivo" })).toBeTruthy();
-  fireEvent.change(input, { target: { files: [] } });
-  expect(screen.getByRole("status").textContent).toBe("Ningún archivo seleccionado");
+  await user.upload(studentsInput(), excel("estudiantes-segundo-grado.xlsx", 24 * 1024));
+  expect(within(card).getByRole("status").textContent).toBe("estudiantes-segundo-grado.xlsx");
+  expect(within(card).getByText("24 KB")).toBeTruthy();
+  expect(within(card).queryByText(/Arrastra el archivo aquí/)).toBeNull();
+  await user.upload(studentsInput(), excel("segundo.xlsx", 2048));
+  expect(within(card).getByRole("status").textContent).toBe("segundo.xlsx");
+  await user.click(within(card).getByRole("button", { name: "Quitar segundo.xlsx" }));
+  expect(within(card).getByRole("status").textContent).toBe("Ningún archivo seleccionado");
+  expect(studentsInput().value).toBe("");
 });
 
-test("Un archivo no válido muestra el motivo y dirige el foco al selector antes de enviar", async () => {
+test("Arrastrar un archivo lo valida al soltarlo", () => {
+  renderDialog();
+  const zone = () => within(slot("Estudiantes")).getByText(/Arrastra el archivo aquí/).closest("label");
+  fireEvent.dragOver(zone());
+  expect(zone().className).toContain("dropzoneActive");
+  fireEvent.dragLeave(zone());
+  expect(zone().className).not.toContain("dropzoneActive");
+  fireEvent.drop(zone(), { dataTransfer: { files: [excel("alumnos.csv")] } });
+  expect(screen.getByRole("alert").textContent).toBe("El archivo debe tener formato .xlsx.");
+  fireEvent.click(screen.getByRole("button", { name: "Quitar alumnos.csv" }));
+  fireEvent.drop(zone(), { dataTransfer: { files: [excel("grande.xlsx", 6 * 1024 * 1024)] } });
+  expect(screen.getByRole("alert").textContent).toBe("El archivo no puede superar 5 MB.");
+});
+
+test("Un archivo no válido dirige el foco al selector antes de enviar", async () => {
   const fetcher = vi.fn();
   vi.stubGlobal("fetch", fetcher);
   const user = userEvent.setup({ applyAccept: false });
-  render(<StudentImportDialog onClose={vi.fn()} onImported={vi.fn()} />);
-  await user.upload(screen.getByLabelText(/Archivo Excel/), new File(["contenido"], "alumnos.csv"));
+  renderDialog();
+  await user.upload(studentsInput(), excel("alumnos.csv"));
   expect(screen.getByRole("alert").textContent).toBe("El archivo debe tener formato .xlsx.");
-  await user.click(screen.getByRole("button", { name: "Importar archivo" }));
+  await user.click(screen.getByRole("button", { name: "Importar archivos" }));
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cambiar archivo" }));
   expect(fetcher).not.toHaveBeenCalled();
 });
@@ -131,15 +226,14 @@ test("Mientras se importa no permite cambiar de archivo ni cerrar la ventana", a
   vi.stubGlobal("fetch", vi.fn(() => new Promise((resolve) => { finishImport = resolve; })));
   const close = vi.fn();
   const user = userEvent.setup();
-  render(<StudentImportDialog onClose={close} onImported={vi.fn()} />);
-  const input = screen.getByLabelText(/Archivo Excel/);
-  await user.upload(input, excel());
-  await user.click(screen.getByRole("button", { name: "Importar archivo" }));
+  renderDialog({ onClose: close });
+  await user.upload(studentsInput(), excel());
+  await user.click(screen.getByRole("button", { name: "Importar archivos" }));
   expect(screen.getByRole("button", { name: "Cambiar archivo" }).disabled).toBe(true);
-  expect(input.disabled).toBe(true);
+  expect(studentsInput().disabled).toBe(true);
   expect(screen.getByRole("button", { name: "Cancelar" }).disabled).toBe(true);
   await user.keyboard("{Escape}");
   expect(close).not.toHaveBeenCalled();
-  await act(async () => finishImport(reply({ totalRows: 0, importedRows: 0, rejectedRows: 0, issues: [] })));
-  expect(input.disabled).toBe(false);
+  await act(async () => finishImport(reply(emptyResult)));
+  expect(studentsInput().disabled).toBe(false);
 });

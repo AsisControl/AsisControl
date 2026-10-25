@@ -10,7 +10,8 @@ vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js
 
 /** Como ModuleOutlet: la pestaña sale de /matricula/{pestaña}. */
 function EnrollmentsScreen() {
-  return <Enrollments tab={usePathname().split("/")[2]} />;
+  const [, , tab, view] = usePathname().split("/");
+  return <Enrollments tab={tab} view={view} />;
 }
 
 const persona = (nombreCompleto, overrides = {}) => ({
@@ -455,7 +456,7 @@ test("La pestaña de fichas registra, consulta y edita estudiantes", async () =>
   });
   const user = userEvent.setup();
   render(<EnrollmentsScreen />);
-  await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
+  await user.click(screen.getByRole("button", { name: "Fichas académicas" }));
   expect(await screen.findByText("Mario Díaz")).toBeTruthy();
   await user.type(screen.getByLabelText(/Buscar por nombre, código o documento/), "flores");
   await user.click(screen.getByText("Buscar"));
@@ -496,7 +497,7 @@ test("La pestaña de fichas informa errores al abrir y guardar", async () => {
   });
   const user = userEvent.setup();
   render(<EnrollmentsScreen />);
-  await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
+  await user.click(screen.getByRole("button", { name: "Fichas académicas" }));
   expect(await screen.findByText("Todavía no hay fichas de estudiantes registradas.")).toBeTruthy();
   await user.click(screen.getByText("+ Registrar estudiante"));
   await user.type(screen.getByLabelText(/^Nombres/), "Ana");
@@ -517,7 +518,7 @@ test("Abrir una ficha que no existe muestra el error", async () => {
   backend({ "GET /api/alumnos/:id": reply(404, { message: "Ficha no encontrada" }) });
   const user = userEvent.setup();
   render(<EnrollmentsScreen />);
-  await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
+  await user.click(screen.getByRole("button", { name: "Fichas académicas" }));
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
   expect((await screen.findByRole("alert")).textContent).toBe("La ficha ya no está disponible. Actualiza el listado.");
 });

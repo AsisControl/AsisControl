@@ -1,0 +1,243 @@
+.templates {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 0 0 20px;
+  padding: 16px;
+}
+.sectionTitle {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.templateList {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-top: 12px;
+}
+/* .templateList eleva la especificidad sobre los estilos globales de button. */
+.templateList .templateButton {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 10px;
+  padding: 10px 14px;
+  text-align: left;
+}
+.templateList .templateButton:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: var(--blue);
+}
+.templateFile {
+  color: var(--muted);
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.slots {
+  counter-reset: slot;
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  margin: 12px 0 16px;
+  padding: 0;
+}
+.slot {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  counter-increment: slot;
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: 28px 1fr;
+  padding: 16px;
+}
+.slot::before {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+  color: var(--blue);
+  content: counter(slot);
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  grid-row: span 3;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+.slotTitle {
+  align-items: center;
+  color: var(--ink);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+.slotText {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+}
+.slotBody {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  min-width: 0;
+}
+.picker {
+  min-width: 0;
+}
+.dropzone {
+  align-items: center;
+  background: #fff;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 16px;
+  text-align: center;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.dropzone:hover,
+.dropzone:focus-within,
+.dropzoneActive {
+  background: #eff6ff;
+  border-color: var(--blue);
+}
+.dropzoneInvalid {
+  border-color: #dc2626;
+}
+.dropzoneDisabled,
+.dropzoneDisabled:hover {
+  background: #f8fafc;
+  border-color: var(--border);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.dropzoneIcon {
+  color: var(--blue);
+}
+.dropzoneTitle {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.dropzone .browse {
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+  text-decoration: underline;
+}
+.dropzone .browse:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+.dropzoneHint {
+  color: var(--muted);
+  font-size: 12px;
+}
+/* Oculto a la vista pero accesible para lectores de pantalla. */
+.srOnly {
+  clip: rect(0 0 0 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.fileCard {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.fileCardInvalid {
+  border-color: #dc2626;
+}
+.fileIcon {
+  align-items: center;
+  background: #ecfdf5;
+  border-radius: 8px;
+  color: #047857;
+  display: flex;
+  flex: none;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.fileInfo {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.fileName {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileSize {
+  color: var(--muted);
+  font-size: 12px;
+}
+.fileActions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+.fileActions .fileAction {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.fileActions .fileAction:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.fileError {
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 18px;
+  margin: 6px 0 0;
+}
+@media (max-width: 520px) {
+  .slot {
+    grid-template-columns: 1fr;
+  }
+  .slot::before {
+    grid-row: auto;
+  }
+  .fileCard {
+    flex-wrap: wrap;
+  }
+  .fileActions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+}

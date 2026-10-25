@@ -209,6 +209,12 @@ public class GlobalExceptionHandler {
                                     "persona.numeroDocumento",
                                     "Este documento ya está registrado. Revisa la ficha"
                                             + " existente"));
+            case "DOCUMENTO_CON_OTROS_DATOS" ->
+                    List.of(
+                            new FieldValidationError(
+                                    "persona.numeroDocumento",
+                                    "Este documento está registrado con otros nombres o fecha"
+                                            + " de nacimiento. Verifica el documento"));
             case "CORREO_DUPLICADO" ->
                     List.of(
                             new FieldValidationError(
@@ -252,6 +258,22 @@ public class GlobalExceptionHandler {
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                 "FORMATO_DE_ENVIO_NO_SOPORTADO",
                 "El formato de la solicitud no es el esperado; los archivos se envían como multipart/form-data",
+                request,
+                List.of());
+    }
+
+    /**
+     * Ruta que no existe en esta version del backend (por ejemplo, un frontend mas nuevo que el
+     * servidor en ejecucion). Sin este manejador terminaba en un 500 generico.
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleUnknownRoute(
+            org.springframework.web.servlet.resource.NoResourceFoundException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.NOT_FOUND,
+                "RUTA_NO_ENCONTRADA",
+                "El servidor no tiene esta operacion. Verifica que el backend este actualizado",
                 request,
                 List.of());
     }

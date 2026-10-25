@@ -4,21 +4,81 @@ import { message } from "@/core/api/client";
 import { Dialog, Feedback } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import type { ImportResult } from "./types";
-import { downloadStudentTemplate, importStudents } from "./services/student-import-service";
-import { StudentImportFile } from "./student-import-file";
-import styles from "./students.module.css";
+import {
+  downloadStudentTemplate,
+  importStudents,
+} from "./services/student-import-service";
+import {
+  downloadGuardianTemplate,
+  downloadRelationshipTemplate,
+  importGuardians,
+  importRelationships,
+} from "./services/family-import-service";
+import { DownloadIcon, ExcelFilePicker } from "./excel-file-picker";
+import styles from "./import-dialog.module.css";
 /** Mismos límites que ImportacionAlumnoService: solo .xlsx y hasta 5 MB. */
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
-const TEMPLATE_NAME = "plantilla_alumnos.xlsx";
-export function validateImportFile(file: File | null): string {
-  if (!file) return "Selecciona el archivo Excel con los estudiantes.";
+export function validateImportFile(
+  file: File | null,
+  missing = "Selecciona al menos un archivo Excel para importar.",
+): string {
+  if (!file) return missing;
   if (!file.name.toLowerCase().endsWith(".xlsx"))
     return "El archivo debe tener formato .xlsx.";
   if (file.size > IMPORT_MAX_BYTES) return "El archivo no puede superar 5 MB.";
   return "";
 }
-/** Carga masiva de fichas: plantilla, subida del Excel y resultado por fila. */
-export function StudentImportDialog({
+
+export type ImportSlotId = "estudiantes" | "apoderados" | "parentescos";
+type ImportSlot = {
+  id: ImportSlotId;
+  title: string;
+  description: string;
+  template: { fileName: string; download: () => Promise<Blob> };
+  importFile: (file: File) => Promise<ImportResult>;
+};
+/** En este orden: los parentescos unen estudiantes y apoderados ya registrados. */
+const IMPORT_SLOTS: ImportSlot[] = [
+  {
+    id: "estudiantes",
+    title: "Estudiantes",
+    description: "Una fila por estudiante, con su código.",
+    template: {
+      fileName: "plantilla_alumnos.xlsx",
+      download: downloadStudentTemplate,
+    },
+    importFile: importStudents,
+  },
+  {
+    id: "apoderados",
+    title: "Apoderados",
+    description:
+      "Una fila por apoderado, aunque tenga varios hijos. Si su documento ya está registrado, por ejemplo como docente, se reutiliza.",
+    template: {
+      fileName: "plantilla_apoderados.xlsx",
+      download: downloadGuardianTemplate,
+    },
+    importFile: importGuardians,
+  },
+  {
+    id: "parentescos",
+    title: "Parentescos",
+    description:
+      "Une a cada estudiante con su apoderado: código del estudiante, documento del apoderado, parentesco (padre, madre, tutor legal u otro familiar) y si es el principal.",
+    template: {
+      fileName: "plantilla_parentescos.xlsx",
+      download: downloadRelationshipTemplate,
+    },
+    importFile: importRelationships,
+  },
+];
+type PerSlot<T> = Partial<Record<ImportSlotId, T>>;
+
+/**
+ * Carga masiva de estudiantes y familias. Primero se descargan las tres plantillas para
+ * completarlas juntas; después se sube cada archivo en orden y se ve su resultado por fila.
+ */
+export function FamilyImportDialog({
   onClose,
   onImported,
 }: {
@@ -26,46 +86,67 @@ export function StudentImportDialog({
   /** Se llama cuando se importó al menos una fila, para refrescar el listado. */
   onImported: () => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState("");
-  const [fileFocusRequest, setFileFocusRequest] = useState(0);
+  const [files, setFiles] = useState<PerSlot<File | null>>({});
+  const [fileErrors, setFileErrors] = useState<PerSlot<string>>({});
+  const [results, setResults] = useState<PerSlot<ImportResult>>({});
+  const [focusRequest, setFocusRequest] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
-  async function downloadTemplate() {
+  const [downloading, setDownloading] = useState<ImportSlotId | null>(null);
+  const hasResults = Object.values(results).some(Boolean);
+
+  async function downloadTemplate(slot: ImportSlot) {
     setError("");
-    setDownloading(true);
+    setDownloading(slot.id);
     try {
-      const blob = await downloadStudentTemplate();
+      const blob = await slot.template.download();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = TEMPLATE_NAME;
+      link.download = slot.template.fileName;
       link.click();
       // Se libera después: algunos navegadores aún no empezaron la descarga.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) {
       setError(message(cause));
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
+  }
+  function choose(slot: ImportSlotId, file: File | null) {
+    setFiles((current) => ({ ...current, [slot]: file }));
+    setFileErrors((current) => ({
+      ...current,
+      [slot]: file ? validateImportFile(file) : "",
+    }));
+    setResults((current) => ({ ...current, [slot]: undefined }));
+    setError("");
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const invalid = validateImportFile(file);
-    setFileError(invalid);
-    if (invalid || !file) {
-      setFileFocusRequest((request) => request + 1);
+    const chosen = IMPORT_SLOTS.filter((slot) => files[slot.id]);
+    const errors: PerSlot<string> = chosen.length
+      ? Object.fromEntries(
+          chosen.map((slot) => [
+            slot.id,
+            validateImportFile(files[slot.id] ?? null),
+          ]),
+        )
+      : { [IMPORT_SLOTS[0].id]: validateImportFile(null) };
+    setFileErrors(errors);
+    if (Object.values(errors).some(Boolean)) {
+      setFocusRequest((request) => request + 1);
       return;
     }
     setBusy(true);
     setError("");
-    setResult(null);
+    setResults({});
     try {
-      const imported = await importStudents(file);
-      setResult(imported);
-      if (imported.importedRows > 0) onImported();
+      for (const slot of chosen) {
+        const imported = await slot.importFile(files[slot.id]!);
+        setResults((current) => ({ ...current, [slot.id]: imported }));
+        if (imported.importedRows > 0) onImported();
+      }
     } catch (cause) {
       setError(message(cause));
     } finally {
@@ -74,55 +155,79 @@ export function StudentImportDialog({
   }
   return (
     <Dialog
-      title="Carga masiva de estudiantes"
-      description="Registra varios estudiantes con una plantilla de Excel."
+      title="Carga masiva de estudiantes y familias"
+      description="Registra estudiantes, apoderados y sus parentescos con plantillas de Excel."
       size="lg"
       busy={busy}
       onClose={onClose}
     >
       <form onSubmit={submit} noValidate aria-busy={busy}>
         <Feedback error={error} />
-        <ol className={styles.importSteps}>
-          <li>
-            <h4>Completa la plantilla</h4>
-            <p className={styles.helper}>
-              Reemplaza la fila de ejemplo con tus estudiantes. Usa una fila por estudiante.
-            </p>
-            <button
-              type="button"
-              className={styles.importTemplateButton}
-              disabled={busy || downloading}
-              onClick={downloadTemplate}
-            >
-              {downloading ? "Descargando plantilla…" : "Descargar plantilla"}
-            </button>
-          </li>
-          <li>
-            <h4>Selecciona el archivo completado</h4>
-            <StudentImportFile
-              file={file}
-              error={fileError}
-              focusRequest={fileFocusRequest}
-              disabled={busy}
-              onChange={(selectedFile) => {
-                setFile(selectedFile);
-                setFileError(selectedFile ? validateImportFile(selectedFile) : "");
-                setError("");
-                setResult(null);
-              }}
-            />
-          </li>
-        </ol>
-        <p className={styles.helper}>
-          Se registrarán las filas correctas. Al terminar podrás revisar las que necesiten cambios.
+        <section
+          className={styles.templates}
+          aria-labelledby="import-templates-title"
+        >
+          <h4 id="import-templates-title" className={styles.sectionTitle}>
+            1. Prepara las plantillas
+          </h4>
+          <p className={styles.slotText}>
+            Descarga las tres y complétalas juntas. En parentescos usa el mismo
+            código del estudiante y el mismo documento del apoderado.
+          </p>
+          <div className={styles.templateList}>
+            {IMPORT_SLOTS.map((slot) => (
+              <button
+                key={slot.id}
+                type="button"
+                className={styles.templateButton}
+                disabled={busy || downloading !== null}
+                aria-label={`Descargar plantilla de ${slot.title.toLowerCase()}`}
+                onClick={() => downloadTemplate(slot)}
+              >
+                <DownloadIcon />
+                <span>
+                  {downloading === slot.id ? "Descargando…" : slot.title}
+                  <span className={styles.templateFile}>
+                    {slot.template.fileName}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+        <h4 className={styles.sectionTitle}>2. Sube los archivos en orden</h4>
+        <p className={styles.slotText}>
+          Sube solo los que necesites. Los parentescos usan a los estudiantes y
+          apoderados ya registrados.
         </p>
-        {result && <ImportSummary result={result} />}
+        <ol className={styles.slots}>
+          {IMPORT_SLOTS.map((slot) => {
+            const result = results[slot.id];
+            return (
+              <li key={slot.id} className={styles.slot}>
+                <h5 className={styles.slotTitle}>{slot.title}</h5>
+                <p className={styles.slotText}>{slot.description}</p>
+                <div className={styles.slotBody}>
+                  <ExcelFilePicker
+                    label={`Archivo Excel de ${slot.title.toLowerCase()}`}
+                    file={files[slot.id] ?? null}
+                    error={fileErrors[slot.id] ?? ""}
+                    focusRequest={focusRequest}
+                    disabled={busy}
+                    onChange={(file) => choose(slot.id, file)}
+                  />
+                  {result && <ImportSummary result={result} />}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={onClose}>
-            {result ? "Cerrar" : "Cancelar"}
+            {hasResults ? "Cerrar" : "Cancelar"}
           </button>
           <button className="primary-action" disabled={busy}>
-            {busy ? "Importando…" : "Importar archivo"}
+            {busy ? "Importando…" : "Importar archivos"}
           </button>
         </div>
       </form>
@@ -134,11 +239,11 @@ function ImportSummary({ result }: { result: ImportResult }) {
     <section aria-live="polite">
       <dl className="detail-grid">
         <div>
-          <dt>Estudiantes en el archivo</dt>
+          <dt>Filas en el archivo</dt>
           <dd>{result.totalRows}</dd>
         </div>
         <div>
-          <dt>Registrados</dt>
+          <dt>Registradas</dt>
           <dd>{result.importedRows}</dd>
         </div>
         <div>
@@ -149,7 +254,11 @@ function ImportSummary({ result }: { result: ImportResult }) {
       {result.issues.length > 0 && (
         <>
           <h4>
-            {countLabel(result.issues.length, "fila con error", "filas con error")}
+            {countLabel(
+              result.issues.length,
+              "fila con error",
+              "filas con error",
+            )}
           </h4>
           <div className="user-table-wrap">
             <table className="user-table">

@@ -16,7 +16,7 @@ import { studentErrorMessage } from "./student-errors";
 import { StudentForm } from "./student-form";
 import { StudentDetail } from "./student-detail";
 import { studentName } from "./student-rules";
-import { StudentImportDialog } from "./import-dialog";
+import { FamilyImportDialog } from "./import-dialog";
 import type { Student } from "./types";
 import styles from "./students.module.css";
 
@@ -256,7 +256,7 @@ function StudentManagement() {
         </>
       )}
       {importOpen && (
-        <StudentImportDialog
+        <FamilyImportDialog
           onClose={() => setImportOpen(false)}
           onImported={list.refresh}
         />

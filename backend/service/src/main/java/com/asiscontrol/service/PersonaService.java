@@ -37,6 +37,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -242,7 +243,10 @@ public class PersonaService {
             throw new ConflictException(
                     "CODIGO_DOCENTE_DUPLICADO", "El codigo del docente ya existe");
         }
-        Persona persona = createPersona(request.persona());
+        Persona persona = resolvePersona(request.persona());
+        if (docenteRepository.existsByPersonaId(persona.getId())) {
+            throw duplicateProfile("docente");
+        }
         Docente docente = new Docente();
         docente.setPersona(persona);
         docente.setCodigoDocente(request.codigoDocente().trim().toUpperCase());
@@ -319,7 +323,10 @@ public class PersonaService {
     @Transactional
     public PersonaDtos.ApoderadoResponse createApoderado(
             PersonaDtos.ApoderadoCreateRequest request) {
-        Persona persona = createPersona(request.persona());
+        Persona persona = resolvePersona(request.persona());
+        if (apoderadoRepository.existsByPersonaId(persona.getId())) {
+            throw duplicateProfile("apoderado");
+        }
         Apoderado apoderado = new Apoderado();
         apoderado.setPersona(persona);
         Apoderado saved = apoderadoRepository.save(apoderado);
@@ -503,6 +510,73 @@ public class PersonaService {
         Persona persona = new Persona();
         applyPersonaRequest(persona, request);
         return personaRepository.save(persona);
+    }
+
+    /**
+     * Persona para un perfil de docente o apoderado. Si el tipo y numero de documento ya estan
+     * registrados, reutiliza a esa persona (por ejemplo, una docente que tambien es apoderada)
+     * en lugar de duplicarla, y conserva sus datos registrados. El documento por si solo no basta:
+     * un digito mal escrito asignaria el perfil a otra persona, asi que tambien deben coincidir
+     * los nombres, el primer apellido y la fecha de nacimiento. Los estudiantes no se reutilizan.
+     */
+    private Persona resolvePersona(PersonaDtos.PersonaRequest request) {
+        String numeroDocumento = upperOrNull(request.numeroDocumento());
+        if (request.tipoDocumento() == null || numeroDocumento == null) {
+            return createPersona(request);
+        }
+        return personaRepository
+                .findByTipoDocumentoAndNumeroDocumento(request.tipoDocumento(), numeroDocumento)
+                .map(existing -> reusablePersona(existing, request))
+                .orElseGet(() -> createPersona(request));
+    }
+
+    private Persona reusablePersona(Persona existing, PersonaDtos.PersonaRequest request) {
+        if (!existing.isActivo()) {
+            throw new ConflictException(
+                    "PERSONA_INHABILITADA",
+                    "La persona con este documento esta inhabilitada. Reactivala antes de"
+                            + " registrarle otro perfil");
+        }
+        if (!sameIdentity(existing, request)) {
+            throw new ConflictException(
+                    "DOCUMENTO_CON_OTROS_DATOS",
+                    "El documento ya esta registrado con otros nombres o fecha de nacimiento."
+                            + " Verifica el documento");
+        }
+        if (alumnoRepository.findByPersonaIdAndActivoTrue(existing.getId()).isPresent()) {
+            throw new ConflictException(
+                    "DOCUMENTO_DE_ESTUDIANTE",
+                    "El documento pertenece a un estudiante; no puede registrarse con otro perfil");
+        }
+        return existing;
+    }
+
+    private boolean sameIdentity(Persona persona, PersonaDtos.PersonaRequest request) {
+        boolean sameMaternalName =
+                persona.getApellidoMaterno() == null
+                        || blankToNull(request.apellidoMaterno()) == null
+                        || comparableName(persona.getApellidoMaterno())
+                                .equals(comparableName(request.apellidoMaterno()));
+        return Objects.equals(persona.getFechaNacimiento(), request.fechaNacimiento())
+                && comparableName(persona.getNombres()).equals(comparableName(request.nombres()))
+                && comparableName(persona.getApellidoPaterno())
+                        .equals(comparableName(request.apellidoPaterno()))
+                && sameMaternalName;
+    }
+
+    /** "  José  María " y "jose maria" se consideran el mismo nombre. */
+    private String comparableName(String value) {
+        String text = value == null ? "" : value;
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private ConflictException duplicateProfile(String perfil) {
+        return new ConflictException(
+                "PERFIL_DUPLICADO", "La persona con este documento ya esta registrada como " + perfil);
     }
 
     private void updatePersona(Persona persona, PersonaDtos.PersonaRequest request) {
