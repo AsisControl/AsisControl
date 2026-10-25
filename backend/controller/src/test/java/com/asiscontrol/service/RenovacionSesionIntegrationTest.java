@@ -255,7 +255,9 @@ class RenovacionSesionIntegrationTest {
         assertThat(cookie).isNotNull();
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.getPath()).isEqualTo("/api/auth");
-        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("SameSite=Strict");
+        assertThat(result.getResponse().getHeader("Set-Cookie")).contains("SameSite=Strict")
+                .doesNotContain("Max-Age").doesNotContain("Expires");
+        assertThat(cookie.getMaxAge()).isNegative();
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         String accessToken = mapper.readTree(result.getResponse().getContentAsByteArray())
                 .path("accessToken").asText();
