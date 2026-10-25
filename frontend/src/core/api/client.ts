@@ -13,20 +13,43 @@ const SESSION_PATHS = new Set([
   "/api/auth/logout",
   "/api/auth/refresh",
 ]);
-/** Error del backend con los campos que fallaron (ApiError.fieldErrors). */
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly fieldErrors: Record<string, string> = {},
-  ) {
-    super(message);
-  }
-}
 export type ApiOptions = RequestInit & {
   /** Tiempo máximo de espera; las cargas de archivos necesitan más. */
   timeoutMs?: number;
 };
+export type ApiFieldError = { field: string; message: string };
+
+type RawApiFieldError = {
+  field?: unknown;
+  message?: unknown;
+  campo?: unknown;
+  mensaje?: unknown;
+};
+
+function parseFieldErrors(values: unknown): ApiFieldError[] {
+  if (!Array.isArray(values)) return [];
+  return values.flatMap((item: RawApiFieldError | null) => {
+    const field = item?.field ?? item?.campo;
+    const errorMessage = item?.message ?? item?.mensaje;
+    if (typeof field !== "string" || typeof errorMessage !== "string") {
+      return [];
+    }
+    return [{ field, message: errorMessage }];
+  });
+}
+/** Conserva los errores de negocio sin añadir códigos técnicos al texto visible. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: string = "",
+    public readonly fieldErrors: ApiFieldError[] = [],
+    public readonly details: unknown = null,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 async function request(
   path: string,
   { timeoutMs = DEFAULT_TIMEOUT_MS, ...options }: ApiOptions,
@@ -64,17 +87,15 @@ async function request(
     if (!response.ok) {
       const body = await response.json().catch(() => null);
       if (response.status === 401 && path !== "/api/auth/login") clearSession();
-      const fieldErrors: Record<string, string> = {};
-      for (const item of body?.fieldErrors ?? [])
-        if (item?.field && !fieldErrors[item.field])
-          fieldErrors[item.field] = item.message;
       throw new ApiError(
         body?.message ||
           (response.status === 403
             ? "No tienes permiso para realizar esta operación."
             : "No se pudo completar la operación."),
         response.status,
-        fieldErrors,
+        typeof body?.code === "string" ? body.code : "",
+        parseFieldErrors(body?.fieldErrors),
+        body?.details ?? null,
       );
     }
     return response;
@@ -116,5 +137,10 @@ export async function apiBlob(
 export const message = (error: unknown) =>
   error instanceof Error ? error.message : "No se pudo completar la operación.";
 /** Errores por campo que devolvió el backend; vacío si no los hay. */
-export const fieldErrorsOf = (error: unknown): Record<string, string> =>
-  error instanceof ApiError ? error.fieldErrors : {};
+export function fieldErrorsOf(error: unknown): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (error instanceof ApiError)
+    for (const item of error.fieldErrors)
+      if (!Object.hasOwn(fields, item.field)) fields[item.field] = item.message;
+  return fields;
+}

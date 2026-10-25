@@ -1,6 +1,6 @@
 "use client";
-import { useState, type FormEvent } from "react";
-import { api, message } from "@/core/api/client";
+import { useEffect, useRef, useState } from "react";
+import { readSession } from "@/core/auth/session-storage";
 import {
   Feedback,
   Field,
@@ -9,12 +9,27 @@ import {
   PersonCell,
   StatusPill,
 } from "@/shared/ui";
-import { PersonFields, personData } from "@/shared/forms/person-fields";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
+import { getStudent } from "./services/student-service";
+import { studentErrorMessage } from "./student-errors";
+import { StudentForm } from "./student-form";
+import { StudentDetail } from "./student-detail";
+import { studentName } from "./student-rules";
 import { StudentImportDialog } from "./import-dialog";
 import type { Student } from "./types";
+import styles from "./students.module.css";
+
 export function Students() {
+  // La autorización definitiva y el alcance por registro siempre se validan en backend.
+  if (readSession()?.user.role !== "ADMINISTRADOR")
+    return (
+      <Feedback error="No tienes permiso para gestionar las fichas de estudiantes." />
+    );
+  return <StudentManagement />;
+}
+
+function StudentManagement() {
   const [query, setQuery] = useState("");
   const list = usePaged<Student>("/api/alumnos", query);
   const [detail, setDetail] = useState<Student | null>(null);
@@ -22,151 +37,69 @@ export function Students() {
   const [importOpen, setImportOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function save(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setBusy(true);
+  const [opening, setOpening] = useState(false);
+  const request = useRef(0);
+  useEffect(
+    () => () => {
+      request.current++;
+    },
+    [],
+  );
+
+  async function open(id: number) {
+    const current = ++request.current;
     setError("");
     setSuccess("");
-    const form = new FormData(e.currentTarget);
+    setOpening(true);
     try {
-      const saved = await api<Student>(
-        detail ? `/api/alumnos/${detail.id}` : "/api/alumnos",
-        {
-          method: detail ? "PUT" : "POST",
-          body: JSON.stringify({
-            codigoAlumno: String(form.get("codigoAlumno")).trim(),
-            persona: personData(form, detail?.persona.nacionalidadId),
-          }),
-        },
-      );
-      setDetail(saved);
-      setFormMode(false);
-      list.refresh();
-      setSuccess(
-        "Ficha guardada. El acceso se gestiona desde Administración → Usuarios → Crear acceso.",
-      );
-    } catch (e) {
-      setError(message(e));
+      const loaded = await getStudent(id);
+      if (current === request.current) setDetail(loaded);
+    } catch (cause) {
+      if (current === request.current) setError(studentErrorMessage(cause));
     } finally {
-      setBusy(false);
+      if (current === request.current) setOpening(false);
     }
   }
-  async function open(id: number) {
-    setError("");
-    setSuccess("");
-    try {
-      setDetail(await api<Student>(`/api/alumnos/${id}`));
-    } catch (e) {
-      setError(message(e));
-    }
+  function saved(student: Student) {
+    setDetail(student);
+    setFormMode(false);
+    list.refresh();
+    setSuccess("Ficha guardada correctamente.");
   }
   const total = list.data?.totalElements ?? 0;
   return (
-    <section className="panel">
+    <section className="panel" aria-label="Fichas de estudiantes">
+      {(detail || formMode) && <Feedback error={error} success={success} />}
       {formMode ? (
-        <form onSubmit={save}>
-          <PanelHeading
-            title={detail ? "Editar ficha" : "Registrar ficha"}
-            summary={
-              detail
-                ? `${detail.persona.nombreCompleto} · ${detail.codigoAlumno}`
-                : "Datos institucionales del estudiante. El acceso se crea aparte."
-            }
-          />
-          <Feedback error={error} />
-          <div className="form-grid">
-            <Field
-              label="Código de estudiante"
-              name="codigoAlumno"
-              required
-              maxLength={30}
-              defaultValue={detail?.codigoAlumno}
-            />
-          </div>
-          <PersonFields person={detail?.persona} />
-          <div className="form-actions">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setFormMode(false)}
-            >
-              Cancelar
-            </button>
-            <button className="primary-action" disabled={busy}>
-              {busy ? "Guardando…" : "Guardar ficha"}
-            </button>
-          </div>
-        </form>
+        <StudentForm
+          key={detail?.id ?? "new"}
+          student={detail ?? undefined}
+          onSaved={saved}
+          onCancel={() => setFormMode(false)}
+        />
       ) : detail ? (
-        <article>
-          <PanelHeading
-            title={detail.persona.nombreCompleto}
-            summary={`Ficha del estudiante · ${detail.codigoAlumno}`}
-            actions={
-              <>
-                <button
-                  onClick={() => {
-                    setDetail(null);
-                    setSuccess("");
-                  }}
-                >
-                  Volver a fichas
-                </button>
-                <button
-                  className="primary-action"
-                  onClick={() => setFormMode(true)}
-                >
-                  Editar ficha
-                </button>
-              </>
-            }
-          />
-          <Feedback error={error} success={success} />
-          <dl className="detail-grid detail-card">
-            <div>
-              <dt>Código</dt>
-              <dd>{detail.codigoAlumno}</dd>
-            </div>
-            <div>
-              <dt>Documento</dt>
-              <dd>
-                {detail.persona.tipoDocumento}: {detail.persona.numeroDocumento}
-              </dd>
-            </div>
-            <div>
-              <dt>Correo</dt>
-              <dd>{detail.persona.correo}</dd>
-            </div>
-            <div>
-              <dt>Nacimiento</dt>
-              <dd>{detail.persona.fechaNacimiento}</dd>
-            </div>
-            <div>
-              <dt>Teléfono</dt>
-              <dd>{detail.persona.telefono || "Sin registrar"}</dd>
-            </div>
-            <div>
-              <dt>Dirección</dt>
-              <dd>{detail.persona.direccion || "Sin registrar"}</dd>
-            </div>
-          </dl>
-          <h4>Apoderados asociados</h4>
-          {detail.apoderados.length ? (
-            <ul className="choice-list">
-              {detail.apoderados.map((a) => (
-                <li key={a.id}>
-                  <PersonCell
-                    name={a.nombreCompleto}
-                    detail={a.principal ? "Principal" : undefined}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="empty">No tiene apoderados asociados.</p>
-          )}
-        </article>
+        <StudentDetail
+          key={detail.id}
+          student={detail}
+          onBack={() => {
+            setDetail(null);
+            setSuccess("");
+            setError("");
+          }}
+          onEdit={() => {
+            setSuccess("");
+            setFormMode(true);
+          }}
+          onChanged={(updated) => {
+            setDetail(updated);
+            list.refresh();
+            setSuccess(
+              updated
+                ? "Estado de la ficha actualizado."
+                : "Ficha eliminada correctamente.",
+            );
+          }}
+        />
       ) : (
         <>
           <PanelHeading
@@ -182,11 +115,16 @@ export function Students() {
             }
             actions={
               <>
-                <button disabled={list.loading} onClick={list.refresh}>
+                <button
+                  disabled={list.loading || opening}
+                  onClick={list.refresh}
+                >
                   Actualizar
                 </button>
                 <button
+                  disabled={opening}
                   onClick={() => {
+                    setError("");
                     setSuccess("");
                     setImportOpen(true);
                   }}
@@ -195,10 +133,12 @@ export function Students() {
                 </button>
                 <button
                   className="primary-action"
+                  disabled={opening}
                   onClick={() => {
+                    setError("");
+                    setSuccess("");
                     setDetail(null);
                     setFormMode(true);
-                    setSuccess("");
                   }}
                 >
                   + Registrar estudiante
@@ -206,77 +146,113 @@ export function Students() {
               </>
             }
           />
-          <Feedback error={error || list.error} success={success} />
+          <Feedback error={error} success={success} />
           <form
             className="toolbar"
-            onSubmit={(e) => {
-              e.preventDefault();
+            onSubmit={(event) => {
+              event.preventDefault();
+              setError("");
+              setSuccess("");
               setQuery(
-                String(new FormData(e.currentTarget).get("search") || ""),
+                String(
+                  new FormData(event.currentTarget).get("search") || "",
+                ).trim(),
               );
               list.setPage(0);
+              list.refresh();
             }}
           >
             <Field
               label="Buscar por nombre, código o documento"
               name="search"
             />
-            <button disabled={list.loading}>Buscar</button>
+            <button disabled={list.loading || opening}>Buscar</button>
           </form>
           {list.loading ? (
             <p role="status">Cargando fichas…</p>
+          ) : list.error ? (
+            <>
+              <Feedback error="No se pudo cargar el listado. Comprueba la conexión e inténtalo nuevamente." />
+              <div className={styles.actions}>
+                <button type="button" onClick={list.refresh}>
+                  Reintentar carga
+                </button>
+              </div>
+            </>
           ) : list.data?.content.length ? (
-            <div className="user-table-wrap">
-              <table className="user-table">
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Estudiante</th>
-                    <th>Documento</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.data.content.map((s) => (
-                    <tr key={s.id}>
-                      <td data-label="Código" className="muted-cell">
-                        {s.codigoAlumno}
-                      </td>
-                      <td data-label="Estudiante">
-                        <PersonCell
-                          name={s.persona.nombreCompleto}
-                          detail={s.persona.correo}
-                        />
-                      </td>
-                      <td data-label="Documento">
-                        {s.persona.numeroDocumento}
-                      </td>
-                      <td data-label="Estado">
-                        <StatusPill
-                          state={s.activo ? "ACTIVO" : "INACTIVO"}
-                          label={s.activo ? "Activo" : "Inactivo"}
-                          tone={s.activo ? "success" : "neutral"}
-                        />
-                      </td>
-                      <td data-label="Acciones">
-                        <button onClick={() => open(s.id)}>Ver ficha</button>
-                      </td>
+            <>
+              {opening && <p role="status">Consultando ficha…</p>}
+              <div className="user-table-wrap">
+                <table
+                  className="user-table"
+                  aria-label="Listado de fichas de estudiantes"
+                >
+                  <thead>
+                    <tr>
+                      <th scope="col">Código</th>
+                      <th scope="col">Estudiante</th>
+                      <th scope="col">Documento</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Acción</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {list.data.content.map((student) => (
+                      <tr key={student.id}>
+                        <td data-label="Código">{student.codigoAlumno}</td>
+                        <td data-label="Estudiante">
+                          <PersonCell
+                            name={studentName(student)}
+                            detail={
+                              student.persona.correo || "Sin correo de contacto"
+                            }
+                          />
+                        </td>
+                        <td data-label="Documento">
+                          {student.persona.tipoDocumento &&
+                          student.persona.numeroDocumento ? (
+                            student.persona.numeroDocumento
+                          ) : (
+                            <span className={styles.pending}>
+                              Documento pendiente
+                            </span>
+                          )}
+                        </td>
+                        <td data-label="Estado">
+                          <StatusPill
+                            state={student.activo ? "ACTIVO" : "INACTIVO"}
+                            label={student.activo ? "Habilitada" : "Inactiva"}
+                            tone={student.activo ? "success" : "neutral"}
+                          />
+                        </td>
+                        <td data-label="Acción">
+                          <button
+                            type="button"
+                            disabled={opening}
+                            onClick={() => open(student.id)}
+                            aria-label={`Ver ficha de ${studentName(student)}`}
+                          >
+                            Ver ficha
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pager
+                data={list.data}
+                loading={list.loading || opening}
+                setPage={list.setPage}
+              />
+            </>
           ) : (
-            !list.error && (
-              <p className="empty">No se encontraron estudiantes.</p>
-            )
+            <p className="empty">
+              {query
+                ? "No se encontraron estudiantes para esta búsqueda."
+                : "Todavía no hay fichas de estudiantes registradas."}
+            </p>
           )}
-          <Pager
-            data={list.data}
-            loading={list.loading}
-            setPage={list.setPage}
-          />
         </>
       )}
       {importOpen && (

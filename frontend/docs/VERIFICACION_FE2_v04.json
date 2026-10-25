@@ -1,0 +1,54 @@
+{
+  "version": "0.4",
+  "fecha": "2026-10-22",
+  "zona_horaria": "America/Lima",
+  "fuente_estandar": "Estándar de programación.docx",
+  "fuente_estandar_sha256": "b4d4d9879ee2dc3aa2438599130fa9bd7ba4eeae04245083942a4648ef20b406",
+  "base_develop": "5f26d465aae27dea0d8ba5e90a684855f7f4fcc3",
+  "frontend": {
+    "pruebas": 53,
+    "fallos": 0,
+    "lint": "correcto",
+    "build": "correcto",
+    "formato": "correcto"
+  },
+  "backend": {
+    "pruebas": 63,
+    "fallos": 0,
+    "jdk": 21,
+    "base_pruebas": "H2",
+    "compilacion": "correcta",
+    "formato": "correcto"
+  },
+  "navegador": {
+    "motor": "Chromium",
+    "api": "simulada",
+    "comprobaciones": [
+      "foco con fecha inválida",
+      "restricciones de escritura y pegado",
+      "captura de autofill"
+    ],
+    "errores_consola": 0,
+    "excepciones_pagina": 0
+  },
+  "migracion": {
+    "archivo": "V3__ficha_alumno_opcionales.sql",
+    "identica_a_v03": true,
+    "ejecutada_en_mysql_usuario": false,
+    "responsables_integracion": [
+      "BE2",
+      "DBA"
+    ]
+  },
+  "pendientes": [
+    "Verificación de V3 y aceptación integrada contra MySQL del equipo",
+    "Contrato funcional restante BE2 de US-09",
+    "Actualización de dependencias por alertas npm previas",
+    "Revisión de archivos de soporte compartidos con FE5"
+  ],
+  "publicacion": {
+    "estado": "preparado para revisión del usuario",
+    "publicado_en_github": false,
+    "incluye_historial_git": false
+  }
+}

@@ -51,13 +51,17 @@ class ImportacionMasivaHttpTest {
     }
 
     private byte[] excel(int filas) throws Exception {
+        return excel(filas, false);
+    }
+
+    private byte[] excel(int filas, boolean nombreInvalido) throws Exception {
         String lote = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         try (Workbook w = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             Sheet sheet = w.createSheet("Alumnos");
             Row header = sheet.createRow(0);
             for (int i = 0; i < HEADERS.length; i++) header.createCell(i).setCellValue(HEADERS[i]);
             for (int f = 1; f <= filas; f++) {
-                String[] valores = {"I" + lote + f, "Nombre" + f, "Paterno", "Materno", "PASAPORTE",
+                String[] valores = {"I" + lote + f, nombreInvalido ? "Nombre123" : "Nombre " + (char) ('A' + f - 1), "Paterno", "Materno", "PASAPORTE",
                         lote + f, "FEMENINO", "2012-05-15", lote + f + "@example.test"};
                 Row r = sheet.createRow(f);
                 for (int c = 0; c < valores.length; c++) r.createCell(c).setCellValue(valores[c]);
@@ -72,6 +76,13 @@ class ImportacionMasivaHttpTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.importedRows").value(3))
                 .andExpect(jsonPath("$.rejectedRows").value(0));
+    }
+
+    @Test void rechazaUnNombreConNumerosSinImportarLaFila() throws Exception {
+        mvc.perform(multipart(RUTA).file(new MockMultipartFile("archivo", "alumnos.xlsx", XLSX, excel(1, true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.importedRows").value(0))
+                .andExpect(jsonPath("$.rejectedRows").value(1));
     }
 
     @Test void unCampoConOtroNombreExplicaQueFaltaElArchivo() throws Exception {

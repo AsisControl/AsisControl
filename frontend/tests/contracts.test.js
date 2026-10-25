@@ -247,6 +247,47 @@ test("Rechazo automático: la tabla muestra el motivo en vez de la ruta", async 
   assert.equal(format.actionSummary(audit), "Ya existe un curso con ese código");
   assert.equal(format.actionSummary({ ...audit, accion: "CREAR_CURSO", resultado: "EXITOSO" }), "Crear curso");
 });
+
+test("Tras renovar la sesión conserva el código, los detalles y ambos formatos de errores por campo", async () => {
+  const sent = [];
+  const details = [{ motivo: "Revisar la ficha" }];
+  const load = harness(async (_, options) => {
+    sent.push(options.headers.get("Authorization"));
+    return sent.length === 1 ? response(401, null) : response(409, {
+      message: "Documento registrado",
+      code: "DOCUMENTO_DUPLICADO",
+      details,
+      fieldErrors: [
+        { field: "persona.numeroDocumento", message: "Primer error" },
+        { campo: "persona.numeroDocumento", mensaje: "Segundo error" },
+        { campo: "fechaFin", mensaje: "Revisa la fecha" },
+        null,
+        { field: 123, message: "No es un campo válido" },
+      ],
+    });
+  });
+  const storage = await load("src/core/auth/session-storage.ts");
+  storage.saveSession({ accessToken: "anterior" });
+  storage.registerSessionRenewal(async () => {
+    storage.saveSession({ accessToken: "nuevo" });
+    return true;
+  });
+  const client = await load("src/core/api/client.ts");
+  try {
+    const error = await client.api("/api/alumnos", { method: "POST", body: "{}" }).catch((e) => e);
+    assert.deepEqual(sent, ["Bearer anterior", "Bearer nuevo"]);
+    assert.equal(error.code, "DOCUMENTO_DUPLICADO");
+    assert.deepEqual(error.details, details);
+    assert.equal(error.fieldErrors.length, 3);
+    assert.deepEqual(client.fieldErrorsOf(error), {
+      "persona.numeroDocumento": "Primer error",
+      fechaFin: "Revisa la fecha",
+    });
+    assert.deepEqual(client.fieldErrorsOf(new Error("Sin campos")), {});
+  } finally {
+    storage.registerSessionRenewal(null);
+  }
+});
 test("Carga masiva: solo .xlsx de hasta 5 MB", async () => {
   const { validateImportFile, IMPORT_MAX_BYTES } = await harness()("src/modules/students/import-dialog.tsx");
   assert.notEqual(validateImportFile(null), "");

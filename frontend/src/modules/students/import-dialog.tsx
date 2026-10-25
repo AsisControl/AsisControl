@@ -1,12 +1,14 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { api, apiBlob, message } from "@/core/api/client";
+import { message } from "@/core/api/client";
 import { Dialog, Feedback } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import type { ImportResult } from "./types";
+import { downloadStudentTemplate, importStudents } from "./services/student-import-service";
+import { StudentImportFile } from "./student-import-file";
+import styles from "./students.module.css";
 /** Mismos límites que ImportacionAlumnoService: solo .xlsx y hasta 5 MB. */
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
-const IMPORT_TIMEOUT_MS = 120000;
 const TEMPLATE_NAME = "plantilla_alumnos.xlsx";
 export function validateImportFile(file: File | null): string {
   if (!file) return "Selecciona el archivo Excel con los estudiantes.";
@@ -26,13 +28,16 @@ export function StudentImportDialog({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
+  const [fileFocusRequest, setFileFocusRequest] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   async function downloadTemplate() {
     setError("");
+    setDownloading(true);
     try {
-      const blob = await apiBlob("/api/alumnos/importaciones/plantilla");
+      const blob = await downloadStudentTemplate();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -40,30 +45,29 @@ export function StudentImportDialog({
       link.click();
       // Se libera después: algunos navegadores aún no empezaron la descarga.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (e) {
-      setError(message(e));
+    } catch (cause) {
+      setError(message(cause));
+    } finally {
+      setDownloading(false);
     }
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const invalid = validateImportFile(file);
     setFileError(invalid);
-    if (invalid || !file) return;
-    const body = new FormData();
-    body.append("archivo", file);
+    if (invalid || !file) {
+      setFileFocusRequest((request) => request + 1);
+      return;
+    }
     setBusy(true);
     setError("");
     setResult(null);
     try {
-      const imported = await api<ImportResult>("/api/alumnos/importaciones", {
-        method: "POST",
-        body,
-        timeoutMs: IMPORT_TIMEOUT_MS,
-      });
+      const imported = await importStudents(file);
       setResult(imported);
       if (imported.importedRows > 0) onImported();
-    } catch (e) {
-      setError(message(e));
+    } catch (cause) {
+      setError(message(cause));
     } finally {
       setBusy(false);
     }
@@ -71,45 +75,47 @@ export function StudentImportDialog({
   return (
     <Dialog
       title="Carga masiva de estudiantes"
-      description="Registra varias fichas a partir de un archivo Excel."
+      description="Registra varios estudiantes con una plantilla de Excel."
       size="lg"
       busy={busy}
       onClose={onClose}
     >
-      <form onSubmit={submit} noValidate>
+      <form onSubmit={submit} noValidate aria-busy={busy}>
         <Feedback error={error} />
-        <p className="hint">
-          1. Descarga la plantilla y completa una fila por estudiante. 2. Sube
-          el archivo (.xlsx, máximo 5 MB). Las filas con errores no se
-          registran; el resto sí.
-        </p>
-        <div className="form-actions">
-          <button type="button" disabled={busy} onClick={downloadTemplate}>
-            Descargar plantilla
-          </button>
-        </div>
-        <div className="form-grid">
-          <label className="field full-field">
-            Archivo Excel
-            <span className="field-required"> *</span>
-            <input
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        <ol className={styles.importSteps}>
+          <li>
+            <h4>Completa la plantilla</h4>
+            <p className={styles.helper}>
+              Reemplaza la fila de ejemplo con tus estudiantes. Usa una fila por estudiante.
+            </p>
+            <button
+              type="button"
+              className={styles.importTemplateButton}
+              disabled={busy || downloading}
+              onClick={downloadTemplate}
+            >
+              {downloading ? "Descargando plantilla…" : "Descargar plantilla"}
+            </button>
+          </li>
+          <li>
+            <h4>Selecciona el archivo completado</h4>
+            <StudentImportFile
+              file={file}
+              error={fileError}
+              focusRequest={fileFocusRequest}
               disabled={busy}
-              aria-invalid={!!fileError}
-              onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null);
-                setFileError("");
+              onChange={(selectedFile) => {
+                setFile(selectedFile);
+                setFileError(selectedFile ? validateImportFile(selectedFile) : "");
+                setError("");
                 setResult(null);
               }}
             />
-            {fileError && (
-              <small className="field-error" role="alert">
-                {fileError}
-              </small>
-            )}
-          </label>
-        </div>
+          </li>
+        </ol>
+        <p className={styles.helper}>
+          Se registrarán las filas correctas. Al terminar podrás revisar las que necesiten cambios.
+        </p>
         {result && <ImportSummary result={result} />}
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={onClose}>
@@ -128,15 +134,15 @@ function ImportSummary({ result }: { result: ImportResult }) {
     <section aria-live="polite">
       <dl className="detail-grid">
         <div>
-          <dt>Filas leídas</dt>
+          <dt>Estudiantes en el archivo</dt>
           <dd>{result.totalRows}</dd>
         </div>
         <div>
-          <dt>Importadas</dt>
+          <dt>Registrados</dt>
           <dd>{result.importedRows}</dd>
         </div>
         <div>
-          <dt>Fallidas</dt>
+          <dt>Por revisar</dt>
           <dd>{result.rejectedRows}</dd>
         </div>
       </dl>

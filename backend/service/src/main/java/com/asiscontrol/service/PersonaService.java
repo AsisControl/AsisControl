@@ -15,16 +15,22 @@ import com.asiscontrol.entity.enums.EstadoSesion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
+import com.asiscontrol.exception.FormFieldException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
+import com.asiscontrol.repository.AdministradorRepository;
 import com.asiscontrol.repository.AlumnoApoderadoRepository;
 import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.ApoderadoRepository;
+import com.asiscontrol.repository.ContadorCodigoAlumnoRepository;
 import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.NacionalidadRepository;
 import com.asiscontrol.repository.PersonaRepository;
 import com.asiscontrol.repository.SesionAccesoRepository;
 import com.asiscontrol.util.PageUtils;
+
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,6 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -55,7 +63,9 @@ public class PersonaService {
     private final AccesoUsuarioRepository usuarioRepository;
     private final SesionAccesoRepository sesionRepository;
     private final AuditoriaService auditoriaService;
-    private final com.asiscontrol.repository.AdministradorRepository administradorRepository;
+    private final Validator validator;
+    private final ContadorCodigoAlumnoRepository contadorCodigoAlumnoRepository;
+    private final AdministradorRepository administradorRepository;
 
     public PersonaService(
             PersonaRepository personaRepository,
@@ -67,7 +77,9 @@ public class PersonaService {
             AccesoUsuarioRepository usuarioRepository,
             SesionAccesoRepository sesionRepository,
             AuditoriaService auditoriaService,
-            com.asiscontrol.repository.AdministradorRepository administradorRepository) {
+            Validator validator,
+            ContadorCodigoAlumnoRepository contadorCodigoAlumnoRepository,
+            AdministradorRepository administradorRepository) {
         this.personaRepository = personaRepository;
         this.nacionalidadRepository = nacionalidadRepository;
         this.alumnoRepository = alumnoRepository;
@@ -77,21 +89,19 @@ public class PersonaService {
         this.usuarioRepository = usuarioRepository;
         this.sesionRepository = sesionRepository;
         this.auditoriaService = auditoriaService;
+        this.validator = validator;
+        this.contadorCodigoAlumnoRepository = contadorCodigoAlumnoRepository;
         this.administradorRepository = administradorRepository;
     }
 
     @Transactional
     public PersonaDtos.AlumnoResponse createAlumno(PersonaDtos.AlumnoCreateRequest request) {
-        if (alumnoRepository
-                .findByCodigoAlumnoIgnoreCase(request.codigoAlumno().trim())
-                .isPresent()) {
-            throw new ConflictException(
-                    "CODIGO_ALUMNO_DUPLICADO", "El codigo del alumno ya existe");
-        }
+        validateStudentRequest(request);
+        String codigoAlumno = resolveAlumnoCode(request.codigoAlumno());
         Persona persona = createPersona(request.persona());
         Alumno alumno = new Alumno();
         alumno.setPersona(persona);
-        alumno.setCodigoAlumno(request.codigoAlumno().trim().toUpperCase());
+        alumno.setCodigoAlumno(codigoAlumno);
         Alumno saved = alumnoRepository.save(alumno);
         auditCreate("Alumno", saved.getId());
         return toAlumnoResponse(saved);
@@ -121,23 +131,94 @@ public class PersonaService {
     @Transactional
     public PersonaDtos.AlumnoResponse updateAlumno(
             Long id, PersonaDtos.AlumnoUpdateRequest request) {
+        validateStudentRequest(request);
         Alumno alumno = findAlumno(id);
-        alumnoRepository
-                .findByCodigoAlumnoIgnoreCase(request.codigoAlumno().trim())
-                .filter(existing -> !existing.getId().equals(id))
-                .ifPresent(
-                        existing -> {
-                            throw new ConflictException(
-                                    "CODIGO_ALUMNO_DUPLICADO", "El codigo del alumno ya existe");
-                        });
-        java.util.Map<String, Object> personaAntes = snapshotPersona(alumno.getPersona());
-        String anterior = "codigoAlumno=" + alumno.getCodigoAlumno();
-        updatePersona(alumno.getPersona(), request.persona());
-        alumno.setCodigoAlumno(request.codigoAlumno().trim().toUpperCase());
+        validateInstitutionalCode(alumno, request.codigoAlumno());
+        Persona persona = alumno.getPersona();
+        boolean corrigeIdentidad = hasIdentityChanges(persona, request.persona());
+        String motivo = validateCorrectionReason(persona, request);
+        java.util.Map<String, Object> personaAntes = snapshotPersona(persona);
+        java.util.Map<String, Object> identidadAntes = snapshotStudentIdentity(persona);
+        updatePersona(persona, request.persona());
         Alumno saved = alumnoRepository.save(alumno);
-        auditUpdate("Alumno", id, personaAntes, saved.getPersona(),
-                anterior, "codigoAlumno=" + saved.getCodigoAlumno());
+        if (corrigeIdentidad) {
+            java.util.Map<String, Object> identidadDespues =
+                    snapshotStudentIdentity(saved.getPersona());
+            // Motivo admite 1000 caracteres en la ficha; el resumen de auditoría admite 500.
+            // El detalle conserva el motivo completo sin cambiar la tabla compartida.
+            identidadDespues.put("motivoCorreccion", motivo);
+            auditoriaService.registrar(
+                    "ACTUALIZAR_ALUMNO",
+                    ModuloAuditoria.PERSONAS,
+                    "Alumno",
+                    id.toString(),
+                    ResultadoAuditoria.EXITOSO,
+                    motivo,
+                    identidadAntes.toString(),
+                    identidadDespues.toString());
+        } else {
+            String codigo = "codigoAlumno=" + saved.getCodigoAlumno();
+            auditUpdate("Alumno", id, personaAntes, saved.getPersona(), codigo, codigo);
+        }
         return toAlumnoResponse(saved);
+    }
+
+    /** El alta web genera códigos; las importaciones internas conservan su código legado. */
+    private String resolveAlumnoCode(String requestedCode) {
+        String codigoAlumno = upperOrNull(requestedCode);
+        if (codigoAlumno == null) {
+            return generateAlumnoCode();
+        }
+        if (alumnoRepository.findByCodigoAlumnoIgnoreCase(codigoAlumno).isPresent()) {
+            throw new ConflictException(
+                    "CODIGO_ALUMNO_DUPLICADO", "El código del alumno ya existe");
+        }
+        return codigoAlumno;
+    }
+
+    /** El bloqueo y el guardado del contador pertenecen a la transacción del alta. */
+    private String generateAlumnoCode() {
+        contadorCodigoAlumnoRepository.initializeCounter();
+        var contador = contadorCodigoAlumnoRepository.lockCounter();
+        String codigoAlumno;
+        do {
+            contador.setUltimoValor(Math.incrementExact(contador.getUltimoValor()));
+            codigoAlumno = String.format(Locale.ROOT, "ESTU-%06d", contador.getUltimoValor());
+        } while (alumnoRepository.findByCodigoAlumnoIgnoreCase(codigoAlumno).isPresent());
+        contadorCodigoAlumnoRepository.save(contador);
+        return codigoAlumno;
+    }
+
+    private void validateInstitutionalCode(Alumno alumno, String requestedCode) {
+        if (requestedCode != null && !requestedCode.equals(alumno.getCodigoAlumno())) {
+            throw new FormFieldException(
+                    "codigoAlumno",
+                    "El código institucional es permanente y no se puede modificar");
+        }
+    }
+
+    private String validateCorrectionReason(
+            Persona persona, PersonaDtos.AlumnoUpdateRequest request) {
+        String motivo = blankToNull(request.motivo());
+        boolean motivoInvalido = motivo == null || motivo.length() < 10 || motivo.length() > 1000;
+        if (hasIdentityChanges(persona, request.persona()) && motivoInvalido) {
+            throw new FormFieldException(
+                    "motivo", "Explica la corrección de identidad en 10 a 1000 caracteres");
+        }
+        return motivo;
+    }
+
+    private boolean hasIdentityChanges(Persona persona, PersonaDtos.PersonaRequest request) {
+        return !Objects.equals(persona.getNombres(), request.nombres().trim())
+                || !Objects.equals(persona.getApellidoPaterno(), request.apellidoPaterno().trim())
+                || !Objects.equals(
+                        blankToNull(persona.getApellidoMaterno()),
+                        blankToNull(request.apellidoMaterno()))
+                || !Objects.equals(persona.getTipoDocumento(), request.tipoDocumento())
+                || !Objects.equals(
+                        blankToNull(persona.getNumeroDocumento()),
+                        upperOrNull(request.numeroDocumento()))
+                || !Objects.equals(persona.getFechaNacimiento(), request.fechaNacimiento());
     }
 
     @Transactional
@@ -221,8 +302,8 @@ public class PersonaService {
         docente.setFechaIngreso(request.fechaIngreso());
         docente.setEspecialidad(request.especialidad());
         Docente saved = docenteRepository.save(docente);
-        auditUpdate("Docente", id, personaAntes, saved.getPersona(),
-                anterior, describirDocente(saved));
+        auditUpdate(
+                "Docente", id, personaAntes, saved.getPersona(), anterior, describirDocente(saved));
         return toDocenteResponse(saved);
     }
 
@@ -380,10 +461,14 @@ public class PersonaService {
                 link.getId().toString(),
                 ResultadoAuditoria.EXITOSO,
                 null,
-                "alumno=" + alumnoId
-                        + ",apoderado=" + apoderadoId
-                        + ",parentesco=" + link.getParentesco()
-                        + ",principal=" + link.isPrincipal(),
+                "alumno="
+                        + alumnoId
+                        + ",apoderado="
+                        + apoderadoId
+                        + ",parentesco="
+                        + link.getParentesco()
+                        + ",principal="
+                        + link.isPrincipal(),
                 null);
     }
 
@@ -429,9 +514,9 @@ public class PersonaService {
     private void applyPersonaRequest(Persona persona, PersonaDtos.PersonaRequest request) {
         persona.setNombres(request.nombres().trim());
         persona.setApellidoPaterno(request.apellidoPaterno().trim());
-        persona.setApellidoMaterno(request.apellidoMaterno().trim());
+        persona.setApellidoMaterno(blankToNull(request.apellidoMaterno()));
         persona.setTipoDocumento(request.tipoDocumento());
-        persona.setNumeroDocumento(request.numeroDocumento().trim().toUpperCase());
+        persona.setNumeroDocumento(upperOrNull(request.numeroDocumento()));
         persona.setNacionalidad(
                 request.nacionalidadId() == null
                         ? null
@@ -445,14 +530,23 @@ public class PersonaService {
         persona.setSexo(request.sexo());
         persona.setFechaNacimiento(request.fechaNacimiento());
         persona.setTelefono(blankToNull(request.telefono()));
-        persona.setCorreo(request.correo().trim().toLowerCase());
+        String email = blankToNull(request.correo());
+        persona.setCorreo(email == null ? null : email.toLowerCase(Locale.ROOT));
         persona.setDireccion(blankToNull(request.direccion()));
     }
 
     private void validateUniquePersona(PersonaDtos.PersonaRequest request, Long currentId) {
+        validateUniqueDocument(request, currentId);
+        validateUniqueEmail(request.correo(), currentId);
+    }
+
+    private void validateUniqueDocument(PersonaDtos.PersonaRequest request, Long currentId) {
+        if (request.tipoDocumento() == null || blankToNull(request.numeroDocumento()) == null) {
+            return;
+        }
         personaRepository
                 .findByTipoDocumentoAndNumeroDocumento(
-                        request.tipoDocumento(), request.numeroDocumento().trim().toUpperCase())
+                        request.tipoDocumento(), upperOrNull(request.numeroDocumento()))
                 .filter(existing -> currentId == null || !existing.getId().equals(currentId))
                 .ifPresent(
                         existing -> {
@@ -460,8 +554,14 @@ public class PersonaService {
                                     "DOCUMENTO_DUPLICADO",
                                     "Ya existe una persona con el mismo documento");
                         });
+    }
+
+    private void validateUniqueEmail(String correo, Long currentId) {
+        if (blankToNull(correo) == null) {
+            return;
+        }
         personaRepository
-                .findByCorreoIgnoreCase(request.correo().trim())
+                .findByCorreoIgnoreCase(correo.trim())
                 .filter(existing -> currentId == null || !existing.getId().equals(currentId))
                 .ifPresent(
                         existing -> {
@@ -474,16 +574,20 @@ public class PersonaService {
     private void deactivateProfile(Persona persona, String role) {
         boolean tieneOtroPerfil =
                 alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
-                        || docenteRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
-                        || apoderadoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
-                        || administradorRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent();
+                        || docenteRepository
+                                .findByPersonaIdAndActivoTrue(persona.getId())
+                                .isPresent()
+                        || apoderadoRepository
+                                .findByPersonaIdAndActivoTrue(persona.getId())
+                                .isPresent()
+                        || administradorRepository
+                                .findByPersonaIdAndActivoTrue(persona.getId())
+                                .isPresent();
         if (!tieneOtroPerfil) {
             persona.setActivo(false);
             personaRepository.save(persona);
         }
-        usuarioRepository
-                .findAllByPersonaIdAndActivoTrue(persona.getId())
-                .stream()
+        usuarioRepository.findAllByPersonaIdAndActivoTrue(persona.getId()).stream()
                 .filter(usuario -> role.equals(usuario.getRol().getNombre()))
                 .forEach(this::deactivateUser);
     }
@@ -624,7 +728,10 @@ public class PersonaService {
         java.util.Map<String, Object> despues = snapshotPersona(personaDespues);
         String campos =
                 personaAntes.keySet().stream()
-                        .filter(campo -> !java.util.Objects.equals(personaAntes.get(campo), despues.get(campo)))
+                        .filter(
+                                campo ->
+                                        !java.util.Objects.equals(
+                                                personaAntes.get(campo), despues.get(campo)))
                         .collect(java.util.stream.Collectors.joining("|"));
         auditoriaService.registrar(
                 "ACTUALIZAR_" + entity.toUpperCase(),
@@ -637,6 +744,17 @@ public class PersonaService {
                 nuevo);
     }
 
+    private java.util.Map<String, Object> snapshotStudentIdentity(Persona persona) {
+        java.util.Map<String, Object> datos = new java.util.LinkedHashMap<>();
+        datos.put("nombres", persona.getNombres());
+        datos.put("apellidoPaterno", persona.getApellidoPaterno());
+        datos.put("apellidoMaterno", persona.getApellidoMaterno());
+        datos.put("tipoDocumento", persona.getTipoDocumento());
+        datos.put("numeroDocumento", persona.getNumeroDocumento());
+        datos.put("fechaNacimiento", persona.getFechaNacimiento());
+        return datos;
+    }
+
     private java.util.Map<String, Object> snapshotPersona(Persona persona) {
         java.util.Map<String, Object> datos = new java.util.LinkedHashMap<>();
         datos.put("nombres", persona.getNombres());
@@ -644,7 +762,9 @@ public class PersonaService {
         datos.put("apellidoMaterno", persona.getApellidoMaterno());
         datos.put("tipoDocumento", persona.getTipoDocumento());
         datos.put("numeroDocumento", persona.getNumeroDocumento());
-        datos.put("nacionalidad", persona.getNacionalidad() == null ? null : persona.getNacionalidad().getId());
+        datos.put(
+                "nacionalidad",
+                persona.getNacionalidad() == null ? null : persona.getNacionalidad().getId());
         datos.put("sexo", persona.getSexo());
         datos.put("fechaNacimiento", persona.getFechaNacimiento());
         datos.put("telefono", persona.getTelefono());
@@ -654,9 +774,12 @@ public class PersonaService {
     }
 
     private String describirDocente(Docente docente) {
-        return "codigoDocente=" + docente.getCodigoDocente()
-                + ",fechaIngreso=" + docente.getFechaIngreso()
-                + ",especialidad=" + docente.getEspecialidad();
+        return "codigoDocente="
+                + docente.getCodigoDocente()
+                + ",fechaIngreso="
+                + docente.getFechaIngreso()
+                + ",especialidad="
+                + docente.getEspecialidad();
     }
 
     private void auditDelete(String entity, Long id) {
@@ -677,5 +800,17 @@ public class PersonaService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String upperOrNull(String value) {
+        String normalized = blankToNull(value);
+        return normalized == null ? null : normalized.toUpperCase(Locale.ROOT);
+    }
+
+    private <T> void validateStudentRequest(T request) {
+        var violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
     }
 }
