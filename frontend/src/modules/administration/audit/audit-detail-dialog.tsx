@@ -77,7 +77,28 @@ export function AuditDetailDialog({
           <dt>Referencia de correlación</dt>
           <dd className={styles.reference}>{audit.correlationId}</dd>
         </div>
+        <div>
+          <dt>Dirección IP</dt>
+          <dd className={styles.reference}>
+            {audit.direccionIp || "Sin registrar"}
+          </dd>
+        </div>
       </dl>
+      {(audit.valorAnterior || audit.nuevoValor) && (
+        <>
+          <p className={styles.sectionTitle}>Cambios</p>
+          <dl className="detail-grid">
+            <div>
+              <dt>Antes</dt>
+              <dd className={styles.change}>{audit.valorAnterior || "—"}</dd>
+            </div>
+            <div>
+              <dt>Después</dt>
+              <dd className={styles.change}>{audit.nuevoValor || "—"}</dd>
+            </div>
+          </dl>
+        </>
+      )}
       <div className="form-actions">
         <button type="button" className="primary-action" onClick={onClose}>
           Cerrar

@@ -12,12 +12,14 @@ import {
 import { PersonFields, personData } from "@/shared/forms/person-fields";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
+import { StudentImportDialog } from "./import-dialog";
 import type { Student } from "./types";
 export function Students() {
   const [query, setQuery] = useState("");
   const list = usePaged<Student>("/api/alumnos", query);
   const [detail, setDetail] = useState<Student | null>(null);
   const [formMode, setFormMode] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -184,6 +186,14 @@ export function Students() {
                   Actualizar
                 </button>
                 <button
+                  onClick={() => {
+                    setSuccess("");
+                    setImportOpen(true);
+                  }}
+                >
+                  Carga masiva
+                </button>
+                <button
                   className="primary-action"
                   onClick={() => {
                     setDetail(null);
@@ -268,6 +278,12 @@ export function Students() {
             setPage={list.setPage}
           />
         </>
+      )}
+      {importOpen && (
+        <StudentImportDialog
+          onClose={() => setImportOpen(false)}
+          onImported={list.refresh}
+        />
       )}
     </section>
   );

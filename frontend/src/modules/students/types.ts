@@ -12,3 +12,10 @@ export type Student = {
     principal: boolean;
   }[];
 };
+/** Respuesta de POST /api/alumnos/importaciones (PersonaDtos.ImportResult). */
+export type ImportResult = {
+  totalRows: number;
+  importedRows: number;
+  rejectedRows: number;
+  issues: { row: number; field: string | null; message: string }[];
+};

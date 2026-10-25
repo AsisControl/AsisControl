@@ -15,6 +15,7 @@ export function FormDialog({
   notes,
   submitLabel = "Confirmar",
   danger = false,
+  noValidate = false,
 }: {
   title: string;
   description?: ReactNode;
@@ -31,6 +32,8 @@ export function FormDialog({
   submitLabel?: string;
   /** Acciones que dejan un registro inactivo usan el botón en rojo. */
   danger?: boolean;
+  /** El formulario valida por su cuenta y muestra los errores en cada campo. */
+  noValidate?: boolean;
 }) {
   return (
     <Dialog
@@ -40,7 +43,7 @@ export function FormDialog({
       onClose={onClose}
       busy={busy}
     >
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} noValidate={noValidate}>
         <Feedback error={error} />
         <div className="form-grid">{children}</div>
         {notes}

@@ -27,7 +27,9 @@ public final class AuditoriaDtos {
             ResultadoAuditoria resultado,
             String motivo,
             String correlationId,
-            String direccionIp) {}
+            String direccionIp,
+            String valorAnterior,
+            String nuevoValor) {}
 
     public record ErrorResponse(
             Long id,

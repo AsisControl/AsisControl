@@ -22,11 +22,12 @@ const backendAuth = (role) => ({
 test("Login usa identifier y transforma ALUMNO a ESTUDIANTE", async () => {
   let sent;
   const load = harness(async (url, options) => {
-    sent = { url, body: JSON.parse(options.body) };
+    sent = { url, body: JSON.parse(options.body), credentials: options.credentials };
     return response(200, backendAuth("ALUMNO"));
   });
   const result = await (await load("src/core/auth/http-auth-service.ts")).httpAuthService.login({ username: " alumno ", password: "Temporal123!" });
   assert.equal(sent.url, "http://api.test/api/auth/login");
+  assert.equal(sent.credentials, "include");
   assert.deepEqual(sent.body, {
     identifier: "alumno",
     password: "Temporal123!",
@@ -90,13 +91,13 @@ test("Envia Bearer y JSON al backend", async () => {
 test("Logout revoca en servidor y limpia la sesión", async () => {
   let called;
   const load = harness(async (url, options) => {
-    called = [url, options.method];
+    called = [url, options.method, options.credentials];
     return response(204, null);
   });
   const storage = (await load("src/core/auth/session-storage.ts"));
   storage.saveSession({ accessToken: "test-token" });
   await (await load("src/core/auth/http-auth-service.ts")).httpAuthService.logout();
-  assert.deepEqual(called, ["http://api.test/api/auth/logout", "POST"]);
+  assert.deepEqual(called, ["http://api.test/api/auth/logout", "POST", "include"]);
   assert.equal(storage.readSession(), null);
 });
 test("Generación temporal cumple requisitos y varía entre llamadas", async () => {
@@ -210,4 +211,84 @@ test("Cerrar sesión deja una marca para las otras pestañas sin guardar el toke
   assert.equal(Object.values(stored).join(" ").includes("test-token"), false);
   assert.ok(stored["asiscontrol:session-invalidation"]);
   assert.equal(listeners.at(-1), null);
+});
+test("Con FormData no fuerza JSON para que el navegador ponga multipart", async () => {
+  let headers;
+  const load = harness(async (_, options) => {
+    headers = options.headers;
+    return response(200, { totalRows: 0 });
+  });
+  const body = new FormData();
+  body.append("archivo", new Blob(["x"]), "alumnos.xlsx");
+  await (await load("src/core/api/client.ts")).api("/api/alumnos/importaciones", {
+    method: "POST",
+    body,
+  });
+  assert.equal(headers.has("Content-Type"), false);
+});
+test("Conserva los errores por campo del backend", async () => {
+  const load = harness(async () =>
+    response(422, {
+      message: "La fecha final no puede ser anterior a la inicial",
+      fieldErrors: [{ field: "fechaFin", message: "La fecha final no puede ser anterior a la inicial" }],
+    }),
+  );
+  const client = await load("src/core/api/client.ts");
+  const error = await client.api("/api/configuracion-academica/anios", {
+    method: "POST",
+    body: "{}",
+  }).catch((e) => e);
+  assert.equal(error.status, 422);
+  assert.match(client.fieldErrorsOf(error).fechaFin, /anterior a la inicial/);
+});
+test("Rechazo automático: la tabla muestra el motivo en vez de la ruta", async () => {
+  const format = await harness()("src/modules/administration/audit/audit-format.ts");
+  const audit = { accion: "POST_CURSOS", resultado: "RECHAZADO", motivo: "Ya existe un curso con ese código" };
+  assert.equal(format.actionSummary(audit), "Ya existe un curso con ese código");
+  assert.equal(format.actionSummary({ ...audit, accion: "CREAR_CURSO", resultado: "EXITOSO" }), "Crear curso");
+});
+test("Carga masiva: solo .xlsx de hasta 5 MB", async () => {
+  const { validateImportFile, IMPORT_MAX_BYTES } = await harness()("src/modules/students/import-dialog.tsx");
+  assert.notEqual(validateImportFile(null), "");
+  assert.notEqual(validateImportFile({ name: "alumnos.csv", size: 10 }), "");
+  assert.notEqual(validateImportFile({ name: "alumnos.xlsx", size: IMPORT_MAX_BYTES + 1 }), "");
+  assert.equal(validateImportFile({ name: "Alumnos.XLSX", size: 10 }), "");
+});
+test("Refresh usa la cookie y distingue rechazo de falla del servidor", async () => {
+  const replies = [
+    response(200, backendAuth("DOCENTE")),
+    response(401, { message: "Sesion invalida" }),
+    response(503, { message: "Servicio en mantenimiento" }),
+    response(500, null),
+  ];
+  const sent = [];
+  const load = harness(async (url, options) => {
+    sent.push({ url, method: options.method, credentials: options.credentials, auth: options.headers.Authorization });
+    return replies.shift();
+  });
+  const { httpAuthService } = await load("src/core/auth/http-auth-service.ts");
+  const session = await httpAuthService.refresh();
+  assert.equal(session.accessToken, "test-token");
+  assert.equal(session.user.role, "DOCENTE");
+  assert.deepEqual(sent[0], {
+    url: "http://api.test/api/auth/refresh",
+    method: "POST",
+    credentials: "include",
+    auth: undefined,
+  });
+  assert.equal(await httpAuthService.refresh(), null);
+  await assert.rejects(httpAuthService.refresh(), /Servicio en mantenimiento/);
+  await assert.rejects(httpAuthService.refresh(), /No se pudo renovar la sesión/);
+});
+test("Sin renovación registrada, un 401 de api() cierra la sesión sin reintentar", async () => {
+  let calls = 0;
+  const load = harness(async () => {
+    calls += 1;
+    return response(401, null);
+  });
+  const storage = await load("src/core/auth/session-storage.ts");
+  storage.saveSession({ accessToken: "test-token" });
+  await assert.rejects((await load("src/core/api/client.ts")).api("/api/cursos"));
+  assert.equal(calls, 1);
+  assert.equal(storage.readSession(), null);
 });

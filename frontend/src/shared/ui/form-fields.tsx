@@ -5,15 +5,25 @@ import { Eye } from "./eye-icon";
 const RequiredMark = () => <span className="field-required"> *</span>;
 const FieldHint = ({ children }: { children?: ReactNode }) =>
   children ? <small className="field-hint">{children}</small> : null;
+/** Error de validación debajo del campo; reemplaza a la ayuda mientras exista. */
+const FieldError = ({ children }: { children?: ReactNode }) =>
+  children ? (
+    <small className="field-error" role="alert">
+      {children}
+    </small>
+  ) : null;
 export function Field({
   label,
   hint,
+  error,
   fullWidth = false,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   /** Ayuda breve bajo el campo (formato, reglas del backend). */
   hint?: ReactNode;
+  /** Mensaje de error del campo, del formulario o del backend. */
+  error?: string;
   /** Ocupa las dos columnas de .form-grid. */
   fullWidth?: boolean;
 }) {
@@ -21,8 +31,8 @@ export function Field({
     <label className={fullWidth ? "field full-field" : "field"}>
       {label}
       {props.required && <RequiredMark />}
-      <input {...props} />
-      <FieldHint>{hint}</FieldHint>
+      <input {...props} aria-invalid={error ? true : props["aria-invalid"]} />
+      {error ? <FieldError>{error}</FieldError> : <FieldHint>{hint}</FieldHint>}
     </label>
   );
 }

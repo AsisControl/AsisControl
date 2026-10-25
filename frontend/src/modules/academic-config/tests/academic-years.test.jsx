@@ -33,9 +33,12 @@ test("Abre el año activo por defecto y muestra sus períodos", async () => {
   expect(screen.getByText("1. Período I")).toBeTruthy();
   expect(screen.getAllByText("01 Mar 2026")).toHaveLength(2);
   expect(screen.getByRole("button", { name: "Activar" })).toBeTruthy();
-  expect(screen.getAllByText("Pendiente de backend").length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/^Próximamente/).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/backend/i)).toBeNull();
   expect(screen.getByText("+ Nuevo período").disabled).toBe(true);
-  expect(screen.getByText(/solo acepta períodos nuevos con el año en borrador/)).toBeTruthy();
+  const notice = screen.getByRole("note");
+  expect(notice.textContent).toMatch(/No se pueden agregar períodos/);
+  expect(notice.textContent).toMatch(/el año 2026 ya está activo/);
   const picker = screen.getByLabelText("Año académico");
   expect([...picker.options].map((o) => o.textContent)).toEqual([
     "2027 · Borrador",
@@ -48,7 +51,7 @@ test("Sin años invita a crear el primero", async () => {
   academicBackend([]);
   render(<AcademicConfiguration />);
   expect(
-    await screen.findByText("Crea el año y configura los períodos, grados y secciones."),
+    await screen.findByText(/Usa «Crear año» para empezar/),
   ).toBeTruthy();
 });
 
@@ -99,9 +102,10 @@ test("Un error al crear el año se muestra dentro de la ventana", async () => {
   await heading(2026);
   await user.click(screen.getByText("Crear año"));
   const dialog = screen.getByRole("dialog");
-  await user.type(within(dialog).getByLabelText(/^Año/), "2026");
-  await user.type(within(dialog).getByLabelText(/Fecha inicial/), "2026-03-01");
-  await user.type(within(dialog).getByLabelText(/Fecha final/), "2026-12-20");
+  // 2027 no está en la lista: la validación local no lo detiene y responde el servidor.
+  await user.type(within(dialog).getByLabelText(/^Año/), "2027");
+  await user.type(within(dialog).getByLabelText(/Fecha inicial/), "2027-03-01");
+  await user.type(within(dialog).getByLabelText(/Fecha final/), "2027-12-20");
   await user.click(within(dialog).getByText("Confirmar"));
   expect((await within(dialog).findByRole("alert")).textContent).toBe("El año ya existe");
   await user.click(within(dialog).getByText("Cancelar"));
@@ -271,4 +275,22 @@ test("Informa si no carga la lista de años o el detalle del año", async () => 
   expect((await screen.findByRole("alert")).textContent).toBe(
     "No tienes permiso para realizar esta operación.",
   );
+});
+
+test("Crear año: la fecha final anterior se marca en su campo sin llamar al servidor", async () => {
+  const { calls } = academicBackend([year()]);
+  const user = userEvent.setup();
+  render(<AcademicConfiguration />);
+  await heading(2026);
+  await user.click(screen.getByText("Crear año"));
+  const dialog = screen.getByRole("dialog");
+  await user.type(within(dialog).getByLabelText(/^Año/), "2027");
+  await user.type(within(dialog).getByLabelText(/Fecha inicial/), "2027-03-01");
+  await user.type(within(dialog).getByLabelText(/Fecha final/), "2027-02-01");
+  const before = calls.length;
+  await user.click(within(dialog).getByText("Confirmar"));
+  const end = within(dialog).getByLabelText(/Fecha final/);
+  expect(end.getAttribute("aria-invalid")).toBe("true");
+  expect(end.closest("label").textContent).toMatch(/no puede ser anterior al inicio/);
+  expect(calls.slice(before).some((c) => c.method === "POST")).toBe(false);
 });

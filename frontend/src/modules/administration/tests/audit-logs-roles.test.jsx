@@ -91,7 +91,7 @@ test("Auditoría: muestra las operaciones con etiquetas legibles y filtros", asy
   await user.selectOptions(screen.getByLabelText("Filtrar por módulo"), "MATRICULA");
   await user.selectOptions(screen.getByLabelText("Filtrar por acción"), "CAMBIAR_CONTRASENA");
   await user.selectOptions(screen.getByLabelText("Filtrar por rol"), "4");
-  await user.type(screen.getByLabelText("Buscar usuario"), "ana");
+  await user.type(screen.getByLabelText("Buscar en la auditoría"), "ana");
   await waitFor(() =>
     expect(calls.at(-1).query).toMatchObject({
       modulo: "MATRICULA",

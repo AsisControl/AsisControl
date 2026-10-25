@@ -114,19 +114,14 @@
   padding: 6px 12px;
 }
 .pendingBadge {
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 999px;
-  color: #92400e;
+  color: #475569;
+  cursor: help;
   font-size: 11px;
   padding: 2px 8px;
   white-space: nowrap;
-}
-.newPeriod {
-  align-items: flex-end;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 .newPeriodButton {
   background: var(--blue);
@@ -141,11 +136,38 @@
   cursor: not-allowed;
   opacity: 0.5;
 }
-.newPeriodHint {
-  color: var(--muted);
-  font-size: 12px;
-  max-width: 260px;
-  text-align: right;
+/* Aviso informativo: explica por qué una acción no está disponible. */
+.infoNotice {
+  align-items: flex-start;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1e3a8a;
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 20px;
+  padding: 12px 16px;
+}
+.infoNotice svg {
+  color: #2563eb;
+  flex: none;
+  margin-top: 1px;
+}
+.infoNotice p {
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0;
+}
+.infoNotice strong {
+  font-weight: 600;
+}
+.srOnly {
+  clip: rect(0 0 0 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 .dialogForm {
   display: flex;

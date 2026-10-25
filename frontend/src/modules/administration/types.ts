@@ -61,4 +61,9 @@ export type Audit = {
   resultado: "EXITOSO" | "RECHAZADO" | "FALLIDO";
   motivo: string | null;
   correlationId: string;
+  /** IP desde la que se hizo la operación; null en procesos internos. */
+  direccionIp: string | null;
+  /** Valores antes y después del cambio, tal como los guarda el backend. */
+  valorAnterior: string | null;
+  nuevoValor: string | null;
 };
