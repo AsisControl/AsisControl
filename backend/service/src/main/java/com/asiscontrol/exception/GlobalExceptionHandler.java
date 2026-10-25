@@ -1,5 +1,8 @@
 package com.asiscontrol.exception;
 
+import com.asiscontrol.entity.enums.SeveridadError;
+import com.asiscontrol.service.AuditoriaService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 
@@ -24,16 +27,13 @@ public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    private final com.asiscontrol.service.AuditoriaService auditoria;
+    private final AuditoriaService auditoria;
 
-    public GlobalExceptionHandler(com.asiscontrol.service.AuditoriaService auditoria) {
+    public GlobalExceptionHandler(AuditoriaService auditoria) {
         this.auditoria = auditoria;
     }
 
-    private void registrarTecnico(
-            com.asiscontrol.entity.enums.SeveridadError severidad,
-            String componente,
-            String mensaje) {
+    private void registrarTecnico(SeveridadError severidad, String componente, String mensaje) {
         try {
             auditoria.registrarError(severidad, componente, mensaje, null);
         } catch (Exception registroFallido) {
@@ -127,22 +127,106 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleInvalidFormat(
             Exception exception, HttpServletRequest request) {
         registrarTecnico(
-                com.asiscontrol.entity.enums.SeveridadError.ADVERTENCIA,
+                SeveridadError.ADVERTENCIA,
                 "FormatoSolicitud",
                 "La solicitud contiene un formato o valor no admitido");
+        List<FieldValidationError> fields = invalidFormatFields(exception);
         return build(
                 HttpStatus.BAD_REQUEST,
                 "FORMATO_INVALIDO",
-                "Revise el formato de las fechas, estados y valores enviados",
+                fields.isEmpty()
+                        ? "No se pudo leer la solicitud. Vuelve a enviar el formulario completo"
+                        : fields.getFirst().message(),
                 request,
-                List.of());
+                fields);
+    }
+
+    private List<FieldValidationError> invalidFormatFields(Exception exception) {
+        String fieldPath = extractFieldPath(exception);
+        if (fieldPath == null || fieldPath.isBlank()) {
+            return List.of();
+        }
+        String fieldName = fieldPath.substring(fieldPath.lastIndexOf('.') + 1);
+        String message =
+                switch (fieldName) {
+                    case "fechaNacimiento" ->
+                            "Ingresa una fecha de nacimiento válida con día, mes y año completos";
+                    case "tipoDocumento" -> "Selecciona DNI, carné de extranjería o pasaporte";
+                    case "sexo" ->
+                            "Selecciona una de las opciones de sexo disponibles "
+                                    + "o deja el campo sin registrar";
+                    default ->
+                            "El valor enviado no tiene el formato esperado. "
+                                    + "Revisa el campo indicado y vuelve a guardar";
+                };
+        return List.of(new FieldValidationError(fieldPath, message));
+    }
+
+    /** Identifica el campo sin devolver mensajes internos ni valores de la solicitud. */
+    private String extractFieldPath(Throwable exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            String fieldPath = extractMappingPath(cause);
+            if (fieldPath != null) {
+                return fieldPath;
+            }
+            cause = cause.getCause();
+        }
+        return null;
+    }
+
+    private String extractMappingPath(Throwable cause) {
+        if (cause instanceof tools.jackson.core.JacksonException mapping
+                && !mapping.getPath().isEmpty()) {
+            return mapping.getPath().stream()
+                    .map(tools.jackson.core.JacksonException.Reference::getPropertyName)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.joining("."));
+        }
+        if (cause instanceof com.fasterxml.jackson.databind.JsonMappingException mapping
+                && !mapping.getPath().isEmpty()) {
+            return mapping.getPath().stream()
+                    .map(
+                            com.fasterxml.jackson.databind.JsonMappingException.Reference
+                                    ::getFieldName)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.joining("."));
+        }
+        if (cause
+                instanceof
+                org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+                        mismatch) {
+            return mismatch.getName();
+        }
+        return null;
+    }
+
+    private List<FieldValidationError> duplicateFieldErrors(String code) {
+        return switch (code) {
+            case "DOCUMENTO_DUPLICADO" ->
+                    List.of(
+                            new FieldValidationError(
+                                    "persona.numeroDocumento",
+                                    "Este documento ya está registrado. Revisa la ficha"
+                                            + " existente"));
+            case "CORREO_DUPLICADO" ->
+                    List.of(
+                            new FieldValidationError(
+                                    "persona.correo",
+                                    "Este correo ya está asociado a otra persona. "
+                                            + "Comprueba el correo de contacto"));
+            default -> List.of();
+        };
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
             ResourceNotFoundException exception, HttpServletRequest request) {
         registrarOperacionNoCompletada(
-                request, com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO, exception.getCode(), exception.getMessage());
+                request,
+                com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO,
+                exception.getCode(),
+                exception.getMessage());
         return build(
                 HttpStatus.NOT_FOUND,
                 exception.getCode(),
@@ -155,20 +239,42 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleConflict(
             ConflictException exception, HttpServletRequest request) {
         registrarOperacionNoCompletada(
-                request, com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO, exception.getCode(), exception.getMessage());
+                request,
+                com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO,
+                exception.getCode(),
+                exception.getMessage());
         return build(
                 HttpStatus.CONFLICT,
                 exception.getCode(),
                 exception.getMessage(),
                 request,
-                List.of());
+                duplicateFieldErrors(exception.getCode()));
+    }
+
+    @ExceptionHandler(FormFieldException.class)
+    public ResponseEntity<ApiError> handleFormField(
+            FormFieldException exception, HttpServletRequest request) {
+        registrarOperacionNoCompletada(
+                request,
+                com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO,
+                "DATOS_INVALIDOS",
+                exception.getMessage());
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "DATOS_INVALIDOS",
+                exception.getMessage(),
+                request,
+                List.of(new FieldValidationError(exception.getField(), exception.getMessage())));
     }
 
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiError> handleBusinessRule(
             BusinessRuleException exception, HttpServletRequest request) {
         registrarOperacionNoCompletada(
-                request, com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO, exception.getCode(), exception.getMessage());
+                request,
+                com.asiscontrol.entity.enums.ResultadoAuditoria.RECHAZADO,
+                exception.getCode(),
+                exception.getMessage());
         return build(
                 HttpStatus.UNPROCESSABLE_CONTENT,
                 exception.getCode(),
@@ -181,7 +287,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleValidation(
             MethodArgumentNotValidException exception, HttpServletRequest request) {
         registrarTecnico(
-                com.asiscontrol.entity.enums.SeveridadError.ADVERTENCIA,
+                SeveridadError.ADVERTENCIA,
                 "ValidacionSolicitud",
                 "La solicitud no cumple las restricciones de formato o tamaño");
         List<FieldValidationError> errors =
@@ -208,7 +314,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleConstraintViolation(
             ConstraintViolationException exception, HttpServletRequest request) {
         registrarTecnico(
-                com.asiscontrol.entity.enums.SeveridadError.ADVERTENCIA,
+                SeveridadError.ADVERTENCIA,
                 "ValidacionSolicitud",
                 "La solicitud no cumple las restricciones de formato o tamaño");
         List<FieldValidationError> errors =
@@ -236,10 +342,30 @@ public class GlobalExceptionHandler {
                 "CONFLICTO_DE_DATOS",
                 "La operación incumple una restricción de integridad");
         registrarTecnico(
-                com.asiscontrol.entity.enums.SeveridadError.ADVERTENCIA,
+                SeveridadError.ADVERTENCIA,
                 "Persistencia",
                 "La operación incumple una restricción de integridad");
         LOGGER.warn("Restricción de integridad ({})", exception.getClass().getSimpleName());
+        String constraint =
+                java.util.Objects.toString(exception.getMostSpecificCause().getMessage(), "")
+                        .toLowerCase(java.util.Locale.ROOT);
+        String duplicateCode = null;
+        String duplicateMessage = null;
+        if (constraint.contains("uk_persona_tipo_numero_documento")) {
+            duplicateCode = "DOCUMENTO_DUPLICADO";
+            duplicateMessage = "Este documento ya está registrado";
+        } else if (constraint.contains("uk_persona_correo")) {
+            duplicateCode = "CORREO_DUPLICADO";
+            duplicateMessage = "Este correo ya está asociado a otra persona";
+        }
+        if (duplicateCode != null) {
+            return build(
+                    HttpStatus.CONFLICT,
+                    duplicateCode,
+                    duplicateMessage,
+                    request,
+                    duplicateFieldErrors(duplicateCode));
+        }
         return build(
                 HttpStatus.CONFLICT,
                 "CONFLICTO_DE_DATOS",
@@ -268,7 +394,7 @@ public class GlobalExceptionHandler {
                 "ACCESO_DENEGADO",
                 "Permisos insuficientes para la operación");
         registrarTecnico(
-                com.asiscontrol.entity.enums.SeveridadError.ADVERTENCIA,
+                SeveridadError.ADVERTENCIA,
                 "Autorizacion",
                 "Se rechazó una operación por permisos insuficientes");
         return build(
@@ -283,7 +409,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleUnexpected(
             Exception exception, HttpServletRequest request) {
         registrarTecnico(
-                com.asiscontrol.entity.enums.SeveridadError.ERROR,
+                SeveridadError.ERROR,
                 exception.getClass().getSimpleName(),
                 "Ocurrió un error interno al procesar la operación");
         registrarOperacionNoCompletada(

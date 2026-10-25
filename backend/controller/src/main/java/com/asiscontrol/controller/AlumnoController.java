@@ -4,7 +4,9 @@ import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.service.ImportacionAlumnoService;
 import com.asiscontrol.service.PersonaService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -33,9 +35,7 @@ public class AlumnoController {
     private final ImportacionAlumnoService importacionService;
 
     public AlumnoController(
-            PersonaService personaService,
-            ImportacionAlumnoService importacionService
-    ) {
+            PersonaService personaService, ImportacionAlumnoService importacionService) {
         this.personaService = personaService;
         this.importacionService = importacionService;
     }
@@ -47,8 +47,7 @@ public class AlumnoController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "persona.apellidoPaterno") String sortBy,
-            @RequestParam(defaultValue = "ASC") Sort.Direction direction
-    ) {
+            @RequestParam(defaultValue = "ASC") Sort.Direction direction) {
         return personaService.listAlumnos(search, page, size, sortBy, direction);
     }
 
@@ -62,17 +61,17 @@ public class AlumnoController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
     public PersonaDtos.AlumnoResponse create(
-            @Valid @RequestBody PersonaDtos.AlumnoCreateRequest request
-    ) {
-        return personaService.createAlumno(request);
+            @Valid @RequestBody PersonaDtos.AlumnoCreateRequest request) {
+        // El alta web no admite asignar códigos; la importación interna conserva su contrato
+        // legado.
+        return personaService.createAlumno(
+                new PersonaDtos.AlumnoCreateRequest(request.persona(), null));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
     public PersonaDtos.AlumnoResponse update(
-            @PathVariable Long id,
-            @Valid @RequestBody PersonaDtos.AlumnoUpdateRequest request
-    ) {
+            @PathVariable Long id, @Valid @RequestBody PersonaDtos.AlumnoUpdateRequest request) {
         return personaService.updateAlumno(id, request);
     }
 
@@ -88,8 +87,7 @@ public class AlumnoController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
     public PersonaDtos.ApoderadoVinculadoResponse linkGuardian(
             @PathVariable Long id,
-            @Valid @RequestBody PersonaDtos.VinculoApoderadoRequest request
-    ) {
+            @Valid @RequestBody PersonaDtos.VinculoApoderadoRequest request) {
         return personaService.linkGuardian(id, request);
     }
 
@@ -110,12 +108,11 @@ public class AlumnoController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
     public ResponseEntity<byte[]> template() {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename("plantilla_alumnos.xlsx")
-                .build());
-        headers.setContentType(MediaType.parseMediaType(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ));
+        headers.setContentDisposition(
+                ContentDisposition.attachment().filename("plantilla_alumnos.xlsx").build());
+        headers.setContentType(
+                MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         return ResponseEntity.ok().headers(headers).body(importacionService.generateTemplate());
     }
 }

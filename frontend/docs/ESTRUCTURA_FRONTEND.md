@@ -95,3 +95,17 @@ npm run lint
 npm test
 npm run build
 ```
+
+## Aplicación del estándar en FE2 — v0.4
+
+El módulo `students` conserva esta organización por responsabilidad:
+
+- `services/student-service.ts`: llamadas HTTP del dominio mediante `core/api/client`.
+- `student-errors.ts`: interpretación y mensajes de errores del dominio.
+- `student-rules.ts`: normalización, construcción del DTO y validaciones por grupo de campos.
+- `use-student-form.ts`: estado, foco controlado y coordinación del guardado.
+- `student-field.tsx` y `student-form-fields.tsx`: campos visuales y secciones del formulario.
+- `student-form.tsx`: composición del formulario y confirmación de descarte.
+- `student-api.ts`: reexportaciones compatibles con las importaciones anteriores de FE2.
+
+La recomendación `services/` del estándar se aplica dentro del módulo. La estructura general `core/shared/modules` y la API pública `index.ts` del equipo se conservan.
