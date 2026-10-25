@@ -1,0 +1,207 @@
+.formSection {
+  border: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.formSection legend {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 0 12px 0 0;
+}
+.helper {
+  display: block;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  margin-top: 5px;
+}
+.fieldError {
+  display: block;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 5px;
+}
+.invalid {
+  border-color: #b91c1c !important;
+}
+.full {
+  grid-column: 1 / -1;
+}
+.reason {
+  width: 100%;
+  display: block;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  background: white;
+  padding: 10px 12px;
+  margin-top: 5px;
+  font-weight: 400;
+}
+.reason:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 3px;
+}
+.notice {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #1e3a8a;
+  line-height: 1.6;
+}
+.warning {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  padding: 16px;
+  color: #78350f;
+  margin-top: 16px;
+  line-height: 1.6;
+}
+.warning ul {
+  padding-left: 20px;
+}
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+}
+.inactive {
+  background: #f1f5f9;
+  color: #475569;
+}
+.pending {
+  display: block;
+  color: #92400e;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.actions button {
+  padding: 9px 14px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--blue);
+}
+.actions .danger {
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.detailHeading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  margin-top: 20px;
+}
+.detailHeading h3 {
+  margin: 0;
+}
+.confirmation {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  font-weight: 500;
+}
+.confirmation input {
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.summary {
+  color: #475569;
+  margin: 16px 0;
+  line-height: 1.6;
+}
+.errorSummary:focus {
+  outline: 2px solid #0284c7;
+  outline-offset: 3px;
+}
+
+.importSteps {
+  display: grid;
+  gap: 24px;
+  margin: 0 0 20px;
+  padding-left: 24px;
+}
+.importSteps li {
+  min-width: 0;
+  padding-left: 4px;
+}
+.importSteps li::marker {
+  color: var(--blue);
+  font-weight: 600;
+}
+.importSteps h4 {
+  color: var(--ink);
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.importTemplateButton,
+.importFileButton {
+  background: white;
+  border: 1px solid var(--blue);
+  border-radius: 6px;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 16px;
+}
+.importTemplateButton {
+  margin-top: 8px;
+}
+.importFile {
+  background: #f8fafc;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 16px;
+}
+.importFileLabel {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.importFileControl {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.importFileInput {
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.importFileName {
+  color: #475569;
+  flex: 1 1 180px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

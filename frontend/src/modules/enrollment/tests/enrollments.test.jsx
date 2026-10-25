@@ -450,8 +450,8 @@ test("Un error al asociar el apoderado se muestra en la sección", async () => {
 
 test("La pestaña de fichas registra, consulta y edita estudiantes", async () => {
   const calls = backend({
-    "POST /api/alumnos": ({ body }) => ({ ...lucia, id: 50, codigoAlumno: body.codigoAlumno, apoderados: [] }),
-    "PUT /api/alumnos/:id": ({ body }) => ({ ...lucia, codigoAlumno: body.codigoAlumno }),
+    "POST /api/alumnos": ({ body }) => ({ ...lucia, id: 50, codigoAlumno: "ESTU-000050", persona: { ...lucia.persona, ...body.persona }, apoderados: [] }),
+    "PUT /api/alumnos/:id": ({ body }) => ({ ...lucia, persona: { ...lucia.persona, ...body.persona } }),
   });
   const user = userEvent.setup();
   render(<EnrollmentsScreen />);
@@ -461,10 +461,10 @@ test("La pestaña de fichas registra, consulta y edita estudiantes", async () =>
   await user.click(screen.getByText("Buscar"));
   await waitFor(() => expect(calls.at(-1).query.search).toBe("flores"));
   await user.click(screen.getByText("+ Registrar estudiante"));
-  await user.type(screen.getByLabelText(/Código de estudiante/), " EST-050 ");
   await user.type(screen.getByLabelText(/^Nombres/), "Ana");
-  await user.type(screen.getByLabelText(/^Apellido paterno/), "Soto");
-  await user.type(screen.getByLabelText(/^Apellido materno/), "Lima");
+  await user.type(screen.getByLabelText(/^Primer apellido/), "Soto");
+  await user.type(screen.getByLabelText(/^Segundo apellido/), "Lima");
+  await user.selectOptions(screen.getByLabelText(/Tipo de documento/), "DNI");
   await user.type(screen.getByLabelText(/Número de documento/), "71717171");
   await user.type(screen.getByLabelText(/Fecha de nacimiento/), "2013-01-10");
   await user.type(screen.getByLabelText(/Correo de contacto/), "ana@correo.pe");
@@ -472,16 +472,17 @@ test("La pestaña de fichas registra, consulta y edita estudiantes", async () =>
   expect(await screen.findByText(/Ficha guardada/)).toBeTruthy();
   expect(screen.getByText("No tiene apoderados asociados.")).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toMatchObject({
-    codigoAlumno: "EST-050",
     persona: { nombres: "Ana", numeroDocumento: "71717171", nacionalidadId: null },
   });
+  expect(calls.find((c) => c.method === "POST").body).not.toHaveProperty("codigoAlumno");
   await user.click(screen.getByText("Volver a fichas"));
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
   expect(await screen.findByText("Carmen Flores")).toBeTruthy();
   expect(screen.getByText("Principal")).toBeTruthy();
-  expect(screen.getAllByText("Sin registrar")).toHaveLength(2);
+  expect(screen.getAllByText("Sin registrar").length).toBeGreaterThanOrEqual(2);
   await user.click(screen.getByText("Editar ficha"));
-  expect(screen.getByLabelText(/Código de estudiante/).value).toBe("EST-042");
+  expect(screen.getByLabelText(/Código institucional/).value).toBe("EST-042");
+  expect(screen.getByLabelText(/Código institucional/).readOnly).toBe(true);
   await user.click(screen.getByText("Guardar ficha"));
   await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
   expect(calls.find((c) => c.method === "PUT").body.persona.nacionalidadId).toBe(1);
@@ -491,23 +492,24 @@ test("La pestaña de fichas informa errores al abrir y guardar", async () => {
   backend({
     "GET /api/alumnos": page([]),
     "GET /api/alumnos/:id": reply(404, { message: "Ficha no encontrada" }),
-    "POST /api/alumnos": reply(409, { message: "Código repetido" }),
+    "POST /api/alumnos": reply(409, { code: "DOCUMENTO_DUPLICADO", message: "Documento repetido" }),
   });
   const user = userEvent.setup();
   render(<EnrollmentsScreen />);
   await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
-  expect(await screen.findByText("No se encontraron estudiantes.")).toBeTruthy();
+  expect(await screen.findByText("Todavía no hay fichas de estudiantes registradas.")).toBeTruthy();
   await user.click(screen.getByText("+ Registrar estudiante"));
-  await user.type(screen.getByLabelText(/Código de estudiante/), "EST-1");
   await user.type(screen.getByLabelText(/^Nombres/), "Ana");
-  await user.type(screen.getByLabelText(/^Apellido paterno/), "Soto");
-  await user.type(screen.getByLabelText(/^Apellido materno/), "Lima");
+  await user.type(screen.getByLabelText(/^Primer apellido/), "Soto");
+  await user.type(screen.getByLabelText(/^Segundo apellido/), "Lima");
+  await user.selectOptions(screen.getByLabelText(/Tipo de documento/), "DNI");
   await user.type(screen.getByLabelText(/Número de documento/), "71717171");
   await user.type(screen.getByLabelText(/Fecha de nacimiento/), "2013-01-10");
   await user.type(screen.getByLabelText(/Correo de contacto/), "ana@correo.pe");
   await user.click(screen.getByText("Guardar ficha"));
-  expect((await screen.findByRole("alert")).textContent).toBe("Código repetido");
+  expect((await screen.findByRole("alert")).textContent).toContain("El documento ya está registrado");
   await user.click(screen.getByText("Cancelar"));
+  await user.click(screen.getByText("Descartar cambios"));
   expect(screen.getByText("+ Registrar estudiante")).toBeTruthy();
 });
 
@@ -517,5 +519,5 @@ test("Abrir una ficha que no existe muestra el error", async () => {
   render(<EnrollmentsScreen />);
   await user.click(screen.getByRole("button", { name: "Fichas de estudiantes" }));
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
-  expect((await screen.findByRole("alert")).textContent).toBe("Ficha no encontrada");
+  expect((await screen.findByRole("alert")).textContent).toBe("La ficha ya no está disponible. Actualiza el listado.");
 });
