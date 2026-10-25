@@ -132,7 +132,7 @@ public class AuthController {
             com.asiscontrol.service.RenovacionSesionService.Credenciales credenciales) {
         return org.springframework.http.ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
-                        cookies.crear(credenciales.refreshToken(), credenciales.expiresAt()).toString())
+                        cookies.crear(credenciales.refreshToken()).toString())
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(credenciales.response());
     }
