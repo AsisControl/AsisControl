@@ -50,6 +50,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuditoriaIntegrationTest {
 
     @Autowired CursoService cursos;
+    @Autowired ConfiguracionAcademicaService configuracion;
+    @Autowired com.asiscontrol.repository.GradoAcademicoRepository grados;
     @Autowired AuditoriaService auditoria;
     @Autowired ImportacionAlumnoService importacion;
     @Autowired GlobalExceptionHandler exceptionHandler;
@@ -71,7 +73,11 @@ class AuditoriaIntegrationTest {
     @Test
     void crearYActualizarCursoGuardaValoresAntesYDespues() {
         String codigo = "CUR" + clave();
-        var creado = cursos.crear(new AcademicoDtos.CrearCursoRequest(codigo, "Algebra", null, 4));
+        configuracion.crear(new com.asiscontrol.dto.academico.ConfiguracionDtos.CrearAnio(
+                2086, java.time.LocalDate.of(2086, 1, 1), java.time.LocalDate.of(2086, 12, 31)));
+        configuracion.agregarGrado(2086, new com.asiscontrol.dto.academico.ConfiguracionDtos.CrearGrado(1, 30));
+        Long grado = grados.findByAnioAcademicoAnioAndNumero(2086, 1).orElseThrow().getId();
+        var creado = cursos.crear(new AcademicoDtos.CrearCursoRequest(codigo, "Algebra", null, 4, grado));
 
         List<RegistroAuditoria> alta = buscar("CREAR_CURSO", creado.id().toString());
         assertThat(alta).hasSize(1);
@@ -81,7 +87,7 @@ class AuditoriaIntegrationTest {
         assertThat(alta.getFirst().getNuevoValor()).contains("codigo=" + codigo);
 
         cursos.actualizar(creado.id(), new AcademicoDtos.ActualizarCursoRequest(
-                codigo, "Algebra avanzada", null, 5, creado.version()));
+                codigo, "Algebra avanzada", null, 5, creado.version(), grado));
 
         List<RegistroAuditoria> cambio = buscar("ACTUALIZAR_CURSO", creado.id().toString());
         assertThat(cambio).hasSize(1);

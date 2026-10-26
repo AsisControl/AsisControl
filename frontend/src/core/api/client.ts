@@ -1,7 +1,22 @@
-import { clearSession, readSession } from "@/core/auth/session-storage";
+import {
+  clearSession,
+  readSession,
+  renewSession,
+} from "@/core/auth/session-storage";
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"
 ).replace(/\/$/, "");
+const DEFAULT_TIMEOUT_MS = 20000;
+/** Rutas de sesión que no se reintentan tras renovar el token. */
+const SESSION_PATHS = new Set([
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/refresh",
+]);
+export type ApiOptions = RequestInit & {
+  /** Tiempo máximo de espera; las cargas de archivos necesitan más. */
+  timeoutMs?: number;
+};
 export type ApiFieldError = { field: string; message: string };
 
 type RawApiFieldError = {
@@ -35,17 +50,21 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
-export async function api<T>(
+async function request(
   path: string,
-  options: RequestInit = {},
-  authenticated = true,
-): Promise<T> {
+  { timeoutMs = DEFAULT_TIMEOUT_MS, ...options }: ApiOptions,
+  authenticated: boolean,
+  accept: string,
+  retried = false,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const headers = new Headers(options.headers);
-    headers.set("Accept", "application/json");
-    if (options.body) headers.set("Content-Type", "application/json");
+    headers.set("Accept", accept);
+    // Con FormData el navegador pone multipart/form-data y su boundary.
+    if (options.body && !(options.body instanceof FormData))
+      headers.set("Content-Type", "application/json");
     const session = readSession();
     if (session && authenticated)
       headers.set("Authorization", `Bearer ${session.accessToken}`);
@@ -55,9 +74,18 @@ export async function api<T>(
       signal: controller.signal,
       cache: "no-store",
     });
-    const body =
-      response.status === 204 ? null : await response.json().catch(() => null);
+    if (
+      response.status === 401 &&
+      session &&
+      authenticated &&
+      !retried &&
+      !SESSION_PATHS.has(path) &&
+      (await renewSession())
+    )
+      // Otra pestaña pudo renovar la sesión y dejar vencido este token: se repite una vez.
+      return request(path, { timeoutMs, ...options }, authenticated, accept, true);
     if (!response.ok) {
+      const body = await response.json().catch(() => null);
       if (response.status === 401 && path !== "/api/auth/login") clearSession();
       throw new ApiError(
         body?.message ||
@@ -70,7 +98,7 @@ export async function api<T>(
         body?.details ?? null,
       );
     }
-    return body as T;
+    return response;
   } catch (error) {
     if (error instanceof TypeError)
       throw new Error(
@@ -83,5 +111,36 @@ export async function api<T>(
     clearTimeout(timer);
   }
 }
+export async function api<T>(
+  path: string,
+  options: ApiOptions = {},
+  authenticated = true,
+): Promise<T> {
+  const response = await request(
+    path,
+    options,
+    authenticated,
+    "application/json",
+  );
+  const body =
+    response.status === 204 ? null : await response.json().catch(() => null);
+  return body as T;
+}
+/** Descarga un archivo (por ejemplo, una plantilla Excel) con la sesión actual. */
+export async function apiBlob(
+  path: string,
+  options: ApiOptions = {},
+): Promise<Blob> {
+  const response = await request(path, options, true, "*/*");
+  return response.blob();
+}
 export const message = (error: unknown) =>
   error instanceof Error ? error.message : "No se pudo completar la operación.";
+/** Errores por campo que devolvió el backend; vacío si no los hay. */
+export function fieldErrorsOf(error: unknown): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (error instanceof ApiError)
+    for (const item of error.fieldErrors)
+      if (!Object.hasOwn(fields, item.field)) fields[item.field] = item.message;
+  return fields;
+}

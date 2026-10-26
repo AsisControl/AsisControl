@@ -13,11 +13,9 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -32,6 +30,13 @@ import java.util.Map;
 public class ImportacionAlumnoService {
 
     private static final long MAX_IMPORT_SIZE = 5L * 1024L * 1024L;
+    private static final List<String> TEMPLATE_HEADERS = List.of(
+            "codigoAlumno", "nombres", "apellidoPaterno", "apellidoMaterno",
+            "tipoDocumento", "numeroDocumento", "sexo", "fechaNacimiento",
+            "telefono", "correo", "direccion");
+    private static final List<String> TEMPLATE_EXAMPLE = List.of(
+            "EST-0001", "Maria", "Quispe", "Flores", "DNI", "70000001",
+            "FEMENINO", "2012-05-15", "999999999", "familia@ejemplo.com", "Lima");
     private static final List<String> REQUIRED_HEADERS = List.of(
             "codigoAlumno",
             "nombres",
@@ -131,31 +136,7 @@ public class ImportacionAlumnoService {
     }
 
     public byte[] generateTemplate() {
-        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Alumnos");
-            List<String> headers = List.of(
-                    "codigoAlumno", "nombres", "apellidoPaterno", "apellidoMaterno",
-                    "tipoDocumento", "numeroDocumento", "nacionalidadId", "sexo",
-                    "fechaNacimiento", "telefono", "correo", "direccion"
-            );
-            Row header = sheet.createRow(0);
-            for (int index = 0; index < headers.size(); index++) {
-                header.createCell(index).setCellValue(headers.get(index));
-                sheet.setColumnWidth(index, 22 * 256);
-            }
-            Row sample = sheet.createRow(1);
-            String[] values = {
-                    "EST-0001", "Maria", "Quispe", "Flores", "DNI", "70000001", "",
-                    "FEMENINO", "2012-05-15", "999999999", "familia@ejemplo.com", "Lima"
-            };
-            for (int index = 0; index < values.length; index++) {
-                sample.createCell(index).setCellValue(values[index]);
-            }
-            workbook.write(output);
-            return output.toByteArray();
-        } catch (IOException exception) {
-            throw new IllegalStateException("No fue posible generar la plantilla", exception);
-        }
+        return PlantillaExcel.build("Alumnos", TEMPLATE_HEADERS, TEMPLATE_EXAMPLE, Map.of());
     }
 
     private PersonaDtos.AlumnoCreateRequest toRequest(Row row, Map<String, Integer> columns) {

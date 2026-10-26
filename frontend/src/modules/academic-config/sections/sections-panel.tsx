@@ -87,14 +87,16 @@ export function SectionsPanel({
   }
   const hasActiveGrades = year.grados.some((g) => g.activo);
   const gradeOptions = [...year.grados].sort((a, b) => a.numero - b.numero);
-  const activeFilter = gradeOptions.some((g) => String(g.numero) === gradeFilter)
+  const activeFilter = gradeOptions.some(
+    (g) => String(g.numero) === gradeFilter,
+  )
     ? gradeFilter
     : "";
   const visible = year.secciones.filter(
     (section) => !activeFilter || String(section.grado) === activeFilter,
   );
   const emptyText = !hasActiveGrades
-    ? "El año no tiene grados habilitados. Habilita un grado para crear secciones."
+    ? "El año no tiene grados habilitados. Habilita uno en «Grados habilitados» para crear secciones."
     : !year.secciones.length
       ? "Sin secciones configuradas. Usa «Nueva sección» para crear la primera."
       : "No hay secciones para el grado seleccionado.";
@@ -117,20 +119,18 @@ export function SectionsPanel({
             ))}
           </select>
           {editable && (
-            <div className={styles.newPeriod}>
-              <button
-                className={styles.newPeriodButton}
-                disabled={!hasActiveGrades}
-                onClick={() => open({ kind: "section" })}
-              >
-                + Nueva sección
-              </button>
-              {!hasActiveGrades && (
-                <span className={styles.newPeriodHint}>
-                  Habilita al menos un grado para crear secciones.
-                </span>
-              )}
-            </div>
+            <button
+              className={styles.newPeriodButton}
+              disabled={!hasActiveGrades}
+              title={
+                hasActiveGrades
+                  ? undefined
+                  : "Habilita al menos un grado en «Grados habilitados»."
+              }
+              onClick={() => open({ kind: "section" })}
+            >
+              + Nueva sección
+            </button>
           )}
         </div>
       </div>

@@ -3,20 +3,24 @@ package com.asiscontrol.security;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
-import java.time.Instant;
 import static org.assertj.core.api.Assertions.*;
 
 class RefreshCookieSupportTest {
     @Test void cookieDeProduccionEsHttpOnlySecureYConRutaLimitada() {
         var cookies = new RefreshCookieSupport(true, "Strict", "https://colegio.test");
-        var cookie = cookies.crear("secreto", Instant.now().plusSeconds(3600));
+        var cookie = cookies.crear("secreto");
         assertThat(cookie.isHttpOnly()).isTrue();
         assertThat(cookie.isSecure()).isTrue();
         assertThat(cookie.getSameSite()).isEqualTo("Strict");
         assertThat(cookie.getDomain()).isNull();
         assertThat(cookie.getPath()).isEqualTo("/api/auth");
         assertThat(cookies.borrar().getMaxAge().getSeconds()).isZero();
-        assertThat(cookies.crear("vencido", Instant.now().minusSeconds(1)).getMaxAge().getSeconds()).isZero();
+    }
+
+    @Test void cookieDeRenovacionEsDeSesionYSeBorraAlCerrarElNavegador() {
+        var cookie = new RefreshCookieSupport(true, "Strict", "https://colegio.test").crear("secreto");
+        assertThat(cookie.getMaxAge().isNegative()).isTrue();
+        assertThat(cookie.toString()).doesNotContain("Max-Age").doesNotContain("Expires");
     }
 
     @Test void permiteSoloOrigenExactoOSameOriginYExigeOriginEnEndpointsConCookies() {

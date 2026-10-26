@@ -1,3 +1,5 @@
+> Integración v08, 25/10/2026: base develop 7ce01a5. Conservar V3 de sesiones y V4 de secciones; la ficha utiliza V5. El manejador combina errores por campo de reglas de negocio con los errores y detalles de ficha. Consultar frontend/docs/INTEGRACION_FICHA_DEVELOP.md y RESULTADOS_VERIFICACION.json del paquete. Las cifras siguientes son históricas.
+
 # Actualización de estilo v0.4 — 22/10/2026
 
 Se aplicó el estándar de programación al parche de backend: nombres descriptivos, métodos separados por responsabilidad, constantes, formato Java de cuatro espacios e imports revisados. El contrato y la migración V3 permanecen iguales a v0.3. Las 63 pruebas de backend pasan con JDK 21 y H2.
@@ -67,7 +69,7 @@ El cliente reconoce un error de `codigoAlumno` obligatorio del backend antiguo y
 ## Integración
 
 1. Revisar los archivos del paquete BE2 sobre la rama propia; el ZIP de cambios solo contiene rutas de backend modificadas y nuevas, no todo el backend.
-2. Incorporar V3 con Flyway en el perfil mysql. No editar las migraciones ya aplicadas. El paquete no aplica cambios en bases de datos remotas.
+2. En la integración actual, incorporar V5__ficha_alumno_opcionales.sql con Flyway en el perfil mysql sobre una base de pruebas respaldada. V3 de sesiones y V4 de secciones permanecen intactas. Si ya se aplicó la antigua V3 de ficha, el DBA debe reconciliar el historial antes de arrancar. No editar migraciones aplicadas ni ejecutar V5 manualmente y luego mediante Flyway.
 3. Ejecutar `mvnw.cmd test` con JDK 21. En este entorno se utilizó el agente explícito de Mockito porque la conexión dinámica de agentes no estaba disponible; no se modificó el pom ni se requiere esa ruta del entorno en los equipos del grupo.
 4. Ejecutar el frontend actualizado contra el backend y MySQL del equipo; probar mínimo, documento opcional, duplicado, cumpleaños, pegado/autofill y corrección motivada.
 5. Actualizar la matriz: edad 10–20, CE de 9 dígitos y celular peruano sustituyen los valores anteriores. Son cambios solicitados en esta revisión; no están presentados como aprobación previa del profesor.

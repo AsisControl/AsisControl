@@ -627,18 +627,53 @@ input {
   font-size: 11px;
   margin-top: 3px;
 }
+/* Etiquetas de estado del prototipo: fondo suave, borde y punto del mismo tono. */
 .status {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 8px;
+  color: #475569;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  line-height: 18px;
+  padding: 2px 10px;
+  white-space: nowrap;
 }
-.status-active {
+.status::before {
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  width: 6px;
+}
+.status-active,
+.status-success {
   background: #dcfce7;
-  color: #047857;
+  border-color: #86efac;
+  color: #15803d;
 }
-.status-inactive {
-  background: #f1f5f9;
+.status-info {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+.status-warning {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+.status-danger {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.status-inactive,
+.status-neutral {
+  background: #f8fafc;
+  border-color: #cbd5e1;
   color: #64748b;
 }
 .row-actions {
@@ -701,51 +736,6 @@ input {
   padding: 20px;
   position: fixed;
   z-index: 20;
-}
-.user-form-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 30px #0003;
-  max-width: 500px;
-  padding: 24px;
-  width: 100%;
-}
-.form-card-heading {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-.form-card-heading h3 {
-  font-size: 20px;
-  margin: 0;
-}
-.form-card-heading p {
-  color: var(--muted);
-  font-size: 13px;
-  margin: 4px 0 0;
-}
-.form-card-heading button {
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  font-size: 24px;
-}
-.user-form-card label {
-  color: #334155;
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  margin-top: 13px;
-}
-.user-form-card input,
-.user-form-card select {
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  display: block;
-  font-size: 14px;
-  margin-top: 5px;
-  padding: 9px 11px;
-  width: 100%;
 }
 .form-actions {
   display: flex;
@@ -872,7 +862,7 @@ fieldset {
   margin: 20px 0;
 }
 .toolbar .field {
-  flex: 1;
+  flex: 0 1 480px;
   margin: 0;
 }
 .toolbar input {
@@ -977,6 +967,16 @@ fieldset {
 .user-table td {
   overflow-wrap: anywhere;
 }
+/* Código del registro en gris y grado/sección destacado, como en el prototipo. */
+.user-table .muted-cell {
+  color: var(--muted);
+  font-size: 12px;
+}
+.user-table .grade-cell {
+  color: var(--blue);
+  display: block;
+  font-weight: 700;
+}
 .user-table button {
   background: white;
   border: 1px solid #cbd5e1;
@@ -1079,8 +1079,7 @@ fieldset {
   flex-wrap: wrap;
   gap: 8px;
 }
-.section-heading,
-.dialog-heading {
+.section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1088,8 +1087,7 @@ fieldset {
   margin: 24px 0 16px;
 }
 .section-heading h3,
-.section-heading h4,
-.dialog-heading h3 {
+.section-heading h4 {
   margin: 0;
 }
 .section-heading p {
@@ -1142,14 +1140,6 @@ fieldset {
 }
 .full-field {
   grid-column: 1 / -1;
-}
-.wide-dialog {
-  width: min(880px, calc(100vw - 32px));
-  max-height: calc(100dvh - 40px);
-  overflow-y: auto;
-}
-.dialog-heading {
-  margin-top: 0;
 }
 .detail-grid {
   display: grid;
@@ -1259,9 +1249,6 @@ fieldset {
   .configuration-detail {
     padding: 16px;
   }
-  .wide-dialog {
-    max-height: calc(100dvh - 24px);
-  }
 }
 a.forgot {
   text-align: right;
@@ -1361,5 +1348,443 @@ a.forgot {
   }
   .role-card {
     padding: 16px;
+  }
+}
+/* Ventanas modales: misma línea visual que "Nueva sección" del prototipo. */
+.modal-backdrop {
+  align-items: center;
+  animation: backdrop-in 120ms ease-out;
+  background: #0f172a80;
+  backdrop-filter: blur(2px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 40;
+}
+.dialog {
+  animation: dialog-in 160ms ease-out;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px -12px #0f172a40;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  width: 100%;
+}
+.dialog:focus {
+  outline: none;
+}
+.dialog-md {
+  max-width: 600px;
+}
+.dialog-lg {
+  max-width: 880px;
+}
+.dialog-header {
+  align-items: flex-start;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 22px 28px 18px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.dialog-header h3 {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+  margin: 0;
+}
+.dialog-header p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+  margin: 2px 0 0;
+}
+.dialog-close {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #64748b;
+  display: flex;
+  flex: none;
+  height: 36px;
+  justify-content: center;
+  margin: -4px -8px 0 0;
+  width: 36px;
+}
+.dialog-close:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: var(--ink);
+}
+.dialog-body {
+  padding: 20px 28px 24px;
+}
+.dialog-body > :first-child,
+.dialog-body > form > :first-child {
+  margin-top: 0;
+}
+
+/* Campos dentro de ventanas: etiqueta en mayúsculas y controles amplios. */
+.dialog .field {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin: 8px 0;
+  text-transform: uppercase;
+}
+.field-required {
+  color: #dc2626;
+}
+.dialog .field input,
+.dialog .field select,
+.field textarea {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  display: block;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+  margin-top: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-transform: none;
+  transition: border-color 120ms, box-shadow 120ms;
+  width: 100%;
+}
+.field textarea {
+  line-height: 1.5;
+  min-height: 96px;
+  resize: vertical;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px #3b82f633;
+  outline: none;
+}
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: #f8fafc;
+  color: var(--muted);
+}
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+.field-error {
+  color: #b91c1c;
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 18px;
+  margin-top: 6px;
+  text-transform: none;
+}
+.field-hint {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 18px;
+  margin-top: 6px;
+  text-transform: none;
+}
+.dialog .check-field {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #334155;
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  line-height: 20px;
+  margin: 12px 0;
+  padding: 12px 14px;
+}
+.dialog .check-field input {
+  accent-color: var(--blue);
+  flex: none;
+  height: 18px;
+  margin: 1px 0 0;
+  width: 18px;
+}
+.dialog .form-grid {
+  gap: 4px 20px;
+}
+fieldset.form-grid {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+fieldset.form-grid:disabled input,
+fieldset.form-grid:disabled select,
+fieldset.form-grid:disabled textarea {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+.dialog .hint {
+  margin: 12px 0 0;
+}
+.dialog .form-error {
+  margin: 0 0 12px !important;
+}
+
+/* Botones al pie, fijos al desplazarse, con el mismo ancho como en el prototipo. */
+.dialog .form-actions {
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  bottom: -24px;
+  display: grid;
+  gap: 12px;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin: 24px -28px -24px;
+  padding: 16px 28px 20px;
+  position: sticky;
+  z-index: 1;
+}
+.dialog .form-actions button {
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 16px;
+}
+.dialog .form-actions button:not(.primary-action) {
+  background: #fff;
+  color: var(--blue);
+}
+.dialog .form-actions button:not(.primary-action):hover:not(:disabled) {
+  background: #eff6ff;
+}
+.primary-action.danger {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* Detalle de solo lectura: datos en una tarjeta clara, etiquetas pequeñas. */
+.dialog .detail-grid {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  gap: 16px 24px;
+  margin: 0 0 20px;
+  padding: 16px 20px;
+}
+.dialog .detail-grid dt {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.dialog .detail-grid dd {
+  font-size: 14px;
+  font-weight: 500;
+}
+.dialog h4 {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  margin: 24px 0 12px;
+}
+
+/* Matrícula: acciones, formularios de cambio, búsqueda de personas e historial. */
+.dialog .row-actions {
+  flex-wrap: wrap;
+  margin: 16px 0 4px;
+}
+.dialog-note {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+}
+.dialog-note-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.dialog .row-actions button {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+}
+.dialog .row-actions .primary-action {
+  background: var(--blue);
+  color: #fff;
+}
+.dialog .action-card,
+.dialog .picker-card,
+.dialog .guardian-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin: 16px 0;
+  padding: 20px;
+}
+.dialog .action-card {
+  border-left: 4px solid #3b82f6;
+}
+.dialog .action-card h3,
+.dialog .action-card h4,
+.dialog .picker-card h4 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+.dialog .action-card .form-actions {
+  border: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  position: static;
+}
+.dialog .guardian-section .section-heading {
+  margin: 0 0 12px;
+}
+.dialog .section-heading h4 {
+  margin: 0;
+}
+.dialog .section-heading button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.dialog .toolbar {
+  margin: 8px 0 12px;
+}
+.dialog .toolbar .field {
+  margin: 0;
+}
+.dialog .toolbar input {
+  max-width: none;
+}
+.dialog .toolbar button {
+  border-radius: 8px;
+  min-height: 44px;
+}
+.dialog .choice-list {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin: 12px 0;
+}
+.dialog .choice-list li {
+  padding: 12px 16px;
+}
+.dialog .choice-list li:last-child {
+  border-bottom: 0;
+}
+.dialog .choice-list li:hover {
+  background: #f8fafc;
+}
+.dialog .choice-list button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+}
+.dialog .selected-person {
+  border: 1px solid #bfdbfe;
+  margin: 12px 0;
+}
+.dialog .history-list {
+  border-left: 2px solid #e2e8f0;
+  gap: 16px;
+  margin: 0;
+  padding: 4px 0 4px 20px;
+}
+.dialog .history-list li {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  position: relative;
+}
+.dialog .history-list p {
+  color: #334155;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+.dialog .history-list li::before {
+  background: #3b82f6;
+  border: 3px solid #dbeafe;
+  border-radius: 50%;
+  content: "";
+  height: 14px;
+  left: -28px;
+  position: absolute;
+  top: 2px;
+  width: 14px;
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .dialog {
+    animation: none;
+  }
+}
+@media (max-width: 640px) {
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .dialog {
+    border-radius: 16px 16px 0 0;
+    max-height: 92dvh;
+    max-width: none;
+  }
+  .dialog-header,
+  .dialog-body {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .dialog .form-actions {
+    margin: 24px -20px -24px;
+    padding: 16px 20px 20px;
+  }
+  .dialog .form-grid,
+  .dialog .detail-grid {
+    grid-template-columns: 1fr;
   }
 }

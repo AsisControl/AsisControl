@@ -190,6 +190,8 @@ export function SystemLogs() {
       {selected && (
         <Dialog
           title="Detalle y seguimiento del error"
+          description={selected.componente}
+          size="lg"
           onClose={() => setSelected(null)}
           busy={busy}
         >

@@ -1,3 +1,5 @@
+> Integración v08: base develop 7ce01a5. Se conservan V3 de sesiones, V4 de secciones y la carga masiva. La ficha utiliza V5. Las verificaciones históricas siguientes corresponden a versiones anteriores. Consultar INTEGRACION_FICHA_DEVELOP.md.
+
 # AsisControl — Correcciones de ficha de estudiante v0.3
 
 Fecha: 22/10/2026 (Perú). Base: el avance FE2 v0.2, integrado con `develop` en `5f26d46`. La consulta remota confirmó la misma base y la rama `feature/frontend-inicial` en `3a96031`. Se mantiene el header y la organización del equipo.
@@ -69,7 +71,7 @@ Desde `backend`, con JDK 21:
 .\mvnw.cmd package -DskipTests
 ```
 
-Para arrancar, usar el mismo perfil y variables de conexión descritos en su README. En el perfil `mysql`, Flyway aplica automáticamente `V3__ficha_alumno_opcionales.sql`; no modificar V1/V2 ni ejecutar V3 dos veces de forma manual. El perfil `local` existente utiliza H2 en memoria, no acredita persistencia en MySQL.
+Para arrancar, usar el mismo perfil y variables de conexión descritos en su README. En el perfil `mysql`, Flyway aplica automáticamente `V5__ficha_alumno_opcionales.sql`; no modificar V1/V2 ni ejecutar V3 dos veces de forma manual. El perfil `local` existente utiliza H2 en memoria, no acredita persistencia en MySQL.
 
 Las siete alertas npm reportadas anteriormente siguen pendientes de la actualización de dependencias del equipo. Esta entrega no cambia versiones ni aplica `audit fix --force`.
 

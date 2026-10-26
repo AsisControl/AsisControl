@@ -29,21 +29,65 @@ export function validatePeriodName(
   return "";
 }
 
-/** Fechas ISO (yyyy-mm-dd): se comparan como texto. */
+type DateErrors = Partial<Record<keyof DateRange, string>>;
+
+/** Obligatorias y la final no anterior a la inicial. Fechas ISO: se comparan como texto. */
+export function validateDateRange(start: string, end: string): DateErrors {
+  const errors: DateErrors = {};
+  if (!start) errors.fechaInicio = "La fecha de inicio es obligatoria.";
+  if (!end) errors.fechaFin = "La fecha de fin es obligatoria.";
+  if (start && end && end < start)
+    errors.fechaFin = "La fecha de fin no puede ser anterior al inicio.";
+  return errors;
+}
+
+// Año académico: el formulario de "Crear año". El servidor es la autoridad.
+export const YEAR_MIN = 2000;
+export const YEAR_MAX = 2100;
+
+export type YearInput = { anio: string } & DateRange;
+export type YearErrors = Partial<Record<keyof YearInput, string>>;
+
+/**
+ * Solo se registran el año en curso y los siguientes; ambas fechas deben caer
+ * dentro del año elegido y el inicio debe ser estrictamente anterior al fin.
+ */
+export function validateYear(
+  input: YearInput,
+  years: { anio: number }[],
+  currentYear: number = new Date().getFullYear(),
+): YearErrors {
+  const errors: YearErrors = validateDateRange(input.fechaInicio, input.fechaFin);
+  const text = input.anio.trim();
+  const value = Number(text);
+  const minimum = Math.max(YEAR_MIN, currentYear);
+  if (!text) errors.anio = "El año es obligatorio.";
+  else if (!/^\d+$/.test(text) || value > YEAR_MAX)
+    errors.anio = `El año debe estar entre ${minimum} y ${YEAR_MAX}.`;
+  else if (value < minimum)
+    errors.anio = `Solo se puede registrar el año actual (${currentYear}) o uno posterior.`;
+  else if (years.some((y) => y.anio === value))
+    errors.anio = "Ese año académico ya existe.";
+  if (input.fechaInicio && input.fechaFin && input.fechaFin === input.fechaInicio)
+    errors.fechaFin = "La fecha de fin debe ser posterior a la de inicio.";
+  if (!errors.anio && text) {
+    const prefix = `${value}-`;
+    if (input.fechaInicio && !input.fechaInicio.startsWith(prefix))
+      errors.fechaInicio = `La fecha de inicio debe pertenecer al año ${value}.`;
+    if (input.fechaFin && !input.fechaFin.startsWith(prefix))
+      errors.fechaFin ??= `La fecha de fin debe pertenecer al año ${value}.`;
+  }
+  return errors;
+}
+
 export function validatePeriodDates(
   start: string,
   end: string,
   year: DateRange,
   periods: ExistingPeriod[],
 ): Pick<PeriodErrors, "fechaInicio" | "fechaFin"> {
-  const errors: Pick<PeriodErrors, "fechaInicio" | "fechaFin"> = {};
-  if (!start) errors.fechaInicio = "La fecha de inicio es obligatoria.";
-  if (!end) errors.fechaFin = "La fecha de fin es obligatoria.";
-  if (!start || !end) return errors;
-  if (end < start) {
-    errors.fechaFin = "La fecha de fin no puede ser anterior al inicio.";
-    return errors;
-  }
+  const errors = validateDateRange(start, end);
+  if (hasErrors(errors)) return errors;
   if (start < year.fechaInicio || start > year.fechaFin)
     errors.fechaInicio = "La fecha de inicio debe estar dentro del año.";
   if (end < year.fechaInicio || end > year.fechaFin)

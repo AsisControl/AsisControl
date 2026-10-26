@@ -2,12 +2,12 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AcademicConfiguration } from "@/modules/academic-config";
+import { PageHeader, TabNav } from "@/shared/ui";
 import { CreateAccess } from "./create-access";
 import { RolesMatrix } from "./roles-matrix";
 import { SystemLogs } from "./system-logs";
 import { AuditLog } from "./audit/audit-log";
 import { UsersPanel } from "./users/users-panel";
-import styles from "./administration.module.css";
 type AdminSection = {
   /** Segmento de la URL: /administracion/{id}. */
   id: string;
@@ -63,21 +63,16 @@ export function Administration({
     return <CreateAccess onBack={() => router.push(USERS_PATH)} />;
   return (
     <section>
-      <div className={styles.heading}>
-        <h2>Administración</h2>
-        <p>Configuración académica, usuarios, roles y auditoría del sistema</p>
-      </div>
-      <nav className={styles.tabs} aria-label="Secciones de administración">
-        {sections.map(({ id, label }) => (
-          <button
-            key={id}
-            aria-current={section.id === id ? "page" : undefined}
-            onClick={() => router.push(`${ADMINISTRATION_PATH}/${id}`)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      <PageHeader
+        title="Administración"
+        description="Configuración académica, usuarios, roles y auditoría del sistema"
+      />
+      <TabNav
+        label="Secciones de administración"
+        tabs={sections}
+        current={section.id}
+        onSelect={(id) => router.push(`${ADMINISTRATION_PATH}/${id}`)}
+      />
       {section.render ? (
         section.render()
       ) : (

@@ -9,6 +9,8 @@ export function usePaged<T>(path: string, query = "", filters = "") {
   const [data, setData] = useState<Page<T> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  /** Momento de la última respuesta correcta, para "Última actualización". */
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -18,7 +20,9 @@ export function usePaged<T>(path: string, query = "", filters = "") {
         `${path}${path.includes("?") ? "&" : "?"}page=${page}&size=20${query ? `&search=${encodeURIComponent(query)}` : ""}${filters ? `&${filters}` : ""}`,
       )
         .then((d) => {
-          if (active) setData(normalizePage(d));
+          if (!active) return;
+          setData(normalizePage(d));
+          setUpdatedAt(new Date());
         })
         .catch((e) => {
           if (active) setError(message(e));
@@ -36,6 +40,7 @@ export function usePaged<T>(path: string, query = "", filters = "") {
     data,
     error,
     loading,
+    updatedAt,
     page,
     setPage,
     refresh: () => setTick((t) => t + 1),

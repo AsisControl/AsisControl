@@ -6,7 +6,6 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,8 +31,12 @@ public class RefreshCookieSupport {
                 .filter(s -> !s.isEmpty() && !s.equals("*")).collect(Collectors.toUnmodifiableSet());
     }
 
-    public ResponseCookie crear(String token, Instant expiry) {
-        return cookie(token).maxAge(Math.max(0, Duration.between(Instant.now(), expiry).getSeconds())).build();
+    /**
+     * Cookie de sesion (sin Max-Age ni Expires): el navegador la borra al cerrarse, para que un
+     * equipo compartido no conserve la sesion. El limite absoluto de 8 h lo aplica el servidor.
+     */
+    public ResponseCookie crear(String token) {
+        return cookie(token).build();
     }
 
     public ResponseCookie borrar() {

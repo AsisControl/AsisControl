@@ -3,14 +3,17 @@ package com.asiscontrol.dto.academico;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.TipoAula;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalTime;
+import java.util.List;
 
 public final class AcademicoDtos {
 
@@ -20,15 +23,18 @@ public final class AcademicoDtos {
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 120) String nombre,
             @Size(max = 500) String descripcion,
-            @Min(1) @Max(40) int horasSemanales) {}
+            @Min(1) @Max(40) int horasSemanales,
+            @NotNull(message = "Seleccione el año y el grado del curso") Long gradoAcademicoId) {}
 
     public record ActualizarCursoRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 120) String nombre,
             @Size(max = 500) String descripcion,
             @Min(1) @Max(40) int horasSemanales,
-            @NotNull Long version) {}
+            @NotNull Long version,
+            @NotNull(message = "Seleccione el año y el grado del curso") Long gradoAcademicoId) {}
 
+    /** anioAcademico, grado y gradoAcademicoId son nulos en cursos creados antes de V6. */
     public record CursoResponse(
             Long id,
             String codigo,
@@ -36,7 +42,10 @@ public final class AcademicoDtos {
             String descripcion,
             int horasSemanales,
             boolean activo,
-            long version) {}
+            long version,
+            Long gradoAcademicoId,
+            Integer anioAcademico,
+            Integer grado) {}
 
     public record CrearCompetenciaRequest(
             @NotBlank @Size(max = 30) String codigo,
@@ -106,20 +115,66 @@ public final class AcademicoDtos {
             boolean activo,
             long version) {}
 
+    public record GenerarPropuestasSeccionesRequest(
+            @Min(2000) @Max(2100) int anioAcademico,
+            @Min(1) @Max(5) int grado,
+            @Min(1) int cantidad,
+            @Min(1) @Max(100) int capacidadMaxima) {}
+
+    public record SeccionPropuestaResponse(
+            String nombre, int grado, int anioAcademico, int capacidadMaxima) {}
+
+    public record ConfirmarPropuestasSeccionesRequest(
+            @Min(2000) @Max(2100) int anioAcademico,
+            @Min(1) @Max(5) int grado,
+            @NotEmpty @Valid List<SeccionPropuestaRequest> secciones,
+            @Size(max = 700) String motivo) {}
+
+    public record SeccionPropuestaRequest(
+            @NotBlank @Size(max = 20) String nombre,
+            @Min(1) @Max(100) int capacidadMaxima) {}
+
     public record CrearAulaRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 100) String nombre,
             @NotNull TipoAula tipoAula,
-            @Min(1) @Max(300) int capacidad,
-            @NotBlank @Size(max = 180) String ubicacion) {}
+            @NotNull @Min(1) @Max(300) Integer capacidad,
+            @Size(max = 180) String ubicacion) {}
 
     public record ActualizarAulaRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 100) String nombre,
             @NotNull TipoAula tipoAula,
-            @Min(1) @Max(300) int capacidad,
-            @NotBlank @Size(max = 180) String ubicacion,
+            @NotNull @Min(1) @Max(300) Integer capacidad,
+            @Size(max = 180) String ubicacion,
             @NotNull Long version) {}
+
+    public record InhabilitarAulaRequest(
+            @NotBlank @Size(max = 500) String motivo,
+            @NotNull Long version) {}
+
+    public record HabilitarAulaRequest(
+            @Size(max = 500) String motivo,
+            @NotNull Long version) {}
+
+    /** Horario activo que impide reducir la capacidad o inhabilitar un aula. */
+    public record HorarioEnUsoAula(
+            Long horarioId,
+            Long asignacionCursoId,
+            DiaSemana diaSemana,
+            LocalTime horaInicio,
+            LocalTime horaFin,
+            Long seccionId,
+            String seccion,
+            int grado,
+            String curso,
+            int capacidadMaximaSeccion) {}
+
+    public enum EstadoAula {
+        HABILITADAS,
+        INHABILITADAS,
+        TODAS
+    }
 
     public record AulaResponse(
             Long id,
@@ -130,6 +185,8 @@ public final class AcademicoDtos {
             String ubicacion,
             boolean activo,
             long version) {}
+
+    public record AulaResumenResponse(long habilitadas) {}
 
     public record CrearAsignacionCursoRequest(
             @NotNull Long cursoId, @NotNull Long seccionId, @NotNull Long docenteId) {}

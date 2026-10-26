@@ -1,0 +1,113 @@
+.tableWrap {
+  overflow-x: auto;
+}
+.table th {
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+}
+.table td {
+  vertical-align: middle;
+}
+.actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+/* .actions eleva la especificidad sobre la regla global .user-table button. */
+.actions .detailButton {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.actions .iconButton {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #64748b;
+  display: flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+.actions .detailButton:hover,
+.actions .iconButton:hover {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.competencyList {
+  counter-reset: competency;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.competencyList li {
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  counter-increment: competency;
+  display: grid;
+  gap: 2px 12px;
+  grid-template-columns: 28px 1fr;
+  padding: 10px 14px;
+}
+.competencyList li::before {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+  color: var(--blue);
+  content: counter(competency);
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  grid-row: span 2;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+.competencyList strong {
+  font-size: 14px;
+}
+.competencyList small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.search {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  height: 40px;
+  margin-bottom: 16px;
+  max-width: 420px;
+  padding: 0 14px;
+  width: 100%;
+}
+.clamp {
+  color: #475569;
+  display: -webkit-box;
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-width: 360px;
+  overflow: hidden;
+}
+.order {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+  color: var(--blue);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Eye, Feedback, Pager } from "@/shared/ui";
+import { Eye, Feedback, Pager, RowMenu, type MenuOption } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { roleLabel } from "@/shared/lib/formatters";
 import type { Account, Role } from "../types";
@@ -18,7 +18,6 @@ import {
   statePillClass,
 } from "./user-format";
 import { UserDetailDialog } from "./user-detail-dialog";
-import { UserRowMenu, type MenuOption } from "./user-row-menu";
 import { useUserDialog, type UserDialogKind } from "./use-user-dialog";
 import styles from "./users.module.css";
 const SEARCH_DELAY_MS = 300;
@@ -218,8 +217,8 @@ export function UsersPanel({
                         >
                           <Eye />
                         </button>
-                        <UserRowMenu
-                          userName={account.nombreCompleto}
+                        <RowMenu
+                          itemName={account.nombreCompleto}
                           options={menuOptions(account)}
                         />
                       </div>

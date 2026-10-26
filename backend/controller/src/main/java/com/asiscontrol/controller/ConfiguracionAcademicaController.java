@@ -47,6 +47,13 @@ public class ConfiguracionAcademicaController {
         return configuracionService.obtener(anio);
     }
 
+    /** Solo años en borrador sin uso; ver ConfiguracionAcademicaService#eliminar. */
+    @DeleteMapping("/anios/{anio}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable int anio, @RequestParam Long version) {
+        configuracionService.eliminar(anio, version);
+    }
+
     @PutMapping("/anios/{anio}/estado")
     public AnioResponse estado(@PathVariable int anio, @Valid @RequestBody EstadoAnio request) {
         return configuracionService.estado(anio, request);

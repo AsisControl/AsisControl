@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+coverage
+.git
+.idea
+.vs
+.env
+.env.*
+*.pem
+*.key
+*.log
+*.tsbuildinfo

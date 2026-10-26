@@ -2,6 +2,7 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.persona.PersonaDtos;
+import com.asiscontrol.service.CargaMasivaFamiliasService;
 import com.asiscontrol.service.ImportacionAlumnoService;
 import com.asiscontrol.service.PersonaService;
 
@@ -33,11 +34,15 @@ public class AlumnoController {
 
     private final PersonaService personaService;
     private final ImportacionAlumnoService importacionService;
+    private final CargaMasivaFamiliasService cargaMasiva;
 
     public AlumnoController(
-            PersonaService personaService, ImportacionAlumnoService importacionService) {
+            PersonaService personaService,
+            ImportacionAlumnoService importacionService,
+            CargaMasivaFamiliasService cargaMasiva) {
         this.personaService = personaService;
         this.importacionService = importacionService;
+        this.cargaMasiva = cargaMasiva;
     }
 
     @GetMapping
@@ -102,6 +107,20 @@ public class AlumnoController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
     public PersonaDtos.ImportResult importStudents(@RequestPart("archivo") MultipartFile file) {
         return importacionService.importStudents(file);
+    }
+
+    /**
+     * Carga masiva de familias, todo o nada. Con {@code confirmar=false} solo valida los archivos;
+     * con {@code confirmar=true} guarda todo si ningun archivo tiene errores, o nada si los tiene.
+     */
+    @PostMapping(value = "/importaciones/familias", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
+    public PersonaDtos.FamilyImportResult importFamilies(
+            @RequestPart(value = "estudiantes", required = false) MultipartFile estudiantes,
+            @RequestPart(value = "apoderados", required = false) MultipartFile apoderados,
+            @RequestPart(value = "parentescos", required = false) MultipartFile parentescos,
+            @RequestParam(defaultValue = "false") boolean confirmar) {
+        return cargaMasiva.procesar(estudiantes, apoderados, parentescos, confirmar);
     }
 
     @GetMapping("/importaciones/plantilla")

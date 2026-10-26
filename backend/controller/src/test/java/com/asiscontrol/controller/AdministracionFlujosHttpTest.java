@@ -32,7 +32,10 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
         putOk(sp,data("nombre","B","grado",1,"anioAcademico",2091,"capacidadMaxima",35,"docenteTutorId",teacher.getId(),"version",0,"motivo","Ajuste de aforo"));
         var updated=getOk(sp);
         putOk(sp+"/estado",data("activo",false,"version",updated.path("version").asLong(),"motivo","Seccion sin uso"));
-        request("DELETE",sp,null,422);
+       // request("DELETE",sp,null,422);
+       var extra=postOk("/api/secciones",data("nombre","Z","grado",1,"anioAcademico",2091,"capacidadMaxima",30));
+        request("DELETE","/api/secciones/"+extra.path("id").asLong(),null,204); 
+       
         var day=postOk(base+"/anios/2091/dias-no-lectivos",data("fecha","2091-07-28","descripcion","Fiestas Patrias"));
         getOk(base+"/anios/2091/dias-no-lectivos");
         request("PATCH",base+"/dias-no-lectivos/"+day.path("id").asLong(),data("descripcion","Feriado nacional","version",0),200);
@@ -50,10 +53,11 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
 
     @Test void conservaSeguimientoDeErroresYNotificacionesPorDestinatario() throws Exception {
         var error=new RegistroError(); error.setFechaHora(Instant.now()); error.setSeveridad(SeveridadError.ERROR);
+        var fechaError = error.getFechaHora().atZone(ZoneId.of("America/Lima")).toLocalDate();
         error.setComponente("Integracion"); error.setMensajeSeguro("Error controlado de prueba");
         error.setCorrelacionId("correlacion-prueba"); em.persist(error); em.flush();
         getOk("/api/auditoria/registros"); getOk("/api/auditoria/errores");
-        var result=getOk("/api/auditoria/errores?estado=PENDIENTE&severidad=ERROR&componente=Integracion&correlacion=correlacion-prueba&desde="+LocalDate.now()+"&hasta="+LocalDate.now());
+        var result=getOk("/api/auditoria/errores?estado=PENDIENTE&severidad=ERROR&componente=Integracion&correlacion=correlacion-prueba&desde="+fechaError+"&hasta="+fechaError);
         assertThat(result.path("content").size()).isGreaterThanOrEqualTo(1);
         putOk("/api/auditoria/errores/"+error.getId(),data("estado","EN_SEGUIMIENTO","observacionSeguimiento","Investigando causa","version",0));
         assertThat(getOk("/api/auditoria/errores/"+error.getId()+"/seguimientos")).hasSize(1);

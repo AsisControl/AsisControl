@@ -13,17 +13,17 @@ export const STUDENT_DOCUMENT_RULES = {
   DNI: {
     max: 8,
     pattern: /^\d{8}$/,
-    hint: "DNI: exactamente 8 dígitos.",
+    placeholder: "Ej. 12345678",
   },
   CARNET_EXTRANJERIA: {
     max: 9,
     pattern: /^\d{9}$/,
-    hint: "Carné de extranjería: exactamente 9 dígitos.",
+    placeholder: "Ej. 001234567",
   },
   PASAPORTE: {
     max: 12,
     pattern: /^[A-Za-z0-9]{8,12}$/,
-    hint: "Pasaporte: de 8 a 12 letras o números, sin espacios ni guiones.",
+    placeholder: "Ej. AB123456",
   },
 } as const;
 

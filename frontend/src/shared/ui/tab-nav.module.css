@@ -1,0 +1,34 @@
+.tabs {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px #0f172a14;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding: 4px;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tabs button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #475569;
+  flex: 1 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  white-space: nowrap;
+}
+.tabs button:hover {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.tabs button[aria-current="page"] {
+  background: var(--blue);
+  color: #fff;
+}

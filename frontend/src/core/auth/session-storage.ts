@@ -1,5 +1,6 @@
 import type { AuthSession } from "./types";
-// La sesión dura mientras la pestaña permanece abierta; no se persisten tokens.
+// El access token vive solo en memoria; al recargar se recupera con la cookie
+// HttpOnly de renovación (POST /api/auth/refresh). No se persisten tokens.
 type SessionStatus = "checking" | "ready" | "error";
 export type SessionSnapshot = {
   session: AuthSession | null;
@@ -37,6 +38,14 @@ export function subscribeSession(listener: () => void) {
 }
 export const getSessionSnapshot = () => snapshot;
 export const getServerSessionSnapshot = () => serverSnapshot;
+/** Renueva el access token; la registra use-auth y la usa api() ante un 401. */
+let renewal: (() => Promise<boolean>) | null = null;
+export function registerSessionRenewal(renew: () => Promise<boolean>) {
+  renewal = renew;
+}
+/** true si se obtuvo un token nuevo; false si no hay renovación registrada o falló. */
+export const renewSession = () =>
+  renewal ? renewal() : Promise.resolve(false);
 export function readSession(): AuthSession | null {
   return snapshot.session;
 }

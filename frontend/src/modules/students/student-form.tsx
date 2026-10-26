@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Dialog, Feedback, Field } from "@/shared/ui";
+import { Dialog, Feedback, Field, PanelHeading } from "@/shared/ui";
 import {
   StudentContactFields,
   StudentCorrectionReason,
@@ -42,20 +42,18 @@ export function StudentForm({
     <>
       <form
         ref={formRef}
-        className="panel"
         noValidate
         onSubmit={submitForm}
         aria-busy={busy}
       >
-        <h3>
-          {student
-            ? "Editar ficha de estudiante"
-            : "Registrar ficha de estudiante"}
-        </h3>
-        <p className={styles.summary}>
-          Los campos con * son obligatorios. La ficha conserva la identidad del
-          estudiante a lo largo de los años académicos.
-        </p>
+        <PanelHeading
+          title={
+            student
+              ? "Editar ficha de estudiante"
+              : "Registrar ficha de estudiante"
+          }
+          summary="Completa los datos del estudiante. Los campos con * son obligatorios."
+        />
         <Feedback error={error} />
         <fieldset disabled={busy}>
           {student && (
@@ -68,8 +66,8 @@ export function StudentForm({
           )}
           <p className={styles.notice} id="student-code-hint">
             {student
-              ? "El código institucional es permanente y se conserva al actualizar la ficha."
-              : "El código institucional se asigna automáticamente al guardar la ficha."}
+              ? "Este código identifica al estudiante."
+              : "El código se asignará al guardar."}
           </p>
           <StudentIdentityFields
             draft={draft}
@@ -96,8 +94,7 @@ export function StudentForm({
           )}
         </fieldset>
         <p className={styles.helper}>
-          Guardar esta ficha no crea credenciales, una matrícula ni una
-          asociación familiar.
+          La matrícula se realiza por separado.
         </p>
         <div className="form-actions">
           <button

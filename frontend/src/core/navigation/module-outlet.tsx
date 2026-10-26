@@ -3,8 +3,10 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
+import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
+import { Schedules } from "@/modules/schedules";
 import { canAccess } from "./access-policy";
 import {
   HOME_NAV,
@@ -21,7 +23,19 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ADMINISTRADOR: {
-    Matrícula: () => <Enrollments />,
+    Matrícula: ({ subpath: [tab, view] }) => <Enrollments tab={tab} view={view} />,
+    Académico: ({ user, subpath: [tab] }) => (
+      <Academic
+        tab={tab}
+        canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+      />
+    ),
+    Horarios: ({ user, subpath: [tab] }) => (
+      <Schedules
+        tab={tab}
+        canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+      />
+    ),
     Administración: ({ user, subpath: [tab, view] }) => (
       <Administration currentUserId={user.id} tab={tab} view={view} />
     ),

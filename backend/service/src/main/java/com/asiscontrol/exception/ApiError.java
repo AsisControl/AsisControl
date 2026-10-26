@@ -10,6 +10,18 @@ public record ApiError(
         String message,
         String path,
         String correlationId,
-        List<FieldValidationError> fieldErrors
+        List<FieldValidationError> fieldErrors,
+        List<?> details
 ) {
+
+    public ApiError(
+            Instant timestamp,
+            int status,
+            String code,
+            String message,
+            String path,
+            String correlationId,
+            List<FieldValidationError> fieldErrors) {
+        this(timestamp, status, code, message, path, correlationId, fieldErrors, List.of());
+    }
 }

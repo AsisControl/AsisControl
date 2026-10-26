@@ -1,3 +1,5 @@
+> Integración v08, 25/10/2026: base develop 7ce01a5. Conserva sesiones, carga masiva y formularios del equipo; la ficha utiliza V5. Consultar INTEGRACION_FICHA_DEVELOP.md y RESULTADOS_VERIFICACION.json del paquete. Las cifras y referencias que siguen son históricas.
+
 # Estado vigente: revisión v0.4 del 22/10/2026
 
 Consultar [REVISION_ESTANDAR_v04.md](REVISION_ESTANDAR_v04.md) para la organización del código, los resultados y los paquetes actuales. Las reglas funcionales se mantienen en [CORRECCIONES_FICHA_v03.md](CORRECCIONES_FICHA_v03.md). El contrato de backend se explica en `backend/docs/BE2_FICHA_VALIDACIONES.md`.

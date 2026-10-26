@@ -207,6 +207,19 @@ public final class PersonaDtos {
     public record ImportResult(
             int totalRows, int importedRows, int rejectedRows, List<ImportIssue> issues) {}
 
+    /**
+     * Un archivo de la carga masiva de familias: {@code error} si no se pudo leer el archivo
+     * (formato, cabeceras); si no, {@code result} con sus filas validas y con error.
+     */
+    public record FamilyImportFile(String error, ImportResult result) {}
+
+    /**
+     * Carga masiva de familias. {@code valid}: ningun archivo tiene errores. {@code saved}: se
+     * guardo todo en una sola transaccion; si no, no se guardo ninguna fila.
+     */
+    public record FamilyImportResult(
+            boolean valid, boolean saved, java.util.Map<String, FamilyImportFile> files) {}
+
     public record NacionalidadRequest(
             @NotBlank(message = "El nombre es obligatorio") @Size(max = 80) String nombre) {}
 

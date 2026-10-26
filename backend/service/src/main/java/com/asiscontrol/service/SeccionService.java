@@ -1,15 +1,21 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarSeccionRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.ConfirmarPropuestasSeccionesRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearSeccionRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionResponse;
 import com.asiscontrol.entity.Docente;
+import com.asiscontrol.entity.GradoAcademico;
 import com.asiscontrol.entity.Seccion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.DocenteRepository;
+import com.asiscontrol.repository.GradoAcademicoRepository;
 import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.SeccionRepository;
 
@@ -18,12 +24,29 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+
 @Service
 @Transactional(readOnly = true)
 public class SeccionService {
 
+    private static final Set<com.asiscontrol.entity.enums.EstadoSolicitudMatricula>
+            ESTADOS_SOLICITUD_VIGENTES =
+                    EnumSet.of(
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.BORRADOR,
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.ENVIADA,
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.EN_REVISION,
+                            com.asiscontrol.entity.enums.EstadoSolicitudMatricula.OBSERVADA);
+
     private final SeccionRepository seccionRepository;
     private final DocenteRepository docenteRepository;
+    private final GradoAcademicoRepository gradoAcademicoRepository;
     private final MatriculaRepository matriculaRepository;
     private final ConfiguracionAcademicaService configuracion;
     private final AuditoriaService auditoria;
@@ -33,6 +56,7 @@ public class SeccionService {
     public SeccionService(
             SeccionRepository seccionRepository,
             DocenteRepository docenteRepository,
+            GradoAcademicoRepository gradoAcademicoRepository,
             MatriculaRepository matriculaRepository,
             ConfiguracionAcademicaService configuracion,
             AuditoriaService auditoria,
@@ -40,6 +64,7 @@ public class SeccionService {
             com.asiscontrol.repository.AsignacionCursoRepository asignaciones) {
         this.seccionRepository = seccionRepository;
         this.docenteRepository = docenteRepository;
+        this.gradoAcademicoRepository = gradoAcademicoRepository;
         this.matriculaRepository = matriculaRepository;
         this.configuracion = configuracion;
         this.auditoria = auditoria;
@@ -51,11 +76,13 @@ public class SeccionService {
     public SeccionResponse crear(CrearSeccionRequest request) {
         var anio = configuracion.bloquear(request.anioAcademico());
         configuracion.exigirOferta(request.anioAcademico(), request.grado(), false);
+        GradoAcademico gradoAcademico = obtenerGradoActivo(request.anioAcademico(), request.grado());
         if (anio.getEstado() == com.asiscontrol.entity.enums.EstadoAnioAcademico.ACTIVO
                 && (request.motivo() == null || request.motivo().isBlank()))
             throw new BusinessRuleException(
                     "MOTIVO_REQUERIDO", "Indique el motivo para añadir una sección al año activo");
-        validarUnica(request.anioAcademico(), request.grado(), request.nombre(), null);
+        validarUnica(
+                gradoAcademico, request.anioAcademico(), request.grado(), request.nombre(), null);
         Seccion seccion = new Seccion();
         aplicar(
                 seccion,
@@ -64,6 +91,7 @@ public class SeccionService {
                 request.anioAcademico(),
                 request.capacidadMaxima(),
                 request.docenteTutorId());
+        seccion.setGradoAcademico(gradoAcademico);
         seccion.setActivo(true);
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
@@ -83,6 +111,8 @@ public class SeccionService {
         Seccion vista = obtenerEntidad(id);
         configuracion.bloquear(vista.getAnioAcademico());
         configuracion.exigirOferta(vista.getAnioAcademico(), vista.getGrado(), false);
+        GradoAcademico gradoAcademico =
+                obtenerGradoActivo(request.anioAcademico(), request.grado());
         Seccion seccion = seccionRepository.buscarActivaParaActualizar(id).orElseThrow();
         String anterior =
                 "grado=" + seccion.getGrado() + ",capacidad=" + seccion.getCapacidadMaxima();
@@ -95,7 +125,8 @@ public class SeccionService {
             throw new BusinessRuleException(
                     "SECCION_UTILIZADA", "No cambie el nombre de una sección utilizada");
         exigirVersion(seccion.getVersion(), request.version());
-        validarUnica(request.anioAcademico(), request.grado(), request.nombre(), id);
+        validarUnica(
+                gradoAcademico, request.anioAcademico(), request.grado(), request.nombre(), id);
         long matriculados =
                 matriculaRepository.countBySeccionIdAndEstadoAndActivoTrue(
                         id, EstadoMatricula.ACTIVA);
@@ -111,6 +142,7 @@ public class SeccionService {
                 request.anioAcademico(),
                 request.capacidadMaxima(),
                 request.docenteTutorId());
+        seccion.setGradoAcademico(gradoAcademico);
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
                 "ACTUALIZAR_SECCION",
@@ -128,8 +160,89 @@ public class SeccionService {
         return mapear(obtenerEntidad(id));
     }
 
-    public Page<SeccionResponse> listar(Pageable pageable) {
-        return seccionRepository.findByActivoTrue(pageable).map(this::mapear);
+    public Page<SeccionResponse> listar(
+            Boolean activo, Integer anioAcademico, Integer grado, Pageable pageable) {
+        validarFiltros(anioAcademico, grado);
+        return seccionRepository
+                .buscarConFiltros(
+                        activo == null ? Boolean.TRUE : activo, anioAcademico, grado, pageable)
+                .map(this::mapear);
+    }
+
+    public List<SeccionPropuestaResponse> generarPropuestas(
+            GenerarPropuestasSeccionesRequest request) {
+        validarPropuestas(request);
+        configuracion.exigirOferta(request.anioAcademico(), request.grado(), false);
+        GradoAcademico gradoAcademico =
+                obtenerGradoActivo(request.anioAcademico(), request.grado());
+
+        Set<String> nombresExistentes =
+                new HashSet<>(
+                        seccionRepository.findByAnioAcademicoOrderByGradoAscNombreAsc(
+                                        request.anioAcademico())
+                                .stream()
+                                .filter(
+                                        seccion ->
+                                                seccion.getGrado() == request.grado()
+                                                        || (seccion.getGradoAcademico() != null
+                                                                && Objects.equals(
+                                                                        seccion.getGradoAcademico()
+                                                                                .getId(),
+                                                                        gradoAcademico.getId())))
+                                .map(seccion -> normalizarNombre(seccion.getNombre()))
+                                .toList());
+
+        List<SeccionPropuestaResponse> propuestas = new ArrayList<>(request.cantidad());
+        int indice = 0;
+        while (propuestas.size() < request.cantidad()) {
+            String nombre = nombrePropuesto(indice++);
+            if (!nombresExistentes.add(nombre)) continue;
+            propuestas.add(
+                    new SeccionPropuestaResponse(
+                            nombre,
+                            request.grado(),
+                            request.anioAcademico(),
+                            request.capacidadMaxima()));
+        }
+        return propuestas;
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public List<SeccionResponse> confirmarPropuestas(
+            ConfirmarPropuestasSeccionesRequest request) {
+        validarConfirmacion(request);
+        GradoAcademico gradoAcademico = validarOferta(request.anioAcademico(), request.grado());
+        Set<String> nombresExistentes =
+                nombresExistentes(request.anioAcademico(), request.grado(), gradoAcademico);
+        Set<String> nombresSolicitud = new HashSet<>();
+
+        for (SeccionPropuestaRequest propuesta : request.secciones()) {
+            String nombre = normalizarNombre(propuesta.nombre());
+            if (!nombresSolicitud.add(nombre))
+                throw new ConflictException(
+                        "SECCIONES_DUPLICADAS",
+                        "La solicitud contiene nombres de sección duplicados");
+            if (nombresExistentes.contains(nombre))
+                throw new ConflictException(
+                        "SECCION_DUPLICADA",
+                        "Ya existe esa sección para el grado y año académico");
+        }
+
+        validarMotivoSiAnioActivo(request.anioAcademico(), request.motivo());
+
+        List<SeccionResponse> creadas = new ArrayList<>(request.secciones().size());
+        for (SeccionPropuestaRequest propuesta : request.secciones()) {
+            creadas.add(
+                    crear(
+                            new CrearSeccionRequest(
+                                    propuesta.nombre(),
+                                    request.grado(),
+                                    request.anioAcademico(),
+                                    propuesta.capacidadMaxima(),
+                                    null,
+                                    request.motivo())));
+        }
+        return creadas;
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
@@ -147,11 +260,11 @@ public class SeccionService {
         configuracion.exigirOferta(vista.getAnioAcademico(), vista.getGrado(), false);
         Seccion seccion = seccionRepository.bloquearPorId(id).orElseThrow();
         exigirVersion(seccion.getVersion(), request.version());
-        if (!request.activo() && utilizada(id))
+        if (!request.activo() && tieneUsoVigente(id))
             throw new ConflictException(
                     "SECCION_UTILIZADA",
-                    "No se puede inhabilitar una sección utilizada por solicitudes, matrículas o"
-                        + " asignaciones");
+                    "No se puede inhabilitar una sección con solicitudes, matrículas o asignaciones"
+                        + " vigentes");
         if (request.motivo() == null || request.motivo().isBlank())
             throw new BusinessRuleException(
                     "MOTIVO_REQUERIDO", "Indique el motivo del cambio de estado");
@@ -172,9 +285,146 @@ public class SeccionService {
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void eliminar(Long id) {
-        throw new BusinessRuleException(
-                "HISTORIAL_PROTEGIDO",
-                "Utilice el cambio de estado con motivo y versión; la sección se conserva");
+        Seccion vista =
+                seccionRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "SECCION_NO_ENCONTRADA",
+                                                "No se encontró la sección"));
+        var anio = configuracion.bloquear(vista.getAnioAcademico());
+        if (anio.getEstado() != com.asiscontrol.entity.enums.EstadoAnioAcademico.BORRADOR)
+            throw new BusinessRuleException(
+                    "SECCION_ELIMINACION_NO_PERMITIDA",
+                    "Solo se pueden eliminar secciones de años en borrador");
+
+        Seccion seccion =
+                seccionRepository
+                        .bloquearPorId(id)
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "SECCION_NO_ENCONTRADA",
+                                                "No se encontró la sección"));
+        if (utilizada(id))
+            throw new ConflictException(
+                    "SECCION_CON_RELACIONES",
+                    "No se puede eliminar una sección que tiene matrículas, solicitudes, asignaciones, horarios u otras relaciones históricas");
+
+        String anterior =
+                "nombre="
+                        + seccion.getNombre()
+                        + ",grado="
+                        + seccion.getGrado()
+                        + ",anio="
+                        + seccion.getAnioAcademico()
+                        + ",capacidad="
+                        + seccion.getCapacidadMaxima();
+        seccionRepository.delete(seccion);
+        seccionRepository.flush();
+        auditoria.registrar(
+                "ELIMINAR_SECCION",
+                "CONFIGURACION_ACADEMICA",
+                "Seccion",
+                id.toString(),
+                com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
+                null,
+                anterior,
+                null);
+    }
+
+    private boolean tieneUsoVigente(Long id) {
+        return matriculaRepository.existsBySeccionIdAndActivoTrueAndEstado(
+                        id, EstadoMatricula.ACTIVA)
+                || solicitudes.existsBySeccionIdAndActivoTrueAndEstadoIn(
+                        id, ESTADOS_SOLICITUD_VIGENTES)
+                || asignaciones.existsBySeccionIdAndActivoTrue(id);
+    }
+
+    private void validarPropuestas(GenerarPropuestasSeccionesRequest request) {
+        if (request.anioAcademico() < 2000 || request.anioAcademico() > 2100)
+            throw new BusinessRuleException(
+                    "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
+        if (request.grado() < 1 || request.grado() > 5)
+            throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
+        if (request.cantidad() <= 0)
+            throw new BusinessRuleException(
+                    "CANTIDAD_SECCIONES_INVALIDA", "La cantidad de secciones debe ser positiva");
+        if (request.capacidadMaxima() <= 0 || request.capacidadMaxima() > 100)
+            throw new BusinessRuleException(
+                    "CAPACIDAD_SECCION_INVALIDA",
+                    "La capacidad de cada sección debe estar entre 1 y 100");
+    }
+
+    private void validarConfirmacion(ConfirmarPropuestasSeccionesRequest request) {
+        validarAnioYGrado(request.anioAcademico(), request.grado());
+        if (request.secciones() == null || request.secciones().isEmpty())
+            throw new BusinessRuleException(
+                    "SECCIONES_REQUERIDAS", "Debe confirmar al menos una sección");
+        for (SeccionPropuestaRequest propuesta : request.secciones()) {
+            if (propuesta == null
+                    || propuesta.nombre() == null
+                    || propuesta.nombre().isBlank())
+                throw new BusinessRuleException(
+                        "NOMBRE_SECCION_INVALIDO", "El nombre de la sección es obligatorio");
+            if (propuesta.capacidadMaxima() <= 0 || propuesta.capacidadMaxima() > 100)
+                throw new BusinessRuleException(
+                        "CAPACIDAD_SECCION_INVALIDA",
+                        "La capacidad de cada sección debe estar entre 1 y 100");
+        }
+    }
+
+    private void validarAnioYGrado(int anioAcademico, int grado) {
+        if (anioAcademico < 2000 || anioAcademico > 2100)
+            throw new BusinessRuleException(
+                    "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
+        if (grado < 1 || grado > 5)
+            throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
+    }
+
+    private GradoAcademico validarOferta(int anioAcademico, int grado) {
+        configuracion.exigirOferta(anioAcademico, grado, false);
+        return obtenerGradoActivo(anioAcademico, grado);
+    }
+
+    private Set<String> nombresExistentes(
+            int anioAcademico, int grado, GradoAcademico gradoAcademico) {
+        return new HashSet<>(
+                seccionRepository
+                        .findByAnioAcademicoOrderByGradoAscNombreAsc(anioAcademico)
+                        .stream()
+                        .filter(
+                                seccion ->
+                                        seccion.getGrado() == grado
+                                                || (seccion.getGradoAcademico() != null
+                                                        && Objects.equals(
+                                                                seccion.getGradoAcademico().getId(),
+                                                                gradoAcademico.getId())))
+                        .map(seccion -> normalizarNombre(seccion.getNombre()))
+                        .toList());
+    }
+
+    private void validarMotivoSiAnioActivo(int anioAcademico, String motivo) {
+        if (configuracion.buscar(anioAcademico).getEstado()
+                        == com.asiscontrol.entity.enums.EstadoAnioAcademico.ACTIVO
+                && (motivo == null || motivo.isBlank()))
+            throw new BusinessRuleException(
+                    "MOTIVO_REQUERIDO", "Indique el motivo para añadir secciones al año activo");
+    }
+
+    private String nombrePropuesto(int indice) {
+        StringBuilder nombre = new StringBuilder();
+        int valor = indice;
+        do {
+            nombre.insert(0, (char) ('A' + valor % 26));
+            valor = valor / 26 - 1;
+        } while (valor >= 0);
+        return nombre.toString();
+    }
+
+    private String normalizarNombre(String nombre) {
+        return nombre.trim().toUpperCase(Locale.ROOT);
     }
 
     private boolean utilizada(Long id) {
@@ -193,16 +443,43 @@ public class SeccionService {
                                         "No existe una seccion activa con id " + id));
     }
 
-    private void validarUnica(int anio, int grado, String nombre, Long idActual) {
-        seccionRepository
-                .findByAnioAcademicoAndGradoAndNombreIgnoreCase(anio, grado, nombre.trim())
-                .filter(existente -> idActual == null || !existente.getId().equals(idActual))
-                .ifPresent(
-                        existente -> {
-                            throw new ConflictException(
-                                    "SECCION_DUPLICADA",
-                                    "Ya existe esa seccion para el grado y anio academico");
-                        });
+    private void validarUnica(
+            GradoAcademico gradoAcademico,
+            int anio,
+            int grado,
+            String nombre,
+            Long idActual) {
+        String nombreNormalizado = nombre.trim();
+        boolean duplicadaLegacy =
+                seccionRepository
+                        .findByAnioAcademicoAndGradoAndNombreIgnoreCase(
+                                anio, grado, nombreNormalizado)
+                        .filter(existente -> idActual == null || !existente.getId().equals(idActual))
+                        .isPresent();
+        boolean duplicadaPorRelacion =
+                gradoAcademico.getId() != null
+                        && seccionRepository
+                                .findByGradoAcademicoIdAndNombreIgnoreCase(
+                                        gradoAcademico.getId(), nombreNormalizado)
+                                .filter(
+                                        existente ->
+                                                idActual == null
+                                                        || !existente.getId().equals(idActual))
+                                .isPresent();
+        if (duplicadaLegacy || duplicadaPorRelacion)
+            throw new ConflictException(
+                    "SECCION_DUPLICADA", "Ya existe esa seccion para el grado y anio academico");
+    }
+
+    private GradoAcademico obtenerGradoActivo(int anio, int numero) {
+        return gradoAcademicoRepository
+                .findByAnioAcademicoAnioAndNumero(anio, numero)
+                .filter(GradoAcademico::isActivo)
+                .orElseThrow(
+                        () ->
+                                new BusinessRuleException(
+                                        "GRADO_NO_HABILITADO",
+                                        "El grado no está habilitado para ese año"));
     }
 
     private void aplicar(
@@ -248,5 +525,13 @@ public class SeccionService {
             throw new ConflictException(
                     "VERSION_DESACTUALIZADA", "La seccion fue modificada; vuelva a cargarla");
         }
+    }
+
+    private void validarFiltros(Integer anioAcademico, Integer grado) {
+        if (anioAcademico != null && (anioAcademico < 2000 || anioAcademico > 2100))
+            throw new BusinessRuleException(
+                    "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
+        if (grado != null && (grado < 1 || grado > 5))
+            throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
     }
 }

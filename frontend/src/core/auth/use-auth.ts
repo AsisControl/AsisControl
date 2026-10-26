@@ -11,6 +11,7 @@ import {
   getServerSessionSnapshot,
   getSessionSnapshot,
   readSession,
+  registerSessionRenewal,
   saveSession,
   setSessionStatus,
   subscribeSession,
@@ -20,10 +21,15 @@ import type { AuthSession, LoginCredentials } from "./types";
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const REVALIDATION_INTERVAL_MS = 2 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 20000;
+/** Se renueva el access token un minuto antes de que venza. */
+const RENEWAL_MARGIN_MS = 60 * 1000;
 let pendingValidation: { session: AuthSession; promise: Promise<void> } | null =
   null;
+let pendingRefresh: Promise<boolean> | null = null;
 /** Aumenta en cada login o logout: una respuesta antigua no afecta a la sesión nueva. */
 let generation = 0;
+/** Solo cambia con login o logout: una renovación no se descarta por un /me en curso. */
+let sessionEpoch = 0;
 let lastActivity = Date.now();
 let lastValidation = Date.now();
 function isExpired(session: AuthSession) {
@@ -34,8 +40,65 @@ function isExpired(session: AuthSession) {
 function isInactive() {
   return Date.now() - lastActivity >= INACTIVITY_LIMIT_MS;
 }
+function connectionMessage(error: unknown) {
+  return error instanceof TypeError
+    ? "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo nuevamente."
+    : error instanceof Error && error.name === "AbortError"
+      ? "El servidor tardó demasiado. Inténtalo nuevamente."
+      : message(error);
+}
+/** La cookie de renovación es de un solo uso: las pestañas renuevan por turnos. */
+function withRefreshLock<T>(task: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+  return locks
+    ? (locks.request("asiscontrol:session-refresh", task) as Promise<T>)
+    : task();
+}
+/**
+ * Pide un access token nuevo con la cookie HttpOnly. Devuelve true si la
+ * sesión sigue. Una sola renovación a la vez: si el servidor recibe dos veces
+ * la misma cookie, revoca la sesión (también ocurriría con el doble montaje
+ * de React en desarrollo).
+ */
+function refreshSession(): Promise<boolean> {
+  if (pendingRefresh) return pendingRefresh;
+  const requestEpoch = sessionEpoch;
+  const previous = readSession();
+  // Sin un token vigente que mostrar, el shell espera en "Cargando sesión…".
+  if (!previous || isExpired(previous)) setSessionStatus("checking");
+  pendingRefresh = (async () => {
+    try {
+      const renewed = await withRefreshLock(() => httpAuthService.refresh());
+      if (requestEpoch !== sessionEpoch) return readSession() !== null;
+      if (!renewed) {
+        // Sin sesión en esta pestaña no se avisa a las demás: quizá nunca la hubo.
+        if (readSession()) clearSession();
+        else setSessionStatus("ready");
+        return false;
+      }
+      if (!previous) lastActivity = Date.now();
+      lastValidation = Date.now();
+      saveSession(renewed);
+      return true;
+    } catch (error) {
+      if (requestEpoch === sessionEpoch)
+        setSessionStatus("error", connectionMessage(error));
+      return false;
+    } finally {
+      pendingRefresh = null;
+    }
+  })();
+  return pendingRefresh;
+}
+registerSessionRenewal(refreshSession);
+/** Vencido o por vencer: se renueva salvo que el usuario lleve 30 min inactivo. */
+function renewOrEnd() {
+  if (isInactive()) clearSession();
+  else void refreshSession();
+}
 /**
  * Confirma con /api/auth/me que el token sigue vigente y actualiza permisos.
+ * Sin sesión en memoria (al cargar la página), la recupera con la cookie.
  * Se usa fetch directo para capturar el token enviado y descartar respuestas
  * de una sesión anterior; el resto de llamadas usa el 401 de api().
  */
@@ -43,11 +106,16 @@ async function revalidateSession(): Promise<void> {
   synchronizeSessionInvalidation();
   const candidate = readSession();
   if (!candidate) {
-    setSessionStatus("ready");
+    // Tras un cierre de sesión el estado queda "ready" y no se reintenta.
+    if (getSessionSnapshot().status !== "ready") await refreshSession();
     return;
   }
-  if (isExpired(candidate) || isInactive()) {
+  if (isInactive()) {
     clearSession();
+    return;
+  }
+  if (isExpired(candidate)) {
+    await refreshSession();
     return;
   }
   if (pendingValidation?.session === candidate)
@@ -70,7 +138,8 @@ async function revalidateSession(): Promise<void> {
       if (requestGeneration !== generation || readSession() !== candidate)
         return;
       if (response.status === 401) {
-        clearSession();
+        // Otra pestaña pudo renovar la sesión; si la cookie ya no sirve, se cierra.
+        await refreshSession();
         return;
       }
       if (!response.ok)
@@ -86,13 +155,7 @@ async function revalidateSession(): Promise<void> {
     } catch (error) {
       if (requestGeneration !== generation || readSession() !== candidate)
         return;
-      const detail =
-        error instanceof TypeError
-          ? "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo nuevamente."
-          : error instanceof Error && error.name === "AbortError"
-            ? "El servidor tardó demasiado. Inténtalo nuevamente."
-            : message(error);
-      setSessionStatus("error", detail);
+      setSessionStatus("error", connectionMessage(error));
     } finally {
       clearTimeout(timer);
       if (pendingValidation?.session === candidate) pendingValidation = null;
@@ -128,8 +191,12 @@ export function useAuth() {
     const session = state.session;
     if (!session) return;
     const onActivity = () => {
-      if (isExpired(session) || isInactive()) {
+      if (isInactive()) {
         clearSession();
+        return;
+      }
+      if (isExpired(session)) {
+        void refreshSession();
         return;
       }
       lastActivity = Date.now();
@@ -146,22 +213,29 @@ export function useAuth() {
       window.addEventListener(name, onActivity, { passive: true }),
     );
     const inactivityTimer = window.setInterval(() => {
-      if (isExpired(session) || isInactive()) clearSession();
+      if (isInactive()) clearSession();
+      else if (isExpired(session)) void refreshSession();
     }, 15000);
-    const expiryTimer = session.expiresAt
+    const renewalTimer = session.expiresAt
       ? window.setTimeout(
-          clearSession,
-          Math.max(0, new Date(session.expiresAt).getTime() - Date.now()),
+          renewOrEnd,
+          Math.max(
+            0,
+            new Date(session.expiresAt).getTime() -
+              Date.now() -
+              RENEWAL_MARGIN_MS,
+          ),
         )
       : undefined;
     return () => {
       window.clearInterval(inactivityTimer);
-      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+      if (renewalTimer !== undefined) window.clearTimeout(renewalTimer);
       events.forEach((name) => window.removeEventListener(name, onActivity));
     };
   }, [state.session]);
   async function login(credentials: LoginCredentials) {
     const attempt = ++generation;
+    sessionEpoch++;
     const result = await httpAuthService.login(credentials);
     if (result.ok && attempt === generation) {
       lastActivity = lastValidation = Date.now();
@@ -171,6 +245,7 @@ export function useAuth() {
   }
   async function logout() {
     ++generation;
+    sessionEpoch++;
     setIsEndingSession(true);
     try {
       await httpAuthService.logout();

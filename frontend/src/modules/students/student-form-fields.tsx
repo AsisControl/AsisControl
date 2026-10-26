@@ -60,7 +60,6 @@ export function StudentIdentityFields({
           min={birthRange.min}
           max={birthRange.max}
           autoComplete="bday"
-          hint="Secundaria: de 10 a 20 años cumplidos. Usa día, mes y año."
         />
         <div>
           <label className="field">
@@ -77,18 +76,26 @@ export function StudentIdentityFields({
               required={!!draft.numeroDocumento}
               className={errors.tipoDocumento ? styles.invalid : undefined}
               aria-invalid={!!errors.tipoDocumento}
-              aria-describedby="student-document-help student-document-type-error"
+              aria-describedby={
+                [
+                  !draft.tipoDocumento ? "student-document-help" : "",
+                  errors.tipoDocumento ? "student-document-type-error" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
             >
-              <option value="">Sin documento / pendiente</option>
+              <option value="">Sin documento por el momento</option>
               <option value="DNI">DNI</option>
               <option value="CARNET_EXTRANJERIA">Carné de extranjería</option>
               <option value="PASAPORTE">Pasaporte</option>
             </select>
           </label>
-          <small id="student-document-help" className={styles.helper}>
-            Ambos campos son opcionales juntos. Si completas uno, debes
-            completar también el otro.
-          </small>
+          {!draft.tipoDocumento && (
+            <small id="student-document-help" className={styles.helper}>
+              Puedes registrar el documento más adelante.
+            </small>
+          )}
           <small id="student-document-type-error" className={styles.fieldError}>
             {errors.tipoDocumento}
           </small>
@@ -99,14 +106,11 @@ export function StudentIdentityFields({
           required={!!draft.tipoDocumento}
           maxLength={documentRule?.max ?? 12}
           inputMode={draft.tipoDocumento !== "PASAPORTE" ? "numeric" : "text"}
-          hint={
-            documentRule?.hint ??
-            "Selecciona el tipo si vas a registrar un documento; también puedes dejar ambos vacíos."
-          }
+          placeholder={documentRule?.placeholder}
         />
         <div>
           <label className="field">
-            Sexo
+            Sexo (opcional)
             <select
               name="sexo"
               value={draft.sexo}
@@ -118,7 +122,7 @@ export function StudentIdentityFields({
               aria-invalid={!!errors.sexo}
               aria-describedby="student-sex-error"
             >
-              <option value="">Sin registrar</option>
+              <option value="">Selecciona una opción</option>
               <option value="FEMENINO">Femenino</option>
               <option value="MASCULINO">Masculino</option>
               <option value="OTRO">Otro</option>
@@ -147,7 +151,7 @@ export function StudentContactFields({
           type="email"
           autoComplete="email"
           maxLength={150}
-          hint="Este correo pertenece a la ficha; no crea ni modifica un acceso al sistema."
+          placeholder="Ej. estudiante@correo.com"
         />
         <StudentField
           label="Teléfono"
@@ -156,13 +160,14 @@ export function StudentContactFields({
           inputMode="numeric"
           autoComplete="tel-national"
           maxLength={9}
-          hint="Celular peruano: 9 dígitos, empieza con 9. Opcional."
+          placeholder="Ej. 987654321"
         />
         <div className={styles.full}>
           <StudentField
             label="Dirección"
             {...bindField("direccion")}
             maxLength={250}
+            placeholder="Ej. Av. Los Olivos 123"
           />
         </div>
       </div>
@@ -194,12 +199,12 @@ export function StudentCorrectionReason({
         minLength={10}
         maxLength={1000}
         rows={3}
+        placeholder="Ej. Corrección del apellido según su documento."
         aria-invalid={!!errors.motivo}
         aria-describedby="student-reason-help student-reason-error"
       />
       <small id="student-reason-help" className={styles.helper}>
-        Explica el cambio de identidad en 10 a 1000 caracteres. El historial
-        conservará la corrección.
+        Explica qué dato necesitas corregir y por qué.
       </small>
       <small id="student-reason-error" className={styles.fieldError}>
         {errors.motivo}

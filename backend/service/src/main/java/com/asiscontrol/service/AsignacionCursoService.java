@@ -48,6 +48,7 @@ public class AsignacionCursoService {
         AsignacionCurso asignacion = new AsignacionCurso();
         asignacion.setCurso(buscarCurso(request.cursoId()));
         asignacion.setSeccion(buscarSeccion(request.seccionId()));
+        validarMismoGrado(asignacion.getCurso(), asignacion.getSeccion());
         asignacion.setDocente(buscarDocente(request.docenteId()));
         asignacion.setActivo(true);
         AsignacionCurso saved = asignacionRepository.save(asignacion);
@@ -65,6 +66,7 @@ public class AsignacionCursoService {
         String anterior = "curso=" + asignacion.getCurso().getNombre() + ",seccion=" + asignacion.getSeccion().getNombre();
         asignacion.setCurso(buscarCurso(request.cursoId()));
         asignacion.setSeccion(buscarSeccion(request.seccionId()));
+        validarMismoGrado(asignacion.getCurso(), asignacion.getSeccion());
         asignacion.setDocente(buscarDocente(request.docenteId()));
         AsignacionCurso saved = asignacionRepository.save(asignacion);
         auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
@@ -96,6 +98,19 @@ public class AsignacionCursoService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ASIGNACION_CURSO_NO_ENCONTRADA",
                         "No existe una asignacion de curso activa con id " + id));
+    }
+
+    /** Un curso de 1.er grado de 2027 solo se dicta en secciones de ese grado y anio. */
+    private void validarMismoGrado(Curso curso, Seccion seccion) {
+        var grado = curso.getGradoAcademico();
+        if (grado != null && (grado.getNumero() != seccion.getGrado()
+                || grado.getAnioAcademico().getAnio() != seccion.getAnioAcademico())) {
+            throw new ConflictException(
+                    "CURSO_DE_OTRO_GRADO",
+                    "El curso es de " + grado.getNumero() + ".° grado " + grado.getAnioAcademico().getAnio()
+                            + " y la sección es de " + seccion.getGrado() + ".° grado "
+                            + seccion.getAnioAcademico());
+        }
     }
 
     private Curso buscarCurso(Long id) {

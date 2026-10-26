@@ -209,6 +209,12 @@ public class GlobalExceptionHandler {
                                     "persona.numeroDocumento",
                                     "Este documento ya está registrado. Revisa la ficha"
                                             + " existente"));
+            case "DOCUMENTO_CON_OTROS_DATOS" ->
+                    List.of(
+                            new FieldValidationError(
+                                    "persona.numeroDocumento",
+                                    "Este documento está registrado con otros nombres o fecha"
+                                            + " de nacimiento. Verifica el documento"));
             case "CORREO_DUPLICADO" ->
                     List.of(
                             new FieldValidationError(
@@ -217,6 +223,59 @@ public class GlobalExceptionHandler {
                                             + "Comprueba el correo de contacto"));
             default -> List.of();
         };
+    }
+
+    /** Archivos: sin estos manejadores, un envio mal armado terminaba en un 500 generico. */
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ApiError> handleMissingPart(
+            org.springframework.web.multipart.support.MissingServletRequestPartException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "ARCHIVO_REQUERIDO",
+                "Falta el archivo: envíelo en el campo '" + exception.getRequestPartName() + "'",
+                request,
+                List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(
+            org.springframework.web.multipart.MaxUploadSizeExceededException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "ARCHIVO_DEMASIADO_GRANDE",
+                "El archivo supera el tamaño máximo permitido",
+                request,
+                List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleUnsupportedMediaType(
+            org.springframework.web.HttpMediaTypeNotSupportedException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "FORMATO_DE_ENVIO_NO_SOPORTADO",
+                "El formato de la solicitud no es el esperado; los archivos se envían como multipart/form-data",
+                request,
+                List.of());
+    }
+
+    /**
+     * Ruta que no existe en esta version del backend (por ejemplo, un frontend mas nuevo que el
+     * servidor en ejecucion). Sin este manejador terminaba en un 500 generico.
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleUnknownRoute(
+            org.springframework.web.servlet.resource.NoResourceFoundException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.NOT_FOUND,
+                "RUTA_NO_ENCONTRADA",
+                "El servidor no tiene esta operacion. Verifica que el backend este actualizado",
+                request,
+                List.of());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -248,7 +307,8 @@ public class GlobalExceptionHandler {
                 exception.getCode(),
                 exception.getMessage(),
                 request,
-                duplicateFieldErrors(exception.getCode()));
+                duplicateFieldErrors(exception.getCode()),
+                exception.getDetails());
     }
 
     @ExceptionHandler(FormFieldException.class)
@@ -280,7 +340,9 @@ public class GlobalExceptionHandler {
                 exception.getCode(),
                 exception.getMessage(),
                 request,
-                List.of());
+                exception.getField() == null
+                        ? List.of()
+                        : List.of(new FieldValidationError(exception.getField(), exception.getMessage())));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -377,10 +439,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiError> handleAuthentication(
             AuthenticationException exception, HttpServletRequest request) {
+        // En el login no hay sesion que expire. El mensaje es el mismo para un usuario
+        // inexistente y para una contrasena incorrecta, para no revelar que usuarios existen.
+        if ("/api/auth/login".equals(request.getRequestURI())) {
+            return build(
+                    HttpStatus.UNAUTHORIZED,
+                    "CREDENCIALES_INVALIDAS",
+                    "Usuario o contraseña incorrectos.",
+                    request,
+                    List.of());
+        }
         return build(
                 HttpStatus.UNAUTHORIZED,
                 "AUTENTICACION_REQUERIDA",
-                "Las credenciales no son validas o la sesion expiro",
+                com.asiscontrol.security.RestAuthenticationEntryPoint.MENSAJE_SESION,
                 request,
                 List.of());
     }
@@ -432,6 +504,16 @@ public class GlobalExceptionHandler {
             String message,
             HttpServletRequest request,
             List<FieldValidationError> fieldErrors) {
+        return build(status, code, message, request, fieldErrors, List.of());
+    }
+
+    private ResponseEntity<ApiError> build(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request,
+            List<FieldValidationError> fieldErrors,
+            List<?> details) {
         ApiError error =
                 new ApiError(
                         Instant.now(),
@@ -440,7 +522,8 @@ public class GlobalExceptionHandler {
                         message,
                         request.getRequestURI(),
                         MDC.get("correlationId"),
-                        fieldErrors);
+                        fieldErrors,
+                        details);
         return ResponseEntity.status(status).body(error);
     }
 }
