@@ -29,6 +29,8 @@ public interface SeccionRepository extends JpaRepository<Seccion, Long> {
 
     boolean existsByGradoAcademicoIdAndActivoTrue(Long gradoAcademicoId);
 
+    boolean existsByAnioAcademico(int anioAcademico);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Seccion s WHERE s.id = :id")
     Optional<Seccion> bloquearPorId(@Param("id") Long id);

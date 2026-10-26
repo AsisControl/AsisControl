@@ -36,6 +36,69 @@
   font-weight: 600;
   padding: 8px 12px;
 }
+.feedback:not(:empty) {
+  margin: 8px 0 16px;
+}
+.yearHeading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.yearTitle {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.yearTitle h3 {
+  font-size: 20px;
+  margin: 0;
+}
+.yearHeading p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 6px 0 0;
+}
+.yearActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.yearActions button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.yearActions button:hover:not(:disabled) {
+  background: #f8fafc;
+}
+.yearActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.yearActions .primaryButton {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.yearActions .primaryButton:hover:not(:disabled) {
+  background: var(--blue);
+  filter: brightness(1.1);
+}
+.yearActions .dangerButton {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.yearActions .dangerButton:hover:not(:disabled) {
+  background: #fef2f2;
+}
 .activeTag {
   background: #dcfce7;
   border: 1px solid #86efac;

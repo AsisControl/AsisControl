@@ -471,16 +471,16 @@ test("La pestaña de fichas registra, consulta y edita estudiantes", async () =>
   await user.type(screen.getByLabelText(/Correo de contacto/), "ana@correo.pe");
   await user.click(screen.getByText("Guardar ficha"));
   expect(await screen.findByText(/Ficha guardada/)).toBeTruthy();
-  expect(screen.getByText("No tiene apoderados asociados.")).toBeTruthy();
+  expect(within(screen.getByRole("dialog", { name: "Ficha del estudiante" })).getByText("No tiene apoderados vinculados.")).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toMatchObject({
     persona: { nombres: "Ana", numeroDocumento: "71717171", nacionalidadId: null },
   });
   expect(calls.find((c) => c.method === "POST").body).not.toHaveProperty("codigoAlumno");
-  await user.click(screen.getByText("Volver a fichas"));
+  await user.click(screen.getByText("Cerrar"));
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
   expect(await screen.findByText("Carmen Flores")).toBeTruthy();
   expect(screen.getByText("Principal")).toBeTruthy();
-  expect(screen.getAllByText("Sin registrar").length).toBeGreaterThanOrEqual(2);
+  expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
   await user.click(screen.getByText("Editar ficha"));
   expect(screen.getByLabelText(/Código institucional/).value).toBe("EST-042");
   expect(screen.getByLabelText(/Código institucional/).readOnly).toBe(true);
@@ -498,7 +498,7 @@ test("La pestaña de fichas informa errores al abrir y guardar", async () => {
   const user = userEvent.setup();
   render(<EnrollmentsScreen />);
   await user.click(screen.getByRole("button", { name: "Fichas académicas" }));
-  expect(await screen.findByText("Todavía no hay fichas de estudiantes registradas.")).toBeTruthy();
+  expect(await screen.findByText("Todavía no hay estudiantes registrados.")).toBeTruthy();
   await user.click(screen.getByText("+ Registrar estudiante"));
   await user.type(screen.getByLabelText(/^Nombres/), "Ana");
   await user.type(screen.getByLabelText(/^Primer apellido/), "Soto");

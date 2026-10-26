@@ -65,8 +65,8 @@ test("Agrupa las vistas y cambia la URL al elegir una", async () => {
     "Parentescos",
   ]);
   expect(within(screen.getByRole("group", { name: "Personal" })).getByText("Docentes")).toBeTruthy();
-  expect(screen.getByText("Estudiantes").getAttribute("aria-current")).toBe("page");
-  expect(await screen.findByText("Todavía no hay fichas de estudiantes registradas.")).toBeTruthy();
+  expect(within(families).getByText("Estudiantes").getAttribute("aria-current")).toBe("page");
+  expect(await screen.findByText("Todavía no hay estudiantes registrados.")).toBeTruthy();
   await user.click(screen.getByText("Docentes"));
   expect(currentUrl()).toBe(`${BASE}/docentes`);
 });

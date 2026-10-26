@@ -1,21 +1,17 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, message } from "@/core/api/client";
-import { Dialog, Feedback, StatusPill } from "@/shared/ui";
+import {
+  Dialog,
+  Feedback,
+  isoDateLabel,
+  PersonSections,
+  RecordHeader,
+  RecordItem,
+  RecordSection,
+} from "@/shared/ui";
 import { specialtyLabel, stateLabel } from "@/shared/lib/formatters";
-import type { Guardian, RecordPerson, Teacher } from "./types";
-import styles from "./academic-records.module.css";
-
-/** "2012-05-14" → "14/05/2012" sin pasar por Date (evita el desfase de zona horaria). */
-export const isoDateLabel = (date: string | null | undefined) =>
-  date ? date.split("-").reverse().join("/") : "—";
-
-/** Valores del enum TipoDocumento del backend. */
-const DOCUMENT_LABELS: Record<string, string> = {
-  DNI: "DNI",
-  PASAPORTE: "Pasaporte",
-  CARNET_EXTRANJERIA: "Carné de extranjería",
-};
+import type { Guardian, Teacher } from "./types";
 
 /** Consulta la ficha al abrirla: el listado puede estar desactualizado. */
 function useRecord<T>(path: string) {
@@ -31,57 +27,6 @@ function useRecord<T>(path: string) {
     };
   }, [path]);
   return { record, error };
-}
-
-function Item({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{children || "—"}</dd>
-    </div>
-  );
-}
-
-function StatusOf({ active }: { active: boolean }) {
-  return (
-    <StatusPill
-      state={active ? "ACTIVO" : "INACTIVO"}
-      label={active ? "Activo" : "Inactivo"}
-      tone={active ? "success" : "neutral"}
-    />
-  );
-}
-
-/** Datos personales y de contacto, comunes a todas las fichas. */
-function PersonSections({ persona }: { persona: RecordPerson }) {
-  return (
-    <>
-      <h4 className={styles.detailTitle}>Datos personales</h4>
-      <dl className="detail-grid">
-        <Item label="Nombres">{persona.nombres}</Item>
-        <Item label="Apellidos">
-          {[persona.apellidoPaterno, persona.apellidoMaterno]
-            .filter(Boolean)
-            .join(" ")}
-        </Item>
-        <Item label="Documento">
-          {persona.tipoDocumento &&
-            `${DOCUMENT_LABELS[persona.tipoDocumento] ?? persona.tipoDocumento} ${persona.numeroDocumento ?? ""}`}
-        </Item>
-        <Item label="Fecha de nacimiento">
-          {isoDateLabel(persona.fechaNacimiento)}
-        </Item>
-        <Item label="Sexo">{persona.sexo && stateLabel(persona.sexo)}</Item>
-        <Item label="Nacionalidad">{persona.nacionalidad}</Item>
-      </dl>
-      <h4 className={styles.detailTitle}>Contacto</h4>
-      <dl className="detail-grid">
-        <Item label="Correo">{persona.correo}</Item>
-        <Item label="Teléfono">{persona.telefono}</Item>
-        <Item label="Dirección">{persona.direccion}</Item>
-      </dl>
-    </>
-  );
 }
 
 function RecordDialog<T>({
@@ -129,12 +74,12 @@ export function GuardianDetail({
     >
       {(guardian) => (
         <>
-          <div className={styles.detailHeader}>
-            <strong>{guardian.persona.nombreCompleto}</strong>
-            <StatusOf active={guardian.activo} />
-          </div>
+          <RecordHeader
+            name={guardian.persona.nombreCompleto}
+            active={guardian.activo}
+          />
           <PersonSections persona={guardian.persona} />
-          <h4 className={styles.detailTitle}>Estudiantes a cargo</h4>
+          <RecordSection title="Estudiantes a cargo" />
           {guardian.alumnos.length ? (
             <div className="user-table-wrap">
               <table className="user-table" aria-label="Estudiantes a cargo">
@@ -186,19 +131,19 @@ export function TeacherDetail({
     >
       {(teacher) => (
         <>
-          <div className={styles.detailHeader}>
-            <strong>{teacher.persona.nombreCompleto}</strong>
-            <StatusOf active={teacher.activo} />
-          </div>
-          <h4 className={styles.detailTitle}>Datos del docente</h4>
+          <RecordHeader
+            name={teacher.persona.nombreCompleto}
+            active={teacher.activo}
+          />
+          <RecordSection title="Datos del docente" />
           <dl className="detail-grid">
-            <Item label="Código">{teacher.codigoDocente}</Item>
-            <Item label="Especialidad">
+            <RecordItem label="Código">{teacher.codigoDocente}</RecordItem>
+            <RecordItem label="Especialidad">
               {specialtyLabel(teacher.especialidad)}
-            </Item>
-            <Item label="Fecha de ingreso">
+            </RecordItem>
+            <RecordItem label="Fecha de ingreso">
               {isoDateLabel(teacher.fechaIngreso)}
-            </Item>
+            </RecordItem>
           </dl>
           <PersonSections persona={teacher.persona} />
         </>

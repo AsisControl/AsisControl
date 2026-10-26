@@ -9,6 +9,7 @@ export type StudentPerson = Omit<
   numeroDocumento: string | null;
   sexo: string | null;
   correo: string | null;
+  nacionalidad?: string | null;
   fechaCreacion?: string | null;
   fechaActualizacion?: string | null;
 };
@@ -41,6 +42,20 @@ export type ImportResult = {
   importedRows: number;
   rejectedRows: number;
   issues: { row: number; field: string | null; message: string }[];
+};
+export type FamilyImportSlot = "estudiantes" | "apoderados" | "parentescos";
+/** Respuesta de POST /api/alumnos/importaciones/familias (PersonaDtos.FamilyImportResult). */
+export type FamilyImportResult = {
+  /** Ningún archivo tiene errores. */
+  valid: boolean;
+  /** Se guardó todo; si es falso no se guardó ninguna fila. */
+  saved: boolean;
+  files: Partial<
+    Record<
+      FamilyImportSlot,
+      { error: string | null; result: ImportResult | null }
+    >
+  >;
 };
 
 export type StudentDraft = {

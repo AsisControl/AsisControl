@@ -3,14 +3,15 @@ import { useRef, useState, type FormEvent } from "react";
 import {
   Dialog,
   Feedback,
-  PanelHeading,
-  PersonCell,
-  StatusPill,
+  PersonSections,
+  RecordHeader,
+  RecordItem,
+  RecordSection,
 } from "@/shared/ui";
-import { dateLabel } from "@/shared/lib/formatters";
+import { dateLabel, stateLabel } from "@/shared/lib/formatters";
 import { canPerform, changeStudentState } from "./services/student-service";
 import { studentErrorMessage } from "./student-errors";
-import { birthLabel, reasonError, studentName } from "./student-rules";
+import { reasonError, studentName } from "./student-rules";
 import type { Student, StudentAction } from "./types";
 import styles from "./students.module.css";
 
@@ -22,133 +23,103 @@ const STUDENT_ACTION_LABELS: Record<StudentAction, string> = {
 
 export function StudentDetail({
   student,
-  onBack,
+  onClose,
   onEdit,
   onChanged,
 }: {
   student: Student;
-  onBack: () => void;
+  onClose: () => void;
   onEdit: () => void;
   onChanged: (student: Student | null) => void;
 }) {
   const [action, setAction] = useState<StudentAction | null>(null);
-  const persona = student.persona;
-  const documentTypeLabel =
-    persona.tipoDocumento === "CARNET_EXTRANJERIA"
-      ? "Carné de extranjería"
-      : persona.tipoDocumento;
-  const documentLabel =
-    persona.tipoDocumento && persona.numeroDocumento
-      ? `${documentTypeLabel}: ${persona.numeroDocumento}`
-      : "Documento pendiente";
+  // La confirmación reemplaza a la ficha mientras está abierta: nunca hay dos ventanas apiladas.
+  if (action)
+    return (
+      <StateDialog
+        key={action}
+        student={student}
+        action={action}
+        onClose={() => setAction(null)}
+        onSaved={(updated) => {
+          setAction(null);
+          onChanged(updated);
+        }}
+      />
+    );
   return (
-    <article>
-      <PanelHeading
-        title={studentName(student)}
-        summary={`Ficha del estudiante · ${student.codigoAlumno}`}
-        actions={
-          <>
-            <button type="button" onClick={onBack}>
-              Volver a fichas
-            </button>
-            {student.activo && student.accionesPermitidas?.editar !== false && (
-              <button type="button" onClick={onEdit}>
-                Editar ficha
-              </button>
-            )}
-            {(["inactivar", "reactivar", "eliminar"] as const)
-              .filter((item) => canPerform(student, item))
-              .map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={item === "eliminar" ? styles.danger : undefined}
-                  onClick={() => setAction(item)}
-                >
-                  {STUDENT_ACTION_LABELS[item]}
-                </button>
-              ))}
-          </>
-        }
-      />
-      <StatusPill
-        state={student.activo ? "ACTIVO" : "INACTIVO"}
-        label={student.activo ? "Habilitada" : "Inactiva"}
-        tone={student.activo ? "success" : "neutral"}
-      />
+    <Dialog title="Ficha del estudiante" size="lg" onClose={onClose}>
+      <RecordHeader name={studentName(student)} active={student.activo} />
+      <RecordSection title="Datos del estudiante" />
       <dl className="detail-grid">
-        <div>
-          <dt>Código institucional</dt>
-          <dd>{student.codigoAlumno}</dd>
-        </div>
-        <div>
-          <dt>Documento</dt>
-          <dd>{documentLabel}</dd>
-        </div>
-        <div>
-          <dt>Fecha de nacimiento</dt>
-          <dd>{birthLabel(persona.fechaNacimiento)}</dd>
-        </div>
-        <div>
-          <dt>Correo de contacto</dt>
-          <dd>{persona.correo || "Sin registrar"}</dd>
-        </div>
-        <div>
-          <dt>Teléfono</dt>
-          <dd>{persona.telefono || "Sin registrar"}</dd>
-        </div>
-        <div>
-          <dt>Dirección</dt>
-          <dd>{persona.direccion || "Sin registrar"}</dd>
-        </div>
-        <div>
-          <dt>Fecha de creación</dt>
-          <dd>
-            {dateLabel(student.fechaCreacion ?? persona.fechaCreacion ?? null)}
-          </dd>
-        </div>
-        <div>
-          <dt>Última actualización</dt>
-          <dd>
-            {dateLabel(
-              student.fechaActualizacion ?? persona.fechaActualizacion ?? null,
-            )}
-          </dd>
-        </div>
+        <RecordItem label="Código">{student.codigoAlumno}</RecordItem>
+        <RecordItem label="Fecha de registro">
+          {dateLabel(student.fechaCreacion ?? student.persona.fechaCreacion ?? null)}
+        </RecordItem>
+        <RecordItem label="Última actualización">
+          {dateLabel(
+            student.fechaActualizacion ??
+              student.persona.fechaActualizacion ??
+              null,
+          )}
+        </RecordItem>
       </dl>
-      <h4>Apoderados asociados</h4>
+      <PersonSections persona={student.persona} />
+      <RecordSection title="Apoderados" />
       {student.apoderados?.length ? (
-        <ul className="choice-list">
-          {student.apoderados.map((guardian) => (
-            <li key={guardian.id}>
-              <PersonCell
-                name={guardian.nombreCompleto}
-                detail={guardian.principal ? "Principal" : undefined}
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="user-table-wrap">
+          <table className="user-table" aria-label="Apoderados">
+            <thead>
+              <tr>
+                <th scope="col">Apoderado</th>
+                <th scope="col">Parentesco</th>
+                <th scope="col">Principal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {student.apoderados.map((link) => (
+                <tr key={link.id}>
+                  <td data-label="Apoderado">{link.nombreCompleto}</td>
+                  <td data-label="Parentesco">
+                    {link.parentesco ? stateLabel(link.parentesco) : "—"}
+                  </td>
+                  <td data-label="Principal">{link.principal ? "Sí" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <p className="hint">No tiene apoderados asociados.</p>
+        <p className="empty">No tiene apoderados vinculados.</p>
       )}
       <p className={styles.helper}>
         El acceso al sistema se gestiona en Administración → Usuarios → Crear
         acceso. Las matrículas y los vínculos familiares se gestionan por
         separado.
       </p>
-      {action && (
-        <StateDialog
-          key={action}
-          student={student}
-          action={action}
-          onClose={() => setAction(null)}
-          onSaved={(updated) => {
-            setAction(null);
-            onChanged(updated);
-          }}
-        />
-      )}
-    </article>
+      <div className="form-actions">
+        <button type="button" onClick={onClose}>
+          Cerrar
+        </button>
+        {(["inactivar", "reactivar", "eliminar"] as const)
+          .filter((item) => canPerform(student, item))
+          .map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={item === "eliminar" ? styles.danger : undefined}
+              onClick={() => setAction(item)}
+            >
+              {STUDENT_ACTION_LABELS[item]}
+            </button>
+          ))}
+        {student.activo && student.accionesPermitidas?.editar !== false && (
+          <button type="button" className="primary-action" onClick={onEdit}>
+            Editar ficha
+          </button>
+        )}
+      </div>
+    </Dialog>
   );
 }
 

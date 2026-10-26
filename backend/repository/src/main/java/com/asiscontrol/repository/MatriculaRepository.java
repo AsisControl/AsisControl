@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
     boolean existsBySeccionId(Long id);
 
+    boolean existsByAnioAcademico(int anioAcademico);
+
     boolean existsBySeccionIdAndActivoTrueAndEstado(Long id, EstadoMatricula estado);
 
     Optional<Matricula> findByIdAndActivoTrue(Long id);

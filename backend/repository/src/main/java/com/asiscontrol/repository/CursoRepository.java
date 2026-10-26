@@ -17,6 +17,8 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
 
     Optional<Curso> findByCodigoIgnoreCase(String codigo);
 
+    boolean existsByGradoAcademicoAnioAcademicoAnio(int anio);
+
     @Query("""
             SELECT c FROM Curso c
             LEFT JOIN c.gradoAcademico g

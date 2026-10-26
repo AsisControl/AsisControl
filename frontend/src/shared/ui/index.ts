@@ -8,3 +8,13 @@ export { Pager } from "./pager";
 export { StatusPill, toneOf, type StatusTone } from "./status-pill";
 export { RowMenu, type MenuOption } from "./row-menu";
 export { TabNav, type TabItem } from "./tab-nav";
+export {
+  PersonSections,
+  RecordHeader,
+  RecordItem,
+  RecordSection,
+  RecordStatus,
+  documentLabel,
+  isoDateLabel,
+  type RecordSheetPerson,
+} from "./record-sheet";
