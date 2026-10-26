@@ -10,6 +10,7 @@ import com.asiscontrol.exception.*;
 import com.asiscontrol.repository.*;
 
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
+import com.asiscontrol.repository.planificacion.DiaNoLectivoRepository;
 import com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,9 @@ public class ConfiguracionAcademicaService {
     private final GradoAcademicoRepository grados;
     private final SeccionRepository secciones;
     private final MatriculaRepository matriculas;
+    private final SolicitudMatriculaRepository solicitudes;
+    private final CursoRepository cursos;
+    private final DiaNoLectivoRepository diasNoLectivos;
     private final AuditoriaService auditoria;
 
     public ConfiguracionAcademicaService(
@@ -34,12 +38,18 @@ public class ConfiguracionAcademicaService {
             GradoAcademicoRepository grados,
             SeccionRepository secciones,
             MatriculaRepository matriculas,
+            SolicitudMatriculaRepository solicitudes,
+            CursoRepository cursos,
+            DiaNoLectivoRepository diasNoLectivos,
             AuditoriaService auditoria) {
         this.anios = anios;
         this.periodos = periodos;
         this.grados = grados;
         this.secciones = secciones;
         this.matriculas = matriculas;
+        this.solicitudes = solicitudes;
+        this.cursos = cursos;
+        this.diasNoLectivos = diasNoLectivos;
         this.auditoria = auditoria;
     }
 
@@ -53,7 +63,7 @@ public class ConfiguracionAcademicaService {
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public AnioResponse crear(CrearAnio request) {
-        validarFechas(request.fechaInicio(), request.fechaFin());
+        validarAnioNuevo(request);
         if (anios.findByAnio(request.anio()).isPresent())
             rechazarConflicto("ANIO_DUPLICADO", "El año académico ya está registrado");
         AnioAcademico anioAcademico = new AnioAcademico();
@@ -102,6 +112,36 @@ public class ConfiguracionAcademicaService {
                 valorAnterior,
                 request.estado().name());
         return mapear(anioAcademico);
+    }
+
+    /**
+     * Elimina un anio creado por error. Solo un BORRADOR (nunca activado: BORRADOR solo pasa a
+     * ACTIVO y este solo a CERRADO) sin secciones, solicitudes, matriculas ni cursos. Sus
+     * periodos, grados y dias no lectivos se eliminan con el.
+     */
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public void eliminar(int numero, Long version) {
+        AnioAcademico anioAcademico = bloquear(numero);
+        validarVersion(anioAcademico.getVersion(), version);
+        if (anioAcademico.getEstado() != EstadoAnioAcademico.BORRADOR)
+            rechazarRegla("ANIO_NO_ELIMINABLE",
+                    "Solo se puede eliminar un año en borrador que nunca se activó");
+        if (secciones.existsByAnioAcademico(numero)
+                || solicitudes.existsByAnioAcademico(numero)
+                || matriculas.existsByAnioAcademico(numero)
+                || cursos.existsByGradoAcademicoAnioAcademicoAnio(numero))
+            rechazarConflicto("ANIO_EN_USO",
+                    "El año tiene secciones, solicitudes, matrículas o cursos; no se puede eliminar");
+        String resumen = "anio=" + numero
+                + ",periodos=" + periodos.findByAnioAcademicoAnioOrderByOrden(numero).size()
+                + ",grados=" + grados.findByAnioAcademicoAnioOrderByNumero(numero).size();
+        diasNoLectivos.deleteAll(diasNoLectivos.findByAnioAcademicoAnioOrderByFechaAsc(numero));
+        periodos.deleteAll(periodos.findByAnioAcademicoAnioOrderByOrden(numero));
+        grados.deleteAll(grados.findByAnioAcademicoAnioOrderByNumero(numero));
+        anios.delete(anioAcademico);
+        anios.flush();
+        registrarAuditoria(
+                "ELIMINAR_ANIO", "AnioAcademico", anioAcademico.getId(), null, resumen, null);
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
@@ -356,6 +396,27 @@ public class ConfiguracionAcademicaService {
         if (fin.isBefore(inicio))
             throw new BusinessRuleException(
                     "FECHAS_INVALIDAS", "La fecha final no puede ser anterior a la inicial", "fechaFin");
+    }
+
+    // Solo el año en curso o posteriores; ambas fechas dentro del año y el inicio antes del fin.
+    private void validarAnioNuevo(CrearAnio request) {
+        int actual = LocalDate.now(java.time.ZoneId.of("America/Lima")).getYear();
+        if (request.anio() < actual)
+            throw new BusinessRuleException(
+                    "ANIO_PASADO", "Solo se puede registrar el año actual (" + actual + ") o uno posterior", "anio");
+        if (!request.fechaFin().isAfter(request.fechaInicio()))
+            throw new BusinessRuleException(
+                    "FECHAS_INVALIDAS", "La fecha final debe ser posterior a la inicial", "fechaFin");
+        if (request.fechaInicio().getYear() != request.anio())
+            throw new BusinessRuleException(
+                    "FECHA_FUERA_DEL_ANIO",
+                    "La fecha de inicio debe pertenecer al año " + request.anio(),
+                    "fechaInicio");
+        if (request.fechaFin().getYear() != request.anio())
+            throw new BusinessRuleException(
+                    "FECHA_FUERA_DEL_ANIO",
+                    "La fecha de fin debe pertenecer al año " + request.anio(),
+                    "fechaFin");
     }
 
     private void exigirEditable(AnioAcademico anioAcademico) {

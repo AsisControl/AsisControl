@@ -29,13 +29,18 @@ test("Abre el año activo por defecto y muestra sus períodos", async () => {
   render(<AcademicConfiguration />);
   await heading(2026);
   expect(screen.getByText("Año activo")).toBeTruthy();
-  expect(screen.getByText(/Admisión del apoderado:/).textContent).toMatch(/Cerrada/);
+  expect(screen.getByText(/Admisión del apoderado:/).textContent).toBe(
+    "Del 01 Mar 2026 al 20 Dic 2026 · Admisión del apoderado: cerrada",
+  );
   expect(screen.getByText("1. Período I")).toBeTruthy();
   expect(screen.getAllByText("01 Mar 2026")).toHaveLength(2);
   expect(screen.getByRole("button", { name: "Activar" })).toBeTruthy();
   expect(screen.getAllByText(/^Próximamente/).length).toBeGreaterThan(0);
   expect(screen.queryByText(/backend/i)).toBeNull();
-  expect(screen.getByText("+ Nuevo período").disabled).toBe(true);
+  // Un año activo no admite períodos nuevos: el botón no se ofrece y el aviso lo explica.
+  expect(screen.queryByText("+ Nuevo período")).toBeNull();
+  expect(screen.queryByText("Eliminar año")).toBeNull();
+  expect(screen.queryByText(/registros · Página/)).toBeNull();
   const notice = screen.getByRole("note");
   expect(notice.textContent).toMatch(/No se pueden agregar períodos/);
   expect(notice.textContent).toMatch(/el año 2026 ya está activo/);
@@ -293,4 +298,123 @@ test("Crear año: la fecha final anterior se marca en su campo sin llamar al ser
   expect(end.getAttribute("aria-invalid")).toBe("true");
   expect(end.closest("label").textContent).toMatch(/no puede ser anterior al inicio/);
   expect(calls.slice(before).some((c) => c.method === "POST")).toBe(false);
+});
+
+test("Crear año: rechaza años pasados y fechas fuera del año sin llamar al servidor", async () => {
+  const { calls } = academicBackend([year()]);
+  const user = userEvent.setup();
+  render(<AcademicConfiguration />);
+  await heading(2026);
+  await user.click(screen.getByText("Crear año"));
+  const dialog = screen.getByRole("dialog");
+  const past = new Date().getFullYear() - 1;
+  const future = new Date().getFullYear() + 5;
+  const anio = within(dialog).getByLabelText(/^Año/);
+  const start = within(dialog).getByLabelText(/Fecha inicial/);
+  const end = within(dialog).getByLabelText(/Fecha final/);
+  await user.type(anio, String(past));
+  await user.type(start, `${past}-03-01`);
+  await user.type(end, `${past}-12-20`);
+  const before = calls.length;
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(anio.closest("label").textContent).toMatch(/año actual/);
+  await user.clear(anio);
+  await user.type(anio, String(future));
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(start.closest("label").textContent).toMatch(`debe pertenecer al año ${future}`);
+  expect(end.closest("label").textContent).toMatch(`debe pertenecer al año ${future}`);
+  await user.clear(start);
+  await user.type(start, `${future}-05-01`);
+  await user.clear(end);
+  await user.type(end, `${future}-05-01`);
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(end.closest("label").textContent).toMatch(/posterior a la de inicio/);
+  expect(calls.slice(before).some((c) => c.method === "POST")).toBe(false);
+});
+
+test("Crear año: los campos vacíos se marcan y no se envía nada", async () => {
+  const { calls } = academicBackend([year()]);
+  const user = userEvent.setup();
+  render(<AcademicConfiguration />);
+  await heading(2026);
+  await user.click(screen.getByText("Crear año"));
+  const dialog = screen.getByRole("dialog");
+  const before = calls.length;
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(within(dialog).getByText("El año es obligatorio.")).toBeTruthy();
+  expect(within(dialog).getByText("La fecha de inicio es obligatoria.")).toBeTruthy();
+  expect(within(dialog).getByText("La fecha de fin es obligatoria.")).toBeTruthy();
+  expect(calls.slice(before).some((c) => c.method === "POST")).toBe(false);
+});
+
+test("Crear año: mientras se envía, los campos quedan bloqueados", async () => {
+  let release;
+  const backend = academicBackend([year()], {
+    [`POST ${BASE}/anios`]: () =>
+      new Promise((resolve) => {
+        release = () => {
+          const created = year({ id: 2028, anio: 2028, fechaInicio: "2028-03-01", fechaFin: "2028-12-20" });
+          backend.store[2028] = created;
+          resolve(created);
+        };
+      }),
+  });
+  const user = userEvent.setup();
+  render(<AcademicConfiguration />);
+  await heading(2026);
+  await user.click(screen.getByText("Crear año"));
+  const dialog = screen.getByRole("dialog");
+  await user.type(within(dialog).getByLabelText(/^Año/), "2028");
+  await user.type(within(dialog).getByLabelText(/Fecha inicial/), "2028-03-01");
+  await user.type(within(dialog).getByLabelText(/Fecha final/), "2028-12-20");
+  await user.click(within(dialog).getByText("Confirmar"));
+  await waitFor(() => expect(within(dialog).getByLabelText(/^Año/).matches(":disabled")).toBe(true));
+  expect(within(dialog).getByLabelText(/Fecha inicial/).matches(":disabled")).toBe(true);
+  expect(within(dialog).getByLabelText(/Fecha final/).matches(":disabled")).toBe(true);
+  release();
+  await heading(2028);
+});
+
+test("Elimina un año en borrador que nunca se activó", async () => {
+  const { calls, store } = academicBackend([year(), draft], {
+    [`DELETE ${BASE}/anios/:anio`]: ({ path }) => {
+      delete store[path.split("/").at(-1)];
+      return reply(204);
+    },
+  });
+  const user = userEvent.setup();
+  render(<AcademicConfiguration />);
+  await heading(2026);
+  await user.selectOptions(screen.getByLabelText("Año académico"), "2027 · Borrador");
+  await heading(2027);
+  await user.click(screen.getByText("Eliminar año"));
+  const dialog = screen.getByRole("dialog", { name: "Eliminar año académico" });
+  expect(within(dialog).getByText(/nunca se activó/)).toBeTruthy();
+  await user.click(within(dialog).getByRole("button", { name: "Eliminar año" }));
+  expect(await screen.findByText("Año 2027 eliminado.")).toBeTruthy();
+  const removal = calls.find((call) => call.method === "DELETE");
+  expect(removal.path).toBe(`${BASE}/anios/2027`);
+  expect(removal.query).toEqual({ version: "4" });
+  await heading(2026);
+  await waitFor(() =>
+    expect([...screen.getByLabelText("Año académico").options].map((o) => o.textContent)).toEqual([
+      "2026 · Activo",
+    ]),
+  );
+});
+
+test("Si el año ya está en uso, el rechazo se muestra en la ventana", async () => {
+  academicBackend([draft], {
+    [`DELETE ${BASE}/anios/:anio`]: reply(409, {
+      message: "El año tiene secciones, solicitudes, matrículas o cursos; no se puede eliminar",
+    }),
+  });
+  const user = userEvent.setup();
+  render(<AcademicConfiguration />);
+  await heading(2027);
+  await user.click(screen.getByText("Eliminar año"));
+  const dialog = screen.getByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Eliminar año" }));
+  expect((await within(dialog).findByRole("alert")).textContent).toMatch(/no se puede eliminar/);
+  expect(screen.getByRole("heading", { name: "Año 2027" })).toBeTruthy();
 });

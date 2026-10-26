@@ -12,7 +12,10 @@ export function GradesPanel({
   onReload,
   onSuccess,
 }: YearPanelProps) {
-  const [expanded, setExpanded] = useState(false);
+  // Abierto mientras no haya grados habilitados: es el primer paso para crear secciones.
+  const [expanded, setExpanded] = useState(
+    () => !year.grados.some((grade) => grade.activo),
+  );
   const [action, setAction] = useState<GradeAction | null>(null);
   const bodyId = useId();
   const grades = [...year.grados].sort((a, b) => a.numero - b.numero);
@@ -93,7 +96,9 @@ export function GradesPanel({
                       key={grade.id}
                       className={grade.activo ? undefined : styles.rowDisabled}
                     >
-                      <td className={styles.gradeCell}>{grade.numero}° Grado</td>
+                      <td className={styles.gradeCell}>
+                        {grade.numero}° Grado
+                      </td>
                       <td>{grade.capacidadDefault}</td>
                       <td className={styles.strongCell}>
                         {active.reduce((sum, s) => sum + s.capacidadMaxima, 0)}

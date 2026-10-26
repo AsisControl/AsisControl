@@ -6,10 +6,23 @@ import { stateLabel } from "@/shared/lib/formatters";
 import type { AcademicYear, Period, YearPanelProps } from "../types";
 import styles from "../academic-config.module.css";
 import { PeriodCard } from "./period-card";
+import { PeriodFormDialog } from "./period-form-dialog";
 const InfoIcon = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-    <circle cx="10" cy="10" r="8.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M10 9v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <circle
+      cx="10"
+      cy="10"
+      r="8.25"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    />
+    <path
+      d="M10 9v5"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    />
     <circle cx="10" cy="6.25" r="1" fill="currentColor" />
   </svg>
 );
@@ -21,6 +34,7 @@ export function PeriodsPanel({
   onSuccess,
 }: YearPanelProps) {
   const [action, setAction] = useState<PeriodAction | null>(null);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const open = (value: PeriodAction) => {
@@ -60,14 +74,25 @@ export function PeriodsPanel({
     <>
       <div className="section-heading">
         <h4>Períodos</h4>
+        {year.estado === "BORRADOR" && (
+          <button
+            className={styles.newPeriodButton}
+            onClick={() => {
+              onSuccess("");
+              setCreating(true);
+            }}
+          >
+            + Nuevo período
+          </button>
+        )}
       </div>
       {year.estado !== "BORRADOR" && (
         <div id="period-notice" className={styles.infoNotice} role="note">
           <InfoIcon />
           <p>
             <strong>No se pueden agregar períodos.</strong> Los períodos se
-            configuran mientras el año está en borrador, y el año {year.anio}{" "}
-            ya está {year.estado === "ACTIVO" ? "activo" : "cerrado"}.
+            configuran mientras el año está en borrador, y el año {year.anio} ya
+            está {year.estado === "ACTIVO" ? "activo" : "cerrado"}.
           </p>
         </div>
       )}
@@ -87,6 +112,17 @@ export function PeriodsPanel({
         <p className="empty">
           Sin períodos configurados. Sus fechas y cantidad se definen aquí.
         </p>
+      )}
+      {creating && (
+        <PeriodFormDialog
+          year={year}
+          onClose={() => setCreating(false)}
+          onCreated={(updated) => {
+            onYearChange(updated);
+            setCreating(false);
+            onSuccess("Período creado.");
+          }}
+        />
       )}
       {action && (
         <FormDialog

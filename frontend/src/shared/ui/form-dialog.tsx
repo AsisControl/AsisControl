@@ -45,7 +45,10 @@ export function FormDialog({
     >
       <form onSubmit={onSubmit} noValidate={noValidate}>
         <Feedback error={error} />
-        <div className="form-grid">{children}</div>
+        {/* Mientras se envía, los campos quedan bloqueados para no editar lo ya enviado. */}
+        <fieldset className="form-grid" disabled={busy}>
+          {children}
+        </fieldset>
         {notes}
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={onClose}>

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FamilyImportDialog, type Student } from "@/modules/students";
-import { PersonCell, StatusPill } from "@/shared/ui";
+import { documentLabel, PersonCell, StatusPill } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PendingAction, RecordsPanel } from "./records-panel";
 import { GuardianDetail } from "./record-details";
@@ -23,11 +23,6 @@ function FamilyImportAction({ onImported }: { onImported: () => void }) {
     </>
   );
 }
-
-const documentOf = ({ persona }: { persona: Guardian["persona"] }) =>
-  persona.tipoDocumento && persona.numeroDocumento
-    ? `${persona.tipoDocumento} ${persona.numeroDocumento}`
-    : "—";
 
 export function GuardiansPanel() {
   const [openId, setOpenId] = useState<number | null>(null);
@@ -65,7 +60,7 @@ export function GuardiansPanel() {
                   detail={guardian.persona.correo || "Sin correo de contacto"}
                 />
               </td>
-              <td data-label="Documento">{documentOf(guardian)}</td>
+              <td data-label="Documento">{documentLabel(guardian.persona)}</td>
               <td data-label="Estudiantes a cargo">
                 {guardian.alumnos.length ? (
                   <ul className={styles.inlineList}>

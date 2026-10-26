@@ -1,5 +1,9 @@
 import { api, apiBlob } from "@/core/api/client";
-import type { ImportResult } from "../types";
+import type {
+  FamilyImportResult,
+  FamilyImportSlot,
+  ImportResult,
+} from "../types";
 
 const GUARDIAN_IMPORT_PATH = "/api/apoderados/importaciones";
 const RELATIONSHIP_IMPORT_PATH = "/api/apoderados/parentescos/importaciones";
@@ -27,4 +31,23 @@ export function importGuardians(file: File): Promise<ImportResult> {
 /** Une el código del estudiante con el documento del apoderado, ambos ya registrados. */
 export function importRelationships(file: File): Promise<ImportResult> {
   return upload(RELATIONSHIP_IMPORT_PATH, file);
+}
+
+const FAMILY_BULK_PATH = "/api/alumnos/importaciones/familias";
+
+/**
+ * Carga masiva todo o nada. Con `confirm` en falso solo valida; en verdadero guarda los tres
+ * archivos en una sola transacción, o nada si alguno tiene errores.
+ */
+export function importFamilies(
+  files: Partial<Record<FamilyImportSlot, File>>,
+  confirm: boolean,
+): Promise<FamilyImportResult> {
+  const body = new FormData();
+  for (const [slot, file] of Object.entries(files)) if (file) body.append(slot, file);
+  return api<FamilyImportResult>(`${FAMILY_BULK_PATH}?confirmar=${confirm}`, {
+    method: "POST",
+    body,
+    timeoutMs: FAMILY_IMPORT_TIMEOUT_MS,
+  });
 }

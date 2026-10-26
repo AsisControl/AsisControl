@@ -23,7 +23,7 @@ class BackendErroresHttpTest extends ApiIntegrationSupport {
         request("POST","/api/cursos-competencias",data("cursoId",course.getId(),"competenciaId",missing,"orden",1),404);
         request("POST","/api/asignaciones-cursos",data("cursoId",missing,"seccionId",section.getId(),"docenteId",teacher.getId()),404);
         request("POST","/api/asignaciones-cursos",data("cursoId",course.getId(),"seccionId",missing,"docenteId",teacher.getId()),404);
-        var other=postOk("/api/cursos",data("codigo","NUEVO","nombre","Curso nuevo","horasSemanales",4));
+        var other=postOk("/api/cursos",data("codigo","NUEVO","nombre","Curso nuevo","horasSemanales",4,"gradoAcademicoId",grade.getId()));
         request("POST","/api/asignaciones-cursos",data("cursoId",other.path("id").asLong(),"seccionId",section.getId(),"docenteId",missing),404);
         request("POST","/api/horarios",data("asignacionCursoId",missing,"aulaId",missing,"diaSemana","LUNES","horaInicio","09:00:00","horaFin","10:00:00"),404);
         request("POST","/api/horarios",data("asignacionCursoId",assignment.getId(),"aulaId",missing,"diaSemana","LUNES","horaInicio","09:00:00","horaFin","10:00:00"),404);

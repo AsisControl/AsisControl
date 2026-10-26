@@ -2,6 +2,7 @@
 import { Dialog } from "@/shared/ui";
 import type { Course, CourseCompetency } from "../types";
 import styles from "../academic.module.css";
+import { courseContextLabel } from "./course-context";
 /** Ventana de solo lectura con los datos del curso y sus competencias. */
 export function CourseDetailDialog({
   course,
@@ -30,6 +31,10 @@ export function CourseDetailDialog({
         <div>
           <dt>Horas semanales</dt>
           <dd>{course.horasSemanales}</dd>
+        </div>
+        <div>
+          <dt>Año y grado</dt>
+          <dd>{courseContextLabel(course)}</dd>
         </div>
         <div>
           <dt>Estado</dt>

@@ -17,12 +17,22 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
 
     Optional<Curso> findByCodigoIgnoreCase(String codigo);
 
+    boolean existsByGradoAcademicoAnioAcademicoAnio(int anio);
+
     @Query("""
             SELECT c FROM Curso c
+            LEFT JOIN c.gradoAcademico g
+            LEFT JOIN g.anioAcademico a
             WHERE c.activo = true
               AND (:busqueda IS NULL
                    OR LOWER(c.codigo) LIKE LOWER(CONCAT('%', :busqueda, '%'))
                    OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', :busqueda, '%')))
+              AND (:anio IS NULL OR a.anio = :anio)
+              AND (:grado IS NULL OR g.numero = :grado)
             """)
-    Page<Curso> buscar(@Param("busqueda") String busqueda, Pageable pageable);
+    Page<Curso> buscar(
+            @Param("busqueda") String busqueda,
+            @Param("anio") Integer anio,
+            @Param("grado") Integer grado,
+            Pageable pageable);
 }

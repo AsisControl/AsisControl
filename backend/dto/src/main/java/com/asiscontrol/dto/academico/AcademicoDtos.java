@@ -23,15 +23,18 @@ public final class AcademicoDtos {
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 120) String nombre,
             @Size(max = 500) String descripcion,
-            @Min(1) @Max(40) int horasSemanales) {}
+            @Min(1) @Max(40) int horasSemanales,
+            @NotNull(message = "Seleccione el año y el grado del curso") Long gradoAcademicoId) {}
 
     public record ActualizarCursoRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 120) String nombre,
             @Size(max = 500) String descripcion,
             @Min(1) @Max(40) int horasSemanales,
-            @NotNull Long version) {}
+            @NotNull Long version,
+            @NotNull(message = "Seleccione el año y el grado del curso") Long gradoAcademicoId) {}
 
+    /** anioAcademico, grado y gradoAcademicoId son nulos en cursos creados antes de V6. */
     public record CursoResponse(
             Long id,
             String codigo,
@@ -39,7 +42,10 @@ public final class AcademicoDtos {
             String descripcion,
             int horasSemanales,
             boolean activo,
-            long version) {}
+            long version,
+            Long gradoAcademicoId,
+            Integer anioAcademico,
+            Integer grado) {}
 
     public record CrearCompetenciaRequest(
             @NotBlank @Size(max = 30) String codigo,

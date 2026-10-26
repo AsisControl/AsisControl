@@ -7,6 +7,10 @@ export type Course = {
   horasSemanales: number;
   activo: boolean;
   version: number;
+  /** Contexto académico; null en cursos registrados antes de exigirlo. */
+  gradoAcademicoId: number | null;
+  anioAcademico: number | null;
+  grado: number | null;
 };
 /** Datos editables de un curso; la versión se agrega al actualizar. */
 export type CourseInput = {
@@ -14,6 +18,7 @@ export type CourseInput = {
   nombre: string;
   descripcion: string | null;
   horasSemanales: number;
+  gradoAcademicoId: number;
 };
 /** Respuesta de /api/cursos-competencias (CursoCompetenciaResponse). */
 export type CourseCompetency = {

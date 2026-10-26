@@ -42,7 +42,9 @@ test("Secciones: sin grados activos no se pueden crear y lo explica", async () =
   await ready();
   expect(screen.getByText("+ Nueva sección").disabled).toBe(true);
   expect(
-    screen.getByText("El año no tiene grados habilitados. Habilita un grado para crear secciones."),
+    screen.getByText(
+      "El año no tiene grados habilitados. Habilita uno en «Grados habilitados» para crear secciones.",
+    ),
   ).toBeTruthy();
 });
 
@@ -212,7 +214,8 @@ test("Grados: con los cinco configurados e inhabilitados se explica cómo seguir
   const user = userEvent.setup();
   render(<AcademicConfiguration />);
   await ready();
-  await user.click(screen.getByRole("button", { name: /Grados habilitados/ }));
+  // Sin grados habilitados la sección ya aparece abierta.
+  expect(screen.getByRole("button", { name: /Grados habilitados/ }).getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("Los cinco grados ya están configurados.")).toBeTruthy();
   expect(screen.getByText(/Todos los grados están inhabilitados/)).toBeTruthy();
   await user.click(within(gradeRow(3)).getByText("Habilitar"));
@@ -230,10 +233,8 @@ test("Grados: con los cinco configurados e inhabilitados se explica cómo seguir
 
 test("Grados: un año sin grados y un año cerrado de solo lectura", async () => {
   academicBackend([year({ estado: "CERRADO", grados: [], secciones: [] })]);
-  const user = userEvent.setup();
   render(<AcademicConfiguration />);
   await ready();
-  await user.click(screen.getByRole("button", { name: /Grados habilitados/ }));
   expect(screen.getByText("Año cerrado: los grados son de solo lectura.")).toBeTruthy();
   expect(screen.getByText("Habilita al menos un grado para poder crear secciones.")).toBeTruthy();
 });
