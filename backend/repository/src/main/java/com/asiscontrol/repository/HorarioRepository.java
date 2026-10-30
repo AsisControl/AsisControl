@@ -4,6 +4,7 @@ import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.enums.DiaSemana;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +18,28 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
     Optional<Horario> findByIdAndActivoTrue(Long id);
 
     Page<Horario> findByActivoTrue(Pageable pageable);
+
+    @EntityGraph(attributePaths = {
+            "aula", "asignacionCurso.curso", "asignacionCurso.seccion",
+            "asignacionCurso.docente.persona"
+    })
+    @Query("""
+            SELECT h FROM Horario h
+            JOIN h.asignacionCurso a
+            WHERE h.activo = true AND a.activo = true
+              AND (:anioAcademico IS NULL OR a.seccion.anioAcademico = :anioAcademico)
+              AND (:seccionId IS NULL OR a.seccion.id = :seccionId)
+              AND (:docenteId IS NULL OR a.docente.id = :docenteId)
+              AND (:aulaId IS NULL OR h.aula.id = :aulaId)
+              AND (:cursoId IS NULL OR a.curso.id = :cursoId)
+            """)
+    Page<Horario> buscarConFiltros(
+            @Param("anioAcademico") Integer anioAcademico,
+            @Param("seccionId") Long seccionId,
+            @Param("docenteId") Long docenteId,
+            @Param("aulaId") Long aulaId,
+            @Param("cursoId") Long cursoId,
+            Pageable pageable);
 
     boolean existsByAulaId(Long aulaId);
 

@@ -76,7 +76,18 @@ public class HorarioService {
     }
 
     public Page<HorarioResponse> listar(Pageable pageable) {
-        return horarioRepository.findByActivoTrue(pageable).map(this::mapear);
+        return listar(null, null, null, null, null, pageable);
+    }
+
+    public Page<HorarioResponse> listar(
+            Integer anioAcademico,
+            Long seccionId,
+            Long docenteId,
+            Long aulaId,
+            Long cursoId,
+            Pageable pageable) {
+        return horarioRepository.buscarConFiltros(
+                anioAcademico, seccionId, docenteId, aulaId, cursoId, pageable).map(this::mapear);
     }
 
     @Transactional
