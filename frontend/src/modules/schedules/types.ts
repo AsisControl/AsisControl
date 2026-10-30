@@ -54,3 +54,35 @@ export type ClassroomSchedule = {
   activo: boolean;
   version: number;
 };
+/** Bloque de /api/horarios: mismo contrato que los horarios de un aula. */
+export type ScheduleBlock = ClassroomSchedule;
+/** Cuerpo de POST /api/horarios; horas "08:00". La versión se agrega al actualizar. */
+export type ScheduleBlockInput = {
+  asignacionCursoId: number;
+  aulaId: number;
+  diaSemana: WeekDay;
+  horaInicio: string;
+  horaFin: string;
+};
+/** Campos de /api/secciones (SeccionResponse) que usa el horario. */
+export type ScheduleSection = {
+  id: number;
+  nombre: string;
+  grado: number;
+  anioAcademico: number;
+  capacidadMaxima: number;
+  activo: boolean;
+};
+/** Respuesta de /api/asignaciones-cursos (AsignacionCursoResponse): curso y docente de una sección. */
+export type CourseAssignment = {
+  id: number;
+  cursoId: number;
+  curso: string;
+  seccionId: number;
+  seccion: string;
+  anioAcademico: number;
+  docenteId: number;
+  docente: string;
+  activo: boolean;
+  version: number;
+};
