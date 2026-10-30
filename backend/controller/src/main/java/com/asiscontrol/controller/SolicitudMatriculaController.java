@@ -3,6 +3,7 @@ package com.asiscontrol.controller;
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarSolicitudMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearSolicitudMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.SolicitudMatriculaResponse;
+import com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.service.SolicitudMatriculaService;
 
@@ -23,13 +24,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/solicitudes-matricula")
 @PreAuthorize("hasAuthority('MATRICULA_LEER')")
 public class SolicitudMatriculaController {
-
-    @org.springframework.beans.factory.annotation.Autowired
-    private com.asiscontrol.service.AuditoriaService auditoria;
 
     private final SolicitudMatriculaService solicitudMatriculaService;
     private final ModuloAccessGuard accessGuard;
@@ -61,11 +61,11 @@ public class SolicitudMatriculaController {
     }
 
     @GetMapping("/{id}/historial")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public java.util.List<com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse> historial(
+    @PreAuthorize("hasAuthority('MATRICULA_LEER') and (hasRole('ADMINISTRADOR') or"
+            + " (hasRole('APODERADO') and @moduloAccessGuard.puedeAccederSolicitudMatricula(#id)))")
+    public List<HistorialResponse> historial(
             @PathVariable Long id) {
-        solicitudMatriculaService.obtener(id);
-        return auditoria.historial("SolicitudMatricula", id);
+        return solicitudMatriculaService.historial(id);
     }
 
     @GetMapping("/{id}")
