@@ -79,7 +79,6 @@ function DeliveryPanel({ task, canWrite, checking, taskError, refreshTask }: {
       <div className={styles.toolbar}>
         <button type="button" className={styles.refresh} disabled={checking || deliveries.loading} onClick={refresh}>Actualizar</button>
       </div>
-      <p className="hint">Solo se muestran entregas recibidas, no el padrón completo de estudiantes.</p>
       {task.estado === "ARCHIVADA" && <p className="hint">Tarea archivada: consulta de solo lectura.</p>}
       <Feedback error={error} />
       {checking || deliveries.loading ? <p role="status">Cargando entregas…</p> : error ? null : deliveries.data?.content.length ? (

@@ -170,8 +170,8 @@ test.each([
   ["ENTREGA_NO_ENCONTRADA", /La entrega ya no está disponible/, true],
 ])("Gestiona %s sin éxito falso ni reenvío automático", async (code, expected, blocked) => {
   const calls = backend({ "POST /api/entregas/10/calificar": reply(code === "ENTREGA_NO_ENCONTRADA" ? 404 : 422, { code }) });
-  const saved = vi.fn(), refresh = vi.fn();
-  render(<DeliveryGradeDialog taskId={1} deliveryId={10} student="Lucía" onClose={vi.fn()} onRefresh={refresh} onSaved={saved} />);
+  const saved = vi.fn(), refresh = vi.fn(), close = vi.fn();
+  render(<DeliveryGradeDialog taskId={1} deliveryId={10} student="Lucía" onClose={close} onRefresh={refresh} onSaved={saved} />);
   const user = userEvent.setup();
   await user.type(await screen.findByLabelText(/^Nota/), "18");
   await user.click(screen.getByText("Guardar calificación"));
@@ -179,8 +179,12 @@ test.each([
   expect(!!screen.queryByText("Guardar calificación")).toBe(!blocked);
   expect(saved).not.toHaveBeenCalled();
   expect(calls.filter((call) => call.method === "POST")).toHaveLength(1);
-  await user.click(screen.getByText(blocked ? "Actualizar seguimiento" : "Cancelar y actualizar seguimiento"));
-  expect(refresh).toHaveBeenCalledOnce();
+  await user.click(screen.getByText(blocked ? "Actualizar seguimiento" : "Cancelar"));
+  if (blocked) expect(refresh).toHaveBeenCalledOnce();
+  else {
+    expect(close).toHaveBeenCalledOnce();
+    expect(refresh).not.toHaveBeenCalled();
+  }
 });
 
 test("Descarga autenticada con nombre original y libera la URL; informa errores", async () => {

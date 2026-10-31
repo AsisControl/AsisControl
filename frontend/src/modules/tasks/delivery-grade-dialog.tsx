@@ -95,15 +95,14 @@ export function DeliveryGradeDialog({ deliveryId, taskId, student, onClose, onRe
     </Dialog>;
   }
   return <FormDialog title={snapshot.delivery.nota === null ? "Calificar entrega" : "Modificar calificación"} description={student}
-    busy={busy} error={error} onClose={onClose} onSubmit={save} noValidate submitLabel="Guardar calificación"
-    notes={<button type="button" disabled={busy} onClick={onRefresh}>Cancelar y actualizar seguimiento</button>}>
+    busy={busy} error={error} onClose={onClose} onSubmit={save} noValidate submitLabel="Guardar calificación">
     <Field label="Nota" type="number" min={0} max={snapshot.task.puntajeMaximo} step={1} required value={nota}
       onChange={(event) => setNota(event.target.value)} error={errors.nota} hint={`Puntaje máximo: ${snapshot.task.puntajeMaximo}.`} />
     <div className="field full-field"><label htmlFor={commentId}>Comentario</label>
       <textarea id={commentId} rows={4} maxLength={2000} value={comentario} aria-invalid={!!errors.comentario}
         aria-describedby={`${commentId}-hint${errors.comentario ? ` ${commentId}-error` : ""}`}
         onChange={(event) => setComentario(event.target.value)} />
-      <small id={`${commentId}-hint`} className="field-hint">Este es el único comentario de la entrega. Al guardar se sustituirá por el texto indicado.</small>
+      <small id={`${commentId}-hint`} className="field-hint">Comentario opcional para el estudiante.</small>
       {errors.comentario && <small id={`${commentId}-error`} className="field-error" role="alert">{errors.comentario}</small>}
     </div>
   </FormDialog>;
