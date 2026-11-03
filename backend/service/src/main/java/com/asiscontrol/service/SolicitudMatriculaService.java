@@ -3,6 +3,7 @@ package com.asiscontrol.service;
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarSolicitudMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearSolicitudMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.SolicitudMatriculaResponse;
+import com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.Seccion;
 import com.asiscontrol.entity.SolicitudMatricula;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -59,6 +61,11 @@ public class SolicitudMatriculaService {
         this.configuracion = configuracion;
         this.personas = personas;
         this.auditoria = auditoria;
+    }
+
+    public List<HistorialResponse> historial(Long id) {
+        obtenerEntidad(id);
+        return auditoria.historial("SolicitudMatricula", id);
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
