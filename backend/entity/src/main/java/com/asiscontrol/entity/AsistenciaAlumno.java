@@ -5,12 +5,14 @@ import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.AuditableEntity;
+import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -30,8 +32,8 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "AsistenciaAlumno", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_asistencia_alumno_fecha", columnNames = {
-                "id_alumno", "id_asignacion_curso", "fecha_registro"
+        @UniqueConstraint(name = "uk_asistencia_alumno_sesion", columnNames = {
+                "id_alumno", "id_sesion_clase"
         })
 })
 public class AsistenciaAlumno extends AuditableEntity {
@@ -52,6 +54,14 @@ public class AsistenciaAlumno extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_docente_registrador")
     private Docente docenteRegistrador;
+
+    // asistencia alumnos
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "id_sesion_clase",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_asistencia_alumno_sesion"))
+    private SesionClase sesionClase;
 
     @Column(name = "fecha_registro", nullable = false)
     private LocalDate fechaRegistro;
