@@ -10,13 +10,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -51,16 +52,24 @@ public class AsignacionCursoController {
         return asignacionCursoService.obtener(id);
     }
 
+    /** Un docente solo recibe sus propias asignaciones. */
     @GetMapping
     public Page<AsignacionCursoResponse> listar(
+            @RequestParam(required = false) com.asiscontrol.dto.academico.AcademicoDtos.EstadoAsignacion estado,
+            @RequestParam(required = false) Long docenteId,
+            @RequestParam(required = false) Long cursoId,
+            @RequestParam(required = false) Long seccionId,
+            @RequestParam(required = false) Integer anioAcademico,
             @PageableDefault(size = 20, sort = "fechaCreacion") Pageable pageable) {
-        return asignacionCursoService.listar(pageable);
+        return asignacionCursoService.listar(estado, docenteId, cursoId, seccionId, anioAcademico, pageable);
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    /** US-58 / PLA-06: retiro con motivo; se rechaza si el docente tiene bloques de horario. */
+    @PatchMapping("/{id}/retirar")
     @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
-    public void eliminar(@PathVariable Long id) {
-        asignacionCursoService.eliminar(id);
+    public AsignacionCursoResponse retirar(
+            @PathVariable Long id,
+            @Valid @RequestBody com.asiscontrol.dto.academico.AcademicoDtos.RetirarAsignacionCursoRequest request) {
+        return asignacionCursoService.retirar(id, request);
     }
 }

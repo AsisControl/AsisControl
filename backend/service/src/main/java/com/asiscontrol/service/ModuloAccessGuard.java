@@ -38,6 +38,11 @@ public class ModuloAccessGuard {
                 || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {
             throw new AccessDeniedException("La asignación no pertenece al docente autenticado");
         }
+        // US-58: un docente retirado del curso conserva la consulta de su historial, pero ya no
+        // puede registrar ni modificar nada en esa asignacion.
+        if (!asignacion.isActivo()) {
+            throw new AccessDeniedException("El docente ya no está asignado a este curso y sección");
+        }
     }
 
     public void verificarEntregaAlumno(Alumno alumno) {

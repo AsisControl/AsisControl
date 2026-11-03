@@ -19,7 +19,9 @@ const weekDayOrder = Object.keys(weekDayLabels);
 /** "08:00:00" → "08:00". */
 const hour = (time: string) => time.slice(0, 5);
 /** "Lunes 08:00 – 09:30". */
-export const scheduleSlotLabel = (item: ClassroomSchedule) =>
+export const scheduleSlotLabel = (
+  item: Pick<ClassroomSchedule, "diaSemana" | "horaInicio" | "horaFin">,
+) =>
   `${weekDayLabels[item.diaSemana] ?? item.diaSemana} ${hour(item.horaInicio)} – ${hour(item.horaFin)}`;
 /** Activos primero; luego por día de la semana y hora de inicio. */
 export function sortSchedules(items: ClassroomSchedule[]) {
