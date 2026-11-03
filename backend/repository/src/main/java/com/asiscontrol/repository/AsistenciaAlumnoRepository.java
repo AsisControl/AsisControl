@@ -14,8 +14,6 @@ public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlum
 
     Optional<AsistenciaAlumno> findByIdAndActivoTrue(Long id);
 
-    Page<AsistenciaAlumno> findAllByActivoTrue(Pageable pageable);
-
     @Query("""
             SELECT a FROM AsistenciaAlumno a
             WHERE a.activo = true
@@ -39,12 +37,4 @@ public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlum
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,
             Pageable pageable);
-
-    Optional<AsistenciaAlumno> findByAlumnoIdAndAsignacionCursoIdAndFechaRegistroAndActivoTrue(
-            Long alumnoId, Long asignacionCursoId, LocalDate fechaRegistro);
-
-    Page<AsistenciaAlumno> findAllByAsignacionCursoIdAndFechaRegistroAndActivoTrue(
-            Long asignacionCursoId, LocalDate fechaRegistro, Pageable pageable);
-
-    Page<AsistenciaAlumno> findAllByAlumnoIdAndActivoTrue(Long alumnoId, Pageable pageable);
 }
