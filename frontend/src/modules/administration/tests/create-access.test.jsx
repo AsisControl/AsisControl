@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
@@ -73,6 +73,40 @@ beforeEach(() => {
   signIn();
   setUrl("/administracion/usuarios/nuevo");
 });
+
+test.each(["PASAPORTE", "CARNET_EXTRANJERIA"])(
+  "Conserva el documento %s al actualizar el resumen y crear la persona",
+  async (documentType) => {
+    const calls = backend();
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("button", { name: "Persona nueva" }));
+    const selector = screen.getByLabelText(/Tipo de documento/);
+    expect(selector.value).toBe("DNI");
+    await user.selectOptions(selector, documentType);
+    expect(selector.value).toBe(documentType);
+
+    await user.type(screen.getByLabelText(/^Nombres/), "Ana");
+    await user.type(screen.getByLabelText(/^Apellido paterno/), "Prueba");
+    await user.type(screen.getByLabelText(/^Apellido materno/), "Local");
+    await user.type(screen.getByLabelText(/Número de documento/), "AB-12345");
+    await user.type(screen.getByLabelText(/Fecha de nacimiento/), "1990-05-15");
+    await user.type(screen.getByLabelText(/Correo de contacto/), "ana@example.test");
+    await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
+    await fillAccess(user);
+
+    expect(selector.value).toBe(documentType);
+    expect(within(summary()).getByText("Ana Prueba Local")).toBeTruthy();
+    expect(within(summary()).getByText("pmorales")).toBeTruthy();
+    expect(within(summary()).getByText("pmorales@colegio.edu.pe")).toBeTruthy();
+    await user.click(screen.getByText("Crear usuario"));
+    await screen.findByText("Usuario creado");
+    expect(calls.find((call) => call.method === "POST").body.persona).toMatchObject({
+      tipoDocumento: documentType,
+      numeroDocumento: "AB-12345",
+    });
+  },
+);
 
 test("Crea un acceso docente para una persona registrada sin ese perfil", async () => {
   const calls = backend();
@@ -179,14 +213,55 @@ test("Rechaza una contraseña débil y acepta la generada", async () => {
   await user.click(await screen.findByText("Rosa Quispe"));
   await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
   await fillAccess(user, "pmorales");
+  const passwordInput = screen.getByLabelText(/^Contraseña temporal/);
+  const invalid = vi.fn();
+  passwordInput.addEventListener("invalid", invalid);
+  expect(passwordInput.validity.customError).toBe(true);
+  expect(passwordInput.validationMessage).toMatch(/8 a 64 caracteres/);
   await user.click(screen.getByText("Crear usuario"));
-  expect(screen.getByRole("alert").textContent).toMatch(/8 a 64 caracteres/);
+  expect(invalid).toHaveBeenCalled();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+  // El respaldo también protege un submit disparado sin validación interactiva.
+  fireEvent.submit(passwordInput.form);
+  expect(document.activeElement).toBe(passwordInput);
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
   await user.click(screen.getByText("Generar contraseña"));
+  expect(passwordInput.validity.customError).toBe(false);
+  expect(passwordInput.validationMessage).toBe("");
   const generated = screen.getByLabelText(/^Contraseña temporal/).value;
   expect(generated).toMatch(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{16}$/);
   await user.click(screen.getByText("Crear usuario"));
   await screen.findByText("Usuario creado");
   expect(calls.find((c) => c.method === "POST").body.password).toBe(generated);
+});
+
+test("Revalida la contraseña al cambiar usuario o contraseña y limpia el error", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  renderForm();
+  await user.click(await screen.findByText("Rosa Quispe"));
+  await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
+  await fillAccess(user);
+  const passwordInput = screen.getByLabelText(/^Contraseña temporal/);
+  const username = screen.getByLabelText(/^Usuario/);
+  expect(passwordInput.validity.valid).toBe(true);
+  await user.clear(username);
+  await user.type(username, "temporal2026");
+  expect(passwordInput.validity.customError).toBe(true);
+  await user.click(screen.getByText("Crear usuario"));
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+  await user.clear(username);
+  await user.type(username, "otro_usuario");
+  expect(passwordInput.validationMessage).toBe("");
+  await user.clear(passwordInput);
+  await user.type(passwordInput, "sinmayuscula1");
+  expect(passwordInput.validity.customError).toBe(true);
+  await user.clear(passwordInput);
+  await user.type(passwordInput, "Valida2026");
+  expect(passwordInput.validationMessage).toBe("");
+  await user.click(screen.getByText("Crear usuario"));
+  await screen.findByText("Usuario creado");
 });
 
 test("Busca personas y estudiantes con el texto escrito", async () => {

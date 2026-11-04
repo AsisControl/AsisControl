@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { passwordError } from "@/core/auth/password-policy";
 import { api, message } from "@/core/api/client";
 import { Feedback } from "@/shared/ui";
@@ -63,10 +63,16 @@ function NewUserForm({
   const [person, setPerson] = useState<PersonChoice | null>(null);
   const [selected, setSelected] = useState<Map<number, string>>(new Map());
   const [password, setPassword] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState<Account | null>(null);
+  useEffect(() => {
+    const input = formRef.current?.elements.namedItem("password");
+    if (input instanceof HTMLInputElement)
+      input.setCustomValidity(passwordError(password, draft.username));
+  }, [password, draft.username]);
   useEffect(() => {
     let active = true;
     api<Role[]>("/api/roles")
@@ -128,7 +134,12 @@ function NewUserForm({
     const str = (key: string) => String(data.get(key) || "").trim();
     const policy = passwordError(password, str("username"));
     if (policy) {
-      setError(policy);
+      const input = e.currentTarget.elements.namedItem("password");
+      if (input instanceof HTMLInputElement) {
+        input.setCustomValidity(policy);
+        input.reportValidity();
+        input.focus();
+      }
       return;
     }
     setBusy(true);
@@ -181,7 +192,7 @@ function NewUserForm({
         </p>
       </div>
       <Feedback error={error} />
-      <form onSubmit={submit} onInput={(e) => readDraft(e.currentTarget)}>
+      <form ref={formRef} onSubmit={submit} onChange={(e) => readDraft(e.currentTarget)}>
         <fieldset className={styles.layout} disabled={busy}>
           <div className={styles.steps}>
             <PersonStep
