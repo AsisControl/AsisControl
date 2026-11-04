@@ -36,6 +36,47 @@ export type WeekDay =
   | "JUEVES"
   | "VIERNES"
   | "SABADO";
+/** Filtro de estado de /api/asignaciones-cursos (EstadoAsignacion). */
+export type AssignmentState = "ACTIVAS" | "RETIRADAS" | "TODAS";
+/** Respuesta de /api/asignaciones-cursos (AsignacionCursoResponse). */
+export type TeacherAssignment = {
+  id: number;
+  cursoId: number;
+  curso: string;
+  seccionId: number;
+  seccion: string;
+  anioAcademico: number;
+  grado: number;
+  docenteId: number;
+  docente: string;
+  activo: boolean;
+  version: number;
+  /** Bloques de horario activos; mientras haya alguno no se puede retirar (PLA-06). */
+  horariosActivos: number;
+};
+/** Datos de alta o edición; la versión se agrega al actualizar. */
+export type TeacherAssignmentInput = {
+  cursoId: number;
+  seccionId: number;
+  docenteId: number;
+};
+/** Bloque que impide retirar al docente (detalle del 409 ASIGNACION_CON_HORARIOS_FUTUROS). */
+export type BlockingSchedule = {
+  horarioId: number;
+  diaSemana: WeekDay;
+  horaInicio: string;
+  horaFin: string;
+  aulaId: number;
+  aula: string;
+};
+/** Opciones de los desplegables de la asignación (subconjunto de cada respuesta). */
+export type SectionOption = { id: number; nombre: string; grado: number; anioAcademico: number };
+export type CourseOption = { id: number; codigo: string; nombre: string };
+export type TeacherOption = {
+  id: number;
+  codigoDocente: string;
+  persona: { nombreCompleto: string };
+};
 /** Respuesta de /api/aulas/{id}/horarios (HorarioResponse); horas "08:00:00". */
 export type ClassroomSchedule = {
   id: number;

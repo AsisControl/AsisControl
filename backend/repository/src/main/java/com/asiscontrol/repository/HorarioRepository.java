@@ -43,6 +43,21 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
 
     boolean existsByAulaId(Long aulaId);
 
+    long countByAsignacionCursoIdAndActivoTrue(Long asignacionCursoId);
+
+    /**
+     * Bloques activos de una asignacion. Horario no tiene fecha: un bloque activo se repite cada
+     * semana, asi que cuenta como programado a futuro (regla PLA-06).
+     */
+    @Query("""
+            SELECT h FROM Horario h
+            JOIN FETCH h.aula
+            WHERE h.asignacionCurso.id = :asignacionCursoId
+              AND h.activo = true
+            ORDER BY h.diaSemana, h.horaInicio
+            """)
+    List<Horario> findActivosPorAsignacion(@Param("asignacionCursoId") Long asignacionCursoId);
+
     @Query("""
             SELECT h FROM Horario h
             JOIN FETCH h.asignacionCurso a

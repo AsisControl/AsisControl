@@ -2,6 +2,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
+import { TeacherAssignmentsPanel } from "./assignments/teacher-assignments-panel";
 import { ClassroomsPanel } from "./classrooms/classrooms-panel";
 import { TimetablePanel } from "./timetable/timetable-panel";
 /** Pestañas de Horario Académico en el orden del prototipo; la URL es /horarios/{id}. */
@@ -15,6 +16,7 @@ const tabs: TabItem[] = [
 const panels: Record<string, (canWrite: boolean) => ReactNode> = {
   horario: (canWrite) => <TimetablePanel canWrite={canWrite} />,
   aulas: (canWrite) => <ClassroomsPanel canWrite={canWrite} />,
+  "asignaciones-docentes": (canWrite) => <TeacherAssignmentsPanel canWrite={canWrite} />,
 };
 export const SCHEDULES_PATH = "/horarios";
 const DEFAULT_TAB = "horario";

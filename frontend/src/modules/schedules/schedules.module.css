@@ -45,6 +45,29 @@
   margin: 4px 0 16px;
   padding: 10px 14px;
 }
+/* Filtros de Asignaciones docentes, con el mismo aspecto que los de Auditoría. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.filters input,
+.filters select {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  height: 40px;
+  padding: 0 12px;
+}
+.filters input {
+  flex: 0 1 180px;
+}
+.filters select {
+  flex: 0 1 190px;
+}
 .pendingBadge {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
