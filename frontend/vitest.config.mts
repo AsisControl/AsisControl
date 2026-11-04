@@ -22,6 +22,8 @@ export default defineConfig({
     css: { modules: { classNameStrategy: "non-scoped" } },
     restoreMocks: true,
     unstubGlobals: true,
+    // Las pantallas con muchos pasos superan los 5 s por defecto cuando corren en paralelo.
+    testTimeout: 20000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
