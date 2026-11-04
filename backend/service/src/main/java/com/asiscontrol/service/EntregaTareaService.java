@@ -8,6 +8,7 @@ import com.asiscontrol.dto.tarea.TareaDtos.CalificarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.EntregaTareaResponse;
 import com.asiscontrol.dto.tarea.TareaDtos.RegistrarEntregaRequest;
 import com.asiscontrol.entity.Alumno;
+import com.asiscontrol.entity.ArchivoAdjunto;
 import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.EntregaTarea;
 import com.asiscontrol.entity.Tarea;
@@ -26,6 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 
 @Service
 @Transactional(readOnly = true)
@@ -71,7 +74,7 @@ public class EntregaTareaService {
         entrega.setTarea(tarea);
         entrega.setAlumno(alumno);
         entrega.setFechaHoraEntrega(ahora);
-        entrega.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
+        entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(ahora.isAfter(tarea.getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
@@ -96,7 +99,7 @@ public class EntregaTareaService {
         String anterior = describir(entrega);
         LocalDateTime ahora = LocalDateTime.now();
         entrega.setFechaHoraEntrega(ahora);
-        entrega.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
+        entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(ahora.isAfter(entrega.getTarea().getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
@@ -175,6 +178,16 @@ public class EntregaTareaService {
         }
     }
 
+    private Set<ArchivoAdjunto> archivosDeEntrega(Set<Long> ids) {
+        var archivos = archivoService.obtenerActivos(ids);
+        Long personaAlumnoId = accessGuard.restriccionAlumnoPersonaId();
+        if (personaAlumnoId != null && archivos.stream().anyMatch(
+                archivo -> !personaAlumnoId.equals(archivo.getCargadoPor().getId()))) {
+            throw new AccessDeniedException("Solo puede entregar archivos cargados por usted");
+        }
+        return archivos;
+    }
+
     private void validarCantidadArchivos(Tarea tarea, int cantidad) {
         if (cantidad > tarea.getMaxArchivosEntrega()) {
             throw new BusinessRuleException(
@@ -201,7 +214,7 @@ public class EntregaTareaService {
         }
     }
 
-    private EntregaTareaResponse mapResponse(EntregaTarea entrega) {
+    EntregaTareaResponse mapResponse(EntregaTarea entrega) {
         return new EntregaTareaResponse(
                 entrega.getId(),
                 entrega.getTarea().getId(),

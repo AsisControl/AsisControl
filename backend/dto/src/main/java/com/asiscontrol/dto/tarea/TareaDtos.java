@@ -66,6 +66,16 @@ public final class TareaDtos {
     ) {
     }
 
+    public record TareaAlumnoResponse(
+            TareaResponse tarea,
+            Long alumnoId,
+            String curso,
+            String docente,
+            String seccion,
+            EntregaTareaResponse entrega
+    ) {
+    }
+
     public record ActualizarEntregaRequest(
             @NotNull @Size(max = 20) Set<Long> archivoIds,
             @Size(max = 2000) String comentario,

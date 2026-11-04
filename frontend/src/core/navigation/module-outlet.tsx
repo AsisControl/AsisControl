@@ -7,6 +7,7 @@ import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Schedules } from "@/modules/schedules";
+import { StudentTasks } from "@/modules/student-tasks";
 import { canAccess } from "./access-policy";
 import {
   HOME_NAV,
@@ -42,6 +43,9 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Matrícula: () => <GuardianEnrollment />,
+  },
+  ESTUDIANTE: {
+    Tareas: () => <StudentTasks />,
   },
 };
 /** Direcciones anteriores que se conservan para no romper enlaces guardados. */
