@@ -333,19 +333,18 @@ test("Académico exige ACADEMICO_LEER y la escritura habilita la creación", asy
   expect(screen.queryByText("+ Nuevo curso")).toBeNull();
 });
 
-test("Horarios exige ACADEMICO_LEER y abre la pestaña Aulas", async () => {
+test("Horarios exige ACADEMICO_LEER y abre la pestaña Horario", async () => {
   backend({
     "GET /api/auth/me": summary({ permisos: ["ACADEMICO_LEER"] }),
-    "GET /api/aulas": page([]),
-    "GET /api/aulas/resumen": { habilitadas: 0 },
+    "GET /api/secciones": page([]),
   });
   sessionFor({ permissions: ["ACADEMICO_LEER"] });
   setUrl("/horarios");
   renderApp();
   expect(await screen.findByText("Horario Académico")).toBeTruthy();
-  expect(screen.getByText("Aulas", { selector: "button" }).getAttribute("aria-current")).toBe("page");
-  expect(await screen.findByText("Aún no hay aulas registradas.")).toBeTruthy();
-  expect(screen.queryByText("+ Nueva aula")).toBeNull();
+  expect(screen.getByText("Horario", { selector: "button" }).getAttribute("aria-current")).toBe("page");
+  expect(await screen.findByText(/No hay secciones habilitadas/)).toBeTruthy();
+  expect(screen.queryByText("+ Nuevo bloque")).toBeNull();
 });
 
 /** Respuesta de login/refresh con un token que vence en `seconds`. */
