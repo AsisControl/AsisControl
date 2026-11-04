@@ -17,6 +17,16 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
 
     Optional<Horario> findByIdAndActivoTrue(Long id);
 
+    // asistencia alumnos
+    List<Horario> findAllByAsignacionCursoIdAndActivoTrue(Long asignacionCursoId);
+
+    // asistencia alumnos
+    @Query("""
+            SELECT DISTINCT h.asignacionCurso.id FROM Horario h
+            WHERE h.activo = true AND h.asignacionCurso.seccion.anioAcademico = :anioAcademico
+            """)
+    List<Long> findAsignacionIdsConHorarioEnAnio(@Param("anioAcademico") int anioAcademico);
+
     Page<Horario> findByActivoTrue(Pageable pageable);
 
     @EntityGraph(attributePaths = {

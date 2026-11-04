@@ -22,6 +22,8 @@ import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.HorarioRepository;
 import com.asiscontrol.repository.SeccionRepository;
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
+import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /** US-58 / PLA-06: asignacion de docentes activos a cursos y secciones de un año vigente. */
 @Service
@@ -43,6 +47,7 @@ public class AsignacionCursoService {
     private final AnioAcademicoRepository anioRepository;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
+    private final ApplicationEventPublisher eventos;
 
     public AsignacionCursoService(
             AsignacionCursoRepository asignacionRepository,
@@ -52,7 +57,8 @@ public class AsignacionCursoService {
             HorarioRepository horarioRepository,
             AnioAcademicoRepository anioRepository,
             ModuloAccessGuard accessGuard,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            ApplicationEventPublisher eventos) {
         this.asignacionRepository = asignacionRepository;
         this.cursoRepository = cursoRepository;
         this.seccionRepository = seccionRepository;
@@ -61,6 +67,7 @@ public class AsignacionCursoService {
         this.anioRepository = anioRepository;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
+        this.eventos = eventos;
     }
 
     @Transactional
@@ -125,6 +132,7 @@ public class AsignacionCursoService {
         AsignacionCurso saved = asignacionRepository.saveAndFlush(asignacion);
         auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
         return mapear(saved);
     }
 
@@ -153,6 +161,7 @@ public class AsignacionCursoService {
         auditoria.registrar("RETIRAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, request.motivo().trim(), anterior,
                 describir(saved));
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
         return mapear(saved);
     }
 
@@ -200,10 +209,15 @@ public class AsignacionCursoService {
     }
 
     public AsignacionCurso obtenerEntidad(Long id) {
-        return asignacionRepository.findByIdAndActivoTrue(id)
+        return buscarActiva(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ASIGNACION_CURSO_NO_ENCONTRADA",
                         "No existe una asignacion de curso activa con id " + id));
+    }
+
+    // asistencia alumnos: sin excepción, para sincronizar sesiones de una asignación retirada
+    public Optional<AsignacionCurso> buscarActiva(Long id) {
+        return asignacionRepository.findByIdAndActivoTrue(id);
     }
 
     /** Un curso de 1.er grado de 2027 solo se dicta en secciones de ese grado y anio. */
