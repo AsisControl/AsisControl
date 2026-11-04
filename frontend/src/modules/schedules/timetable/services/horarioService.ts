@@ -12,7 +12,7 @@ import { ASIGNACIONES_PATH } from "../../assignments/services/asignacionService"
 export const HORARIOS_PATH = "/api/horarios";
 const PAGE_SIZE = 100;
 /** Recorre todas las páginas: la primera no representa toda la matriz. */
-async function listAll<T>(path: string): Promise<T[]> {
+export async function listAll<T>(path: string): Promise<T[]> {
   const items: T[] = [];
   for (let page = 0; ; page++) {
     const separator = path.includes("?") ? "&" : "?";

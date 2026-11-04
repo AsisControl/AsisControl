@@ -38,6 +38,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
       <Schedules
         tab={tab}
         canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+        canViewHistory={(user.permissions ?? []).includes("AUDITORIA_LEER")}
       />
     ),
     Administración: ({ user, subpath: [tab, view] }) => (
