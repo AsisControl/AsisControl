@@ -77,6 +77,28 @@ test("Plazo vencido es secundario solo en PUBLICADA y desaparece al cerrar", asy
   } finally { vi.useRealTimers(); }
 });
 
+test("Con la asignación retirada (US-58) solo permite consultar la tarea", async () => {
+  backend({
+    "GET /api/tareas": page([
+      task(),
+      task({ id: 2, nombre: "Publicada retirada", estado: "PUBLICADA" }),
+      task({ id: 3, nombre: "Vigente", asignacionCursoId: 43 }),
+    ]),
+    "GET /api/asignaciones-cursos/42": assignment({ activo: false }),
+    "GET /api/asignaciones-cursos/43": assignment({ id: 43, curso: "Comunicación" }),
+  });
+  render(<Tasks canWrite />);
+  const row = (await screen.findByText("Práctica de álgebra")).closest("tr");
+  await within(row).findByText("Asignación retirada: solo consulta");
+  expect(within(row).queryByRole("button", { name: /Editar|Publicar/ })).toBeNull();
+  const published = screen.getByText("Publicada retirada").closest("tr");
+  expect(within(published).queryByRole("button", { name: /Cerrar/ })).toBeNull();
+  expect(within(published).getByRole("link", { name: "Entregas de Publicada retirada" })).toBeTruthy();
+  const current = screen.getByText("Vigente").closest("tr");
+  expect(within(current).getByRole("button", { name: "Publicar Vigente" })).toBeTruthy();
+  expect(within(current).queryByText("Asignación retirada: solo consulta")).toBeNull();
+});
+
 test("Actualiza la indicación temporal al volver a enfocar la ventana", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(2026, 9, 30, 12, 0, 0));

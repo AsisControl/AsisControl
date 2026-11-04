@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { setUrl } from "../../../../tests/support/navigation.js";
@@ -47,7 +47,47 @@ test("Lista solo entregas recibidas con identidad, fecha, estado, comentario, no
   expect(screen.getByRole("link", { name: "Volver a tareas" }).textContent).toBe("← Volver a tareas");
   expect(calls.find((call) => call.path.endsWith("/entregas")).query).toEqual({ page: "0", size: "20" });
   expect(calls.some((call) => call.path === "/api/alumnos" || call.path === "/api/matriculas")).toBe(false);
-  expect(screen.queryByText(/Sin entrega|\d+ de \d+ estudiantes|%/)).toBeNull();
+});
+
+const roster = (overrides = {}) => ({
+  tareaId: 1, totalAlumnos: 3, entregados: 1, calificados: 0, pendientes: 2,
+  alumnos: [
+    { alumnoId: 8, codigoAlumno: "AL-8", nombreCompleto: "Lucía Pérez", matriculaActiva: true, entregaId: 10, estado: "ENTREGADO_TARDE", fechaHoraEntrega: "2026-10-11T12:30:45", nota: null },
+    { alumnoId: 9, codigoAlumno: "AL-9", nombreCompleto: "Luis Ramos", matriculaActiva: true, entregaId: null, estado: "PENDIENTE", fechaHoraEntrega: null, nota: null },
+    { alumnoId: 7, codigoAlumno: null, nombreCompleto: "Ana Soto", matriculaActiva: true, entregaId: null, estado: "PENDIENTE", fechaHoraEntrega: null, nota: null },
+    { alumnoId: 6, codigoAlumno: "AL-6", nombreCompleto: "Retirado Díaz", matriculaActiva: false, entregaId: null, estado: "PENDIENTE", fechaHoraEntrega: null, nota: null },
+  ],
+  ...overrides,
+});
+
+test("Padrón: resume quiénes entregaron y lista a quienes no, y se recarga al calificar", async () => {
+  let current = roster();
+  const calls = backend({ "GET /api/tareas/1/seguimiento": () => current });
+  render(<TaskDeliveries taskId={1} canWrite />);
+  const region = await screen.findByRole("region", { name: "Padrón de la sección" });
+  expect(await within(region).findByText("1 de 3 estudiantes entregaron")).toBeTruthy();
+  expect(within(region).getByText(/0 calificados/)).toBeTruthy();
+  expect(within(region).getByText("Sin entrega (2)")).toBeTruthy();
+  expect(within(region).getByText("Luis Ramos")).toBeTruthy();
+  expect(within(region).getByText("Ana Soto")).toBeTruthy();
+  expect(within(region).queryByText(/Retirado Díaz/)).toBeNull();
+  expect(within(region).queryByText(/Lucía Pérez/)).toBeNull();
+
+  current = roster({ calificados: 1 });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Calificar Lucía Pérez" }));
+  const dialog = await screen.findByRole("dialog");
+  await user.type(within(dialog).getByLabelText(/^Nota/), "15");
+  await user.click(within(dialog).getByRole("button", { name: /Guardar/ }));
+  expect(await within(region).findByText(/1 calificado$/)).toBeTruthy();
+  expect(calls.filter((call) => call.path === "/api/tareas/1/seguimiento")).toHaveLength(2);
+});
+
+test("Padrón: si no se puede cargar, las entregas se siguen mostrando", async () => {
+  backend({ "GET /api/tareas/1/seguimiento": reply(403, { message: "Acceso denegado" }) });
+  render(<TaskDeliveries taskId={1} canWrite />);
+  expect(await screen.findByText("Lucía Pérez")).toBeTruthy();
+  expect(await screen.findByText(/No se pudo cargar el padrón de la sección/)).toBeTruthy();
 });
 
 test("Paginación y actualización conservan caché de alumnos ya resueltos", async () => {
@@ -226,6 +266,14 @@ test("Vacío y error del listado permiten actualización, sin filas ficticias", 
   fail = false;
   await userEvent.setup().click(screen.getByText("Actualizar"));
   expect(await screen.findByText("Esta tarea aún no tiene entregas recibidas.")).toBeTruthy();
+});
+
+test("Con la asignación retirada (US-58) muestra las entregas sin permitir calificar", async () => {
+  backend({ "GET /api/asignaciones-cursos/42": { id: 42, activo: false } });
+  render(<TaskDeliveries taskId={1} canWrite />);
+  await screen.findByText("Lucía Pérez");
+  expect(await screen.findByText("Ya no estás asignado a este curso y sección: consulta de solo lectura.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Calificar|Modificar calificación/ })).toBeNull();
 });
 
 test("Reintenta tarea inaccesible sin consultar alumnos o entregas antes", async () => {

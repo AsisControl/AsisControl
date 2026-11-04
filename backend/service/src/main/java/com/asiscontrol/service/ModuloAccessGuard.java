@@ -225,6 +225,30 @@ public class ModuloAccessGuard {
         return false;
     }
 
+    /**
+     * US-22: el padron de la seccion solo lo ven administracion, direccion y el docente de la tarea
+     * (aunque ya este retirado, para consultar su historial); nunca alumnos ni apoderados.
+     */
+    public boolean puedeConsultarSeguimientoTarea(Long tareaId) {
+        if (tareaId == null) {
+            return false;
+        }
+        if (tieneAlgunRol("ADMINISTRADOR", "DIRECTOR")) {
+            return true;
+        }
+        if (!tieneRol("DOCENTE")) {
+            return false;
+        }
+        return entityManager.createQuery("""
+                        SELECT COUNT(t) FROM Tarea t
+                        WHERE t.id = :id AND t.activo = true
+                          AND t.asignacionCurso.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", tareaId)
+                .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
+    }
+
     public boolean puedeAccederAsistenciaAlumno(Long asistenciaId) {
         if (asistenciaId == null) {
             return false;

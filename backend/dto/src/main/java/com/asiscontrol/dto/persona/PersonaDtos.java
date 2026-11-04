@@ -27,6 +27,7 @@ public final class PersonaDtos {
     public interface FichaAlumno {}
 
     @ValidAlumnoPersona(groups = FichaAlumno.class)
+    @ValidDocumentoPersona
     public record PersonaRequest(
             @NotBlank(
                             message = "Los nombres son obligatorios",

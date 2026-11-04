@@ -20,22 +20,127 @@ function backend(routes = {}) {
 }
 beforeEach(() => signIn({ role: "DOCENTE", permissions: ["TAREAS_LEER", "TAREAS_ESCRIBIR", "ARCHIVOS_ESCRIBIR"] }));
 
-test("Edita solo borradores, conserva versión y precisión de fechas, y refresca el listado", async () => {
+test("Edita un borrador, conserva versión y precisión de fechas, y refresca el listado", async () => {
   const calls = backend();
   render(<Tasks canWrite canUpload />);
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "Editar Álgebra" }));
   const dialog = await screen.findByRole("dialog", { name: "Editar tarea" });
   const name = await within(dialog).findByLabelText(/^Nombre/);
-  expect(screen.queryByRole("button", { name: "Editar Publicada" })).toBeNull();
-  expect(screen.queryByRole("button", { name: /Nueva tarea/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "Editar Publicada" })).toBeTruthy();
   expect(within(dialog).queryByRole("combobox")).toBeNull();
+  expect(within(dialog).queryByLabelText(/^Motivo/)).toBeNull();
   await user.clear(name);
   await user.type(name, " Nueva álgebra ");
   await user.click(within(dialog).getByText("Guardar cambios"));
   expect(await screen.findByText("Borrador actualizado.")).toBeTruthy();
-  expect(calls.find((call) => call.method === "PUT").body).toEqual({ nombre: "Nueva álgebra", descripcion: "Resolver ejercicios", fechaPublicacion: null, fechaLimite: "2099-12-01T18:30:12", puntajeMaximo: 20, maxArchivosEntrega: 2, archivoIds: [9], version: 7 });
+  expect(calls.find((call) => call.method === "PUT").body).toEqual({ nombre: "Nueva álgebra", descripcion: "Resolver ejercicios", fechaPublicacion: null, fechaLimite: "2099-12-01T18:30:12", puntajeMaximo: 20, maxArchivosEntrega: 2, archivoIds: [9], version: 7, motivo: null });
   await waitFor(() => expect(calls.filter((call) => call.path === "/api/tareas")).toHaveLength(2));
+});
+
+const published = (overrides = {}) => task({ estado: "PUBLICADA", fechaPublicacion: "2026-10-01T08:00:00.123456", ...overrides });
+
+test("Publicada con entregas: conserva la publicación y exige motivo al cambiar la fecha límite", async () => {
+  const calls = backend({
+    "GET /api/tareas/1": published(),
+    "GET /api/tareas/1/entregas": page([{ id: 10 }]),
+    "PUT /api/tareas/1": ({ body }) => published({ ...body, version: 8 }),
+  });
+  const onSaved = vi.fn();
+  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={onSaved} />);
+  const user = userEvent.setup();
+  const { fireEvent } = await import("@testing-library/react");
+  await screen.findByLabelText(/^Nombre/);
+  const dialog = screen.getByRole("dialog", { name: "Editar tarea" });
+  expect(within(dialog).getByText(/seguirá publicada/)).toBeTruthy();
+  expect(within(dialog).getByLabelText(/^Fecha de publicación/).readOnly).toBe(true);
+  expect(await within(dialog).findByText(/tiene 1 entrega: cambiar esta fecha exige un motivo/)).toBeTruthy();
+  expect(calls.find((call) => call.path === "/api/tareas/1/entregas").query).toEqual({ page: "0", size: "1" });
+
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha límite/), { target: { value: "2099-12-05T18:30" } });
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  expect(await within(dialog).findByText(/indica el motivo del cambio de fecha límite/)).toBeTruthy();
+  expect(calls.some((call) => call.method === "PUT")).toBe(false);
+
+  await user.type(within(dialog).getByLabelText(/^Motivo del cambio/), " Feriado ");
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  const body = calls.find((call) => call.method === "PUT").body;
+  expect(body.fechaPublicacion).toBe("2026-10-01T08:00:00.123456");
+  expect(body.fechaLimite).toBe("2099-12-05T18:30");
+  expect(body.motivo).toBe("Feriado");
+});
+
+test("Publicada sin entregas: el motivo es opcional y no se envía si no cambia el vencimiento", async () => {
+  const calls = backend({
+    "GET /api/tareas/1": published(),
+    "GET /api/tareas/1/entregas": page([]),
+    "PUT /api/tareas/1": ({ body }) => published({ ...body, version: 8 }),
+  });
+  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
+  const user = userEvent.setup();
+  const { fireEvent } = await import("@testing-library/react");
+  await screen.findByLabelText(/^Nombre/);
+  const dialog = screen.getByRole("dialog", { name: "Editar tarea" });
+  await waitFor(() => expect(calls.some((call) => call.path === "/api/tareas/1/entregas")).toBe(true));
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha límite/), { target: { value: "2099-12-05T18:30" } });
+  expect(await within(dialog).findByText(/Opcional: aún no hay entregas/)).toBeTruthy();
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha límite/), { target: { value: "2099-12-01T18:30:12" } });
+  expect(within(dialog).queryByLabelText(/^Motivo del cambio/)).toBeNull();
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  await waitFor(() => expect(calls.some((call) => call.method === "PUT")).toBe(true));
+  expect(calls.find((call) => call.method === "PUT").body.motivo).toBeNull();
+});
+
+test("El error de motivo del backend se muestra en el campo", async () => {
+  backend({
+    "GET /api/tareas/1": published(),
+    "GET /api/tareas/1/entregas": reply(500),
+    "PUT /api/tareas/1": reply(422, { code: "TAREA_MOTIVO_REQUERIDO", message: "Indique el motivo",
+      fieldErrors: [{ field: "motivo", message: "Indique el motivo" }] }),
+  });
+  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
+  const { fireEvent } = await import("@testing-library/react");
+  await screen.findByLabelText(/^Nombre/);
+  const dialog = screen.getByRole("dialog", { name: "Editar tarea" });
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha límite/), { target: { value: "2099-12-05T18:30" } });
+  await userEvent.setup().click(within(dialog).getByText("Guardar cambios"));
+  expect((await within(dialog).findAllByText("Indique el motivo")).length).toBeGreaterThan(0);
+});
+
+test("Nueva tarea ofrece solo las asignaciones propias y exige elegir una", async () => {
+  const mine = [{ id: 42, curso: "Matemática", seccion: "A", anioAcademico: 2026 }, { id: 43, curso: "Física", seccion: "B", anioAcademico: 2026 }];
+  const calls = backend({
+    "GET /api/asignaciones-cursos/mias": page(mine),
+    "POST /api/tareas": ({ body }) => task({ ...body, id: 5 }),
+  });
+  render(<Tasks canWrite canUpload />);
+  const user = userEvent.setup();
+  const { fireEvent } = await import("@testing-library/react");
+  await user.click(await screen.findByRole("button", { name: "Nueva tarea" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nueva tarea" });
+  const select = within(dialog).getByLabelText(/^Curso y sección/);
+  await within(dialog).findByRole("option", { name: "Física · B · 2026" });
+  expect(calls.some((call) => call.path === "/api/asignaciones-cursos")).toBe(false);
+  await user.type(within(dialog).getByLabelText(/^Nombre/), "Laboratorio");
+  await user.type(within(dialog).getByLabelText(/^Descripción/), "Informe");
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha límite/), { target: { value: "2099-12-01T18:30" } });
+  await user.click(within(dialog).getByText("Guardar borrador"));
+  expect(await within(dialog).findByText("Elige el curso y la sección de la tarea.")).toBeTruthy();
+  await user.selectOptions(select, "43");
+  await user.click(within(dialog).getByText("Guardar borrador"));
+  expect(await screen.findByText("Borrador creado.")).toBeTruthy();
+  expect(calls.find((call) => call.method === "POST").body.asignacionCursoId).toBe(43);
+});
+
+test("Nueva tarea sin asignaciones activas lo indica y preselecciona si hay una sola", async () => {
+  backend({ "GET /api/asignaciones-cursos/mias": page([]) });
+  const view = render(<TaskFormDialog canUpload={false} onClose={vi.fn()} onSaved={vi.fn()} />);
+  expect(await screen.findByText(/No tienes cursos asignados activos/)).toBeTruthy();
+  view.unmount();
+  backend({ "GET /api/asignaciones-cursos/mias": page([{ id: 42, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]) });
+  render(<TaskFormDialog canUpload={false} onClose={vi.fn()} onSaved={vi.fn()} />);
+  await waitFor(() => expect(screen.getByLabelText(/^Curso y sección/).value).toBe("42"));
 });
 
 test("Valida obligatorios, enteros y fechas antes de enviar", async () => {
@@ -78,10 +183,10 @@ test("Conflicto de versión exige recarga explícita y usa la versión actual", 
   expect(calls.filter((call) => call.method === "PUT").at(-1).body.version).toBe(10);
 });
 
-test("Después de recargar una tarea publicada no permite guardarla", async () => {
-  backend({ "GET /api/tareas/1": task({ estado: "PUBLICADA" }) });
+test("Después de recargar una tarea cerrada no permite guardarla", async () => {
+  backend({ "GET /api/tareas/1": task({ estado: "CERRADA" }) });
   render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
-  expect(await screen.findByText(/Solo se pueden editar borradores/)).toBeTruthy();
+  expect(await screen.findByText(/Solo se pueden editar borradores o tareas publicadas/)).toBeTruthy();
   expect(screen.queryByText("Guardar cambios")).toBeNull();
 });
 

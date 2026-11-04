@@ -189,6 +189,16 @@ public class AsignacionCursoService {
                 .map(this::mapear);
     }
 
+    /**
+     * US-22: asignaciones activas del docente autenticado (para crear tareas). Siempre se filtra
+     * por la persona de la sesion, incluso para el administrador, que sin perfil docente no tiene ninguna.
+     */
+    public Page<AsignacionCursoResponse> listarPropias(Integer anioAcademico, Pageable pageable) {
+        return asignacionRepository
+                .buscar(Boolean.TRUE, null, null, null, anioAcademico, accessGuard.personaIdActual(), pageable)
+                .map(this::mapear);
+    }
+
     public AsignacionCurso obtenerEntidad(Long id) {
         return asignacionRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException(

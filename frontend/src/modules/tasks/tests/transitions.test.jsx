@@ -42,11 +42,16 @@ test("Acciones exactas por estado, y ninguna sin permiso de escritura", async ()
   const { rerender } = render(<Tasks canWrite />);
   await screen.findByRole("button", { name: "Publicar BORRADOR" });
   expect(screen.getByRole("button", { name: "Editar BORRADOR" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Editar PUBLICADA" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Editar CERRADA" })).toBeNull();
   expect(screen.getByRole("button", { name: "Cerrar PUBLICADA" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Archivar CERRADA" })).toBeTruthy();
-  expect(within(screen.getByText("ARCHIVADA").closest("tr")).queryByRole("button")).toBeNull();
+  // US-22: se puede eliminar en cualquier estado.
+  expect(within(screen.getByText("ARCHIVADA").closest("tr")).getAllByRole("button").map((b) => b.getAttribute("aria-label")))
+    .toEqual(["Eliminar ARCHIVADA"]);
+  expect(screen.getAllByRole("button", { name: /^Eliminar / })).toHaveLength(4);
   rerender(<Tasks />);
-  expect(screen.queryByRole("button", { name: /Publicar|Archivar|Editar|Cerrar PUBLICADA/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Publicar|Archivar|Editar|Eliminar|Nueva tarea|Cerrar PUBLICADA/ })).toBeNull();
 });
 
 test.each([

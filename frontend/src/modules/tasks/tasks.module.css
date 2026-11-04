@@ -99,6 +99,43 @@
   white-space: nowrap;
 }
 
+.roster {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+}
+
+.rosterSummary {
+  margin: 0;
+}
+
+.roster summary {
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.rosterList {
+  columns: 2 220px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.rosterList small {
+  color: #64748b;
+}
+
+.rowActions .dangerButton {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.rowActions .dangerButton:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
 .rowActions .iconButton {
   align-items: center;
   background: transparent;

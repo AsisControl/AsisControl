@@ -37,6 +37,21 @@ export function obtenerTarea(id: number) {
   return api<TareaResponse>(`${TAREAS_PATH}/${id}`);
 }
 
+/** Baja lógica en cualquier estado; si la tarea tiene entregas el backend exige el motivo. */
+export function eliminarTarea(id: number, motivo: string | null) {
+  return api<null>(`${TAREAS_PATH}/${id}`, { method: "DELETE", body: JSON.stringify({ motivo }) });
+}
+
+/** Asignaciones activas del docente autenticado: nunca el catálogo global. */
+export async function listarAsignacionesPropias() {
+  return normalizePage(await api<Page<AsignacionCursoResponse>>("/api/asignaciones-cursos/mias?size=100")).content;
+}
+
+/** Cantidad de entregas registradas; decide si cambiar el vencimiento o eliminar exige motivo. */
+export async function contarEntregas(tareaId: number) {
+  return normalizePage(await api<Page<unknown>>(`${TAREAS_PATH}/${tareaId}/entregas?page=0&size=1`)).totalElements;
+}
+
 /** Solo usar para IDs presentes en tareas devueltas al docente por el backend. */
 export function obtenerContextoAsignacion(id: number) {
   return api<AsignacionCursoResponse>(`/api/asignaciones-cursos/${id}`);
