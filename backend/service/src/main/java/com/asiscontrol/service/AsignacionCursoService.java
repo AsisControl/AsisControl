@@ -14,10 +14,15 @@ import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.CursoRepository;
 import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.SeccionRepository;
+import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -28,18 +33,21 @@ public class AsignacionCursoService {
     private final SeccionRepository seccionRepository;
     private final DocenteRepository docenteRepository;
     private final AuditoriaService auditoria;
+    private final ApplicationEventPublisher eventos;
 
     public AsignacionCursoService(
             AsignacionCursoRepository asignacionRepository,
             CursoRepository cursoRepository,
             SeccionRepository seccionRepository,
             DocenteRepository docenteRepository,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            ApplicationEventPublisher eventos) {
         this.asignacionRepository = asignacionRepository;
         this.cursoRepository = cursoRepository;
         this.seccionRepository = seccionRepository;
         this.docenteRepository = docenteRepository;
         this.auditoria = auditoria;
+        this.eventos = eventos;
     }
 
     @Transactional
@@ -72,6 +80,7 @@ public class AsignacionCursoService {
         auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "curso=" + saved.getCurso().getNombre() + ",seccion=" + saved.getSeccion().getNombre());
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
         return mapear(saved);
     }
 
@@ -91,13 +100,19 @@ public class AsignacionCursoService {
         auditoria.registrar("ELIMINAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "curso=" + asignacion.getCurso().getNombre(), null);
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
     }
 
     public AsignacionCurso obtenerEntidad(Long id) {
-        return asignacionRepository.findByIdAndActivoTrue(id)
+        return buscarActiva(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ASIGNACION_CURSO_NO_ENCONTRADA",
                         "No existe una asignacion de curso activa con id " + id));
+    }
+
+    // asistencia alumnos: sin excepción, para sincronizar sesiones de una asignación retirada
+    public Optional<AsignacionCurso> buscarActiva(Long id) {
+        return asignacionRepository.findByIdAndActivoTrue(id);
     }
 
     /** Un curso de 1.er grado de 2027 solo se dicta en secciones de ese grado y anio. */

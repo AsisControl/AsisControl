@@ -316,6 +316,11 @@ public class ConfiguracionAcademicaService {
                                         "Configure el año académico en Administración"));
     }
 
+    // asistencia alumnos: sin excepción, para no marcar la transacción del llamador como fallida
+    public java.util.Optional<AnioAcademico> buscarOpcional(int numeroAnio) {
+        return anios.findByAnio(numeroAnio);
+    }
+
     public AnioAcademico bloquear(int numeroAnio) {
         return anios.bloquear(numeroAnio)
                 .orElseThrow(

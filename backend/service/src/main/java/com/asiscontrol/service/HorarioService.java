@@ -14,6 +14,8 @@ import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.AulaRepository;
 import com.asiscontrol.repository.HorarioRepository;
+import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,16 +33,19 @@ public class HorarioService {
     private final AsignacionCursoRepository asignacionRepository;
     private final AulaRepository aulaRepository;
     private final AuditoriaService auditoria;
+    private final ApplicationEventPublisher eventos;
 
     public HorarioService(
             HorarioRepository horarioRepository,
             AsignacionCursoRepository asignacionRepository,
             AulaRepository aulaRepository,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            ApplicationEventPublisher eventos) {
         this.horarioRepository = horarioRepository;
         this.asignacionRepository = asignacionRepository;
         this.aulaRepository = aulaRepository;
         this.auditoria = auditoria;
+        this.eventos = eventos;
     }
 
     @Transactional
@@ -53,6 +59,7 @@ public class HorarioService {
         Horario saved = horarioRepository.save(horario);
         auditoria.registrar("CREAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(asignacion.getId())));
         return mapear(saved);
     }
 
@@ -64,10 +71,13 @@ public class HorarioService {
         Aula aula = buscarAula(request.aulaId());
         validar(request.diaSemana(), request.horaInicio(), request.horaFin(), asignacion, aula, id);
         String anterior = describir(horario);
+        Long asignacionAnteriorId = horario.getAsignacionCurso().getId();
         aplicar(horario, asignacion, aula, request.diaSemana(), request.horaInicio(), request.horaFin());
         Horario saved = horarioRepository.save(horario);
         auditoria.registrar("ACTUALIZAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(
+                Set.copyOf(List.of(asignacionAnteriorId, asignacion.getId()))));
         return mapear(saved);
     }
 
@@ -97,6 +107,17 @@ public class HorarioService {
         horarioRepository.save(horario);
         auditoria.registrar("ELIMINAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(horario), null);
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(horario.getAsignacionCurso().getId())));
+    }
+
+    // asistencia alumnos: bloques que forman las sesiones de clase de una asignación
+    public List<Horario> listarActivosPorAsignacion(Long asignacionCursoId) {
+        return horarioRepository.findAllByAsignacionCursoIdAndActivoTrue(asignacionCursoId);
+    }
+
+    // asistencia alumnos
+    public List<Long> asignacionesConHorarioEnAnio(int anioAcademico) {
+        return horarioRepository.findAsignacionIdsConHorarioEnAnio(anioAcademico);
     }
 
     private String describir(Horario horario) {
