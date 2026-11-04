@@ -38,6 +38,11 @@ public class ModuloAccessGuard {
                 || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {
             throw new AccessDeniedException("La asignación no pertenece al docente autenticado");
         }
+        // US-58: un docente retirado del curso conserva la consulta de su historial, pero ya no
+        // puede registrar ni modificar nada en esa asignacion.
+        if (!asignacion.isActivo()) {
+            throw new AccessDeniedException("El docente ya no está asignado a este curso y sección");
+        }
     }
 
     // asistencia alumnos: solo el docente asignado registra o corrige (R01); el administrador no
@@ -226,6 +231,30 @@ public class ModuloAccessGuard {
                     .getSingleResult() > 0;
         }
         return false;
+    }
+
+    /**
+     * US-22: el padron de la seccion solo lo ven administracion, direccion y el docente de la tarea
+     * (aunque ya este retirado, para consultar su historial); nunca alumnos ni apoderados.
+     */
+    public boolean puedeConsultarSeguimientoTarea(Long tareaId) {
+        if (tareaId == null) {
+            return false;
+        }
+        if (tieneAlgunRol("ADMINISTRADOR", "DIRECTOR")) {
+            return true;
+        }
+        if (!tieneRol("DOCENTE")) {
+            return false;
+        }
+        return entityManager.createQuery("""
+                        SELECT COUNT(t) FROM Tarea t
+                        WHERE t.id = :id AND t.activo = true
+                          AND t.asignacionCurso.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", tareaId)
+                .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
     }
 
     public boolean puedeAccederAsistenciaAlumno(Long asistenciaId) {

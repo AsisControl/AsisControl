@@ -278,6 +278,22 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    /**
+     * La ruta existe pero no con ese metodo (por ejemplo, DELETE de una asignacion docente, que
+     * ahora se retira con PATCH). Sin este manejador terminaba en un 500 y se registraba como error.
+     */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "METODO_NO_PERMITIDO",
+                "La operacion " + exception.getMethod() + " no esta disponible en esta ruta",
+                request,
+                List.of());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
             ResourceNotFoundException exception, HttpServletRequest request) {
