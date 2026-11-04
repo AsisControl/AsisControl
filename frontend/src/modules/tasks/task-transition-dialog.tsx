@@ -7,7 +7,7 @@ import type { TareaResponse } from "./types";
 
 export type TaskTransition = "publicar" | "cerrar" | "archivar";
 const operations = {
-  publicar: { label: "Publicar", description: "La tarea dejará de ser un borrador y estará disponible para los estudiantes. Ya no podrás editarla.", run: publicarTarea },
+  publicar: { label: "Publicar", description: "La tarea dejará de ser un borrador y estará disponible para los estudiantes. Podrás seguir editándola; si ya tiene entregas, cambiar la fecha límite pedirá un motivo.", run: publicarTarea },
   cerrar: { label: "Cerrar", description: "La tarea dejará de recibir entregas. El backend solo permite cerrarla cuando se alcanza la fecha límite, según su reloj.", run: cerrarTarea },
   archivar: { label: "Archivar", description: "La tarea pasará a archivada. No podrás desarchivarla.", run: archivarTarea },
 };

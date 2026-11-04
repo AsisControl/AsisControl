@@ -18,6 +18,31 @@ export type CrearTareaRequest = {
 
 export type ActualizarTareaRequest = Omit<CrearTareaRequest, "asignacionCursoId"> & {
   version: number;
+  /** Obligatorio si la tarea publicada ya tiene entregas y cambia la fecha límite. */
+  motivo?: string | null;
+};
+
+/** TareaDtos.SeguimientoAlumno: PENDIENTE con entregaId nulo significa "sin entrega". */
+export type SeguimientoAlumno = {
+  alumnoId: number;
+  codigoAlumno: string | null;
+  nombreCompleto: string;
+  /** Falso si entregó pero ya no está matriculado en la sección (no suma al total). */
+  matriculaActiva: boolean;
+  entregaId: number | null;
+  estado: EstadoEntrega;
+  fechaHoraEntrega: string | null;
+  nota: number | null;
+};
+
+/** Respuesta de GET /api/tareas/{id}/seguimiento: padrón completo de la sección. */
+export type SeguimientoTareaResponse = {
+  tareaId: number;
+  totalAlumnos: number;
+  entregados: number;
+  calificados: number;
+  pendientes: number;
+  alumnos: SeguimientoAlumno[];
 };
 
 /** TareaDtos.EstadoTarea y EntregaTareaResponse. */

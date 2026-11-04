@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, PageHeader, Pager, StatusPill, type StatusTone } from "@/shared/ui";
-import { obtenerTarea } from "./services/tarea-service";
+import { obtenerContextoAsignacion, obtenerTarea } from "./services/tarea-service";
 import { entregasPath } from "./services/entrega-service";
 import { useDeliveryStudents } from "./use-delivery-students";
 import { DeliveryGradeDialog } from "./delivery-grade-dialog";
 import { TaskDeliveryFiles } from "./task-delivery-files";
+import { TaskRoster } from "./task-roster";
 import type { EntregaTareaResponse, EstadoEntrega, TareaResponse } from "./types";
 import styles from "./tasks.module.css";
 
@@ -28,10 +29,16 @@ export function TaskDeliveries({ taskId, canWrite }: { taskId: number; canWrite:
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
+  const [retired, setRetired] = useState(false);
   useEffect(() => {
     let active = true;
     obtenerTarea(taskId).then((value) => {
-      if (active) setTask(value);
+      if (!active) return;
+      setTask(value);
+      // US-58: sin asignación activa el backend rechaza calificar; si no se resuelve, decide el servidor.
+      obtenerContextoAsignacion(value.asignacionCursoId)
+        .then((context) => { if (active) setRetired(context.activo === false); })
+        .catch(() => undefined);
     }).catch((e) => { if (active) setError(message(e)); })
       .finally(() => { if (active) setChecking(false); });
     return () => { active = false; };
@@ -51,23 +58,25 @@ export function TaskDeliveries({ taskId, canWrite }: { taskId: number; canWrite:
       <Feedback error={error} />
       <p>El seguimiento está disponible para tareas publicadas, cerradas o archivadas.</p>
       <button type="button" disabled={checking} onClick={refreshTask}>Actualizar</button>
-    </section> : <DeliveryPanel key={task.id} task={task} canWrite={canWrite} checking={checking} taskError={error} refreshTask={refreshTask} />}
+    </section> : <DeliveryPanel key={task.id} task={task} canWrite={canWrite && !retired} retired={retired} checking={checking} taskError={error} refreshTask={refreshTask} />}
   </div>;
 }
 
-function DeliveryPanel({ task, canWrite, checking, taskError, refreshTask }: {
-  task: TareaResponse; canWrite: boolean; checking: boolean; taskError: string; refreshTask: () => void;
+function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTask }: {
+  task: TareaResponse; canWrite: boolean; retired: boolean; checking: boolean; taskError: string; refreshTask: () => void;
 }) {
   const deliveries = usePaged<EntregaTareaResponse>(entregasPath(task.id));
   const students = useDeliveryStudents(deliveries.error ? null : deliveries.data);
   const [grading, setGrading] = useState<{ id: number; student: string } | null>(null);
   const [success, setSuccess] = useState("");
+  const [rosterReload, setRosterReload] = useState(0);
   const canGrade = canWrite && ["PUBLICADA", "CERRADA"].includes(task.estado) && !checking && !taskError;
   function refresh() {
     setGrading(null);
     setSuccess("");
     refreshTask();
     deliveries.refresh();
+    setRosterReload((value) => value + 1);
   }
   const error = taskError || deliveries.error;
   return <>
@@ -80,6 +89,8 @@ function DeliveryPanel({ task, canWrite, checking, taskError, refreshTask }: {
         <button type="button" className={styles.refresh} disabled={checking || deliveries.loading} onClick={refresh}>Actualizar</button>
       </div>
       {task.estado === "ARCHIVADA" && <p className="hint">Tarea archivada: consulta de solo lectura.</p>}
+      {retired && task.estado !== "ARCHIVADA" && <p className="hint">Ya no estás asignado a este curso y sección: consulta de solo lectura.</p>}
+      <TaskRoster taskId={task.id} reload={rosterReload} />
       <Feedback error={error} />
       {checking || deliveries.loading ? <p role="status">Cargando entregas…</p> : error ? null : deliveries.data?.content.length ? (
         <div className={styles.tableWrap}>
@@ -118,6 +129,7 @@ function DeliveryPanel({ task, canWrite, checking, taskError, refreshTask }: {
         setSuccess("Calificación guardada.");
         refreshTask();
         deliveries.refresh();
+        setRosterReload((value) => value + 1);
       }} />}
   </>;
 }

@@ -8,6 +8,7 @@ import type {
   ScheduleBlockInput,
   ScheduleSection,
 } from "../../types";
+import { ASIGNACIONES_PATH } from "../../assignments/services/asignacionService";
 export const HORARIOS_PATH = "/api/horarios";
 const PAGE_SIZE = 100;
 /** Recorre todas las páginas: la primera no representa toda la matriz. */
@@ -41,9 +42,9 @@ export function listarHorarios(filters: ScheduleFilters) {
 export function listarSeccionesActivas() {
   return listAll<ScheduleSection>("/api/secciones?activo=true");
 }
-/** Solo devuelve asignaciones activas; se filtran por sección en la pantalla. */
+/** Solo asignaciones activas (las retiradas no admiten bloques); se filtran por sección en la pantalla. */
 export function listarAsignaciones() {
-  return listAll<CourseAssignment>("/api/asignaciones-cursos");
+  return listAll<CourseAssignment>(`${ASIGNACIONES_PATH}?estado=ACTIVAS`);
 }
 /** Sin estado, el backend lista solo las aulas habilitadas. */
 export function listarAulasHabilitadas() {

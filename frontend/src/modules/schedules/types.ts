@@ -114,16 +114,5 @@ export type ScheduleSection = {
   capacidadMaxima: number;
   activo: boolean;
 };
-/** Respuesta de /api/asignaciones-cursos (AsignacionCursoResponse): curso y docente de una sección. */
-export type CourseAssignment = {
-  id: number;
-  cursoId: number;
-  curso: string;
-  seccionId: number;
-  seccion: string;
-  anioAcademico: number;
-  docenteId: number;
-  docente: string;
-  activo: boolean;
-  version: number;
-};
+/** Curso y docente de una sección: mismo contrato que la pestaña Asignaciones docentes. */
+export type CourseAssignment = TeacherAssignment;
