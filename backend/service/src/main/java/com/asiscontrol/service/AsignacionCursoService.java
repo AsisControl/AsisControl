@@ -21,6 +21,7 @@ import com.asiscontrol.repository.CursoRepository;
 import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.HorarioRepository;
 import com.asiscontrol.repository.SeccionRepository;
+import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -29,9 +30,11 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+/** US-58 / PLA-06: asignacion de docentes activos a cursos y secciones de un año vigente. */
 @Service
 @Transactional(readOnly = true)
 public class AsignacionCursoService {
@@ -51,6 +54,9 @@ public class AsignacionCursoService {
             CursoRepository cursoRepository,
             SeccionRepository seccionRepository,
             DocenteRepository docenteRepository,
+            HorarioRepository horarioRepository,
+            AnioAcademicoRepository anioRepository,
+            ModuloAccessGuard accessGuard,
             AuditoriaService auditoria,
             ApplicationEventPublisher eventos) {
         this.asignacionRepository = asignacionRepository;
@@ -125,8 +131,36 @@ public class AsignacionCursoService {
         asignacion.setDocente(docente);
         AsignacionCurso saved = asignacionRepository.saveAndFlush(asignacion);
         auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
-                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
-                "curso=" + saved.getCurso().getNombre() + ",seccion=" + saved.getSeccion().getNombre());
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
+        return mapear(saved);
+    }
+
+    /**
+     * Retira al docente del curso (PLA-06): exige motivo y que la asignacion no tenga bloques de
+     * horario activos. Si los tiene, se rechaza indicando cuales reasignar o eliminar.
+     */
+    @Transactional
+    public AsignacionCursoResponse retirar(Long id, RetirarAsignacionCursoRequest request) {
+        AsignacionCurso asignacion = obtenerEntidad(id);
+        exigirVersion(asignacion.getVersion(), request.version());
+        if (request.motivo() == null || request.motivo().isBlank()) {
+            throw new BusinessRuleException("MOTIVO_REQUERIDO", "Indique el motivo del retiro");
+        }
+        List<Horario> horarios = horarioRepository.findActivosPorAsignacion(id);
+        if (!horarios.isEmpty()) {
+            throw new ConflictException(
+                    "ASIGNACION_CON_HORARIOS_FUTUROS",
+                    "El docente tiene " + horarios.size() + " bloque(s) de horario programados en este"
+                            + " curso; reasígnelos o elimínelos en la matriz de horarios antes de retirarlo",
+                    horarios.stream().map(this::mapearHorario).toList());
+        }
+        String anterior = describir(asignacion);
+        asignacion.setActivo(false);
+        AsignacionCurso saved = asignacionRepository.saveAndFlush(asignacion);
+        auditoria.registrar("RETIRAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
+                id.toString(), ResultadoAuditoria.EXITOSO, request.motivo().trim(), anterior,
+                describir(saved));
         eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
         return mapear(saved);
     }
@@ -147,15 +181,31 @@ public class AsignacionCursoService {
         return listar(EstadoAsignacion.ACTIVAS, null, null, null, null, pageable);
     }
 
-    @Transactional
-    public void eliminar(Long id) {
-        AsignacionCurso asignacion = obtenerEntidad(id);
-        asignacion.setActivo(false);
-        asignacionRepository.save(asignacion);
-        auditoria.registrar("ELIMINAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
-                id.toString(), ResultadoAuditoria.EXITOSO, null,
-                "curso=" + asignacion.getCurso().getNombre(), null);
-        eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
+    /** Un docente solo ve sus propias asignaciones; el administrador ve todas. */
+    public Page<AsignacionCursoResponse> listar(
+            EstadoAsignacion estado,
+            Long docenteId,
+            Long cursoId,
+            Long seccionId,
+            Integer anioAcademico,
+            Pageable pageable) {
+        Boolean activo = estado == null || estado == EstadoAsignacion.ACTIVAS
+                ? Boolean.TRUE
+                : estado == EstadoAsignacion.RETIRADAS ? Boolean.FALSE : null;
+        return asignacionRepository
+                .buscar(activo, docenteId, cursoId, seccionId, anioAcademico,
+                        accessGuard.restriccionDocentePersonaId(), pageable)
+                .map(this::mapear);
+    }
+
+    /**
+     * US-22: asignaciones activas del docente autenticado (para crear tareas). Siempre se filtra
+     * por la persona de la sesion, incluso para el administrador, que sin perfil docente no tiene ninguna.
+     */
+    public Page<AsignacionCursoResponse> listarPropias(Integer anioAcademico, Pageable pageable) {
+        return asignacionRepository
+                .buscar(Boolean.TRUE, null, null, null, anioAcademico, accessGuard.personaIdActual(), pageable)
+                .map(this::mapear);
     }
 
     public AsignacionCurso obtenerEntidad(Long id) {
