@@ -20,6 +20,9 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Long> 
 
     List<SesionClase> findAllByAsignacionCursoIdAndActivoTrueOrderByFechaAscHoraInicioAsc(Long asignacionCursoId);
 
+    /** Incluye las inactivas: la unicidad del encuentro también las abarca y se reactivan. */
+    List<SesionClase> findAllByAsignacionCursoIdAndFechaGreaterThanEqual(Long asignacionCursoId, LocalDate fecha);
+
     Optional<SesionClase> findByAsignacionCursoIdAndFechaAndHoraInicio(
             Long asignacionCursoId, LocalDate fecha, LocalTime horaInicio);
 
