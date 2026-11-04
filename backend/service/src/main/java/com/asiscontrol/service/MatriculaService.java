@@ -193,6 +193,12 @@ public class MatriculaService {
         return mapear(matricula);
     }
 
+    // asistencia alumnos: estudiantes con matrícula ACTIVA en la sección
+    public java.util.List<com.asiscontrol.entity.Alumno> alumnosConMatriculaActiva(Long seccionId) {
+        return matriculaRepository.findAlumnosPorSeccionYEstado(
+                seccionId, com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA);
+    }
+
     public MatriculaResponse obtener(Long id) {
         return mapear(obtenerEntidad(id));
     }

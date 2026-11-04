@@ -14,6 +14,9 @@ public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlum
 
     Optional<AsistenciaAlumno> findByIdAndActivoTrue(Long id);
 
+    // asistencia alumnos
+    java.util.List<AsistenciaAlumno> findAllBySesionClaseId(Long sesionClaseId);
+
     @Query("""
             SELECT a FROM AsistenciaAlumno a
             WHERE a.activo = true

@@ -32,6 +32,15 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
 
     Page<Matricula> findByActivoTrue(Pageable pageable);
 
+    // asistencia alumnos: estudiantes de la sección que deben figurar en su asistencia (R02)
+    @Query("""
+            SELECT m.alumno FROM Matricula m
+            WHERE m.activo = true AND m.seccion.id = :seccionId AND m.estado = :estado
+            ORDER BY m.alumno.persona.apellidoPaterno, m.alumno.persona.apellidoMaterno, m.alumno.persona.nombres
+            """)
+    java.util.List<com.asiscontrol.entity.Alumno> findAlumnosPorSeccionYEstado(
+            @Param("seccionId") Long seccionId, @Param("estado") EstadoMatricula estado);
+
     @Query(
             """
             SELECT m FROM Matricula m

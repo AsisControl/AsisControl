@@ -40,6 +40,14 @@ public class ModuloAccessGuard {
         }
     }
 
+    // asistencia alumnos: solo el docente asignado registra o corrige (R01); el administrador no
+    public void verificarDocenteTitular(AsignacionCurso asignacion) {
+        if (!tieneRol("DOCENTE")
+                || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {
+            throw new AccessDeniedException("La asignación no pertenece al docente autenticado");
+        }
+    }
+
     public void verificarEntregaAlumno(Alumno alumno) {
         if (tieneRol("ADMINISTRADOR")) {
             return;
