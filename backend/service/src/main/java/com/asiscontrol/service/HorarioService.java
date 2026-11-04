@@ -120,9 +120,22 @@ public class HorarioService {
         return horarioRepository.findAsignacionIdsConHorarioEnAnio(anioAcademico);
     }
 
+    /**
+     * Foto del bloque para la auditoria: guarda nombres ademas de ids porque la asignacion y el
+     * aula pueden cambiar despues, y el historial debe mostrar lo que habia en ese momento.
+     */
     private String describir(Horario horario) {
-        return "asignacionCursoId=" + horario.getAsignacionCurso().getId()
+        AsignacionCurso asignacion = horario.getAsignacionCurso();
+        return "asignacionCursoId=" + asignacion.getId()
+                + ",cursoId=" + asignacion.getCurso().getId()
+                + ",curso=" + asignacion.getCurso().getNombre()
+                + ",seccionId=" + asignacion.getSeccion().getId()
+                + ",seccion=" + AsignacionCursoService.etiquetaSeccion(asignacion.getSeccion())
+                + ",anio=" + asignacion.getSeccion().getAnioAcademico()
+                + ",docenteId=" + asignacion.getDocente().getId()
+                + ",docente=" + asignacion.getDocente().getPersona().nombreCompleto()
                 + ",aulaId=" + horario.getAula().getId()
+                + ",aula=" + horario.getAula().getNombre()
                 + ",dia=" + horario.getDiaSemana()
                 + ",horaInicio=" + horario.getHoraInicio()
                 + ",horaFin=" + horario.getHoraFin();
