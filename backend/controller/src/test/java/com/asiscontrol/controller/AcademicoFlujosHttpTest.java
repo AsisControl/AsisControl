@@ -68,7 +68,9 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         var graded=request("POST",dp+"/calificar",data("nota",18,"comentario","Buen trabajo","version",v),200);
         assertThat(graded.path("estado").asText()).isEqualTo("CALIFICADO");
         var entity=em.find(Tarea.class,tid); entity.setFechaLimite(LocalDateTime.now().minusSeconds(1)); em.flush();
-        request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200); deleteOk(tp);
+        request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200);
+        // US-22: con entregas, eliminar exige motivo.
+        request("DELETE",tp,null,422); request("DELETE",tp,data("motivo","Fin del bimestre"),204);
     }
 
     @Test void registraNivelesAdABCPorCompetenciaYConsolida() throws Exception {

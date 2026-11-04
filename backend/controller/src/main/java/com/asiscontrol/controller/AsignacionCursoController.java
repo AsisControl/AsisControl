@@ -47,6 +47,14 @@ public class AsignacionCursoController {
         return asignacionCursoService.actualizar(id, request);
     }
 
+    /** US-22: cursos y secciones activos del docente autenticado, para "Nueva tarea". */
+    @GetMapping("/mias")
+    public Page<AsignacionCursoResponse> listarPropias(
+            @RequestParam(required = false) Integer anioAcademico,
+            @PageableDefault(size = 50, sort = "fechaCreacion") Pageable pageable) {
+        return asignacionCursoService.listarPropias(anioAcademico, pageable);
+    }
+
     @GetMapping("/{id}")
     public AsignacionCursoResponse obtener(@PathVariable Long id) {
         return asignacionCursoService.obtener(id);

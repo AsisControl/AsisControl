@@ -4,6 +4,7 @@ import com.asiscontrol.dto.tarea.TareaDtos.ActualizarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.CalificarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.EntregaTareaResponse;
 import com.asiscontrol.dto.tarea.TareaDtos.RegistrarEntregaRequest;
+import com.asiscontrol.dto.tarea.TareaDtos.SeguimientoTareaResponse;
 import com.asiscontrol.service.EntregaTareaService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import jakarta.validation.Valid;
@@ -54,6 +55,13 @@ public class EntregaTareaController {
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
                 pageable);
+    }
+
+    /** US-22: padrón de la sección con quién entregó y quién no ("3 de 30 entregaron"). */
+    @GetMapping("/tareas/{tareaId}/seguimiento")
+    @PreAuthorize("hasAuthority('TAREAS_LEER') and @moduloAccessGuard.puedeConsultarSeguimientoTarea(#tareaId)")
+    public SeguimientoTareaResponse seguimiento(@PathVariable Long tareaId) {
+        return entregaService.seguimiento(tareaId);
     }
 
     @GetMapping("/entregas/{id}")

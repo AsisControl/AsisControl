@@ -40,7 +40,40 @@ public final class TareaDtos {
             @Positive @Max(1000) int puntajeMaximo,
             @Min(0) @Max(20) int maxArchivosEntrega,
             @NotNull @Size(max = 20) Set<Long> archivoIds,
-            @NotNull Long version
+            @NotNull Long version,
+            /** US-22: obligatorio si la tarea ya tiene entregas y cambia la fecha límite. */
+            @Size(max = 500) String motivo
+    ) {
+    }
+
+    /** US-22: el motivo es obligatorio si la tarea ya tiene entregas. */
+    public record EliminarTareaRequest(@Size(max = 500) String motivo) {
+    }
+
+    /**
+     * US-22: padrón de la sección con el estado de entrega de cada alumno.
+     * Los alumnos sin entrega figuran con estado PENDIENTE y entregaId nulo.
+     */
+    public record SeguimientoTareaResponse(
+            Long tareaId,
+            int totalAlumnos,
+            int entregados,
+            int calificados,
+            int pendientes,
+            List<SeguimientoAlumno> alumnos
+    ) {
+    }
+
+    public record SeguimientoAlumno(
+            Long alumnoId,
+            String codigoAlumno,
+            String nombreCompleto,
+            /** Falso si entregó pero ya no tiene matrícula activa en la sección (no suma al total). */
+            boolean matriculaActiva,
+            Long entregaId,
+            EstadoTarea estado,
+            LocalDateTime fechaHoraEntrega,
+            Integer nota
     ) {
     }
 

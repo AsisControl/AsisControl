@@ -2,6 +2,7 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.tarea.TareaDtos.ActualizarTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.CrearTareaRequest;
+import com.asiscontrol.dto.tarea.TareaDtos.EliminarTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.TareaResponse;
 import com.asiscontrol.service.TareaService;
 import com.asiscontrol.service.ModuloAccessGuard;
@@ -86,8 +87,10 @@ public class TareaController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('TAREAS_ESCRIBIR')")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        tareaService.eliminar(id);
+    public ResponseEntity<Void> eliminar(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) EliminarTareaRequest request) {
+        tareaService.eliminar(id, request == null ? null : request.motivo());
         return ResponseEntity.noContent().build();
     }
 }

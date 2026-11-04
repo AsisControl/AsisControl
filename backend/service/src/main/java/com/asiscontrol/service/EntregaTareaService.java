@@ -7,6 +7,8 @@ import com.asiscontrol.dto.tarea.TareaDtos.ActualizarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.CalificarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.EntregaTareaResponse;
 import com.asiscontrol.dto.tarea.TareaDtos.RegistrarEntregaRequest;
+import com.asiscontrol.dto.tarea.TareaDtos.SeguimientoAlumno;
+import com.asiscontrol.dto.tarea.TareaDtos.SeguimientoTareaResponse;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.EntregaTarea;
@@ -26,6 +28,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -157,6 +166,71 @@ public class EntregaTareaService {
                         personaApoderadoId,
                         pageable)
                 .map(this::mapResponse);
+    }
+
+    /**
+     * US-22: padron completo de la seccion con el estado de entrega de cada alumno matriculado.
+     * Quien entrego y luego dejo la seccion se conserva en la lista, pero no suma al total.
+     */
+    public SeguimientoTareaResponse seguimiento(Long tareaId) {
+        Tarea tarea = tareaService.obtenerEntidad(tareaId);
+        Map<Long, EntregaTarea> entregas = new HashMap<>();
+        for (EntregaTarea entrega : entregaRepository.findAllByTareaIdAndActivoTrue(tareaId)) {
+            entregas.put(entrega.getAlumno().getId(), entrega);
+        }
+        List<Alumno> matriculados = entityManager.createQuery("""
+                        SELECT DISTINCT m.alumno FROM Matricula m
+                        JOIN FETCH m.alumno.persona
+                        WHERE m.activo = true
+                          AND m.estado = :estado
+                          AND m.seccion.id = :seccionId
+                        """, Alumno.class)
+                .setParameter("estado", EstadoMatricula.ACTIVA)
+                .setParameter("seccionId", tarea.getAsignacionCurso().getSeccion().getId())
+                .getResultList();
+
+        List<SeguimientoAlumno> filas = new ArrayList<>();
+        Set<Long> enPadron = new HashSet<>();
+        for (Alumno alumno : matriculados) {
+            enPadron.add(alumno.getId());
+            filas.add(filaSeguimiento(alumno, true, entregas.get(alumno.getId())));
+        }
+        for (EntregaTarea entrega : entregas.values()) {
+            if (!enPadron.contains(entrega.getAlumno().getId())) {
+                filas.add(filaSeguimiento(entrega.getAlumno(), false, entrega));
+            }
+        }
+        filas.sort(Comparator.comparing(SeguimientoAlumno::nombreCompleto, String.CASE_INSENSITIVE_ORDER));
+
+        int entregados = 0;
+        int calificados = 0;
+        for (SeguimientoAlumno fila : filas) {
+            if (!fila.matriculaActiva()) {
+                continue;
+            }
+            if (fila.estado() == EstadoTarea.CALIFICADO) {
+                calificados++;
+            }
+            if (fila.estado() == EstadoTarea.ENTREGADO
+                    || fila.estado() == EstadoTarea.ENTREGADO_TARDE
+                    || fila.estado() == EstadoTarea.CALIFICADO) {
+                entregados++;
+            }
+        }
+        int total = matriculados.size();
+        return new SeguimientoTareaResponse(tareaId, total, entregados, calificados, total - entregados, filas);
+    }
+
+    private SeguimientoAlumno filaSeguimiento(Alumno alumno, boolean matriculaActiva, EntregaTarea entrega) {
+        return new SeguimientoAlumno(
+                alumno.getId(),
+                alumno.getCodigoAlumno(),
+                alumno.getPersona().nombreCompleto(),
+                matriculaActiva,
+                entrega == null ? null : entrega.getId(),
+                entrega == null ? EstadoTarea.PENDIENTE : entrega.getEstado(),
+                entrega == null ? null : entrega.getFechaHoraEntrega(),
+                entrega == null ? null : entrega.getNota());
     }
 
     private EntregaTarea obtenerEntidad(Long id) {
