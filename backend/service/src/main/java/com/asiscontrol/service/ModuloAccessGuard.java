@@ -269,6 +269,7 @@ public class ModuloAccessGuard {
             return entityManager.createQuery("""
                             SELECT COUNT(a) FROM AsistenciaAlumno a
                             WHERE a.id = :id AND a.activo = true
+                              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                               AND a.asignacionCurso.docente.persona.id = :personaId
                             """, Long.class)
                     .setParameter("id", asistenciaId)
@@ -279,6 +280,7 @@ public class ModuloAccessGuard {
             return entityManager.createQuery("""
                             SELECT COUNT(a) FROM AsistenciaAlumno a
                             WHERE a.id = :id AND a.activo = true
+                              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                               AND a.alumno.persona.id = :personaId
                             """, Long.class)
                     .setParameter("id", asistenciaId)
@@ -289,6 +291,7 @@ public class ModuloAccessGuard {
             return entityManager.createQuery("""
                             SELECT COUNT(a) FROM AsistenciaAlumno a, AlumnoApoderado v
                             WHERE a.id = :id AND a.activo = true
+                              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                               AND v.activo = true
                               AND v.alumno.id = a.alumno.id
                               AND v.apoderado.persona.id = :personaId

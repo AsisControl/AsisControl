@@ -49,7 +49,7 @@ public class AsistenciaAlumnoService {
     }
 
     public AsistenciaAlumno obtenerEntidad(Long id) {
-        return asistenciaRepository.findByIdAndActivoTrue(id)
+        return asistenciaRepository.buscarOficial(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "ASISTENCIA_ALUMNO_NO_ENCONTRADA", "No existe una asistencia activa con id " + id));
     }

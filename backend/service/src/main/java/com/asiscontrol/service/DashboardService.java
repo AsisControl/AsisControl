@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Year;
@@ -38,9 +39,11 @@ public class DashboardService {
     private static final String TONO_PELIGRO = "danger";
 
     private final EntityManager entityManager;
+    private final Clock reloj;
 
-    public DashboardService(EntityManager entityManager) {
+    public DashboardService(EntityManager entityManager, Clock reloj) {
         this.entityManager = entityManager;
+        this.reloj = reloj;
     }
 
     public DashboardResponse obtener(Authentication authentication) {
@@ -92,9 +95,10 @@ public class DashboardService {
                 contar("""
                         SELECT COUNT(a) FROM AsistenciaAlumno a
                         WHERE a.activo = true
+                          AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                           AND a.fechaRegistro = :fecha
                           AND a.estadoAsistencia = :estado
-                        """, Map.of("fecha", LocalDate.now(), "estado", EstadoAsistencia.INASISTENCIA)),
+                        """, Map.of("fecha", LocalDate.now(reloj), "estado", EstadoAsistencia.INASISTENCIA)),
                 TONO_ADVERTENCIA, "/asistencias"));
         result.add(indicador("PAGOS_VENCIDOS", "Pagos vencidos",
                 contar("""
@@ -233,12 +237,13 @@ public class DashboardService {
                 contar("""
                         SELECT COUNT(a) FROM AsistenciaAlumno a
                         WHERE a.activo = true
+                          AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                           AND a.alumno.persona.id = :personaId
                           AND a.fechaRegistro BETWEEN :inicio AND :fin
                           AND a.estadoAsistencia = :estado
                         """, parametros(persona,
-                        "inicio", Year.now().atDay(1),
-                        "fin", LocalDate.now(),
+                        "inicio", Year.now(reloj).atDay(1),
+                        "fin", LocalDate.now(reloj),
                         "estado", EstadoAsistencia.INASISTENCIA)),
                 TONO_ADVERTENCIA, "/asistencias"));
         result.add(indicador("PAGOS_PENDIENTES", "Pagos pendientes",
