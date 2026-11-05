@@ -26,6 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class CompromisoPagoHttpTest extends ApiIntegrationSupport {
 
+    private static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Lima");
+
     private static final String PATH = "/api/compromisos-pago";
 
     private Map<String, Object> emision() {
@@ -33,7 +35,7 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
                 .setParameter("alumno", student.getId()).getSingleResult();
         return data("idMatricula", matriculaId, "concepto", "Pensión escolar", "numeroCuota", 1,
                 "montoTotal", new BigDecimal("250.50"), "moneda", "PEN",
-                "fechaVencimiento", LocalDate.now(ZoneId.of("America/Lima")).plusDays(10));
+                "fechaVencimiento", LocalDate.now(ZONA_NEGOCIO).plusDays(10));
     }
 
     private JsonNode emitir() throws Exception {
@@ -133,7 +135,7 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
         JsonNode consulta = getOk(path);
         assertThat(consulta.path("moneda").asText()).isEqualTo("USD");
         JsonNode error = request("PUT", path, data("montoTotal", 300,
-                "fechaVencimiento", LocalDate.now().plusDays(20), "motivo", "Corregir monto",
+                "fechaVencimiento", LocalDate.now(ZONA_NEGOCIO).plusDays(20), "motivo", "Corregir monto",
                 "version", historico.getVersion()), 422);
         assertThat(error.path("code").asText()).isEqualTo("MONEDA_HISTORICA_REQUIERE_REVISION");
         JsonNode anulado = request("POST", path + "/anulacion", data("motivo", "Registro histórico equivocado",
@@ -162,7 +164,7 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
     void modificaSoloMontoYVencimientoConMotivoYControlDeVersion() throws Exception {
         JsonNode creado = emitir();
         String path = PATH + "/" + creado.path("id").asLong();
-        var cambio = data("montoTotal", 300, "fechaVencimiento", LocalDate.now().plusDays(20),
+        var cambio = data("montoTotal", 300, "fechaVencimiento", LocalDate.now(ZONA_NEGOCIO).plusDays(20),
                 "motivo", "Corrección del importe acordado", "version", creado.path("version").asLong());
         JsonNode modificado = putOk(path, cambio);
         assertThat(modificado.path("montoTotal").asInt()).isEqualTo(300);
@@ -188,7 +190,7 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
         em.persist(pago);
         em.flush();
         String path = PATH + "/" + compromiso.getId();
-        request("PUT", path, data("montoTotal", 300, "fechaVencimiento", LocalDate.now().plusDays(20),
+        request("PUT", path, data("montoTotal", 300, "fechaVencimiento", LocalDate.now(ZONA_NEGOCIO).plusDays(20),
                 "motivo", "Corrección", "version", compromiso.getVersion()), 422);
         request("POST", path + "/anulacion", data("motivo", "Emisión equivocada", "version", compromiso.getVersion()), 422);
     }
@@ -215,9 +217,21 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
     }
 
     @Test
+    void unCompromisoConVencimientoHoyEnLimaPermanecePendiente() throws Exception {
+        var body = emision();
+        body.put("fechaVencimiento", LocalDate.now(ZONA_NEGOCIO));
+        JsonNode creado = postOk(PATH, body);
+        String path = PATH + "/" + creado.path("id").asLong();
+
+        assertThat(getOk(path).path("estadoFinanciero").asText()).isEqualTo("PENDIENTE");
+        assertThat(getOk(PATH + "?estado=PENDIENTE").path("totalElements").asInt()).isEqualTo(1);
+        assertThat(getOk(PATH + "?estado=VENCIDO").path("totalElements").asInt()).isZero();
+    }
+
+    @Test
     void rechazaEliminarInclusoSinPagosYDerivaEstadoFinancieroDeLaFecha() throws Exception {
         var body = emision();
-        body.put("fechaVencimiento", LocalDate.now(ZoneId.of("America/Lima")).minusDays(1));
+        body.put("fechaVencimiento", LocalDate.now(ZONA_NEGOCIO).minusDays(1));
         JsonNode creado = postOk(PATH, body);
         String path = PATH + "/" + creado.path("id").asLong();
         request("DELETE", path, null, 422);
@@ -229,7 +243,7 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
     void auditaEmisionModificacionYAnulacionConActorMotivoYValores() throws Exception {
         JsonNode creado = emitir();
         String path = PATH + "/" + creado.path("id").asLong();
-        JsonNode modificado = putOk(path, data("montoTotal", 300, "fechaVencimiento", LocalDate.now().plusDays(20),
+        JsonNode modificado = putOk(path, data("montoTotal", 300, "fechaVencimiento", LocalDate.now(ZONA_NEGOCIO).plusDays(20),
                 "motivo", "Corregir monto", "version", creado.path("version").asLong()));
         request("POST", path + "/anulacion", data("motivo", "Duplicidad administrativa",
                 "version", modificado.path("version").asLong()), 200);

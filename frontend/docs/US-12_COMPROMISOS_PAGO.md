@@ -179,3 +179,24 @@ Se añadieron tres pruebas de regresión sobre la navegación real de la aplicac
 para proteger las rutas y los permisos afectados al resolver el conflicto.
 La configuración de Vitest conserva un único tiempo máximo de 20 segundos por
 prueba y un máximo de dos procesos; no se redujeron las aserciones ni los umbrales.
+
+## Fechas de las pruebas financieras en CI
+
+La primera ejecución de GitHub Actions tras resolver el conflicto detectó una
+fecha de prueba calculada con la zona predeterminada del servidor. A las
+04:40 UTC del 5 de noviembre todavía era 4 de noviembre en Lima: restar un día
+a la fecha UTC produjo un compromiso que vencía ese mismo día en Perú, aunque
+la prueba lo esperaba vencido.
+
+Las pruebas financieras ahora calculan sus fechas con `America/Lima`, como las
+reglas de pagos de la aplicación. Se mantiene la expectativa de vencido para
+fechas anteriores y se añade una prueba HTTP que comprueba que un compromiso
+que vence hoy sigue pendiente y queda fuera del filtro de vencidos.
+
+Se reprodujo el fallo original con la JVM en UTC durante el horario en que UTC
+y Lima tenían fechas diferentes. Con la corrección, `clean verify` en UTC aprobó
+las 380 pruebas, el empaquetado y el umbral de cobertura (93,68 % de líneas y
+92,96 % de instrucciones). La comprobación se realizó en una copia aislada de
+las fuentes para conservar la aplicación local abierta y sus datos de prueba.
+Las 24 pruebas financieras dirigidas también pasaron con la JVM en
+`America/Lima`, sin fallos ni errores.

@@ -3,10 +3,14 @@ package com.asiscontrol.controller;
 import com.asiscontrol.entity.Administrador;
 import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 
 class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
+
+    private static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Lima");
+
     private Map<String,Object> compromiso(String code,int amount,LocalDate due) {
         long enrollment=em.createQuery("select m.id from Matricula m where m.alumno.id=:id",Long.class)
                 .setParameter("id",student.getId()).getSingleResult();
@@ -15,11 +19,11 @@ class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void registraPagosParcialesTotalesEIdempotenciaSinDuplicarImportes() throws Exception {
-        var c=postOk("/api/compromisos-pago",compromiso("P-001",1000,LocalDate.now().plusDays(10)));
+        var c=postOk("/api/compromisos-pago",compromiso("P-001",1000,LocalDate.now(ZONA_NEGOCIO).plusDays(10)));
         String cp="/api/compromisos-pago/"+c.path("id").asLong();
         getOk("/api/compromisos-pago"); getOk(cp);
-        putOk(cp,data("montoTotal",1200,"fechaVencimiento",LocalDate.now().plusDays(10),"motivo","Corrección del importe","version",c.path("version").asLong()));
-        request("POST","/api/compromisos-pago",compromiso("P-001",1000,LocalDate.now()),409);
+        putOk(cp,data("montoTotal",1200,"fechaVencimiento",LocalDate.now(ZONA_NEGOCIO).plusDays(10),"motivo","Corrección del importe","version",c.path("version").asLong()));
+        request("POST","/api/compromisos-pago",compromiso("P-001",1000,LocalDate.now(ZONA_NEGOCIO)),409);
         var payment=data("idCompromisoPago",c.path("id").asLong(),"idApoderado",guardian.getId(),
                 "numeroOperacion","OP-001","monto",300,"medioPago","YAPE","observacion","Pago inicial");
         var first=postOk("/api/transacciones-pago",payment);
@@ -43,7 +47,7 @@ class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void validaSaldoResponsableYAnulacionDeCompromisosSinPagos() throws Exception {
-        var c=postOk("/api/compromisos-pago",compromiso("P-ATRASADO",100,LocalDate.now().minusDays(1)));
+        var c=postOk("/api/compromisos-pago",compromiso("P-ATRASADO",100,LocalDate.now(ZONA_NEGOCIO).minusDays(1)));
         String cp="/api/compromisos-pago/"+c.path("id").asLong();
         assertThat(getOk(cp).path("estado").asText()).isEqualTo("VENCIDO");
         request("POST","/api/transacciones-pago",data("idCompromisoPago",c.path("id").asLong(),"numeroOperacion","OP-A","monto",10,"medioPago","EFECTIVO"),422);
@@ -56,16 +60,16 @@ class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
     @Test void simulaCuotasConYSinInteresYAjustaElUltimoSaldo() throws Exception {
         for(int interest : new int[]{0,2}) {
             var simulation=request("POST","/api/simulaciones-pago",data("montoTotal",1000,"cuotaInicial",100,
-                    "numeroCuotas",3,"tasaInteresMensual",interest,"fechaPrimeraCuota",LocalDate.now()),200);
+                    "numeroCuotas",3,"tasaInteresMensual",interest,"fechaPrimeraCuota",LocalDate.now(ZONA_NEGOCIO)),200);
             assertThat(simulation.path("cronograma")).hasSize(3);
             assertThat(simulation.path("cronograma").get(2).path("saldoRestante").decimalValue().signum()).isZero();
             assertThat(simulation.path("totalPagar").decimalValue().intValue()).isGreaterThanOrEqualTo(1000);
         }
         var paid=request("POST","/api/simulaciones-pago",data("montoTotal",100,"cuotaInicial",100,"numeroCuotas",1,
-                "tasaInteresMensual",0,"fechaPrimeraCuota",LocalDate.now()),200);
+                "tasaInteresMensual",0,"fechaPrimeraCuota",LocalDate.now(ZONA_NEGOCIO)),200);
         assertThat(paid.path("cronograma")).isEmpty();
         request("POST","/api/simulaciones-pago",data("montoTotal",100,"cuotaInicial",101,"numeroCuotas",1,
-                "tasaInteresMensual",0,"fechaPrimeraCuota",LocalDate.now()),422);
+                "tasaInteresMensual",0,"fechaPrimeraCuota",LocalDate.now(ZONA_NEGOCIO)),422);
     }
 
     private Map<String,Object> criterio(String operator) {
