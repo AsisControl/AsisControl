@@ -67,6 +67,37 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
     }
 
     @Test
+    void elHistorialDeMatriculaTraeValoresLegiblesSinIdentificadoresInternos() throws Exception {
+        Long matricula = em.createQuery("select m.id from Matricula m where m.alumno.id = :alumnoId",
+                Long.class).setParameter("alumnoId", student.getId()).getSingleResult();
+        RegistroAuditoria creacion = evento(
+                "Matricula", matricula, "CREAR_MATRICULA", "2026-10-30T09:00:00Z");
+        creacion.setNuevoValor("estado=ACTIVA,seccion=" + section.getId());
+        creacion.setActorIdentificador(admin.getUsername());
+        RegistroAuditoria cambio = evento(
+                "Matricula", matricula, "CAMBIAR_ESTADO_MATRICULA", "2026-10-30T10:00:00Z");
+        cambio.setValorAnterior("ACTIVA");
+        cambio.setNuevoValor("RETIRADA");
+        RegistroAuditoria sinSeccion = evento(
+                "Matricula", matricula, "GUARDAR_SOLICITUD", "2026-10-30T11:00:00Z");
+        sinSeccion.setNuevoValor("estado=BORRADOR,seccion=null");
+        em.flush();
+
+        JsonNode historial = request("GET", "/api/matriculas/" + matricula + "/historial", null, 200);
+
+        JsonNode primero = historial.get(0);
+        assertThat(primero.path("actorNombre").asText()).isEqualTo(admin.getPersona().nombreCompleto());
+        assertThat(primero.path("campos").findValuesAsText("campo")).containsExactly("estado", "seccion");
+        assertThat(primero.path("campos").get(0).path("nuevo").asText()).isEqualTo("ACTIVA");
+        assertThat(primero.path("campos").get(1).path("nuevo").asText()).isEqualTo("2090 · 1° A");
+        JsonNode segundo = historial.get(1).path("campos").get(0);
+        assertThat(segundo.path("campo").asText()).isEqualTo("estado");
+        assertThat(segundo.path("anterior").asText()).isEqualTo("ACTIVA");
+        assertThat(segundo.path("nuevo").asText()).isEqualTo("RETIRADA");
+        assertThat(historial.get(2).path("campos").findValuesAsText("campo")).containsExactly("estado");
+    }
+
+    @Test
     void conservaAccesoDelAdministrador() throws Exception {
         evento("SolicitudMatricula", ajena.getId(), "GUARDAR_SOLICITUD", "2026-10-30T09:00:00Z");
         assertThat(consultar(ajena.getId(), asAdmin(), 200)).hasSize(1);
@@ -155,7 +186,7 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
                 : identidad.authorities(new SimpleGrantedAuthority("ROLE_" + rol));
     }
 
-    private void evento(String entidad, Long id, String accion, String fecha) {
+    private RegistroAuditoria evento(String entidad, Long id, String accion, String fecha) {
         RegistroAuditoria evento = new RegistroAuditoria();
         evento.setActorIdentificador("administrador-prueba");
         evento.setRolActor(admin.getRol());
@@ -168,5 +199,6 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
         evento.setNuevoValor("estado=ENVIADA");
         evento.setCorrelacionId("prueba-" + key());
         em.persist(evento);
+        return evento;
     }
 }

@@ -26,6 +26,7 @@ import type { Persona } from "@/shared/types/person";
 import { type Student } from "@/modules/students";
 import { AcademicRecords } from "@/modules/academic-records";
 import type { AcademicYear } from "@/modules/academic-config";
+import { EnrollmentHistory } from "./enrollment-history";
 import type { History } from "./types";
 type EnrollmentRecord = {
   id: number;
@@ -717,19 +718,7 @@ function EnrollmentDetail({
       <h4>Historial de cambios</h4>
       {history ? (
         history.length ? (
-          <ol className="history-list">
-            {history.map((item) => (
-              <li key={item.id}>
-                <strong>{stateLabel(item.accion)}</strong>
-                <small>
-                  {dateLabel(item.fecha)} · {item.actor} · {item.rol}
-                </small>
-                {item.anterior && <p>Anterior: {item.anterior}</p>}
-                {item.nuevo && <p>Nuevo: {item.nuevo}</p>}
-                {item.motivo && <p>Motivo: {item.motivo}</p>}
-              </li>
-            ))}
-          </ol>
+          <EnrollmentHistory events={history} />
         ) : (
           <p className="empty">Sin cambios registrados.</p>
         )
