@@ -12,6 +12,7 @@ import com.asiscontrol.dto.asistencia.AsistenciaSesionDtos.SesionAsistenciaRespo
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AsistenciaAlumno;
+import com.asiscontrol.entity.JustificacionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistenciaDetalle;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
@@ -22,6 +23,7 @@ import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
+import com.asiscontrol.repository.JustificacionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaDetalleRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
@@ -64,6 +66,7 @@ public class AsistenciaSesionService {
     private final AsistenciaAlumnoRepository asistenciaRepository;
     private final CorreccionAsistenciaRepository correccionRepository;
     private final CorreccionAsistenciaDetalleRepository detalleRepository;
+    private final JustificacionAsistenciaRepository justificacionRepository;
     private final MatriculaService matriculaService;
     private final AuditoriaService auditoria;
     private final ModuloAccessGuard accessGuard;
@@ -75,6 +78,7 @@ public class AsistenciaSesionService {
             AsistenciaAlumnoRepository asistenciaRepository,
             CorreccionAsistenciaRepository correccionRepository,
             CorreccionAsistenciaDetalleRepository detalleRepository,
+            JustificacionAsistenciaRepository justificacionRepository,
             MatriculaService matriculaService,
             AuditoriaService auditoria,
             ModuloAccessGuard accessGuard,
@@ -84,6 +88,7 @@ public class AsistenciaSesionService {
         this.asistenciaRepository = asistenciaRepository;
         this.correccionRepository = correccionRepository;
         this.detalleRepository = detalleRepository;
+        this.justificacionRepository = justificacionRepository;
         this.matriculaService = matriculaService;
         this.auditoria = auditoria;
         this.accessGuard = accessGuard;
@@ -155,6 +160,7 @@ public class AsistenciaSesionService {
     /**
      * Corrige una asistencia TOMADA, incluso días después (R12, R13). Registra un detalle por
      * estudiante cambiado ligado al motivo; si nada cambió se rechaza sin crear una corrección.
+     * Reenviar el estado base de una marca justificada no es un cambio: conserva la justificación.
      */
     @Transactional
     public SesionAsistenciaResponse corregir(Long sesionId, CorregirAsistenciaRequest request) {
@@ -175,7 +181,7 @@ public class AsistenciaSesionService {
                         "ALUMNO_NO_REGISTRADO_EN_SESION",
                         "El estudiante " + alumnoId + " no figura en esta asistencia");
             }
-            if (fila.getEstadoAsistencia() != estado) {
+            if (estadoBase(fila.getEstadoAsistencia()) != estado) {
                 CorreccionAsistenciaDetalle detalle = new CorreccionAsistenciaDetalle();
                 detalle.setAlumno(fila.getAlumno());
                 detalle.setEstadoAnterior(fila.getEstadoAsistencia());
@@ -223,6 +229,7 @@ public class AsistenciaSesionService {
                 c.getId(),
                 c.getFechaHora(),
                 c.getDocente().getId(),
+                c.getDocente().getPersona().nombreCompleto(),
                 c.getMotivo(),
                 detalles.getOrDefault(c.getId(), List.of()).stream().map(d -> new CambioAsistenciaResponse(
                         d.getAlumno().getId(),
@@ -350,18 +357,30 @@ public class AsistenciaSesionService {
         LocalDate hoy = LocalDate.now(reloj);
         EstadoSesionClase estado = CalendarioSesionService.estadoEfectivo(sesion, hoy);
         boolean vencido = sesion.getEstado() == EstadoSesionClase.BORRADOR && estado == EstadoSesionClase.PENDIENTE;
-        Map<Long, EstadoAsistencia> estados = vencido ? Map.of() : filas.stream()
-                .collect(Collectors.toMap(f -> f.getAlumno().getId(), AsistenciaAlumno::getEstadoAsistencia));
+        Map<Long, AsistenciaAlumno> registradas = vencido ? Map.of() : filas.stream()
+                .collect(Collectors.toMap(f -> f.getAlumno().getId(), Function.identity()));
+        Map<Long, JustificacionAsistencia> justificaciones = estado != EstadoSesionClase.TOMADA ? Map.of()
+                : justificacionRepository
+                        .findAllByAsistenciaAlumnoIdInAndActivoTrue(filas.stream().map(AsistenciaAlumno::getId).toList())
+                        .stream()
+                        .collect(Collectors.toMap(j -> j.getAsistenciaAlumno().getId(), Function.identity()));
 
         List<Alumno> alumnos = estado == EstadoSesionClase.TOMADA
                 ? filas.stream().map(AsistenciaAlumno::getAlumno).toList()
                 : matriculaService.alumnosConMatriculaActiva(sesion.getAsignacionCurso().getSeccion().getId());
         List<AlumnoAsistenciaResponse> lista = alumnos.stream()
-                .map(alumno -> new AlumnoAsistenciaResponse(
-                        alumno.getId(),
-                        alumno.getCodigoAlumno(),
-                        alumno.getPersona().nombreCompleto(),
-                        estados.get(alumno.getId())))
+                .map(alumno -> {
+                    AsistenciaAlumno fila = registradas.get(alumno.getId());
+                    JustificacionAsistencia justificacion = fila == null ? null : justificaciones.get(fila.getId());
+                    return new AlumnoAsistenciaResponse(
+                            alumno.getId(),
+                            alumno.getCodigoAlumno(),
+                            alumno.getPersona().nombreCompleto(),
+                            fila == null ? null : estadoBase(fila.getEstadoAsistencia()),
+                            fila == null ? null : fila.getId(),
+                            justificacion == null ? null : justificacion.getId(),
+                            justificacion == null ? null : justificacion.getEstado());
+                })
                 .sorted(java.util.Comparator.comparing(AlumnoAsistenciaResponse::nombreCompleto))
                 .toList();
 
@@ -379,7 +398,19 @@ public class AsistenciaSesionService {
                 estado == EstadoSesionClase.TOMADA,
                 (int) lista.stream().filter(a -> a.estado() == null).count(),
                 lista,
+                sesion.getDocenteRegistrador() == null
+                        ? null : sesion.getDocenteRegistrador().getPersona().nombreCompleto(),
+                sesion.getFechaHoraFinalizacion(),
                 sesion.getVersion());
+    }
+
+    /** Aprobar una justificación cambia la marca a su variante justificada; el docente ve la base. */
+    private static EstadoAsistencia estadoBase(EstadoAsistencia estado) {
+        return switch (estado) {
+            case INASISTENCIA_JUSTIFICADA -> EstadoAsistencia.INASISTENCIA;
+            case TARDANZA_JUSTIFICADA -> EstadoAsistencia.TARDANZA;
+            default -> estado;
+        };
     }
 
     private String describir(Map<Long, EstadoAsistencia> marcas) {

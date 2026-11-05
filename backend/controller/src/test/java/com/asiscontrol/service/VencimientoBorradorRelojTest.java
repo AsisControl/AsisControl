@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
+import com.asiscontrol.repository.JustificacionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaDetalleRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
@@ -33,6 +34,7 @@ class VencimientoBorradorRelojTest {
                 mock(AsistenciaAlumnoRepository.class),
                 mock(CorreccionAsistenciaRepository.class),
                 mock(CorreccionAsistenciaDetalleRepository.class),
+                mock(JustificacionAsistenciaRepository.class),
                 mock(MatriculaService.class),
                 mock(AuditoriaService.class),
                 mock(ModuloAccessGuard.class),

@@ -19,6 +19,10 @@ public interface JustificacionAsistenciaRepository extends JpaRepository<Justifi
 
     Optional<JustificacionAsistencia> findByAsistenciaAlumnoIdAndActivoTrue(Long asistenciaAlumnoId);
 
+    // asistencia alumnos
+    java.util.List<JustificacionAsistencia> findAllByAsistenciaAlumnoIdInAndActivoTrue(
+            Collection<Long> asistenciaAlumnoIds);
+
     Page<JustificacionAsistencia> findAllByEstadoInAndActivoTrue(
             Collection<EstadoJustificacion> estados, Pageable pageable);
 
