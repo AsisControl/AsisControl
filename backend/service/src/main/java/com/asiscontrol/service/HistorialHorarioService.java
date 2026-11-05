@@ -25,13 +25,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,8 +58,6 @@ public class HistorialHorarioService {
             List.of(CAMPO_DOCENTE, CAMPO_CURSO, CAMPO_SECCION, CAMPO_ANIO, "activo");
     private static final ZoneId ZONA_INSTITUCION = ZoneId.of("America/Lima");
     private static final int TAMANIO_MAXIMO = 100;
-    /** Solo separa ante "clave=": un curso puede llamarse "Ciencia, Tecnologia y Ambiente". */
-    private static final Pattern SEPARADOR_CAMPOS = Pattern.compile(",(?=[A-Za-z]+=)");
 
     private final RegistroAuditoriaRepository auditoriaRepository;
     private final AsignacionCursoRepository asignacionRepository;
@@ -270,21 +266,9 @@ public class HistorialHorarioService {
 
         static ValoresRegistro leer(RegistroAuditoria registro) {
             return new ValoresRegistro(
-                    registro, separar(registro.getValorAnterior()), separar(registro.getNuevoValor()));
-        }
-
-        private static Map<String, String> separar(String valores) {
-            Map<String, String> campos = new LinkedHashMap<>();
-            if (valores == null) {
-                return campos;
-            }
-            for (String campo : SEPARADOR_CAMPOS.split(valores)) {
-                int igual = campo.indexOf('=');
-                if (igual > 0) {
-                    campos.put(campo.substring(0, igual), campo.substring(igual + 1));
-                }
-            }
-            return campos;
+                    registro,
+                    ValoresAuditoria.separar(registro.getValorAnterior()),
+                    ValoresAuditoria.separar(registro.getNuevoValor()));
         }
     }
 }

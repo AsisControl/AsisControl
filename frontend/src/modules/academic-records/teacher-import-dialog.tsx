@@ -15,6 +15,7 @@ import {
   descargarPlantillaDocentes,
   importarDocentes,
 } from "./services/docenteImportService";
+import styles from "./academic-records.module.css";
 
 const TEMPLATE_FILE_NAME = "plantilla_docentes.xlsx";
 /** Aviso según el análisis: las filas con error no se guardan, las válidas sí. */
@@ -125,15 +126,18 @@ export function TeacherImportDialog({
         ) : (
           <>
             {analysis && <Feedback {...analysisNotice(analysis)} />}
-            <button
-              type="button"
-              disabled={busy}
-              aria-label="Descargar plantilla de docentes"
-              onClick={downloadTemplate}
-            >
-              <DownloadIcon />{" "}
-              {pending === "template" ? "Descargando…" : "Descargar plantilla"}
-            </button>
+            <div className={styles.templateRow}>
+              <button
+                type="button"
+                className={styles.templateDownload}
+                disabled={busy}
+                aria-label="Descargar plantilla de docentes"
+                onClick={downloadTemplate}
+              >
+                <DownloadIcon />
+                {pending === "template" ? "Descargando…" : "Descargar plantilla"}
+              </button>
+            </div>
             <ExcelFilePicker
               label="Archivo Excel de docentes"
               file={file}

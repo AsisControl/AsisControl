@@ -99,12 +99,17 @@ function backend(routes = {}) {
       {
         id: 1,
         actor: "admin",
+        actorNombre: "Ana Rojas",
         rol: "ADMINISTRADOR",
         fecha: "2026-03-01T15:00:00Z",
-        accion: "CREADA",
+        accion: "GUARDAR_SOLICITUD",
         motivo: "Registro inicial",
-        anterior: "—",
-        nuevo: "BORRADOR",
+        anterior: null,
+        nuevo: "estado=BORRADOR,seccion=1",
+        campos: [
+          { campo: "estado", anterior: null, nuevo: "BORRADOR" },
+          { campo: "seccion", anterior: null, nuevo: "2027 · 1° A" },
+        ],
       },
     ],
     "GET /api/matriculas/:id/historial": [],
@@ -238,7 +243,11 @@ test("El detalle muestra historial y apoderados, y envía la solicitud", async (
   render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   expect(await within(dialog).findByText("Registro inicial", { exact: false })).toBeTruthy();
-  expect(within(dialog).getByText("Nuevo: BORRADOR")).toBeTruthy();
+  expect(within(dialog).getByText("Solicitud guardada")).toBeTruthy();
+  expect(within(dialog).getByText(/Ana Rojas · Administrador/)).toBeTruthy();
+  expect(within(dialog).getByText("Estado: Borrador")).toBeTruthy();
+  expect(within(dialog).getByText("Sección: 2027 · 1° A")).toBeTruthy();
+  expect(within(dialog).queryByText(/seccion=/)).toBeNull();
   expect(await within(dialog).findByText("Madre · Principal")).toBeTruthy();
   expect(within(dialog).getByText(/Viene de otro colegio/)).toBeTruthy();
   await user.click(within(dialog).getByText("Enviar solicitud"));
