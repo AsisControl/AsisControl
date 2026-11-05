@@ -102,7 +102,7 @@ npm run test:coverage
 npm run build
 ```
 
-`vitest.config.mts` limita la ejecución a dos procesos y permite hasta 15 segundos
+`vitest.config.mts` limita la ejecución a dos procesos y permite hasta 20 segundos
 por prueba. Esta configuración se aplica tanto a `npm test` como a
 `npm run test:coverage`, sin parámetros adicionales. Conserva las aserciones y
 los tiempos de espera de las consultas de Testing Library.

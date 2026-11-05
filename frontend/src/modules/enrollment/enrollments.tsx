@@ -23,7 +23,8 @@ import {
   timeLabel,
 } from "@/shared/lib/formatters";
 import type { Persona } from "@/shared/types/person";
-import { Students, type Student } from "@/modules/students";
+import { type Student } from "@/modules/students";
+import { AcademicRecords } from "@/modules/academic-records";
 import type { AcademicYear } from "@/modules/academic-config";
 import type { History } from "./types";
 type EnrollmentRecord = {
@@ -66,12 +67,19 @@ const actionLabels: Record<string, string> = {
 const ENROLLMENT_TABS: TabItem[] = [
   { id: "solicitudes", label: "Solicitudes" },
   { id: "matriculas", label: "Matrículas" },
-  { id: "fichas", label: "Fichas de estudiantes" },
+  { id: "fichas", label: "Fichas académicas" },
 ];
 export const ENROLLMENT_PATH = "/matricula";
 const DEFAULT_TAB = "solicitudes";
-/** Gestión de Matrícula del administrador; la pestaña sale de la URL: /matricula/{id}. */
-export function Enrollments({ tab = DEFAULT_TAB }: { tab?: string }) {
+/** Gestión de Matrícula del administrador; la pestaña sale de la URL: /matricula/{id}/{vista}. */
+export function Enrollments({
+  tab = DEFAULT_TAB,
+  view,
+}: {
+  tab?: string;
+  /** Vista de Fichas académicas: estudiantes, apoderados, parentescos o docentes. */
+  view?: string;
+}) {
   const router = useRouter();
   const current = ENROLLMENT_TABS.find((item) => item.id === tab);
   useEffect(() => {
@@ -82,7 +90,7 @@ export function Enrollments({ tab = DEFAULT_TAB }: { tab?: string }) {
     <section>
       <PageHeader
         title="Gestión de Matrícula"
-        description="Solicitudes, asignación de vacantes y matrículas. Las fichas conservan los datos del estudiante."
+        description="Solicitudes, asignación de vacantes y matrículas. Las fichas académicas reúnen a estudiantes, apoderados y docentes."
       />
       <TabNav
         label="Secciones de matrícula"
@@ -91,7 +99,7 @@ export function Enrollments({ tab = DEFAULT_TAB }: { tab?: string }) {
         onSelect={(id) => router.push(`${ENROLLMENT_PATH}/${id}`)}
       />
       {current.id === "fichas" ? (
-        <Students />
+        <AcademicRecords basePath={`${ENROLLMENT_PATH}/fichas`} view={view} />
       ) : (
         <EnrollmentList
           key={current.id}

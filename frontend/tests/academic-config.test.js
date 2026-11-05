@@ -243,12 +243,33 @@ test("Año: la fecha final no puede ser anterior a la inicial", () => {
   );
   assert.ok(errors.fechaFin);
   assert.equal(errors.fechaInicio, undefined);
-  empty(
+  // El inicio debe ser estrictamente anterior al fin: el mismo día no basta.
+  assert.ok(
     v.validateYear(
       { anio: "2027", fechaInicio: "2027-03-01", fechaFin: "2027-03-01" },
       [],
+      2026,
+    ).fechaFin,
+  );
+  empty(
+    v.validateYear(
+      { anio: "2027", fechaInicio: "2027-03-01", fechaFin: "2027-03-02" },
+      [],
+      2026,
     ),
   );
+});
+test("Año: solo el actual o posteriores, con fechas dentro del año", () => {
+  const dates = { fechaInicio: "2027-03-01", fechaFin: "2027-12-20" };
+  assert.match(v.validateYear({ anio: "2026", ...dates }, [], 2027).anio, /año actual \(2027\)/);
+  empty(v.validateYear({ anio: "2027", ...dates }, [], 2027));
+  const outside = v.validateYear(
+    { anio: "2028", fechaInicio: "2027-03-01", fechaFin: "2029-01-10" },
+    [],
+    2027,
+  );
+  assert.match(outside.fechaInicio, /pertenecer al año 2028/);
+  assert.match(outside.fechaFin, /pertenecer al año 2028/);
 });
 test("Año: obligatorio, entre 2000 y 2100 y sin repetir", () => {
   const dates = { fechaInicio: "2027-03-01", fechaFin: "2027-12-20" };

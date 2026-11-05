@@ -43,8 +43,27 @@ class ConfiguracionErroresYPermisosIntegrationTest {
                         new CrearAnio(ANIO, LocalDate.of(ANIO, 12, 26), LocalDate.of(ANIO, 10, 19))))
                 .isInstanceOfSatisfying(BusinessRuleException.class, error -> {
                     assertThat(error.getCode()).isEqualTo("FECHAS_INVALIDAS");
-                    assertThat(error.getMessage()).isEqualTo("La fecha final no puede ser anterior a la inicial");
+                    assertThat(error.getMessage()).isEqualTo("La fecha final debe ser posterior a la inicial");
                 });
+        assertThatThrownBy(() -> configuracion.crear(
+                        new CrearAnio(ANIO, LocalDate.of(ANIO, 5, 1), LocalDate.of(ANIO, 5, 1))))
+                .isInstanceOfSatisfying(BusinessRuleException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("FECHAS_INVALIDAS"));
+        assertThatThrownBy(() -> configuracion.crear(
+                        new CrearAnio(ANIO, LocalDate.of(ANIO - 1, 12, 1), LocalDate.of(ANIO, 12, 20))))
+                .isInstanceOfSatisfying(BusinessRuleException.class, error -> {
+                    assertThat(error.getCode()).isEqualTo("FECHA_FUERA_DEL_ANIO");
+                    assertThat(error.getMessage()).isEqualTo("La fecha de inicio debe pertenecer al año " + ANIO);
+                });
+        assertThatThrownBy(() -> configuracion.crear(
+                        new CrearAnio(ANIO, LocalDate.of(ANIO, 3, 1), LocalDate.of(ANIO + 1, 1, 10))))
+                .isInstanceOfSatisfying(BusinessRuleException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("FECHA_FUERA_DEL_ANIO"));
+        int pasado = LocalDate.now(java.time.ZoneId.of("America/Lima")).getYear() - 1;
+        assertThatThrownBy(() -> configuracion.crear(
+                        new CrearAnio(pasado, LocalDate.of(pasado, 3, 1), LocalDate.of(pasado, 12, 20))))
+                .isInstanceOfSatisfying(BusinessRuleException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("ANIO_PASADO"));
 
         anio();
         assertThatThrownBy(this::anio)

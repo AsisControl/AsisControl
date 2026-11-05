@@ -49,7 +49,9 @@ export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
     const grade = Number(value);
     set("grado", grade);
     if (!capacityTouched) {
-      const suggested = grades.find((g) => g.numero === grade)?.capacidadDefault;
+      const suggested = grades.find(
+        (g) => g.numero === grade,
+      )?.capacidadDefault;
       set("capacidad", suggested ? String(suggested) : "");
     }
   }

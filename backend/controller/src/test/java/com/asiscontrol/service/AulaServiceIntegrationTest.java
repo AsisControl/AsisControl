@@ -50,6 +50,7 @@ class AulaServiceIntegrationTest {
     @Autowired ConfiguracionAcademicaService configuracion;
     @Autowired SeccionService secciones;
     @Autowired CursoService cursos;
+    @Autowired com.asiscontrol.repository.GradoAcademicoRepository grados;
     @Autowired PersonaService personas;
     @Autowired AsignacionCursoService asignaciones;
     @Autowired HorarioService horarios;
@@ -69,7 +70,8 @@ class AulaServiceIntegrationTest {
         configuracion.agregarGrado(ANIO, new CrearGrado(1, 30));
         var seccion = secciones.crear(new CrearSeccionRequest("A", 1, ANIO, 30, null, null));
         String clave = clave();
-        var curso = cursos.crear(new CrearCursoRequest("C" + clave, "Curso " + clave, null, 4));
+        var curso = cursos.crear(new CrearCursoRequest("C" + clave, "Curso " + clave, null, 4,
+                grados.findByAnioAcademicoAnioAndNumero(ANIO, 1).orElseThrow().getId()));
         var persona = new PersonaDtos.PersonaRequest("Docente", "Prueba", "Aula",
                 TipoDocumento.PASAPORTE, clave, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1985, 1, 1), null, clave.toLowerCase() + "@example.test", null);

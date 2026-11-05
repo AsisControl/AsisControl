@@ -9,13 +9,14 @@ import static org.assertj.core.api.Assertions.*;
 
 class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
     @Test void mantieneCatalogosConCodigosUnicosYControlDeVersiones() throws Exception {
-        var c = postOk("/api/cursos", data("codigo"," NUEVO ","nombre","Curso", "descripcion"," ","horasSemanales",4));
+        var c = postOk("/api/cursos", data("codigo"," NUEVO ","nombre","Curso", "descripcion"," ","horasSemanales",4,"gradoAcademicoId",grade.getId()));
         String cp = "/api/cursos/" + c.path("id").asLong();
         assertThat(c.path("codigo").asText()).isEqualTo("NUEVO");
-        request("POST","/api/cursos",data("codigo","NUEVO","nombre","Duplicado","horasSemanales",4),409);
+        request("POST","/api/cursos",data("codigo","NUEVO","nombre","Duplicado","horasSemanales",4,"gradoAcademicoId",grade.getId()),409);
+        request("POST","/api/cursos",data("codigo","SIN-GRADO","nombre","Sin grado","horasSemanales",4),400);
         getOk("/api/cursos?busqueda=Curso"); getOk(cp);
-        putOk(cp,data("codigo","NUEVO","nombre","Actualizado","descripcion","Detalle","horasSemanales",6,"version",0));
-        request("PUT",cp,data("codigo","NUEVO","nombre","Antiguo","horasSemanales",4,"version",99),409);
+        putOk(cp,data("codigo","NUEVO","nombre","Actualizado","descripcion","Detalle","horasSemanales",6,"version",0,"gradoAcademicoId",grade.getId()));
+        request("PUT",cp,data("codigo","NUEVO","nombre","Antiguo","horasSemanales",4,"version",99,"gradoAcademicoId",grade.getId()),409);
         var co = postOk("/api/competencias",data("codigo","C-NUEVA","nombre","Competencia","descripcion","Detalle"));
         String cop = "/api/competencias/" + co.path("id").asLong();
         getOk("/api/competencias?busqueda=Competencia"); getOk(cop);
@@ -33,7 +34,7 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         String ap = "/api/aulas/"+aula.path("id").asLong();
         getOk("/api/aulas"); getOk(ap);
         putOk(ap,data("codigo","A-101","nombre","Aula ampliada","tipoAula","AULA_REGULAR","capacidad",40,"ubicacion","Pabellon A","version",0));
-        var newCourse = postOk("/api/cursos",data("codigo","ING-1","nombre","Ingles","horasSemanales",4));
+        var newCourse = postOk("/api/cursos",data("codigo","ING-1","nombre","Ingles","horasSemanales",4,"gradoAcademicoId",grade.getId()));
         var as = postOk("/api/asignaciones-cursos",data("cursoId",newCourse.path("id").asLong(),"seccionId",section.getId(),"docenteId",teacher.getId()));
         String asp="/api/asignaciones-cursos/"+as.path("id").asLong();
         getOk("/api/asignaciones-cursos"); getOk(asp);
@@ -43,7 +44,10 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         getOk("/api/horarios"); getOk(hp);
         request("POST","/api/horarios",data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","LUNES","horaInicio","08:30:00","horaFin","09:30:00"),409);
         putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0));
-        deleteOk(hp); deleteOk(asp);
+        deleteOk(hp);
+        // US-58: el retiro exige motivo y version, y solo procede sin bloques de horario activos.
+        long versionAsignacion = getOk(asp).path("version").asLong();
+        request("PATCH", asp + "/retirar", data("motivo", "Fin de prueba", "version", versionAsignacion), 200);
         long versionAula = getOk(ap).path("version").asLong();
         request("PATCH", ap + "/inhabilitar", data("motivo", "Fin de prueba", "version", versionAula), 200);
         //deleteOk(hp); deleteOk(asp); deleteOk(ap);
@@ -64,7 +68,9 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         var graded=request("POST",dp+"/calificar",data("nota",18,"comentario","Buen trabajo","version",v),200);
         assertThat(graded.path("estado").asText()).isEqualTo("CALIFICADO");
         var entity=em.find(Tarea.class,tid); entity.setFechaLimite(LocalDateTime.now().minusSeconds(1)); em.flush();
-        request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200); deleteOk(tp);
+        request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200);
+        // US-22: con entregas, eliminar exige motivo.
+        request("DELETE",tp,null,422); request("DELETE",tp,data("motivo","Fin del bimestre"),204);
     }
 
     @Test void registraNivelesAdABCPorCompetenciaYConsolida() throws Exception {

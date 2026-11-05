@@ -1529,6 +1529,18 @@ a.forgot {
 .dialog .form-grid {
   gap: 4px 20px;
 }
+fieldset.form-grid {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+fieldset.form-grid:disabled input,
+fieldset.form-grid:disabled select,
+fieldset.form-grid:disabled textarea {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
 .dialog .hint {
   margin: 12px 0 0;
 }

@@ -1,0 +1,17 @@
+.detailHeader {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 16px;
+}
+.detailTitle {
+  border-top: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 14px;
+  margin: 20px 0 0;
+  padding-top: 16px;
+}
+.detailTitle + :global(.detail-grid) {
+  margin-top: 12px;
+}

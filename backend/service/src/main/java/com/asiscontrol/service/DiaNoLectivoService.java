@@ -9,6 +9,8 @@ import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import com.asiscontrol.repository.planificacion.DiaNoLectivoRepository;
+import com.asiscontrol.service.asistencia.CalendarioAnioCambiadoEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +25,17 @@ public class DiaNoLectivoService {
     private final AnioAcademicoRepository anios;
     private final DiaNoLectivoRepository diasNoLectivos;
     private final AuditoriaService auditoria;
+    private final ApplicationEventPublisher eventos;
 
     public DiaNoLectivoService(
             AnioAcademicoRepository anios,
             DiaNoLectivoRepository diasNoLectivos,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            ApplicationEventPublisher eventos) {
         this.anios = anios;
         this.diasNoLectivos = diasNoLectivos;
         this.auditoria = auditoria;
+        this.eventos = eventos;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -55,6 +60,7 @@ public class DiaNoLectivoService {
                 guardado.getId(),
                 null,
                 describir(guardado));
+        eventos.publishEvent(new CalendarioAnioCambiadoEvent(numeroAnio));
         return guardado;
     }
 

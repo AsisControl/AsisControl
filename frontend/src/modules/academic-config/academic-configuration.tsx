@@ -1,23 +1,45 @@
 "use client";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, fieldErrorsOf, message } from "@/core/api/client";
-import { Feedback, Field, FormDialog, Pager, ReasonField } from "@/shared/ui";
+import {
+  Feedback,
+  Field,
+  FormDialog,
+  Pager,
+  ReasonField,
+  StatusPill,
+} from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PeriodsPanel } from "./periods/periods-panel";
-import { PeriodFormDialog } from "./periods/period-form-dialog";
 import { NonTeachingDaysPanel } from "./periods/non-teaching-days-panel";
 import { GradesPanel } from "./sections/grades-panel";
 import { SectionsPanel } from "./sections/sections-panel";
-import { hasErrors, validateYear, YEAR_MAX, YEAR_MIN, type YearErrors } from "./lib/validation";
+import {
+  hasErrors,
+  validateYear,
+  YEAR_MAX,
+  YEAR_MIN,
+  type YearErrors,
+} from "./lib/validation";
+import { formatDate } from "./lib/format-date";
 import styles from "./academic-config.module.css";
 import type { AcademicYear, YearPanelProps } from "./types";
-type YearAction = { kind: "year" | "admission" | "year-state"; next?: string };
+type YearAction = {
+  kind: "year" | "admission" | "year-state" | "delete";
+  next?: string;
+};
 const titles: Record<YearAction["kind"], string> = {
   year: "Crear año académico",
   admission: "Recepción de solicitudes del apoderado",
   "year-state": "Cambiar estado del año",
+  delete: "Eliminar año académico",
 };
+const yearTones = {
+  BORRADOR: "neutral",
+  ACTIVO: "success",
+  CERRADO: "info",
+} as const;
 /**
  * Contenedor de US-05/US-06: lista de años y año seleccionado.
  * Cada bloque del año (períodos, días no lectivos, grados, secciones) vive en
@@ -28,7 +50,6 @@ export function AcademicConfiguration() {
   const [loaded, setYear] = useState<AcademicYear | null>(null);
   const [chosen, setChosen] = useState<number | null>(null);
   const [action, setAction] = useState<YearAction | null>(null);
-  const [periodOpen, setPeriodOpen] = useState(false);
   const [error, setError] = useState("");
   const [yearErrors, setYearErrors] = useState<YearErrors>({});
   const [success, setSuccess] = useState("");
@@ -71,6 +92,7 @@ export function AcademicConfiguration() {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!action) return;
+    if (action.kind === "delete") return remove();
     const form = new FormData(event.currentTarget);
     const str = (key: string) => String(form.get(key) || "").trim();
     let path = "/api/configuracion-academica/anios",
@@ -125,14 +147,28 @@ export function AcademicConfiguration() {
       setBusy(false);
     }
   }
+  /** Solo un año en borrador (nunca activado) sin uso; el backend lo verifica. */
+  async function remove() {
+    if (!year) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api<null>(
+        `/api/configuracion-academica/anios/${year.anio}?version=${year.version}`,
+        { method: "DELETE" },
+      );
+      setAction(null);
+      setChosen(null);
+      setYear(null);
+      years.refresh();
+      setSuccess(`Año ${year.anio} eliminado.`);
+    } catch (error) {
+      setError(message(error));
+    } finally {
+      setBusy(false);
+    }
+  }
   const editable = year?.estado !== "CERRADO";
-  // Por qué "+ Nuevo período" está deshabilitado. El aviso visible está en la
-  // sección Períodos (o en la lista vacía); aquí solo queda como ayuda del botón.
-  const periodHint = year
-    ? year.estado !== "BORRADOR"
-      ? `El año ${year.anio} ya no está en borrador; no admite períodos nuevos.`
-      : ""
-    : "Crea primero un año académico.";
   const panelProps: YearPanelProps | null = year && {
     year,
     editable,
@@ -145,8 +181,6 @@ export function AcademicConfiguration() {
   };
   return (
     <>
-      <Feedback error={!action ? error : ""} success={success} />
-      <Feedback error={years.error} />
       <div className={styles.header}>
         <div>
           <h3>Configuración académica</h3>
@@ -182,22 +216,11 @@ export function AcademicConfiguration() {
           >
             Crear año
           </button>
-          <button
-            className={styles.newPeriodButton}
-            disabled={year?.estado !== "BORRADOR"}
-            title={periodHint || undefined}
-            aria-describedby={
-              year && periodHint ? "period-notice" : undefined
-            }
-            onClick={() => {
-              setError("");
-              setSuccess("");
-              setPeriodOpen(true);
-            }}
-          >
-            + Nuevo período
-          </button>
         </div>
+      </div>
+      <div className={styles.feedback}>
+        <Feedback error={!action ? error : ""} success={success} />
+        <Feedback error={years.error} />
       </div>
       {years.loading && !years.data && (
         <p role="status">Cargando configuración…</p>
@@ -210,24 +233,36 @@ export function AcademicConfiguration() {
           </p>
         </div>
       )}
-      <Pager
-        data={years.data}
-        loading={years.loading}
-        setPage={years.setPage}
-      />
+      {(years.data?.totalPages ?? 0) > 1 && (
+        <Pager
+          data={years.data}
+          loading={years.loading}
+          setPage={years.setPage}
+        />
+      )}
       {year && panelProps && (
         <div className="configuration-detail">
-          <div className="section-heading">
+          <div className={styles.yearHeading}>
             <div>
-              <h3>Año {year.anio}</h3>
+              <div className={styles.yearTitle}>
+                <h3>Año {year.anio}</h3>
+                <StatusPill
+                  state={year.estado}
+                  label={stateLabel(year.estado)}
+                  tone={
+                    yearTones[year.estado as keyof typeof yearTones] ??
+                    "neutral"
+                  }
+                />
+              </div>
               <p>
-                {stateLabel(year.estado)} · {year.fechaInicio} a {year.fechaFin}
-                <br />
-                Admisión del apoderado:{" "}
-                {year.admisionAbierta ? "Abierta" : "Cerrada"}
+                Del {formatDate(year.fechaInicio)} al{" "}
+                {formatDate(year.fechaFin)}
+                {" · "}Admisión del apoderado:{" "}
+                {year.admisionAbierta ? "abierta" : "cerrada"}
               </p>
             </div>
-            <div className="row-actions">
+            <div className={styles.yearActions}>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -243,6 +278,7 @@ export function AcademicConfiguration() {
               )}
               {editable && (
                 <button
+                  className={styles.primaryButton}
                   onClick={() =>
                     open({
                       kind: "year-state",
@@ -253,6 +289,14 @@ export function AcademicConfiguration() {
                   {year.estado === "BORRADOR" ? "Activar año" : "Cerrar año"}
                 </button>
               )}
+              {year.estado === "BORRADOR" && (
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => open({ kind: "delete" })}
+                >
+                  Eliminar año
+                </button>
+              )}
             </div>
           </div>
           {year.estado === "CERRADO" && (
@@ -260,24 +304,19 @@ export function AcademicConfiguration() {
           )}
           <PeriodsPanel {...panelProps} />
           <NonTeachingDaysPanel key={year.anio} {...panelProps} />
+          <GradesPanel key={`grades-${year.anio}`} {...panelProps} />
           <SectionsPanel {...panelProps} />
-          <GradesPanel {...panelProps} />
         </div>
-      )}
-      {periodOpen && year?.estado === "BORRADOR" && (
-        <PeriodFormDialog
-          year={year}
-          onClose={() => setPeriodOpen(false)}
-          onCreated={(updated) => {
-            applyYear(updated);
-            setPeriodOpen(false);
-            setSuccess("Período creado.");
-          }}
-        />
       )}
       {action && (
         <FormDialog
           title={titles[action.kind]}
+          description={
+            action.kind === "delete" ? `Año ${year?.anio}` : undefined
+          }
+          submitLabel={action.kind === "delete" ? "Eliminar año" : undefined}
+          danger={action.kind === "delete"}
+          noValidate={action.kind === "year"}
           busy={busy}
           error={error}
           onClose={() => setAction(null)}
@@ -300,17 +339,25 @@ export function AcademicConfiguration() {
             </>
           }
         >
-          {action.kind === "year" ? (
+          {action.kind === "delete" ? (
+            <p className="full-field hint">
+              Se eliminarán el año, sus períodos, grados y días no lectivos.
+              Solo es posible porque nunca se activó; si ya tiene secciones,
+              solicitudes, matrículas o cursos, no se eliminará.
+            </p>
+          ) : action.kind === "year" ? (
             <>
               <Field
                 label="Año"
                 name="anio"
                 type="number"
-                min={YEAR_MIN}
+                min={Math.max(YEAR_MIN, new Date().getFullYear())}
                 max={YEAR_MAX}
                 required
                 error={yearErrors.anio}
-                onChange={() => setYearErrors((e) => ({ ...e, anio: undefined }))}
+                onChange={() =>
+                  setYearErrors((e) => ({ ...e, anio: undefined }))
+                }
               />
               <Field
                 label="Fecha inicial"

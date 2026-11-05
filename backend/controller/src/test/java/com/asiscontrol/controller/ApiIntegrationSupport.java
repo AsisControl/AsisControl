@@ -42,6 +42,7 @@ abstract class ApiIntegrationSupport {
     protected AsignacionCurso assignment;
     protected AccesoUsuario admin;
     protected AnioAcademico year;
+    protected GradoAcademico grade;
     private List<org.springframework.security.core.GrantedAuthority> authorities;
 
     @BeforeEach void fixture() {
@@ -65,12 +66,12 @@ abstract class ApiIntegrationSupport {
         year = new AnioAcademico(); year.setAnio(2090); year.setFechaInicio(LocalDate.of(2090,1,1));
         year.setFechaFin(LocalDate.of(2090,12,31)); year.setEstado(EstadoAnioAcademico.ACTIVO);
         year.setAdmisionAbierta(true); em.persist(year);
-        var grade = new GradoAcademico(); grade.setAnioAcademico(year); grade.setNumero(1);
+        grade = new GradoAcademico(); grade.setAnioAcademico(year); grade.setNumero(1);
         grade.setCapacidadDefault(30); em.persist(grade);
         section = new Seccion(); section.setNombre("A"); section.setGrado(1); section.setAnioAcademico(2090);
         section.setCapacidadMaxima(30); section.setDocenteTutor(teacher); em.persist(section);
         course = new Curso(); course.setCodigo("MAT" + key()); course.setNombre("Matematica");
-        course.setHorasSemanales(4); em.persist(course);
+        course.setHorasSemanales(4); course.setGradoAcademico(grade); em.persist(course);
         competence = new Competencia(); competence.setCodigo("COMP" + key()); competence.setNombre("Resuelve problemas"); em.persist(competence);
         var courseCompetence = new CursoCompetencia();
         courseCompetence.setCurso(course); courseCompetence.setCompetencia(competence);

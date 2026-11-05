@@ -31,7 +31,7 @@ class CompromisoPagoMigracionTest {
                     (2, 'Inscripción', 180.00, 'USD', 'ANULADO', FALSE, CURRENT_TIMESTAMP)
                     """);
             ScriptUtils.executeSqlScript(conexion,
-                    new ClassPathResource("db/migration/V6__compromisos_pago_administrativos.sql"));
+                    new ClassPathResource("db/migration/V8__compromisos_pago_administrativos.sql"));
             try (var filas = sql.executeQuery("SELECT * FROM CompromisoPago ORDER BY id_compromiso_pago")) {
                 assertThat(filas.next()).isTrue();
                 assertThat(filas.getString("concepto_normalizado")).isEqualTo("pensión escolar");

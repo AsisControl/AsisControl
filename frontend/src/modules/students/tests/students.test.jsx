@@ -408,13 +408,14 @@ test("CA-08/11: render muestra documento pendiente, estado y código de solo lec
   const detail = renderToStaticMarkup(
     React.createElement(load("modules/students/student-detail").StudentDetail, {
       student: s,
-      onBack() {},
+      onClose() {},
       onEdit() {},
       onChanged() {},
     }),
   );
-  assert.match(detail, /Documento pendiente/);
-  assert.match(detail, /Habilitada/);
+  assert.match(detail, /Ficha del estudiante/);
+  assert.match(detail, /<dt>Documento<\/dt><dd>—<\/dd>/);
+  assert.match(detail, /Activo/);
   assert.match(detail, /14\/05\/2012/);
   assert.doesNotMatch(detail, />Eliminar ficha</);
   const form = renderToStaticMarkup(

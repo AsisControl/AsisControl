@@ -122,6 +122,91 @@ test("Finanzas permite consultar y habilita la emisión solo con PAGOS_ESCRIBIR"
   }
 });
 
+test("Matrícula conserva la vista de docentes al abrir una URL y cambiar entre fichas", async () => {
+  const calls = backend({
+    "GET /api/docentes": page([]),
+    "GET /api/alumnos": page([]),
+  });
+  sessionFor();
+  setUrl("/matricula/fichas/docentes");
+  const user = userEvent.setup();
+  renderApp();
+  expect(await screen.findByText("Todavía no hay docentes registrados.")).toBeTruthy();
+  expect(currentUrl()).toBe("/matricula/fichas/docentes");
+  const views = screen.getByRole("navigation", { name: "Fichas académicas" });
+  expect(within(views).getByRole("button", { name: "Docentes" }).getAttribute("aria-current")).toBe("page");
+  expect(calls.some((call) => call.path === "/api/docentes")).toBe(true);
+  expect(calls.some((call) => call.path === "/api/alumnos")).toBe(false);
+
+  await user.click(within(views).getByRole("button", { name: "Estudiantes" }));
+  expect(currentUrl()).toBe("/matricula/fichas/estudiantes");
+  expect(await screen.findByText("Todavía no hay estudiantes registrados.")).toBeTruthy();
+  await user.click(within(views).getByRole("button", { name: "Docentes" }));
+  expect(currentUrl()).toBe("/matricula/fichas/docentes");
+  expect(await screen.findByText("Todavía no hay docentes registrados.")).toBeTruthy();
+});
+
+test("Tareas aplica los permisos de lectura, escritura y adjuntos desde la navegación docente", async () => {
+  for (const permissions of [
+    [],
+    ["TAREAS_LEER"],
+    ["TAREAS_LEER", "TAREAS_ESCRIBIR"],
+    ["TAREAS_LEER", "TAREAS_ESCRIBIR", "ARCHIVOS_ESCRIBIR"],
+  ]) {
+    const calls = backend({
+      "GET /api/auth/me": summary({ rol: "DOCENTE", permisos: permissions }),
+      "GET /api/tareas": page([]),
+      "GET /api/asignaciones-cursos/mias": page([]),
+    });
+    sessionFor({ role: "DOCENTE", permissions });
+    setUrl("/tareas");
+    const user = userEvent.setup();
+    const { unmount } = renderApp();
+    if (!permissions.includes("TAREAS_LEER")) {
+      expect(await screen.findByText("ACCESO DENEGADO")).toBeTruthy();
+      expect(calls.some((call) => call.path === "/api/tareas")).toBe(false);
+    } else {
+      expect(await screen.findByRole("heading", { name: "Mis tareas" })).toBeTruthy();
+      expect(await screen.findByText("Aún no tienes tareas registradas.")).toBeTruthy();
+      const create = screen.queryByRole("button", { name: "Nueva tarea" });
+      expect(Boolean(create)).toBe(permissions.includes("TAREAS_ESCRIBIR"));
+      if (create) {
+        await user.click(create);
+        const upload = await screen.findByRole("button", { name: "Agregar archivos" });
+        expect(upload.disabled).toBe(!permissions.includes("ARCHIVOS_ESCRIBIR"));
+      }
+    }
+    unmount();
+  }
+});
+
+test("Horarios transmite AUDITORIA_LEER y protege la ruta del historial", async () => {
+  for (const canAudit of [false, true]) {
+    const permissions = ["ACADEMICO_LEER", ...(canAudit ? ["AUDITORIA_LEER"] : [])];
+    const calls = backend({
+      "GET /api/auth/me": summary({ permisos: permissions }),
+      "GET /api/secciones": page([]),
+      "GET /api/docentes": page([]),
+      "GET /api/aulas": page([]),
+      "GET /api/horarios/historial": page([]),
+    });
+    sessionFor({ permissions });
+    setUrl("/horarios/historial-de-cambios");
+    const { unmount } = renderApp();
+    expect(await screen.findByText("Horario Académico")).toBeTruthy();
+    expect(Boolean(screen.queryByRole("button", { name: "Historial de cambios" }))).toBe(canAudit);
+    if (canAudit) {
+      expect(await screen.findByText("No hay cambios registrados con estos filtros.")).toBeTruthy();
+      expect(currentUrl()).toBe("/horarios/historial-de-cambios");
+      expect(calls.some((call) => call.path === "/api/horarios/historial")).toBe(true);
+    } else {
+      expect(currentUrl()).toBe("/horarios/horario");
+      expect(calls.some((call) => call.path === "/api/horarios/historial")).toBe(false);
+    }
+    unmount();
+  }
+});
+
 test("Cada rol ve su menú y su pantalla de inicio", async () => {
   for (const [role, rol, title] of [
     ["DOCENTE", "DOCENTE", "Bienvenido/a, Ana Ramos"],
@@ -361,19 +446,18 @@ test("Académico exige ACADEMICO_LEER y la escritura habilita la creación", asy
   expect(screen.queryByText("+ Nuevo curso")).toBeNull();
 });
 
-test("Horarios exige ACADEMICO_LEER y abre la pestaña Aulas", async () => {
+test("Horarios exige ACADEMICO_LEER y abre la pestaña Horario", async () => {
   backend({
     "GET /api/auth/me": summary({ permisos: ["ACADEMICO_LEER"] }),
-    "GET /api/aulas": page([]),
-    "GET /api/aulas/resumen": { habilitadas: 0 },
+    "GET /api/secciones": page([]),
   });
   sessionFor({ permissions: ["ACADEMICO_LEER"] });
   setUrl("/horarios");
   renderApp();
   expect(await screen.findByText("Horario Académico")).toBeTruthy();
-  expect(screen.getByText("Aulas", { selector: "button" }).getAttribute("aria-current")).toBe("page");
-  expect(await screen.findByText("Aún no hay aulas registradas.")).toBeTruthy();
-  expect(screen.queryByText("+ Nueva aula")).toBeNull();
+  expect(screen.getByText("Horario", { selector: "button" }).getAttribute("aria-current")).toBe("page");
+  expect(await screen.findByText(/No hay secciones habilitadas/)).toBeTruthy();
+  expect(screen.queryByText("+ Nuevo bloque")).toBeNull();
 });
 
 /** Respuesta de login/refresh con un token que vence en `seconds`. */

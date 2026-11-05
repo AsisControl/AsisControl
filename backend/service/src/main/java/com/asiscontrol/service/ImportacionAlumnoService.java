@@ -7,21 +7,15 @@ import com.asiscontrol.entity.enums.TipoDocumento;
 import com.asiscontrol.exception.BusinessRuleException;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.FillPatternType;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +37,6 @@ public class ImportacionAlumnoService {
     private static final List<String> TEMPLATE_EXAMPLE = List.of(
             "EST-0001", "Maria", "Quispe", "Flores", "DNI", "70000001",
             "FEMENINO", "2012-05-15", "999999999", "familia@ejemplo.com", "Lima");
-    private static final int TEMPLATE_COLUMN_WIDTH = 24 * 256;
     private static final List<String> REQUIRED_HEADERS = List.of(
             "codigoAlumno",
             "nombres",
@@ -143,48 +136,7 @@ public class ImportacionAlumnoService {
     }
 
     public byte[] generateTemplate() {
-        try (Workbook workbook = new XSSFWorkbook();
-                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Alumnos");
-            createTemplateHeader(workbook, sheet);
-            createTemplateExample(workbook, sheet);
-            sheet.createFreezePane(0, 1);
-            workbook.write(output);
-            return output.toByteArray();
-        } catch (IOException exception) {
-            throw new IllegalStateException("No fue posible generar la plantilla", exception);
-        }
-    }
-
-    private void createTemplateHeader(Workbook workbook, Sheet sheet) {
-        CellStyle headerStyle = workbook.createCellStyle();
-        headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
-        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        Font headerFont = workbook.createFont();
-        headerFont.setBold(true);
-        headerFont.setColor(IndexedColors.WHITE.getIndex());
-        headerStyle.setFont(headerFont);
-
-        Row headerRow = sheet.createRow(0);
-        headerRow.setHeightInPoints(24);
-        for (int columnIndex = 0; columnIndex < TEMPLATE_HEADERS.size(); columnIndex++) {
-            Cell headerCell = headerRow.createCell(columnIndex);
-            headerCell.setCellValue(TEMPLATE_HEADERS.get(columnIndex));
-            headerCell.setCellStyle(headerStyle);
-            sheet.setColumnWidth(columnIndex, TEMPLATE_COLUMN_WIDTH);
-        }
-    }
-
-    private void createTemplateExample(Workbook workbook, Sheet sheet) {
-        CellStyle textStyle = workbook.createCellStyle();
-        textStyle.setDataFormat(workbook.createDataFormat().getFormat("@"));
-        Row exampleRow = sheet.createRow(1);
-        for (int columnIndex = 0; columnIndex < TEMPLATE_EXAMPLE.size(); columnIndex++) {
-            sheet.setDefaultColumnStyle(columnIndex, textStyle);
-            Cell exampleCell = exampleRow.createCell(columnIndex);
-            exampleCell.setCellValue(TEMPLATE_EXAMPLE.get(columnIndex));
-            exampleCell.setCellStyle(textStyle);
-        }
+        return PlantillaExcel.build("Alumnos", TEMPLATE_HEADERS, TEMPLATE_EXAMPLE, Map.of());
     }
 
     private PersonaDtos.AlumnoCreateRequest toRequest(Row row, Map<String, Integer> columns) {

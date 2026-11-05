@@ -213,7 +213,15 @@ public class AuditoriaService {
                     return cb.and(filtros.toArray(jakarta.persistence.criteria.Predicate[]::new));
                 };
         var registros = auditoriaRepository.findAll(spec, pageable);
-        // Un nombre por actor distinto de la pagina, en vez de una consulta por fila.
+        java.util.Map<String, String> nombres = nombresDeActores(registros);
+        return PageResponse.from(
+                registros,
+                registro -> toAuditResponse(registro, nombres.get(registro.getActorIdentificador())));
+    }
+
+    /** Un nombre por actor distinto de la pagina, en vez de una consulta por fila. */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, String> nombresDeActores(Iterable<RegistroAuditoria> registros) {
         java.util.Map<String, String> nombres = new java.util.HashMap<>();
         registros.forEach(
                 registro ->
@@ -224,9 +232,7 @@ public class AuditoriaService {
                                                 .findActiveByIdentifier(identificador)
                                                 .map(usuario -> usuario.getPersona().nombreCompleto())
                                                 .orElse(null)));
-        return PageResponse.from(
-                registros,
-                registro -> toAuditResponse(registro, nombres.get(registro.getActorIdentificador())));
+        return nombres;
     }
 
     @Transactional(readOnly = true)

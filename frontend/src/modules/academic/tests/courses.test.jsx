@@ -15,9 +15,26 @@ const course = (overrides = {}) => ({
   horasSemanales: 6,
   activo: true,
   version: 2,
+  gradoAcademicoId: 11,
+  anioAcademico: 2027,
+  grado: 1,
   ...overrides,
 });
-const english = course({ id: 2, codigo: "ING", nombre: "Inglés", descripcion: null, horasSemanales: 1 });
+const grade = (id, numero, activo = true) => ({ id, numero, capacidadDefault: 30, activo, version: 0 });
+const year = (id, anio, estado, grados) => ({
+  id, anio, estado, fechaInicio: `${anio}-01-01`, fechaFin: `${anio}-12-31`, version: 0,
+  admisionAbierta: false, periodos: [], grados, secciones: [],
+});
+/** 2026 cerrado no se ofrece; 2027 activo con 1.° y 2.° grado; 2028 en borrador sin grados. */
+const YEARS = page([
+  year(1, 2026, "CERRADO", [grade(5, 1)]),
+  year(2, 2027, "ACTIVO", [grade(11, 1), grade(12, 2), grade(13, 3, false)]),
+  year(3, 2028, "BORRADOR", []),
+]);
+const english = course({
+  id: 2, codigo: "ING", nombre: "Inglés", descripcion: null, horasSemanales: 1,
+  gradoAcademicoId: null, anioAcademico: null, grado: null,
+});
 
 const link = (id, cursoId, competenciaNombre, orden, activo = true) => ({
   id,
@@ -35,6 +52,7 @@ const link = (id, cursoId, competenciaNombre, orden, activo = true) => ({
 function backend(routes = {}) {
   return fakeBackend({
     "GET /api/cursos": page([course(), english]),
+    "GET /api/configuracion-academica/anios": YEARS,
     "GET /api/cursos-competencias": page([
       link(2, 1, "Resuelve problemas de cantidad", 2),
       link(1, 1, "Resuelve problemas de forma", 1),
@@ -104,10 +122,22 @@ test("Crea un curso con los datos del formulario", async () => {
   await rowOf("Matemática");
   await user.click(screen.getByText("+ Nuevo curso"));
   const dialog = screen.getByRole("dialog", { name: "Nuevo curso" });
-  expect(within(dialog).getByText("Agrega un curso al plan curricular de la institución.")).toBeTruthy();
+  expect(within(dialog).getByText("Agrega un curso al plan curricular de un grado y año académico.")).toBeTruthy();
+  const yearSelect = await within(dialog).findByLabelText(/^Año académico/);
+  expect([...yearSelect.options].map((option) => option.textContent)).toEqual(["2027 · Activo", "2028 · Borrador"]);
+  expect(yearSelect.value).toBe("2");
+  const gradeSelect = within(dialog).getByLabelText(/^Grado/);
+  expect([...gradeSelect.options].map((option) => option.textContent)).toEqual([
+    "Selecciona el grado", "1° Grado", "2° Grado",
+  ]);
   await user.type(within(dialog).getByLabelText(/^Código/), " art ");
   await user.type(within(dialog).getByLabelText(/^Nombre del curso/), " Arte y Cultura ");
   await user.type(within(dialog).getByLabelText(/^Horas semanales/), "2");
+  await user.click(within(dialog).getByText("Crear curso"));
+  // El grado es obligatorio: el formulario no se envía sin elegirlo.
+  expect(gradeSelect.validity.valueMissing).toBe(true);
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+  await user.selectOptions(gradeSelect, "2° Grado");
   await user.click(within(dialog).getByText("Crear curso"));
   expect(await screen.findByText("Curso Arte y Cultura creado.")).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toEqual({
@@ -115,6 +145,7 @@ test("Crea un curso con los datos del formulario", async () => {
     nombre: "Arte y Cultura",
     descripcion: null,
     horasSemanales: 2,
+    gradoAcademicoId: 12,
   });
   await waitFor(() =>
     expect(calls.filter((c) => c.method === "GET" && c.path === "/api/cursos")).toHaveLength(2),
@@ -134,6 +165,7 @@ test("Edita un curso enviando su versión y muestra los conflictos del backend",
   const dialog = screen.getByRole("dialog", { name: "Editar curso" });
   const name = within(dialog).getByLabelText(/^Nombre del curso/);
   expect(name.value).toBe("Matemática");
+  expect((await within(dialog).findByLabelText(/^Grado/)).value).toBe("11");
   await user.clear(name);
   await user.type(name, "Repetido");
   await user.click(within(dialog).getByText("Guardar cambios"));
@@ -149,8 +181,31 @@ test("Edita un curso enviando su versión y muestra los conflictos del backend",
     nombre: "Matemática I",
     descripcion: null,
     horasSemanales: 6,
+    gradoAcademicoId: 11,
     version: 2,
   });
+});
+
+test("Muestra el año y grado de cada curso y avisa si un curso antiguo no lo tiene", async () => {
+  backend();
+  const user = userEvent.setup();
+  renderAcademic();
+  expect(within(await rowOf("Matemática")).getByText("1° Grado · 2027")).toBeTruthy();
+  expect(within(await rowOf("Inglés")).getByText("Sin año ni grado")).toBeTruthy();
+  await user.click(within(await rowOf("Inglés")).getByLabelText("Editar Inglés"));
+  const dialog = screen.getByRole("dialog", { name: "Editar curso" });
+  expect((await within(dialog).findByLabelText(/^Grado/)).value).toBe("");
+});
+
+test("Sin años abiertos no se puede elegir el contexto del curso", async () => {
+  backend({ "GET /api/configuracion-academica/anios": page([year(1, 2026, "CERRADO", [grade(5, 1)])]) });
+  const user = userEvent.setup();
+  renderAcademic();
+  await rowOf("Matemática");
+  await user.click(screen.getByText("+ Nuevo curso"));
+  expect(
+    await within(screen.getByRole("dialog")).findByText(/No hay años académicos abiertos/),
+  ).toBeTruthy();
 });
 
 test("Desactiva un curso desde el menú de acciones", async () => {

@@ -47,6 +47,7 @@ class SeccionServiceIntegrationTest {
     @Autowired SeccionService secciones;
     @Autowired ConfiguracionAcademicaService configuracion;
     @Autowired CursoService cursos;
+    @Autowired com.asiscontrol.repository.GradoAcademicoRepository grados;
     @Autowired PersonaService personas;
     @Autowired AsignacionCursoService asignaciones;
 
@@ -68,7 +69,8 @@ class SeccionServiceIntegrationTest {
 
     private void asignarCurso(Long seccionId) {
         String clave = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
-        var curso = cursos.crear(new CrearCursoRequest("C" + clave, "Curso " + clave, null, 4));
+        var curso = cursos.crear(new CrearCursoRequest("C" + clave, "Curso " + clave, null, 4,
+                grados.findByAnioAcademicoAnioAndNumero(ANIO, 1).orElseThrow().getId()));
         var persona = new PersonaDtos.PersonaRequest("Docente", "Prueba", "Seccion",
                 TipoDocumento.PASAPORTE, clave, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1985, 1, 1), null, clave + "@example.test", null);

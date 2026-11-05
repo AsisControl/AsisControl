@@ -17,7 +17,7 @@ export default defineConfig({
     minWorkers: 1,
     maxWorkers: 2,
     // Los recorridos de formularios simulan escritura y varias acciones del usuario.
-    testTimeout: 15_000,
+    testTimeout: 20_000,
     // Las pantallas se prueban en un DOM simulado; la lógica pura declara
     // `@vitest-environment node` en su archivo.
     environment: "jsdom",

@@ -4,11 +4,9 @@ import com.asiscontrol.dto.archivo.ArchivoDtos.ArchivoResponse;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoCodigoQR;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -21,40 +19,6 @@ import java.util.Set;
 public final class AsistenciaDtos {
 
     private AsistenciaDtos() {
-    }
-
-    public record RegistrarAsistenciaAlumnoRequest(
-            @NotNull Long alumnoId,
-            @NotNull Long asignacionCursoId,
-            Long docenteRegistradorId,
-            @NotNull LocalDate fechaRegistro,
-            LocalTime horaRegistro,
-            @NotNull EstadoAsistencia estado,
-            @Size(max = 1000) String comentario
-    ) {
-    }
-
-    public record AsistenciaAlumnoItemRequest(
-            @NotNull Long alumnoId,
-            LocalTime horaRegistro,
-            @NotNull EstadoAsistencia estado,
-            @Size(max = 1000) String comentario
-    ) {
-    }
-
-    public record RegistrarAsistenciaAlumnoLoteRequest(
-            @NotNull Long asignacionCursoId,
-            Long docenteRegistradorId,
-            @NotNull LocalDate fechaRegistro,
-            @NotEmpty @Size(max = 200) List<@Valid AsistenciaAlumnoItemRequest> asistencias
-    ) {
-    }
-
-    public record ActualizarAsistenciaAlumnoRequest(
-            @NotNull EstadoAsistencia estado,
-            @Size(max = 1000) String comentario,
-            @NotNull Long version
-    ) {
     }
 
     public record AsistenciaAlumnoResponse(

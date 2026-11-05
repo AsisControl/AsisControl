@@ -53,8 +53,10 @@ public class CursoController {
     @GetMapping
     public Page<CursoResponse> listar(
             @RequestParam(required = false) String busqueda,
+            @RequestParam(required = false) Integer anio,
+            @RequestParam(required = false) Integer grado,
             @PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
-        return cursoService.listar(busqueda, pageable);
+        return cursoService.listar(busqueda, anio, grado, pageable);
     }
 
     @DeleteMapping("/{id}")

@@ -1,0 +1,89 @@
+.views {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0 0 16px;
+}
+.viewGroup {
+  display: grid;
+  gap: 6px;
+}
+.viewGroupLabel {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.segmented {
+  background: #f1f5f9;
+  border-radius: 10px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+}
+.segmented button {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+}
+.segmented button:hover:not([aria-current]) {
+  color: var(--ink);
+}
+.segmented button[aria-current="page"] {
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.12);
+  color: var(--blue);
+  font-weight: 600;
+}
+.pendingBadge {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 6px;
+  padding: 1px 7px;
+}
+.srOnly {
+  clip: rect(0 0 0 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.inlineList {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.muted {
+  color: var(--muted);
+}
+.warning {
+  color: #b45309;
+  font-weight: 500;
+}
+.retry {
+  margin-top: 12px;
+}
+@media (max-width: 520px) {
+  .viewGroup,
+  .segmented {
+    width: 100%;
+  }
+  .segmented button {
+    flex: 1;
+    padding: 8px 10px;
+  }
+}

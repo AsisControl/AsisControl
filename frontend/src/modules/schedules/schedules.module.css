@@ -45,6 +45,29 @@
   margin: 4px 0 16px;
   padding: 10px 14px;
 }
+/* Filtros de Asignaciones docentes, con el mismo aspecto que los de Auditoría. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.filters input,
+.filters select {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  height: 40px;
+  padding: 0 12px;
+}
+.filters input {
+  flex: 0 1 180px;
+}
+.filters select {
+  flex: 0 1 190px;
+}
 .pendingBadge {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
@@ -93,4 +116,92 @@
 }
 .scheduleInactive {
   opacity: 0.7;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 16px;
+}
+.filters .field {
+  min-width: 180px;
+}
+/* Matriz semanal: una columna por día y una fila por intervalo. */
+.timetable {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 720px;
+  table-layout: fixed;
+  width: 100%;
+}
+.timetable th,
+.timetable td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.timetable thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.timeCell {
+  color: #475569;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  width: 110px;
+}
+.block {
+  align-items: flex-start;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  display: flex;
+  gap: 4px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+}
+.block strong {
+  display: block;
+  font-size: 13px;
+}
+.block small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+}
+.conflicts {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 12px 0 0;
+  padding: 10px 14px;
+}
+.conflicts ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.historyChanges {
+  font-size: 13px;
+  line-height: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.table .historyChanges strong {
+  display: inline;
+}
+.historyBefore {
+  color: var(--muted);
+}
+.historyMuted {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
 }
