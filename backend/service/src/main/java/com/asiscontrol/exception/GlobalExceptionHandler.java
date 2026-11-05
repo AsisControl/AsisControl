@@ -397,6 +397,12 @@ public class GlobalExceptionHandler {
         } else if (constraint.contains("uk_persona_correo")) {
             duplicateCode = "CORREO_DUPLICADO";
             duplicateMessage = "Este correo ya está asociado a otra persona";
+        } else if (constraint.contains("uk_compromiso_obligacion")) {
+            duplicateCode = "COMPROMISO_DUPLICADO";
+            duplicateMessage = "El estudiante ya tiene un compromiso activo para ese año, concepto y cuota.";
+        } else if (constraint.contains("uk_compromiso_pago_codigo")) {
+            duplicateCode = "CODIGO_COMPROMISO_DUPLICADO";
+            duplicateMessage = "Ese código de compromiso ya está registrado.";
         }
         if (duplicateCode != null) {
             return build(

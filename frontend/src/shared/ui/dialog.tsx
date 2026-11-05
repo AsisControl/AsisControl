@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
   type ReactNode,
+  type RefObject,
 } from "react";
 /** md para formularios y detalles; lg para ventanas con listas o historial. */
 export type DialogSize = "md" | "lg";
@@ -15,6 +16,9 @@ export function Dialog({
   children,
   onClose,
   busy = false,
+  active = true,
+  role = "dialog",
+  initialFocusRef,
 }: {
   title: string;
   /** Texto breve bajo el título: qué registro se está viendo o editando. */
@@ -23,37 +27,55 @@ export function Dialog({
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
+  /** Una ventana de fondo conserva sus datos y cede el teclado a la confirmación. */
+  active?: boolean;
+  role?: "dialog" | "alertdialog";
+  /** Control que recibe el foco al abrir; por defecto se enfoca la ventana. */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
   const close = useEffectEvent(() => {
-    if (!busy) onClose();
+    if (active && !busy) onClose();
+  });
+  const focusInitial = useEffectEvent(() => {
+    if (active) (initialFocusRef?.current ?? ref.current)?.focus();
+  });
+  const handleKey = useEffectEvent((event: KeyboardEvent) => {
+    const node = ref.current;
+    if (!active || !node) return;
+    if (event.key === "Escape") {
+      close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const controls = Array.from(
+      node.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+      ),
+    );
+    if (controls.length === 0) {
+      event.preventDefault();
+      node.focus();
+      return;
+    }
+    const first = controls[0],
+      last = controls.at(-1);
+    if (
+      event.shiftKey &&
+      (document.activeElement === first || document.activeElement === node)
+    ) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
   });
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    const node = ref.current;
-    node?.focus();
-    const listener = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-      if (event.key !== "Tab" || !node) return;
-      const controls = Array.from(
-        node.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
-        ),
-      );
-      const first = controls[0],
-        last = controls.at(-1);
-      if (
-        event.shiftKey &&
-        (document.activeElement === first || document.activeElement === node)
-      ) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
+    focusInitial();
+    const listener = (event: KeyboardEvent) => handleKey(event);
     document.addEventListener("keydown", listener);
     return () => {
       document.removeEventListener("keydown", listener);
@@ -61,12 +83,12 @@ export function Dialog({
     };
   }, []);
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" inert={!active} aria-hidden={!active || undefined}>
       <div
         ref={ref}
         className={`dialog dialog-${size}`}
-        role="dialog"
-        aria-modal="true"
+        role={role}
+        aria-modal={active || undefined}
         aria-labelledby={`${id}-title`}
         aria-describedby={description ? `${id}-description` : undefined}
         tabIndex={-1}
@@ -79,7 +101,7 @@ export function Dialog({
           <button
             type="button"
             className="dialog-close"
-            disabled={busy}
+            disabled={busy || !active}
             onClick={onClose}
             aria-label="Cerrar ventana"
             title="Cerrar"

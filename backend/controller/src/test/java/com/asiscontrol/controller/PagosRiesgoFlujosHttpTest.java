@@ -11,14 +11,14 @@ class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
         long enrollment=em.createQuery("select m.id from Matricula m where m.alumno.id=:id",Long.class)
                 .setParameter("id",student.getId()).getSingleResult();
         return data("idMatricula",enrollment,"codigoCompromiso",code,"concepto","Pension",
-                "descripcion","Cuota escolar","montoTotal",amount,"moneda","PEN","fechaVencimiento",due);
+                "descripcion","Cuota escolar","numeroCuota",1,"montoTotal",amount,"moneda","PEN","fechaVencimiento",due);
     }
 
     @Test void registraPagosParcialesTotalesEIdempotenciaSinDuplicarImportes() throws Exception {
         var c=postOk("/api/compromisos-pago",compromiso("P-001",1000,LocalDate.now().plusDays(10)));
         String cp="/api/compromisos-pago/"+c.path("id").asLong();
         getOk("/api/compromisos-pago"); getOk(cp);
-        putOk(cp,compromiso("P-001",1200,LocalDate.now().plusDays(10)));
+        putOk(cp,data("montoTotal",1200,"fechaVencimiento",LocalDate.now().plusDays(10),"motivo","Corrección del importe","version",c.path("version").asLong()));
         request("POST","/api/compromisos-pago",compromiso("P-001",1000,LocalDate.now()),409);
         var payment=data("idCompromisoPago",c.path("id").asLong(),"idApoderado",guardian.getId(),
                 "numeroOperacion","OP-001","monto",300,"medioPago","YAPE","observacion","Pago inicial");
@@ -48,7 +48,9 @@ class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
         assertThat(getOk(cp).path("estado").asText()).isEqualTo("VENCIDO");
         request("POST","/api/transacciones-pago",data("idCompromisoPago",c.path("id").asLong(),"numeroOperacion","OP-A","monto",10,"medioPago","EFECTIVO"),422);
         request("POST","/api/transacciones-pago",data("idCompromisoPago",c.path("id").asLong(),"idApoderado",guardian.getId(),"numeroOperacion","OP-B","monto",101,"medioPago","EFECTIVO"),422);
-        deleteOk(cp); request("GET",cp,null,404);
+        request("DELETE",cp,null,422);
+        request("POST",cp+"/anulacion",data("motivo","Emisión por error","version",c.path("version").asLong()),200);
+        assertThat(getOk(cp).path("estadoAdministrativo").asText()).isEqualTo("ANULADO");
     }
 
     @Test void simulaCuotasConYSinInteresYAjustaElUltimoSaldo() throws Exception {

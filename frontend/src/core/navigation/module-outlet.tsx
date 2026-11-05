@@ -6,6 +6,7 @@ import { useSessionUser } from "@/core/layout/session-user";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
+import { Finance } from "@/modules/finance";
 import { Schedules } from "@/modules/schedules";
 import { canAccess } from "./access-policy";
 import {
@@ -24,6 +25,9 @@ type Screen = (context: ScreenContext) => ReactNode;
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ADMINISTRADOR: {
     Matrícula: ({ subpath: [tab] }) => <Enrollments tab={tab} />,
+    Finanzas: ({ user }) => (
+      <Finance canWrite={(user.permissions ?? []).includes("PAGOS_ESCRIBIR")} />
+    ),
     Académico: ({ user, subpath: [tab] }) => (
       <Academic
         tab={tab}

@@ -87,11 +87,39 @@ test("El menú muestra solo las opciones permitidas y navega por URL", async () 
   renderApp();
   const nav = await screen.findByRole("navigation", { name: "Navegación principal" });
   expect(within(nav).queryByText("Matrícula")).toBeNull();
+  expect(within(nav).queryByText("Finanzas")).toBeNull();
   expect(within(nav).getByText("Inicio").getAttribute("aria-current")).toBe("page");
-  await user.click(within(nav).getByText("Finanzas"));
-  expect(currentUrl()).toBe("/finanzas");
+  await user.click(within(nav).getByText("Asistencia"));
+  expect(currentUrl()).toBe("/asistencia");
   expect(await screen.findByText("Este módulo todavía está pendiente de implementación.")).toBeTruthy();
-  expect(within(nav).getByText("Finanzas").getAttribute("aria-current")).toBe("page");
+  expect(within(nav).getByText("Asistencia").getAttribute("aria-current")).toBe("page");
+});
+
+test("Sin PAGOS_LEER la dirección de Finanzas rechaza el acceso sin consultar compromisos", async () => {
+  const calls = backend({ "GET /api/auth/me": summary({ permisos: [] }) });
+  sessionFor({ permissions: [] });
+  setUrl("/finanzas");
+  renderApp();
+  expect(await screen.findByText("ACCESO DENEGADO")).toBeTruthy();
+  expect(calls.some((call) => call.path.startsWith("/api/compromisos-pago"))).toBe(false);
+});
+
+test("Finanzas permite consultar y habilita la emisión solo con PAGOS_ESCRIBIR", async () => {
+  for (const writable of [false, true]) {
+    const permissions = ["PAGOS_LEER", ...(writable ? ["PAGOS_ESCRIBIR"] : [])];
+    backend({
+      "GET /api/auth/me": summary({ permisos: permissions }),
+      "GET /api/compromisos-pago": page([]),
+    });
+    sessionFor({ permissions });
+    setUrl("/finanzas");
+    const { unmount } = renderApp();
+    expect(await screen.findByRole("heading", { name: "Compromisos de pago" })).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Navegación principal" });
+    expect(within(nav).getByText("Finanzas").getAttribute("aria-current")).toBe("page");
+    expect(Boolean(screen.queryByRole("button", { name: /Emitir compromiso/ }))).toBe(writable);
+    unmount();
+  }
 });
 
 test("Cada rol ve su menú y su pantalla de inicio", async () => {
