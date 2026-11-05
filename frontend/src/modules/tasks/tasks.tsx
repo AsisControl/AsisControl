@@ -11,6 +11,8 @@ import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDeleteDialog } from "./task-delete-dialog";
 import { PencilIcon } from "@/modules/academic";
 import { TaskTransitionDialog, type TaskTransition } from "./task-transition-dialog";
+import { message } from "./task-error-copy";
+import { useTaskDeliveryCounts } from "./use-task-delivery-counts";
 
 const tones: Record<EstadoPublicacionTarea, StatusTone> = {
   BORRADOR: "info",
@@ -29,6 +31,12 @@ function fechaLimiteLabel(value: string) {
 export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: boolean; canUpload?: boolean }) {
   // El backend aplica el ámbito docente; no inferimos docenteId desde la sesión.
   const tasks = usePaged<TareaResponse>(TAREAS_PATH);
+  const [summaryRevision, setSummaryRevision] = useState(0);
+  const counts = useTaskDeliveryCounts(tasks.data, tasks.loading, tasks.error, summaryRevision);
+  function refresh() {
+    setSummaryRevision((value) => value + 1);
+    tasks.refresh();
+  }
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     // Solo presentación: no cambia estados ni determina si el servidor permite cerrar.
@@ -78,11 +86,11 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
       </div>}
       <section className={`panel ${styles.card}`} aria-label="Listado de tareas">
         <div className={styles.toolbar}>
-          <button className={styles.refresh} type="button" disabled={tasks.loading} onClick={() => { setSuccess(""); tasks.refresh(); }}>Actualizar</button>
+          <button className={styles.refresh} type="button" disabled={tasks.loading} onClick={() => { setSuccess(""); refresh(); }}>Actualizar</button>
         </div>
-        <Feedback error={tasks.error} />
+        <Feedback error={tasks.error ? message(tasks.error, "No se pudieron cargar las tareas. Inténtalo de nuevo.") : ""} />
         {contextFailed && !tasks.loading && !tasks.error && (
-          <p className="hint">No se pudo resolver el curso o sección de algunas tareas. Puedes volver a intentarlo con Actualizar.</p>
+          <p className="hint">No se pudo cargar el curso o la sección de algunas tareas. Inténtalo de nuevo con Actualizar.</p>
         )}
         {tasks.loading ? <p role="status">Cargando tareas…</p> : tasks.error ? null : tasks.data?.content.length ? (
           <div className={styles.tableWrap}>
@@ -92,10 +100,12 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                 <th scope="col">Tarea</th><th scope="col">Curso / sección</th>
                 <th scope="col">Estado</th><th scope="col">Fecha límite</th>
                 <th scope="col">Puntaje máximo</th>
+                <th className={styles.deliveriesColumn} scope="col">Entregas</th>
                 <th className={styles.actionsColumn} scope="col">Acciones</th>
               </tr></thead>
               <tbody>{tasks.data.content.map((task) => {
                 const context = currentContexts?.get(task.asignacionCursoId);
+                const summary = counts?.get(task.id);
                 // US-58: retirado del curso conserva la consulta, pero el backend rechaza cambios.
                 const retired = context?.activo === false;
                 const rowWrite = canWrite && !retired;
@@ -104,7 +114,7 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                   <td className={styles.context} data-label="Curso / sección">{context
                     ? `${context.curso} · ${context.seccion} · ${context.anioAcademico}`
                     : currentContexts ? "Curso/sección no disponible" : "Cargando curso/sección…"}
-                    {retired && <small className={styles.deadlineNotice}>Asignación retirada: solo consulta</small>}</td>
+                    {retired && <small className={styles.deadlineNotice}>Ya no estás asignado a este curso: solo consulta</small>}</td>
                   <td data-label="Estado"><StatusPill state={task.estado} tone={tones[task.estado]} />
                     {task.estado === "PUBLICADA" && new Date(task.fechaLimite).getTime() < now && (
                       <small className={styles.deadlineNotice}>Plazo vencido</small>
@@ -112,6 +122,9 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                   </td>
                   <td data-label="Fecha límite"><time dateTime={task.fechaLimite}>{fechaLimiteLabel(task.fechaLimite)}</time></td>
                   <td data-label="Puntaje máximo">{task.puntajeMaximo}</td>
+                  <td data-label="Entregas">{summary
+                    ? <span>{summary.entregados} de {summary.totalAlumnos}<span className={styles.srOnly}> estudiantes entregaron</span></span>
+                    : <span className={styles.summaryUnavailable}><span aria-hidden="true">—</span><span className={styles.srOnly}>Resumen de entregas no disponible</span></span>}</td>
                   <td data-label="Acciones"><div className={styles.rowActions}>
                     {rowWrite && (task.estado === "BORRADOR" || task.estado === "PUBLICADA") && <button type="button" className={styles.iconButton} title="Editar tarea" aria-label={`Editar ${task.nombre}`} onClick={() => { setSuccess(""); setEditingId(task.id); }}><PencilIcon /></button>}
                     {rowWrite && task.estado !== "ARCHIVADA" && <button type="button" className={styles.editButton}
@@ -119,10 +132,12 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                       onClick={() => { setSuccess(""); setTransition({ task, action: task.estado === "BORRADOR" ? "publicar" : task.estado === "PUBLICADA" ? "cerrar" : "archivar" }); }}>
                       {task.estado === "BORRADOR" ? "Publicar" : task.estado === "PUBLICADA" ? "Cerrar" : "Archivar"}
                     </button>}
-                    {task.estado !== "BORRADOR" && <Link className={styles.editButton} aria-label={`Entregas de ${task.nombre}`}
-                      href={`/tareas/${task.id}/entregas`} onClick={() => setSuccess("")}>Entregas</Link>}
-                    {rowWrite && <button type="button" className={`${styles.editButton} ${styles.dangerButton}`}
-                      aria-label={`Eliminar ${task.nombre}`} onClick={() => { setSuccess(""); setDeleting(task); }}>Eliminar</button>}
+                    <span className={styles.actionPair}>
+                      {task.estado !== "BORRADOR" && <Link className={styles.editButton} aria-label={`Entregas de ${task.nombre}`}
+                        href={`/tareas/${task.id}/entregas`} onClick={() => setSuccess("")}>Entregas</Link>}
+                      {rowWrite && <button type="button" className={`${styles.editButton} ${styles.dangerButton}`}
+                        aria-label={`Eliminar ${task.nombre}`} onClick={() => { setSuccess(""); setDeleting(task); }}>Eliminar</button>}
+                    </span>
                   </div></td>
                 </tr>;
               })}</tbody>
@@ -135,24 +150,24 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
         onClose={() => setEditingId(null)} onSaved={(saved) => {
           setEditingId(null);
           setSuccess(saved.estado === "PUBLICADA" ? "Tarea actualizada." : "Borrador actualizado.");
-          tasks.refresh();
+          refresh();
         }} />}
       {canWrite && creating && <TaskFormDialog canUpload={canUpload} onClose={() => setCreating(false)} onSaved={() => {
         setCreating(false);
         setSuccess("Borrador creado.");
-        tasks.refresh();
+        refresh();
       }} />}
       {canWrite && deleting && <TaskDeleteDialog key={deleting.id} task={deleting} onClose={() => setDeleting(null)} onSaved={() => {
         setDeleting(null);
         setSuccess("Tarea eliminada.");
-        tasks.refresh();
+        refresh();
       }} />}
       {canWrite && transition && <TaskTransitionDialog key={`${transition.task.id}-${transition.action}`} {...transition}
-        onClose={() => setTransition(null)} onRefresh={() => { setTransition(null); setSuccess(""); tasks.refresh(); }}
+        onClose={() => setTransition(null)} onRefresh={() => { setTransition(null); setSuccess(""); refresh(); }}
         onSaved={() => {
           setTransition(null);
           setSuccess(transition.action === "publicar" ? "Tarea publicada." : transition.action === "cerrar" ? "Tarea cerrada." : "Tarea archivada.");
-          tasks.refresh();
+          refresh();
         }} />}
     </div>
   );

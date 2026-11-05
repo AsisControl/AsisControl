@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { ApiError, fieldErrorsOf, message } from "@/core/api/client";
+import { ApiError } from "@/core/api/client";
+import { fieldErrorsOf, message } from "./task-error-copy";
 import { Dialog, Feedback, Field, FormDialog } from "@/shared/ui";
 import { calificarEntrega, obtenerEntrega } from "./services/entrega-service";
 import { obtenerTarea } from "./services/tarea-service";
 import type { EntregaTareaResponse, TareaResponse } from "./types";
 
 const businessErrors: Record<string, string> = {
-  VERSION_DESACTUALIZADA: "La entrega cambió. Recarga su versión actual antes de guardar.",
+  VERSION_DESACTUALIZADA: "La entrega cambió. Actualiza sus datos antes de guardar.",
   NOTA_FUERA_DE_RANGO: "La nota no puede superar el puntaje máximo de la tarea. Actualiza los datos si el puntaje cambió.",
   TAREA_NO_CALIFICABLE: "La tarea ya no permite calificar. Actualiza el seguimiento.",
   ENTREGA_ANULADA: "La entrega está anulada y no se puede calificar.",
@@ -60,7 +61,7 @@ export function DeliveryGradeDialog({ deliveryId, taskId, student, onClose, onRe
     const validation: Record<string, string> = {};
     const value = Number(nota);
     if (!nota.trim() || !Number.isInteger(value) || value < 0 || value > snapshot.task.puntajeMaximo)
-      validation.nota = `Introduce una nota entera entre 0 y ${snapshot.task.puntajeMaximo}.`;
+      validation.nota = `Escribe una nota sin decimales entre 0 y ${snapshot.task.puntajeMaximo}.`;
     if (comentario.length > 2000) validation.comentario = "El comentario admite hasta 2000 caracteres.";
     setErrors(validation);
     if (Object.keys(validation).length) return;
@@ -84,8 +85,8 @@ export function DeliveryGradeDialog({ deliveryId, taskId, student, onClose, onRe
     return <Dialog title="Calificar entrega" description={student} busy={loading} onClose={onClose}>
       <Feedback error={error} />
       {loading ? <p role="status">Cargando entrega…</p> : conflict ? <>
-        <p>Tus cambios no se guardaron. Recargar descarta la nota y el comentario que escribiste; no se reenviará la calificación automáticamente.</p>
-        <button type="button" onClick={reloadCurrent}>Descartar cambios y recargar versión actual</button>
+        <p>Tus cambios no se guardaron. Al actualizar se descartarán la nota y el comentario que escribiste.</p>
+        <button type="button" onClick={reloadCurrent}>Descartar cambios y actualizar</button>
       </> : !snapshot ? <button type="button" onClick={reloadCurrent}>Reintentar carga</button>
         : !allowed && <p>Solo se pueden calificar entregas no anuladas de tareas publicadas o cerradas.</p>}
       {!loading && <div className="form-actions">

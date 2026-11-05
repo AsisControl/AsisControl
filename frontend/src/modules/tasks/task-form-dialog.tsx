@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
-import { ApiError, fieldErrorsOf, message } from "@/core/api/client";
+import { ApiError } from "@/core/api/client";
+import { fieldErrorsOf, message } from "./task-error-copy";
 import { Dialog, Feedback, Field, FormDialog } from "@/shared/ui";
 import {
   actualizarTarea, contarEntregas, crearTarea, listarAsignacionesPropias, obtenerTarea, obtenerContextoAsignacion,
@@ -113,8 +114,10 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     if (choosing && !selected) validation.asignacionCursoId = "Elige el curso y la sección de la tarea.";
     if (limitChanged && new Date(fields.fechaLimite) <= new Date())
       validation.fechaLimite = "La nueva fecha límite de una tarea publicada debe ser futura.";
-    if (reasonRequired && deliveryCount && !motivo.trim())
-      validation.motivo = "La tarea ya tiene entregas: indica el motivo del cambio de fecha límite.";
+    if (reasonRequired && !motivo.trim())
+      validation.motivo = deliveryCount
+        ? "La tarea ya tiene entregas: indica el motivo del cambio de fecha límite."
+        : "No se pudo confirmar si hay entregas: indica el motivo del cambio de fecha límite.";
     setErrors(validation);
     if (Object.keys(validation).length) return;
     setBusy(true);
@@ -154,9 +157,9 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     return <Dialog title="Editar tarea" onClose={onClose} busy={loading}>
       <Feedback error={error} />
       {loading ? <p role="status">Cargando tarea…</p> : conflict ? <>
-        <p>La tarea cambió en el servidor. Tus cambios no se han guardado. Recargar descarta los cambios locales y los adjuntos nuevos seleccionados; los archivos ya subidos pueden quedar sin vincular.</p>
-        <button type="button" onClick={reloadCurrent}>Descartar cambios y recargar versión actual</button>
-      </> : task ? <p>La tarea está en estado {task.estado}. Solo se pueden editar borradores o tareas publicadas.</p>
+        <p>La tarea cambió mientras la editabas. Tus cambios no se han guardado. Al actualizar se descartarán los cambios y los adjuntos nuevos seleccionados.</p>
+        <button type="button" onClick={reloadCurrent}>Descartar cambios y actualizar</button>
+      </> : task ? <p>Esta tarea ya no se puede editar. Solo se pueden editar borradores o tareas publicadas.</p>
         : <button type="button" onClick={reloadCurrent}>Reintentar carga</button>}
       <div className="form-actions"><button type="button" disabled={loading} onClick={onClose}>Cerrar</button></div>
     </Dialog>;
@@ -165,15 +168,15 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
   const field = (key: keyof TaskFields) => ({ value: fields[key], onChange: (event: React.ChangeEvent<HTMLInputElement>) => setFields({ ...fields, [key]: event.target.value }), error: errors[key] });
   return <FormDialog title={taskId !== undefined ? "Editar tarea" : "Nueva tarea"}
     description={published
-      ? "La tarea seguirá publicada y los estudiantes verán los cambios. La asignación de curso y sección se conserva."
-      : "Guarda los cambios como borrador. La asignación de curso y sección se conserva."}
+      ? "La tarea seguirá publicada y los estudiantes verán los cambios."
+      : "Guarda la tarea como borrador."}
     busy={busy} error={error} onClose={onClose} onSubmit={save} noValidate
     submitLabel={taskId !== undefined ? "Guardar cambios" : "Guardar borrador"}>
     {task && <div className="full-field" role="group" aria-label="Curso y sección asociados">
       {context?.source !== task ? <p role="status">Cargando curso y sección…</p>
         : context.value ? <p>Curso: <strong>{context.value.curso}</strong> · Sección: <strong>{context.value.seccion}</strong> · {context.value.anioAcademico}</p>
-          : <p className="hint">Curso y sección no disponibles. No se pudo consultar el contexto; la asignación original se conserva.</p>}
-      <p className="hint">Información de solo lectura. La asignación no se puede cambiar al editar.</p>
+          : <p className="hint">Curso y sección no disponibles. Puedes continuar editando sin cambiarlos.</p>}
+      <p className="hint">El curso y la sección no se pueden cambiar al editar.</p>
     </div>}
     {choosing && <label className="field full-field">Curso y sección *
       <select value={selected} disabled={!ownAssignments?.length} aria-invalid={!!errors.asignacionCursoId}
@@ -182,7 +185,7 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
         {ownAssignments?.map((item) => <option key={item.id} value={item.id}>{assignmentLabel(item)}</option>)}
       </select>
       {errors.asignacionCursoId ? <small className="field-error" role="alert">{errors.asignacionCursoId}</small>
-        : ownAssignments?.length === 0 && <small className="field-hint">No tienes cursos asignados activos. Solicita la asignación a la coordinación académica.</small>}
+        : ownAssignments?.length === 0 && <small className="field-hint">No tienes cursos disponibles para crear tareas. Consulta con la coordinación académica.</small>}
     </label>}
     <Field label="Nombre" required maxLength={150} fullWidth {...field("nombre")} />
     <label className="field full-field">Descripción *
@@ -201,7 +204,7 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
         placeholder="Ej. Se amplía el plazo por un feriado"
         onChange={(event) => { setMotivo(event.target.value); setErrors({ ...errors, motivo: "" }); }} />
       {errors.motivo ? <small className="field-error" role="alert">{errors.motivo}</small>
-        : <small className="field-hint">{deliveryCount === 0 ? "Opcional: aún no hay entregas." : "Se registra en la auditoría."} Máximo {REASON_MAX} caracteres.</small>}
+        : <small className="field-hint">{deliveryCount === 0 ? "Opcional: aún no hay entregas." : "El motivo quedará registrado para su consulta."} Máximo {REASON_MAX} caracteres.</small>}
     </label>}
     <TaskAttachments existing={existing} pending={pending} disabled={busy} canUpload={canUpload} error={errors.archivoIds}
       onRemoveExisting={(id) => setExisting(existing.filter((file) => file.id !== id))}

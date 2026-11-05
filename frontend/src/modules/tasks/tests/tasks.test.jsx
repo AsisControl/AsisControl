@@ -89,14 +89,14 @@ test("Con la asignación retirada (US-58) solo permite consultar la tarea", asyn
   });
   render(<Tasks canWrite />);
   const row = (await screen.findByText("Práctica de álgebra")).closest("tr");
-  await within(row).findByText("Asignación retirada: solo consulta");
+  await within(row).findByText("Ya no estás asignado a este curso: solo consulta");
   expect(within(row).queryByRole("button", { name: /Editar|Publicar/ })).toBeNull();
   const published = screen.getByText("Publicada retirada").closest("tr");
   expect(within(published).queryByRole("button", { name: /Cerrar/ })).toBeNull();
   expect(within(published).getByRole("link", { name: "Entregas de Publicada retirada" })).toBeTruthy();
   const current = screen.getByText("Vigente").closest("tr");
   expect(within(current).getByRole("button", { name: "Publicar Vigente" })).toBeTruthy();
-  expect(within(current).queryByText("Asignación retirada: solo consulta")).toBeNull();
+  expect(within(current).queryByText("Ya no estás asignado a este curso: solo consulta")).toBeNull();
 });
 
 test("Actualiza la indicación temporal al volver a enfocar la ventana", async () => {
@@ -141,11 +141,11 @@ test("Un fallo de contexto no impide leer las tareas y Actualizar permite recupe
   render(<Tasks />);
   expect(await screen.findByText("Curso/sección no disponible")).toBeTruthy();
   expect(screen.getByText("Práctica de álgebra")).toBeTruthy();
-  expect(screen.getByText(/No se pudo resolver/)).toBeTruthy();
+  expect(screen.getByText(/No se pudo cargar el curso o la sección/)).toBeTruthy();
   fails = false;
   await user.click(screen.getByText("Actualizar"));
   await screen.findByText("Matemática · 2° B · 2026");
-  expect(screen.queryByText(/No se pudo resolver/)).toBeNull();
+  expect(screen.queryByText(/No se pudo cargar el curso o la sección/)).toBeNull();
   expect(calls.filter((call) => call.path === "/api/tareas")).toHaveLength(2);
 });
 
@@ -154,6 +154,14 @@ test("Sin tareas muestra vacío sin consultar asignaciones", async () => {
   render(<Tasks />);
   expect(await screen.findByText("Aún no tienes tareas registradas.")).toBeTruthy();
   expect(calls).toHaveLength(1);
+});
+
+test("Un error técnico de la API se presenta sin códigos ni identificadores", async () => {
+  backend({ "GET /api/tareas": reply(500, { message: "IllegalStateException: TAREA_ERROR en /api/tareas, id 42" }) });
+  render(<Tasks />);
+  expect((await screen.findByRole("alert")).textContent).toBe("No se pudieron cargar las tareas. Inténtalo de nuevo.");
+  expect(screen.queryByText(/IllegalStateException/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Actualizar" })).toBeTruthy();
 });
 
 test("Una respuesta tardía de contexto no contamina la siguiente página", async () => {
