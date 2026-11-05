@@ -1,8 +1,12 @@
 package com.asiscontrol.controller;
 
+import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarHorarioRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearHorarioRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
+import com.asiscontrol.dto.academico.HistorialHorarioDtos.FiltroHistorialHorario;
+import com.asiscontrol.dto.academico.HistorialHorarioDtos.HistorialHorarioResponse;
+import com.asiscontrol.service.HistorialHorarioService;
 import com.asiscontrol.service.HorarioService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -11,6 +15,7 @@ import jakarta.validation.constraints.Positive;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -25,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 @RestController
 @Validated
 @RequestMapping("/api/horarios")
@@ -32,9 +39,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class HorarioController {
 
     private final HorarioService horarioService;
+    private final HistorialHorarioService historialService;
 
-    public HorarioController(HorarioService horarioService) {
+    public HorarioController(
+            HorarioService horarioService, HistorialHorarioService historialService) {
         this.horarioService = horarioService;
+        this.historialService = historialService;
     }
 
     @PostMapping
@@ -50,6 +60,24 @@ public class HorarioController {
             @PathVariable Long id,
             @Valid @RequestBody ActualizarHorarioRequest request) {
         return horarioService.actualizar(id, request);
+    }
+
+    /** US-27: solo lectura; muestra quien hizo cada cambio, por eso exige tambien leer auditoria. */
+    @GetMapping("/historial")
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER') and hasAuthority('AUDITORIA_LEER')")
+    public PageResponse<HistorialHorarioResponse> historial(
+            @RequestParam(required = false) @Min(2000) @Max(2100) Integer anioAcademico,
+            @RequestParam(required = false) @Positive Long seccionId,
+            @RequestParam(required = false) @Positive Long docenteId,
+            @RequestParam(required = false) @Positive Long aulaId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return historialService.listar(
+                new FiltroHistorialHorario(anioAcademico, seccionId, docenteId, aulaId, desde, hasta),
+                page,
+                size);
     }
 
     @GetMapping("/{id}")

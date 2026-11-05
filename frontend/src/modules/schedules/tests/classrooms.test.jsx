@@ -334,11 +334,10 @@ test("Eliminar muestra el rechazo de un aula usada y elimina una sin horarios", 
   expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual(["/api/aulas/1", "/api/aulas/2"]);
 });
 
-test("Las pestañas navegan por URL y las pendientes lo indican", async () => {
+test("Las pestañas navegan por URL y una inexistente vuelve al horario", async () => {
   backend();
   const user = userEvent.setup();
-  const { rerender } = renderSchedules({ tab: "historial-de-cambios" });
-  expect(screen.getByText("Esta sección todavía está pendiente de implementación.")).toBeTruthy();
+  const { rerender } = renderSchedules({ tab: "asignaciones-docentes" });
   await user.click(screen.getByText("Aulas", { selector: "button" }));
   expect(currentUrl()).toBe("/horarios/aulas");
   rerender(<Schedules canWrite tab="no-existe" />);
