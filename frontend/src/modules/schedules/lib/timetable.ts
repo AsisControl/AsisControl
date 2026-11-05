@@ -1,9 +1,37 @@
 /** Matriz semanal y conflictos de bloques: funciones puras, sin React. El servidor es la autoridad. */
 import { ApiError } from "@/core/api/client";
-import type { ScheduleBlock, WeekDay } from "../types";
+import type { Classroom, CourseAssignment, ScheduleBlock, WeekDay } from "../types";
 import { hour, weekDayLabels } from "./labels";
 
 export const WEEK_DAYS = Object.keys(weekDayLabels) as WeekDay[];
+/** Perspectivas de la matriz (US-24); solo la de sección permite editar bloques. */
+export type Perspective = "seccion" | "docente" | "aula" | "curso";
+export const PERSPECTIVES: Record<Perspective, string> = {
+  seccion: "Sección",
+  docente: "Docente",
+  aula: "Aula",
+  curso: "Curso",
+};
+export type PerspectiveOption = { id: number; label: string };
+/** Quién se puede consultar en cada perspectiva: lo que tiene asignaciones activas en el año. */
+export function perspectiveOptions(
+  perspective: Exclude<Perspective, "seccion">,
+  year: number | null,
+  assignments: CourseAssignment[],
+  classrooms: Classroom[],
+): PerspectiveOption[] {
+  if (perspective === "aula")
+    return classrooms.map((item) => ({ id: item.id, label: `${item.codigo} · ${item.nombre}` }));
+  const options = new Map<number, string>();
+  for (const item of assignments.filter((a) => a.anioAcademico === year)) {
+    if (perspective === "docente") options.set(item.docenteId, item.docente);
+    // Un mismo nombre de curso se repite entre grados.
+    else options.set(item.cursoId, `${item.curso} · ${item.grado}° grado`);
+  }
+  return [...options]
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
 /** Lunes a viernes siempre; el sábado solo si tiene bloques. */
 export function visibleDays(blocks: ScheduleBlock[]): WeekDay[] {
   const saturday = blocks.some((block) => block.diaSemana === "SABADO");
@@ -158,7 +186,7 @@ export type BlockFormValues = {
 export type BlockErrors = Partial<Record<keyof BlockFormValues, string>>;
 export function validateBlock(values: BlockFormValues): BlockErrors {
   const errors: BlockErrors = {};
-  if (!values.asignacionCursoId) errors.asignacionCursoId = "Seleccione el curso.";
+  if (!values.asignacionCursoId) errors.asignacionCursoId = "Seleccione la asignación docente.";
   if (!values.aulaId) errors.aulaId = "Seleccione el aula.";
   if (!(WEEK_DAYS as string[]).includes(values.diaSemana))
     errors.diaSemana = "Seleccione el día.";
