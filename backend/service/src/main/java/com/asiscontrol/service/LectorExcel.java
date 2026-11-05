@@ -1,9 +1,12 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.persona.PersonaDtos;
+import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Lectura de las plantillas de importacion con las mismas reglas que la de alumnos: solo .xlsx
@@ -114,6 +118,39 @@ final class LectorExcel {
     record Resumen(int total, int importadas, List<PersonaDtos.ImportIssue> issues) {
         PersonaDtos.ImportResult resultado() {
             return new PersonaDtos.ImportResult(total, importadas, total - importadas, issues);
+        }
+
+        /** Un registro por archivo; cada alta o vinculo ya deja su propio registro de auditoria. */
+        void auditar(
+                AuditoriaService auditoria, String accion, String entidad, MultipartFile file) {
+            String filasConError = issues.stream()
+                    .map(issue -> String.valueOf(issue.row()))
+                    .collect(Collectors.joining(","));
+            auditoria.registrar(
+                    accion,
+                    ModuloAuditoria.PERSONAS,
+                    entidad,
+                    null,
+                    importadas > 0 || total == 0
+                            ? ResultadoAuditoria.EXITOSO
+                            : ResultadoAuditoria.RECHAZADO,
+                    issues.isEmpty() ? null : "Filas con errores: " + filasConError,
+                    null,
+                    "archivo=" + file.getOriginalFilename()
+                            + ",filas=" + total
+                            + ",importados=" + importadas
+                            + ",fallidos=" + (total - importadas));
+        }
+    }
+
+    /** Aplica las validaciones de la ficha a la fila; los motivos se unen en un solo mensaje. */
+    static <T> void validar(Validator validator, T request) {
+        var errors = validator.validate(request);
+        if (!errors.isEmpty()) {
+            throw new BusinessRuleException("FILA_INVALIDA", errors.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .sorted()
+                    .collect(Collectors.joining("; ")));
         }
     }
 

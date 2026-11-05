@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { Dialog, Feedback } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
+import { saveBlob } from "@/shared/lib/save-blob";
 import type {
   FamilyImportResult,
   FamilyImportSlot,
@@ -98,14 +99,7 @@ export function FamilyImportDialog({
     setError("");
     setDownloading(slot.id);
     try {
-      const blob = await slot.template.download();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = slot.template.fileName;
-      link.click();
-      // Se libera después: algunos navegadores aún no empezaron la descarga.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      saveBlob(await slot.template.download(), slot.template.fileName);
     } catch (cause) {
       setError(message(cause));
     } finally {
@@ -365,7 +359,7 @@ function ReportNotice({ report }: { report: FamilyImportResult }) {
     <Feedback error="Hay errores en los archivos. No se guardó ninguna fila: corrígelos y vuelve a validar." />
   );
 }
-function ImportSummary({
+export function ImportSummary({
   result,
   saved,
 }: {
