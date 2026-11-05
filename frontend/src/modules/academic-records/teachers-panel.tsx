@@ -3,8 +3,25 @@ import { useState } from "react";
 import { PersonCell, StatusPill } from "@/shared/ui";
 import { specialtyLabel } from "@/shared/lib/formatters";
 import { PendingAction, RecordsPanel } from "./records-panel";
+import { TeacherImportDialog } from "./teacher-import-dialog";
 import type { Teacher } from "./types";
 import { TeacherDetail } from "./record-details";
+
+/** "Carga masiva": abre la carga de docentes con plantilla de Excel (US-51). */
+function TeacherImportAction({ onImported }: { onImported: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)}>Carga masiva</button>
+      {open && (
+        <TeacherImportDialog
+          onClose={() => setOpen(false)}
+          onImported={onImported}
+        />
+      )}
+    </>
+  );
+}
 
 export function TeachersPanel() {
   const [openId, setOpenId] = useState<number | null>(null);
@@ -24,12 +41,15 @@ export function TeachersPanel() {
           "Acción",
         ]}
         emptyText="Todavía no hay docentes registrados."
-        actions={() => (
-          <PendingAction
-            className="primary-action"
-            label="+ Registrar docente"
-            hint="El formulario de docentes se habilitará en una próxima entrega."
-          />
+        actions={(refresh) => (
+          <>
+            <TeacherImportAction onImported={refresh} />
+            <PendingAction
+              className="primary-action"
+              label="+ Registrar docente"
+              hint="El formulario de docentes se habilitará en una próxima entrega."
+            />
+          </>
         )}
         renderRows={(teachers) =>
           teachers.map((teacher) => (

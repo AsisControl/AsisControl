@@ -183,7 +183,6 @@ test("Docentes muestra código, especialidad y estado", async () => {
   expect(within(row).getByText("41222333")).toBeTruthy();
   expect(within(row).getByText("Ciencia y Tecnología")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Registrar docente/ }).disabled).toBe(true);
-  expect(screen.queryByRole("button", { name: "Carga masiva" })).toBeNull();
 });
 
 test("La ficha del docente muestra código, especialidad e ingreso", async () => {
