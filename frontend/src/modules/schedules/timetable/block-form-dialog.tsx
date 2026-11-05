@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
 import { Field, FormDialog } from "@/shared/ui";
@@ -38,6 +39,7 @@ export function BlockFormDialog({
   section,
   block,
   assignments,
+  assignmentsStatus,
   classrooms,
   sectionBlocks,
   onClose,
@@ -49,6 +51,8 @@ export function BlockFormDialog({
   block?: ScheduleBlock;
   /** Asignaciones activas (curso y docente) de la sección. */
   assignments: CourseAssignment[];
+  /** Las asignaciones se consultan de nuevo al abrir: pudieron crearse después de entrar a la pestaña. */
+  assignmentsStatus: "loading" | "ready" | "failed";
   /** Aulas habilitadas. */
   classrooms: Classroom[];
   /** Bloques vigentes de la sección. */
@@ -216,15 +220,22 @@ export function BlockFormDialog({
         </>
       }
     >
-      {!assignments.length && (
+      {assignmentsStatus === "failed" && (
+        <p className="full-field hint" role="status">
+          No se pudieron actualizar las asignaciones docentes. Cierra esta ventana y vuelve a
+          abrirla para intentarlo de nuevo.
+        </p>
+      )}
+      {assignmentsStatus === "ready" && !assignments.length && (
         <p className="full-field hint">
-          La sección no tiene cursos con docente asignado. Regístralos en
-          «Asignaciones docentes» para crear bloques.
+          La sección {sectionLabel} no tiene asignaciones docentes activas. Regístralas en{" "}
+          <Link href="/horarios/asignaciones-docentes">Asignaciones docentes</Link>, en el año{" "}
+          {section.anioAcademico}, para crear bloques.
         </p>
       )}
       <label className="field full-field">
         <span>
-          Curso y docente<span className="field-required"> *</span>
+          Asignación docente<span className="field-required"> *</span>
         </span>
         <select
           name="asignacionCursoId"
@@ -232,7 +243,11 @@ export function BlockFormDialog({
           aria-invalid={errors.asignacionCursoId ? true : undefined}
           onChange={(e) => set("asignacionCursoId", e.target.value)}
         >
-          <option value="">Seleccionar curso</option>
+          <option value="">
+            {assignmentsStatus === "loading" && !assignments.length
+              ? "Cargando asignaciones…"
+              : "Seleccionar curso y docente"}
+          </option>
           {block && !assignment && values.asignacionCursoId === String(block.asignacionCursoId) && (
             <option value={block.asignacionCursoId}>
               {block.curso} · {block.docente} (no disponible)

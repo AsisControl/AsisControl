@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
@@ -6,6 +6,7 @@ import { setUrl } from "../../../../tests/support/navigation.js";
 import { Schedules } from "@/modules/schedules";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
+vi.mock("next/link", () => import("../../../../tests/support/next-link.jsx"));
 
 const section = (id, nombre, overrides = {}) => ({
   id,
@@ -31,6 +32,7 @@ const assignment = (id, curso, seccionId, docenteId, docente) => ({
   seccionId,
   seccion: "A",
   anioAcademico: 2026,
+  grado: 3,
   docenteId,
   docente,
   activo: true,
@@ -82,7 +84,8 @@ const filtered = (all, query) =>
     (item) =>
       (!query.seccionId || String(item.seccionId) === query.seccionId) &&
       (!query.docenteId || String(item.docenteId) === query.docenteId) &&
-      (!query.aulaId || String(item.aulaId) === query.aulaId),
+      (!query.aulaId || String(item.aulaId) === query.aulaId) &&
+      (!query.cursoId || String(item.cursoId) === query.cursoId),
   );
 
 function backend({ blocks = sectionBlocks, ...routes } = {}) {
@@ -106,7 +109,7 @@ async function openNewBlock(user) {
   return screen.getByRole("dialog", { name: "Nuevo bloque" });
 }
 async function fillBlock(user, dialog, { course = "10", room = "1", day = "JUEVES", from = "08:00", to = "09:30" } = {}) {
-  await user.selectOptions(within(dialog).getByLabelText(/^Curso y docente/), course);
+  await user.selectOptions(within(dialog).getByLabelText(/^Asignación docente/), course);
   await user.selectOptions(within(dialog).getByLabelText(/^Aula/), room);
   await user.selectOptions(within(dialog).getByLabelText(/^Día/), day);
   fireEvent.change(within(dialog).getByLabelText(/^Hora de inicio/), { target: { value: from } });
@@ -211,13 +214,13 @@ test("Valida los campos obligatorios antes de enviar", async () => {
   renderTimetable();
   const dialog = await openNewBlock(user);
   expect(within(dialog).getByText("Sección 3° A · 2026 · aforo máximo 30")).toBeTruthy();
-  expect([...within(dialog).getByLabelText(/^Curso y docente/).options].map((o) => o.textContent)).toEqual([
-    "Seleccionar curso",
+  expect([...within(dialog).getByLabelText(/^Asignación docente/).options].map((o) => o.textContent)).toEqual([
+    "Seleccionar curso y docente",
     "Matemática · Patricia Morales",
     "Comunicación · Luis Quispe",
   ]);
   await user.click(within(dialog).getByText("Confirmar bloque"));
-  expect(within(dialog).getByText("Seleccione el curso.")).toBeTruthy();
+  expect(within(dialog).getByText("Seleccione la asignación docente.")).toBeTruthy();
   expect(within(dialog).getByText("Seleccione el aula.")).toBeTruthy();
   expect(within(dialog).getByText("Indique la hora de inicio.")).toBeTruthy();
   expect(within(dialog).getByText("Indique la hora de fin.")).toBeTruthy();
@@ -292,7 +295,7 @@ test("Recalcula los cruces de docente, aula, sección y aforo antes de guardar",
     "Aula ocupada: Aula 201 ya está ocupada: Arte · Sección B · Viernes 08:00 – 09:30.",
   );
   await user.selectOptions(within(dialog).getByLabelText(/^Aula/), "2");
-  await user.selectOptions(within(dialog).getByLabelText(/^Curso y docente/), "11");
+  await user.selectOptions(within(dialog).getByLabelText(/^Asignación docente/), "11");
   fireEvent.change(within(dialog).getByLabelText(/^Hora de inicio/), { target: { value: "07:00" } });
   fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "07:45" } });
   const capacity = await within(dialog).findByText(/^Aforo insuficiente:/);
@@ -377,7 +380,7 @@ test("Edita un bloque enviando su versión y avisa si otro usuario lo cambió", 
   await grid();
   await chooseBlockAction(user, "Matemática Lunes 08:00", "Editar");
   const dialog = screen.getByRole("dialog", { name: "Editar bloque" });
-  expect(within(dialog).getByLabelText(/^Curso y docente/).value).toBe("10");
+  expect(within(dialog).getByLabelText(/^Asignación docente/).value).toBe("10");
   expect(within(dialog).getByLabelText(/^Aula/).value).toBe("1");
   expect(within(dialog).getByLabelText(/^Día/).value).toBe("LUNES");
   expect(within(dialog).getByLabelText(/^Hora de inicio/).value).toBe("08:00");
@@ -436,10 +439,193 @@ test("Elimina un bloque y muestra el rechazo del servidor", async () => {
   expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual(["/api/horarios/3", "/api/horarios/3"]);
 });
 
-test("Avisa si la sección no tiene cursos con docente asignado", async () => {
+test("Avisa si la sección no tiene asignaciones y enlaza a la pestaña donde se registran", async () => {
   backend({ "GET /api/asignaciones-cursos": page([]) });
   const user = userEvent.setup();
   renderTimetable();
   const dialog = await openNewBlock(user);
-  expect(within(dialog).getByText(/La sección no tiene cursos con docente asignado/)).toBeTruthy();
+  expect(await within(dialog).findByText(/La sección 3° A · 2026 no tiene asignaciones docentes activas/)).toBeTruthy();
+  expect(within(dialog).getByRole("link", { name: "Asignaciones docentes" }).getAttribute("href"))
+    .toBe("/horarios/asignaciones-docentes");
+});
+
+test("Al abrir Nuevo bloque muestra asignaciones registradas después de entrar a la pestaña", async () => {
+  let current = [];
+  const calls = backend({ "GET /api/asignaciones-cursos": () => page(current) });
+  const user = userEvent.setup();
+  renderTimetable();
+  await grid();
+  current = assignments;
+  const dialog = await openNewBlock(user);
+  await within(dialog).findByRole("option", { name: "Matemática · Patricia Morales" });
+  expect(within(dialog).queryByText(/no tiene asignaciones docentes activas/)).toBeNull();
+  const listings = calls.filter((c) => c.path === "/api/asignaciones-cursos");
+  expect(listings).toHaveLength(2);
+  expect(listings.at(-1).query.estado).toBe("ACTIVAS");
+});
+
+test("Si no se pueden actualizar las asignaciones lo indica sin afirmar que no existen", async () => {
+  let fail = false;
+  backend({ "GET /api/asignaciones-cursos": () => (fail ? reply(500, { message: "Error" }) : page([])) });
+  const user = userEvent.setup();
+  renderTimetable();
+  await grid();
+  fail = true;
+  const dialog = await openNewBlock(user);
+  expect(await within(dialog).findByText(/No se pudieron actualizar las asignaciones docentes/)).toBeTruthy();
+  expect(within(dialog).queryByText(/no tiene asignaciones docentes activas/)).toBeNull();
+});
+
+describe("Perspectivas de la matriz (US-24)", () => {
+  const otherSection = block(4, {
+    asignacionCursoId: 12,
+    seccionId: 9,
+    seccion: "B",
+    diaSemana: "VIERNES",
+  });
+  const allBlocks = [...sectionBlocks, otherSection];
+  const view = async (user, perspective) => {
+    await grid();
+    await user.selectOptions(screen.getByLabelText("Ver horario por"), perspective);
+  };
+
+  test.each([
+    ["docente", "Docente", "Patricia Morales", "docenteId", "9"],
+    ["aula", "Aula", "AULA-201 · Aula 201", "aulaId", "1"],
+    ["curso", "Curso", "Matemática · 3° grado", "cursoId", "1000"],
+  ])("Por %s consulta solo sus bloques e indica la sección", async (perspective, label, option, param, value) => {
+    const calls = backend({
+      blocks: allBlocks.map((item) => (item.curso === "Comunicación" ? { ...item, cursoId: 1100 } : item)),
+      "GET /api/asignaciones-cursos": page([
+        { ...assignment(10, "Matemática", 8, 9, "Patricia Morales"), cursoId: 1000 },
+        assignment(11, "Comunicación", 8, 7, "Luis Quispe"),
+      ]),
+    });
+    const user = userEvent.setup();
+    renderTimetable();
+    await view(user, perspective);
+    const select = await screen.findByLabelText(label);
+    await within(select).findByRole("option", { name: option });
+    await user.selectOptions(select, value);
+    const table = await screen.findByRole("table", { name: `Horario semanal por ${label.toLowerCase()}` });
+    await within(table).findByText("3° B");
+    expect(horarioCalls(calls, (q) => q[param] === value).at(-1).query.anioAcademico).toBe("2026");
+    expect(within(table).getAllByText("3° A").length).toBeGreaterThan(0);
+    expect(within(table).queryByText("Comunicación")).toBeNull();
+    expect(screen.getByRole("heading", { name: `Horario por ${label.toLowerCase()}` })).toBeTruthy();
+  });
+
+  test("Las opciones salen de las asignaciones del año y cambiar de opción reconsulta", async () => {
+    const calls = backend({
+      blocks: allBlocks,
+      "GET /api/asignaciones-cursos": page([
+        ...assignments,
+        { ...assignment(13, "Música", 20, 5, "Ana Antigua"), anioAcademico: 2024 },
+      ]),
+    });
+    const user = userEvent.setup();
+    renderTimetable();
+    await view(user, "docente");
+    const select = await screen.findByLabelText("Docente");
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.textContent)).toEqual([
+        "Luis Quispe",
+        "Patricia Morales",
+        "Rosa Díaz",
+      ]),
+    );
+    await user.selectOptions(select, "9");
+    await screen.findAllByText("Matemática");
+    expect(horarioCalls(calls, (q) => q.docenteId === "9")).not.toHaveLength(0);
+  });
+
+  test("Clic en un bloque abre el detalle completo en cualquier perspectiva", async () => {
+    backend({ blocks: allBlocks });
+    const user = userEvent.setup();
+    renderTimetable();
+    await view(user, "aula");
+    await user.click(await screen.findByRole("button", { name: "Ver detalle de Matemática, Viernes 08:00" }));
+    const dialog = screen.getByRole("dialog", { name: "Detalle del bloque" });
+    const pairs = [...dialog.querySelectorAll("dl > div")].map((row) => [
+      row.querySelector("dt").textContent,
+      row.querySelector("dd").textContent,
+    ]);
+    expect(pairs).toEqual([
+      ["Curso", "Matemática"],
+      ["Sección", "3° B · 2026"],
+      ["Docente responsable", "Patricia Morales"],
+      ["Aula", "Aula 201"],
+      ["Día", "Viernes"],
+      ["Hora de inicio", "08:00"],
+      ["Hora de fin", "09:30"],
+    ]);
+    await user.click(within(dialog).getByRole("button", { name: "Cerrar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("El detalle también abre en la vista por sección sin perder el menú de edición", async () => {
+    backend();
+    const user = userEvent.setup();
+    renderTimetable();
+    await grid();
+    expect(screen.getAllByLabelText(/Más acciones/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "Ver detalle de Comunicación, Martes 08:00" }));
+    const dialog = screen.getByRole("dialog", { name: "Detalle del bloque" });
+    expect(within(dialog).getByText("3° A · 2026")).toBeTruthy();
+    expect(within(dialog).getByText("Luis Quispe")).toBeTruthy();
+  });
+
+  test("Fuera de la vista por sección es de consulta: sin crear ni editar", async () => {
+    backend({ blocks: allBlocks });
+    const user = userEvent.setup();
+    renderTimetable();
+    expect(await screen.findByText("+ Nuevo bloque")).toBeTruthy();
+    await view(user, "docente");
+    await screen.findByRole("table", { name: "Horario semanal por docente" });
+    expect(screen.queryByText("+ Nuevo bloque")).toBeNull();
+    expect(screen.queryByLabelText(/Más acciones/)).toBeNull();
+    await user.selectOptions(screen.getByLabelText("Ver horario por"), "seccion");
+    await grid();
+    expect(screen.getByText("+ Nuevo bloque")).toBeTruthy();
+  });
+
+  test("Sin bloques muestra la matriz vacía y un mensaje claro", async () => {
+    backend({ blocks: [] });
+    const user = userEvent.setup();
+    renderTimetable();
+    let table = await grid();
+    expect(cellTexts(table)[0]).toEqual(["Hora", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]);
+    expect(within(table).getByText(/La sección 3° A aún no tiene bloques/)).toBeTruthy();
+    await user.selectOptions(screen.getByLabelText("Ver horario por"), "docente");
+    table = await screen.findByRole("table", { name: "Horario semanal por docente" });
+    expect(within(table).getByText("Luis Quispe no tiene bloques de horario en 2026.")).toBeTruthy();
+  });
+
+  test("Sin opciones lo explica y no consulta el horario", async () => {
+    const calls = backend({ "GET /api/asignaciones-cursos": page([]) });
+    const user = userEvent.setup();
+    renderTimetable();
+    await view(user, "curso");
+    expect(await screen.findByText("No hay cursos con asignaciones activas en 2026.")).toBeTruthy();
+    expect(screen.getByLabelText("Curso").disabled).toBe(true);
+    expect(horarioCalls(calls, (q) => q.cursoId)).toHaveLength(0);
+  });
+
+  test("Con solo lectura también consulta las perspectivas; si fallan, lo informa", async () => {
+    let fail = false;
+    backend({
+      blocks: allBlocks,
+      "GET /api/aulas": () => (fail ? reply(500, { message: "Error de aulas" }) : page(classrooms)),
+    });
+    const user = userEvent.setup();
+    const first = renderTimetable({ canWrite: false });
+    await view(user, "docente");
+    expect(await screen.findByRole("table", { name: "Horario semanal por docente" })).toBeTruthy();
+    expect(screen.queryByLabelText(/Más acciones/)).toBeNull();
+    first.unmount();
+    fail = true;
+    renderTimetable({ canWrite: false });
+    await view(user, "aula");
+    expect((await screen.findByRole("alert")).textContent).toBe("Error de aulas");
+  });
 });

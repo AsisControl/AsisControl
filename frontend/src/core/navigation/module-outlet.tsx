@@ -7,7 +7,7 @@ import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Finance } from "@/modules/finance";
-import { Schedules } from "@/modules/schedules";
+import { Schedules, TeacherSchedule } from "@/modules/schedules";
 import { TasksModule } from "@/modules/tasks";
 import { canAccess } from "./access-policy";
 import {
@@ -25,6 +25,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   DOCENTE: {
+    Horario: () => <TeacherSchedule />,
     Tareas: ({ user, subpath }) => (
       <TasksModule
         subpath={subpath}

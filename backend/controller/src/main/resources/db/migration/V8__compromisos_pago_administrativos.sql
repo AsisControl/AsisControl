@@ -7,8 +7,12 @@ ALTER TABLE CompromisoPago ADD COLUMN clave_obligacion VARCHAR(64) NULL;
 ALTER TABLE CompromisoPago ADD COLUMN motivo_anulacion VARCHAR(500) NULL;
 ALTER TABLE CompromisoPago ADD COLUMN fecha_anulacion DATETIME(6) NULL;
 
+-- En MySQL CHAR(n) devuelve una cadena binaria, que REGEXP_REPLACE no admite junto a texto utf8mb4.
+-- CAST deja columna y patrón en la misma colación, sea cual sea la de la conexión; CHAR(9) es el
+-- largo exacto del patrón, para que H2 no lo rellene con espacios. No usar sintaxis exclusiva de MySQL.
 UPDATE CompromisoPago
-SET concepto_normalizado = LOWER(TRIM(REGEXP_REPLACE(concepto, CONCAT('[ ', CHAR(9), CHAR(10), CHAR(11), CHAR(12), CHAR(13), ']+'), ' '))),
+SET concepto_normalizado = LOWER(TRIM(REGEXP_REPLACE(CAST(concepto AS CHAR(160)),
+        CAST(CONCAT('[ ', CHAR(9), CHAR(10), CHAR(11), CHAR(12), CHAR(13), ']+') AS CHAR(9)), ' '))),
     estado_administrativo = CASE WHEN estado_compromiso = 'ANULADO' OR activo = FALSE
                                  THEN 'ANULADO' ELSE 'ACTIVO' END,
     motivo_anulacion = CASE WHEN estado_compromiso = 'ANULADO' OR activo = FALSE
