@@ -1,14 +1,18 @@
 // asistencia alumnos
 package com.asiscontrol.service.asistencia;
 
+import com.asiscontrol.dto.asistencia.PeriodoCurso;
+import com.asiscontrol.dto.asistencia.SesionClaseDtos.AsignacionAsistenciaResponse;
 import com.asiscontrol.dto.asistencia.SesionClaseDtos.SesionClaseResponse;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.DiaSemana;
+import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.planificacion.AnioAcademico;
 import com.asiscontrol.entity.planificacion.DiaNoLectivo;
+import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
 import com.asiscontrol.service.AsignacionCursoService;
 import com.asiscontrol.service.ConfiguracionAcademicaService;
@@ -123,15 +127,62 @@ public class CalendarioSesionService {
         sesionRepository.saveAll(cambios);
     }
 
+    /**
+     * Cursos del docente autenticado. Un año en BORRADOR todavía no se dicta, por eso no aparece
+     * en ningún filtro, ni en TODOS. Para otro perfil la lista queda vacía.
+     */
+    public List<AsignacionAsistenciaResponse> listarAsignaciones(PeriodoCurso periodo) {
+        Map<Integer, Optional<EstadoAnioAcademico>> estados = new HashMap<>();
+        List<AsignacionAsistenciaResponse> cursos = new ArrayList<>();
+        for (AsignacionCurso asignacion : asignacionService.listarPorPersonaDocente(accessGuard.personaIdActual())) {
+            EstadoAnioAcademico estado = estados
+                    .computeIfAbsent(asignacion.getSeccion().getAnioAcademico(), anio ->
+                            configuracionService.buscarOpcional(anio).map(AnioAcademico::getEstado))
+                    .orElse(null);
+            boolean vigente = estado == EstadoAnioAcademico.ACTIVO;
+            boolean pasado = estado == EstadoAnioAcademico.CERRADO;
+            boolean incluido = switch (periodo) {
+                case VIGENTES -> vigente;
+                case PASADOS -> pasado;
+                case TODOS -> vigente || pasado;
+            };
+            if (incluido) {
+                cursos.add(new AsignacionAsistenciaResponse(
+                        asignacion.getId(),
+                        asignacion.getCurso().getNombre(),
+                        asignacion.getSeccion().getGrado() + "° " + asignacion.getSeccion().getNombre(),
+                        asignacion.getSeccion().getAnioAcademico(),
+                        vigente));
+            }
+        }
+        return cursos;
+    }
+
     public List<SesionClaseResponse> listar(Long asignacionCursoId) {
         AsignacionCurso asignacion = asignacionService.obtenerEntidad(asignacionCursoId);
         accessGuard.verificarAsignacionDocente(asignacion);
+        exigirAnioDictado(asignacion);
         LocalDate hoy = LocalDate.now(reloj);
         return sesionRepository
                 .findAllByAsignacionCursoIdAndActivoTrueOrderByFechaAscHoraInicioAsc(asignacionCursoId)
                 .stream()
                 .map(sesion -> mapear(sesion, hoy))
                 .toList();
+    }
+
+    /**
+     * La asistencia solo opera en un año que se dicta (ACTIVO) o que ya se dictó (CERRADO). Las
+     * sesiones de un año en BORRADOR se generan para tenerlas listas, pero aún no se usan.
+     */
+    public void exigirAnioDictado(AsignacionCurso asignacion) {
+        boolean dictado = configuracionService.buscarOpcional(asignacion.getSeccion().getAnioAcademico())
+                .map(AnioAcademico::getEstado)
+                .filter(estado -> estado != EstadoAnioAcademico.BORRADOR)
+                .isPresent();
+        if (!dictado) {
+            throw new BusinessRuleException(
+                    "ASISTENCIA_ANIO_NO_ACTIVO", "El año académico de este curso todavía no está activo");
+        }
     }
 
     /** Un BORRADOR de un día anterior ya venció: se informa como PENDIENTE (R07, R08). */

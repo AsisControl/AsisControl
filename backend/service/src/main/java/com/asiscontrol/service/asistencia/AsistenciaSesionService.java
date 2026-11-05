@@ -67,6 +67,7 @@ public class AsistenciaSesionService {
     private final MatriculaService matriculaService;
     private final AuditoriaService auditoria;
     private final ModuloAccessGuard accessGuard;
+    private final CalendarioSesionService calendarioService;
     private final Clock reloj;
 
     public AsistenciaSesionService(
@@ -77,6 +78,7 @@ public class AsistenciaSesionService {
             MatriculaService matriculaService,
             AuditoriaService auditoria,
             ModuloAccessGuard accessGuard,
+            CalendarioSesionService calendarioService,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
         this.asistenciaRepository = asistenciaRepository;
@@ -85,6 +87,7 @@ public class AsistenciaSesionService {
         this.matriculaService = matriculaService;
         this.auditoria = auditoria;
         this.accessGuard = accessGuard;
+        this.calendarioService = calendarioService;
         this.reloj = reloj;
     }
 
@@ -95,6 +98,7 @@ public class AsistenciaSesionService {
     public SesionAsistenciaResponse obtener(Long sesionId) {
         SesionClase sesion = buscarSesion(sesionId);
         accessGuard.verificarAsignacionDocente(sesion.getAsignacionCurso());
+        calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         return mapear(sesion, asistenciaRepository.findAllBySesionClaseId(sesionId));
     }
 
@@ -209,6 +213,7 @@ public class AsistenciaSesionService {
     public List<CorreccionAsistenciaResponse> listarCorrecciones(Long sesionId) {
         SesionClase sesion = buscarSesion(sesionId);
         accessGuard.verificarAsignacionDocente(sesion.getAsignacionCurso());
+        calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         List<CorreccionAsistencia> correcciones = correccionRepository.findAllBySesionClaseIdOrderByFechaHoraDesc(sesionId);
         Map<Long, List<CorreccionAsistenciaDetalle>> detalles = detalleRepository
                 .findAllByCorreccionAsistenciaIdIn(correcciones.stream().map(CorreccionAsistencia::getId).toList())
@@ -255,6 +260,7 @@ public class AsistenciaSesionService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "SESION_CLASE_NO_ENCONTRADA", "No existe una sesión de clase activa con id " + sesionId));
         accessGuard.verificarDocenteTitular(sesion.getAsignacionCurso());
+        calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         if (version != null && sesion.getVersion() != version) {
             throw new ConflictException(
                     "VERSION_DESACTUALIZADA", "La asistencia fue modificada en otra pantalla; vuelva a cargarla");

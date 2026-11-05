@@ -215,6 +215,11 @@ public class AsignacionCursoService {
                         "No existe una asignacion de curso activa con id " + id));
     }
 
+    // asistencia alumnos
+    public List<AsignacionCurso> listarPorPersonaDocente(Long personaId) {
+        return asignacionRepository.buscarPorPersonaDocente(personaId);
+    }
+
     // asistencia alumnos: sin excepción, para sincronizar sesiones de una asignación retirada
     public Optional<AsignacionCurso> buscarActiva(Long id) {
         return asignacionRepository.findByIdAndActivoTrue(id);
