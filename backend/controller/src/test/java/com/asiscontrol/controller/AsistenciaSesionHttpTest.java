@@ -12,6 +12,7 @@ import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.Especialidad;
+import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
 import com.asiscontrol.entity.enums.TipoAula;
@@ -195,6 +196,32 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         // El administrador consulta, pero no registra en nombre del docente.
         getOk(ruta(id));
         request("PUT", ruta(id) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 403);
+    }
+
+    @Test void unAnioEnBorradorNoAdmiteAsistencia() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        year.setEstado(EstadoAnioAcademico.BORRADOR); em.flush();
+
+        var rechazo = docente("GET", "/api/asistencias/asignaciones/" + assignment.getId() + "/sesiones", null, 422);
+        assertThat(rechazo.path("code").asText()).isEqualTo("ASISTENCIA_ANIO_NO_ACTIVO");
+        docente("GET", ruta(id), null, 422);
+        docente("GET", ruta(id) + "/correcciones", null, 422);
+        var marcas = List.of(marca(student, "PRESENTE"), marca(otro, "PRESENTE"));
+        docente("PUT", ruta(id) + "/borrador", data("marcas", marcas), 422);
+        docente("POST", ruta(id) + "/finalizar", data("marcas", marcas, "version", 0), 422);
+        docente("PUT", ruta(id), data("marcas", marcas, "motivo", "Prueba", "version", 0), 422);
+    }
+
+    @Test void unAnioCerradoSeConsultaYSeCorrige() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        finalizarTodos(id);
+        year.setEstado(EstadoAnioAcademico.CERRADO); em.flush();
+
+        docente("GET", "/api/asistencias/asignaciones/" + assignment.getId() + "/sesiones", null, 200);
+        long version = docente("GET", ruta(id), null, 200).path("version").asLong();
+        var corregida = docente("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Correccion posterior", "version", version), 200);
+        assertThat(corregida.path("estado").asText()).isEqualTo("TOMADA");
     }
 
     @Test void borradorVencidoVuelveAPendienteSinGenerarInasistencias() throws Exception {
