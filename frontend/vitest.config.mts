@@ -13,6 +13,11 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   test: {
     include: ["tests/**/*.test.{js,jsx}", "src/**/tests/**/*.test.{js,jsx}"],
+    // Los entornos jsdom compiten por CPU y memoria si se abren demasiados procesos.
+    minWorkers: 1,
+    maxWorkers: 2,
+    // Los recorridos de formularios simulan escritura y varias acciones del usuario.
+    testTimeout: 20_000,
     // Las pantallas se prueban en un DOM simulado; la lógica pura declara
     // `@vitest-environment node` en su archivo.
     environment: "jsdom",
@@ -22,8 +27,6 @@ export default defineConfig({
     css: { modules: { classNameStrategy: "non-scoped" } },
     restoreMocks: true,
     unstubGlobals: true,
-    // Las pantallas con muchos pasos superan los 5 s por defecto cuando corren en paralelo.
-    testTimeout: 20000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

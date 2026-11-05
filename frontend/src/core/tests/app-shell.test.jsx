@@ -87,11 +87,124 @@ test("El menú muestra solo las opciones permitidas y navega por URL", async () 
   renderApp();
   const nav = await screen.findByRole("navigation", { name: "Navegación principal" });
   expect(within(nav).queryByText("Matrícula")).toBeNull();
+  expect(within(nav).queryByText("Finanzas")).toBeNull();
   expect(within(nav).getByText("Inicio").getAttribute("aria-current")).toBe("page");
-  await user.click(within(nav).getByText("Finanzas"));
-  expect(currentUrl()).toBe("/finanzas");
+  await user.click(within(nav).getByText("Asistencia"));
+  expect(currentUrl()).toBe("/asistencia");
   expect(await screen.findByText("Este módulo todavía está pendiente de implementación.")).toBeTruthy();
-  expect(within(nav).getByText("Finanzas").getAttribute("aria-current")).toBe("page");
+  expect(within(nav).getByText("Asistencia").getAttribute("aria-current")).toBe("page");
+});
+
+test("Sin PAGOS_LEER la dirección de Finanzas rechaza el acceso sin consultar compromisos", async () => {
+  const calls = backend({ "GET /api/auth/me": summary({ permisos: [] }) });
+  sessionFor({ permissions: [] });
+  setUrl("/finanzas");
+  renderApp();
+  expect(await screen.findByText("ACCESO DENEGADO")).toBeTruthy();
+  expect(calls.some((call) => call.path.startsWith("/api/compromisos-pago"))).toBe(false);
+});
+
+test("Finanzas permite consultar y habilita la emisión solo con PAGOS_ESCRIBIR", async () => {
+  for (const writable of [false, true]) {
+    const permissions = ["PAGOS_LEER", ...(writable ? ["PAGOS_ESCRIBIR"] : [])];
+    backend({
+      "GET /api/auth/me": summary({ permisos: permissions }),
+      "GET /api/compromisos-pago": page([]),
+    });
+    sessionFor({ permissions });
+    setUrl("/finanzas");
+    const { unmount } = renderApp();
+    expect(await screen.findByRole("heading", { name: "Compromisos de pago" })).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Navegación principal" });
+    expect(within(nav).getByText("Finanzas").getAttribute("aria-current")).toBe("page");
+    expect(Boolean(screen.queryByRole("button", { name: /Emitir compromiso/ }))).toBe(writable);
+    unmount();
+  }
+});
+
+test("Matrícula conserva la vista de docentes al abrir una URL y cambiar entre fichas", async () => {
+  const calls = backend({
+    "GET /api/docentes": page([]),
+    "GET /api/alumnos": page([]),
+  });
+  sessionFor();
+  setUrl("/matricula/fichas/docentes");
+  const user = userEvent.setup();
+  renderApp();
+  expect(await screen.findByText("Todavía no hay docentes registrados.")).toBeTruthy();
+  expect(currentUrl()).toBe("/matricula/fichas/docentes");
+  const views = screen.getByRole("navigation", { name: "Fichas académicas" });
+  expect(within(views).getByRole("button", { name: "Docentes" }).getAttribute("aria-current")).toBe("page");
+  expect(calls.some((call) => call.path === "/api/docentes")).toBe(true);
+  expect(calls.some((call) => call.path === "/api/alumnos")).toBe(false);
+
+  await user.click(within(views).getByRole("button", { name: "Estudiantes" }));
+  expect(currentUrl()).toBe("/matricula/fichas/estudiantes");
+  expect(await screen.findByText("Todavía no hay estudiantes registrados.")).toBeTruthy();
+  await user.click(within(views).getByRole("button", { name: "Docentes" }));
+  expect(currentUrl()).toBe("/matricula/fichas/docentes");
+  expect(await screen.findByText("Todavía no hay docentes registrados.")).toBeTruthy();
+});
+
+test("Tareas aplica los permisos de lectura, escritura y adjuntos desde la navegación docente", async () => {
+  for (const permissions of [
+    [],
+    ["TAREAS_LEER"],
+    ["TAREAS_LEER", "TAREAS_ESCRIBIR"],
+    ["TAREAS_LEER", "TAREAS_ESCRIBIR", "ARCHIVOS_ESCRIBIR"],
+  ]) {
+    const calls = backend({
+      "GET /api/auth/me": summary({ rol: "DOCENTE", permisos: permissions }),
+      "GET /api/tareas": page([]),
+      "GET /api/asignaciones-cursos/mias": page([]),
+    });
+    sessionFor({ role: "DOCENTE", permissions });
+    setUrl("/tareas");
+    const user = userEvent.setup();
+    const { unmount } = renderApp();
+    if (!permissions.includes("TAREAS_LEER")) {
+      expect(await screen.findByText("ACCESO DENEGADO")).toBeTruthy();
+      expect(calls.some((call) => call.path === "/api/tareas")).toBe(false);
+    } else {
+      expect(await screen.findByRole("heading", { name: "Mis tareas" })).toBeTruthy();
+      expect(await screen.findByText("Aún no tienes tareas registradas.")).toBeTruthy();
+      const create = screen.queryByRole("button", { name: "Nueva tarea" });
+      expect(Boolean(create)).toBe(permissions.includes("TAREAS_ESCRIBIR"));
+      if (create) {
+        await user.click(create);
+        const upload = await screen.findByRole("button", { name: "Agregar archivos" });
+        expect(upload.disabled).toBe(!permissions.includes("ARCHIVOS_ESCRIBIR"));
+      }
+    }
+    unmount();
+  }
+});
+
+test("Horarios transmite AUDITORIA_LEER y protege la ruta del historial", async () => {
+  for (const canAudit of [false, true]) {
+    const permissions = ["ACADEMICO_LEER", ...(canAudit ? ["AUDITORIA_LEER"] : [])];
+    const calls = backend({
+      "GET /api/auth/me": summary({ permisos: permissions }),
+      "GET /api/secciones": page([]),
+      "GET /api/docentes": page([]),
+      "GET /api/aulas": page([]),
+      "GET /api/horarios/historial": page([]),
+    });
+    sessionFor({ permissions });
+    setUrl("/horarios/historial-de-cambios");
+    const { unmount } = renderApp();
+    expect(await screen.findByText("Horario Académico")).toBeTruthy();
+    expect(Boolean(screen.queryByRole("button", { name: "Historial de cambios" }))).toBe(canAudit);
+    if (canAudit) {
+      expect(await screen.findByText("No hay cambios registrados con estos filtros.")).toBeTruthy();
+      expect(currentUrl()).toBe("/horarios/historial-de-cambios");
+      expect(calls.some((call) => call.path === "/api/horarios/historial")).toBe(true);
+    } else {
+      expect(currentUrl()).toBe("/horarios/horario");
+      expect(calls.some((call) => call.path === "/api/horarios/historial")).toBe(false);
+    }
+    unmount();
+  }
 });
 
 test("Cada rol ve su menú y su pantalla de inicio", async () => {

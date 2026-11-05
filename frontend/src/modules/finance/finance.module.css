@@ -1,0 +1,163 @@
+.finance,
+.codeText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) minmax(110px, 1fr) repeat(2, minmax(160px, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.filters button,
+.pickerSearch button {
+  min-height: 44px;
+}
+
+.table {
+  min-width: 960px;
+}
+
+.money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pickerTitle {
+  margin: 0 0 12px;
+}
+
+.pickerSearch {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.pickerSearch > label.searchField {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.searchButton {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  justify-content: center;
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
+.searchButton:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.searchButton:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.enrollmentChoices {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.enrollmentChoices li,
+.selectedEnrollment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid #dce1eb;
+  border-radius: 8px;
+}
+
+.enrollmentChoices li + li {
+  margin-top: 8px;
+}
+
+.enrollmentChoices small,
+.selectedEnrollment span {
+  display: block;
+  margin-top: 4px;
+  color: #62708c;
+}
+
+.selectedEnrollment {
+  background: #f5f7fc;
+}
+
+.selectedEnrollment p {
+  margin: 0;
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #f5f7fc;
+  color: #42516d;
+}
+
+.reason {
+  grid-column: 1 / -1;
+}
+
+.reason textarea {
+  resize: vertical;
+}
+
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.fieldError {
+  color: #b42318;
+  font-size: 0.85rem;
+}
+
+.statusColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 6px;
+}
+
+.amountSummary {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 1000px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pickerSearch,
+  .selectedEnrollment {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .enrollmentChoices li {
+    align-items: start;
+  }
+}

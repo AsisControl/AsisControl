@@ -12,6 +12,26 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Matricula m where m.id = :id and m.activo = true")
+    Optional<Matricula> bloquearPorId(@Param("id") Long id);
+
+    @Query("""
+            SELECT m FROM Matricula m
+            JOIN m.alumno a JOIN a.persona p
+            WHERE m.activo = true AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
+              AND a.activo = true AND p.activo = true
+              AND EXISTS (SELECT y.id FROM AnioAcademico y
+                          WHERE y.anio = m.anioAcademico AND y.activo = true
+                            AND y.estado = com.asiscontrol.entity.enums.EstadoAnioAcademico.ACTIVO)
+              AND (:busqueda IS NULL
+                   OR LOWER(m.codigoMatricula) LIKE LOWER(CONCAT('%', :busqueda, '%'))
+                   OR LOWER(a.codigoAlumno) LIKE LOWER(CONCAT('%', :busqueda, '%'))
+                   OR LOWER(CONCAT(p.nombres, ' ', p.apellidoPaterno, ' ', COALESCE(p.apellidoMaterno, '')))
+                       LIKE LOWER(CONCAT('%', :busqueda, '%')))
+            """)
+    Page<Matricula> buscarParaCompromisos(@Param("busqueda") String busqueda, Pageable pageable);
     boolean existsBySeccionId(Long id);
 
     boolean existsByAnioAcademico(int anioAcademico);
