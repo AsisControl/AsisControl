@@ -147,6 +147,22 @@ Los archivos recibidos externamente, incluidos SQL que no estén dentro de
 `controller/src/main/resources/db/migration`, no se ejecutan automáticamente y no deben mezclarse
 con la ruta oficial sin revisión del equipo responsable de datos.
 
+## Probar la asistencia en otra fecha
+
+La asistencia solo se toma el día de la clase, por lo que un curso de otro año no muestra
+**Tomar asistencia**. Para probarla en desarrollo, indica la fecha de una de sus clases antes de
+arrancar el backend, en la misma terminal:
+
+```powershell
+$env:ASISTENCIA_FECHA_SIMULADA = "2027-03-01"
+```
+
+La fecha debe tener el formato `AAAA-MM-DD`; una fecha inválida impide arrancar. La hora sigue
+siendo la real y el log muestra `FECHA SIMULADA ACTIVA` al iniciar. Para volver a la fecha real,
+ejecuta `Remove-Item Env:ASISTENCIA_FECHA_SIMULADA` y reinicia el backend.
+
+Lo que registres queda guardado en la base. Nunca definas esta variable en producción.
+
 ## Problemas frecuentes
 
 | Mensaje o síntoma | Causa habitual | Qué hacer |
