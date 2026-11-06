@@ -11,6 +11,20 @@ public final class SesionClaseDtos {
     private SesionClaseDtos() {
     }
 
+    /** Curso de Mis cursos: su id abre el panel de asistencia y el de evaluaciones. */
+    public record AsignacionAsistenciaResponse(
+            Long id,
+            String curso,
+            String seccion,
+            int anioAcademico,
+            boolean vigente,
+            int estudiantes,
+            String horario,
+            String aula,
+            String periodo
+    ) {
+    }
+
     /**
      * Sesión de clase con su estado efectivo: un BORRADOR de un día anterior se informa como
      * PENDIENTE. Los indicadores dicen qué puede hacer el docente según la fecha del servidor.

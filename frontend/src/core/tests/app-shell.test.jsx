@@ -146,6 +146,22 @@ test("Matrícula conserva la vista de docentes al abrir una URL y cambiar entre 
   expect(await screen.findByText("Todavía no hay docentes registrados.")).toBeTruthy();
 });
 
+test("El alumno abre Mis Tareas desde el menú y consulta sus propias tareas", async () => {
+  const permissions = ["TAREAS_LEER"];
+  backend({
+    "GET /api/auth/me": summary({ rol: "ALUMNO", permisos: permissions }),
+    "GET /api/alumnos/me/tareas": page([]),
+  });
+  sessionFor({ role: "ESTUDIANTE", permissions });
+  const user = userEvent.setup();
+  renderApp();
+  const nav = await screen.findByRole("navigation", { name: "Navegación principal" });
+  await user.click(within(nav).getByText("Tareas"));
+  expect(currentUrl()).toBe("/tareas");
+  expect(await screen.findByRole("heading", { name: "Mis Tareas" })).toBeTruthy();
+  expect(await screen.findByText(/No hay tareas disponibles con estos filtros/)).toBeTruthy();
+});
+
 test("Tareas aplica los permisos de lectura, escritura y adjuntos desde la navegación docente", async () => {
   for (const permissions of [
     [],
@@ -217,7 +233,7 @@ test("Cada rol ve su menú y su pantalla de inicio", async () => {
     sessionFor({ role, permissions: [] });
     const { unmount } = renderApp();
     expect(await screen.findByText(title)).toBeTruthy();
-    expect(screen.getByText(/Has ingresado como/)).toBeTruthy();
+    expect(screen.getByText(role === "DOCENTE" ? /Datos de ejemplo/ : /Has ingresado como/)).toBeTruthy();
     unmount();
   }
 });

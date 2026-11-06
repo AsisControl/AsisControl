@@ -5,12 +5,16 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
-import { CheckInPoint, TeacherCheckIn } from "@/modules/attendance";
+import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
-import { Finance } from "@/modules/finance";
 import { Evaluations } from "@/modules/evaluations";
-import { Schedules, TeacherSchedule } from "@/modules/schedules";
+import { Finance } from "@/modules/finance";
+import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
+import { StudentTasks } from "@/modules/student-tasks";
 import { TasksModule } from "@/modules/tasks";
+import { TeacherCoursesModule } from "@/modules/teacher-courses";
+import { TeacherHome } from "@/modules/teacher-home";
 import { canAccess } from "./access-policy";
 import {
   HOME_NAV,
@@ -26,10 +30,17 @@ type Screen = (context: ScreenContext) => ReactNode;
  * el aviso de módulo pendiente. El backend sigue siendo quien autoriza.
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
+  ESTUDIANTE: {
+    Tareas: () => <StudentTasks />,
+    Horario: () => <StudentSchedule />,
+  },
   DOCENTE: {
-    Asistencia: ({ user }) => (
-      <TeacherCheckIn
-        canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
+    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
+    "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
+    Asistencia: ({ user, subpath: [tab] }) => (
+      <TeacherAttendance
+        tab={tab}
+        canCheckIn={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
       />
     ),
     Horario: () => <TeacherSchedule />,
@@ -77,6 +88,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Matrícula: () => <GuardianEnrollment />,
+    Asistencia: () => <GuardianAttendance />,
   },
 };
 /** Direcciones anteriores que se conservan para no romper enlaces guardados. */

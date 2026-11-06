@@ -1,14 +1,15 @@
 # US-15 — Asistencia general del docente con QR dinámico (frontend)
 
-Módulo `src/modules/attendance/`, expuesto por su `index.ts` (`TeacherCheckIn`, `CheckInPoint`)
-y registrado en la opción **Asistencia** de `core/navigation/module-outlet.tsx`.
+Subcarpeta `src/modules/attendance/teacher-check-in/` dentro del módulo de asistencia que comparte
+con la US-14. Se expone por `attendance/index.ts` (`CheckInPoint`, `TeacherAttendance`, `TeacherCheckIn`)
+y se registra en la opción **Asistencia** de `core/navigation/module-outlet.tsx`.
 
 ## Pantallas
 
 | Rol | Pantalla | Qué hace |
 |---|---|---|
 | Administrador | `CheckInPoint` (punto de marcación) | Elige al docente, emite su QR, muestra la cuenta regresiva, lo renueva 10 s antes de vencer y detecta cuándo fue utilizado. |
-| Docente | `TeacherCheckIn` (marcar mi asistencia) | Escanea el QR con la cámara (o ingresa el código), muestra Presente/Tardanza con la hora del servidor y su historial. |
+| Docente | `TeacherAttendance` → pestaña *Mi marcación* (`/asistencia/mi-marcacion`) con `TeacherCheckIn` | Escanea el QR con la cámara (o ingresa el código), muestra Presente/Tardanza con la hora del servidor y su historial. |
 
 ## Contrato usado (`/api/asistencias/docentes`)
 
@@ -35,8 +36,9 @@ y registrado en la opción **Asistencia** de `core/navigation/module-outlet.tsx`
   un QR institucional único; confirmar con BE si se mantiene el flujo por docente.
 - Confirmar que `/marcar` verifica que el QR pertenezca al docente autenticado.
 - La cámara del navegador exige HTTPS fuera de `localhost`: el despliegue debe tener certificado.
-- US-14 (asistencia de alumnos) también usará la opción Asistencia del docente: acordar pestañas.
+- La opción Asistencia del docente se comparte con la US-14: `/asistencia` sigue mostrando la bandeja de
+  justificaciones y `/asistencia/mi-marcacion` la marcación con QR.
 
 ## Verificación
 
-`npm run lint`, `npm run test:coverage`, `npm run build`. Pruebas en `attendance/tests/` (22 casos).
+`npm run lint`, `npm run test:coverage`, `npm run build`. Pruebas en `attendance/tests/` (`teacher-check-in`, `check-in-point`, `teacher-check-in-service`, `teacher-attendance`; 23 casos).

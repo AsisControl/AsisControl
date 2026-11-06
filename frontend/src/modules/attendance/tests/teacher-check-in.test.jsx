@@ -2,11 +2,11 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/core/api/client";
-import { todayInLima } from "../lib/format";
-import { listarMisMarcaciones, marcarAsistencia } from "../services/asistencia-docente-service";
-import { TeacherCheckIn } from "../teacher-check-in";
+import { todayInLima } from "../teacher-check-in/format";
+import { listarMisMarcaciones, marcarAsistencia } from "../teacher-check-in/services/asistencia-docente-service";
+import { TeacherCheckIn } from "../teacher-check-in/teacher-check-in";
 
-vi.mock("../services/asistencia-docente-service", () => ({
+vi.mock("../teacher-check-in/services/asistencia-docente-service", () => ({
   marcarAsistencia: vi.fn(),
   listarMisMarcaciones: vi.fn(),
 }));

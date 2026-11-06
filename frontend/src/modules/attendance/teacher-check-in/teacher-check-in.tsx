@@ -1,14 +1,14 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ESTADO_LABEL, dateOf, timeOf, todayInLima } from "./lib/format";
-import { checkInErrorMessage } from "./lib/messages";
+import { ESTADO_LABEL, dateOf, timeOf, todayInLima } from "./format";
+import { checkInErrorMessage } from "./messages";
 import { QrScanner } from "./qr-scanner";
 import {
   listarMisMarcaciones,
   marcarAsistencia,
 } from "./services/asistencia-docente-service";
 import type { AsistenciaDocente } from "./types";
-import styles from "./attendance.module.css";
+import styles from "./teacher-check-in.module.css";
 
 const MAX_TOKEN_LENGTH = 500;
 

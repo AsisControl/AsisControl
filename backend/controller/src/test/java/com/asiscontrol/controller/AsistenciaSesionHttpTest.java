@@ -6,12 +6,16 @@ import com.asiscontrol.entity.AsistenciaAlumno;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Horario;
+import com.asiscontrol.entity.JustificacionAsistencia;
 import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.SolicitudMatricula;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.Especialidad;
+import com.asiscontrol.entity.enums.EstadoAnioAcademico;
+import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoJustificacion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
 import com.asiscontrol.entity.enums.TipoAula;
@@ -26,6 +30,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -102,6 +107,7 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         var inicial = docente("GET", ruta(id), null, 200);
         assertThat(inicial.path("estado").asText()).isEqualTo("PENDIENTE");
         assertThat(inicial.path("alumnos")).hasSize(2);
+        assertThat(inicial.path("alumnos").get(0).path("nombreCompleto").asText()).startsWith("Prueba Sistema, ");
         assertThat(inicial.path("pendientes").asInt()).isEqualTo(2);
         assertThat(inicial.path("puedeTomar").asBoolean()).isTrue();
 
@@ -145,6 +151,9 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         long futura = sesion(hoy.plusDays(7), EstadoSesionClase.PENDIENTE);
         var vista = docente("GET", ruta(pasada), null, 200);
         assertThat(vista.path("puedeTomar").asBoolean()).isFalse();
+        assertThat(vista.path("puedeVer").asBoolean()).isTrue();
+        assertThat(vista.path("seccion").asText()).isEqualTo("1° Grado A");
+        assertThat(docente("GET", ruta(futura), null, 200).path("puedeVer").asBoolean()).isFalse();
         var fuera = docente("PUT", ruta(pasada) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 422);
         assertThat(fuera.path("code").asText()).isEqualTo("ASISTENCIA_FUERA_DE_FECHA");
         docente("PUT", ruta(futura) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 422);
@@ -195,6 +204,90 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         // El administrador consulta, pero no registra en nombre del docente.
         getOk(ruta(id));
         request("PUT", ruta(id) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 403);
+    }
+
+    @Test void informaAuditoriaYQuienCorrigio() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        var tomada = finalizarTodos(id);
+        String nombre = teacher.getPersona().nombreCompleto();
+        assertThat(tomada.path("registradoPor").asText()).isEqualTo(nombre);
+        assertThat(tomada.path("registradoEn").isNull()).isFalse();
+        long futura = sesion(hoy.plusDays(7), EstadoSesionClase.PENDIENTE);
+        assertThat(docente("GET", ruta(futura), null, 200).path("registradoPor").isNull()).isTrue();
+
+        docente("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Llego tarde", "version", tomada.path("version").asLong()), 200);
+        assertThat(docente("GET", ruta(id) + "/correcciones", null, 200).get(0).path("docente").asText()).isEqualTo(nombre);
+    }
+
+    @Test void corregirAPresenteCancelaLaJustificacionPendiente() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        var tomada = finalizarTodos(id);
+        var fila = em.createQuery("from AsistenciaAlumno a where a.sesionClase.id = :s and a.alumno.id = :a", AsistenciaAlumno.class)
+                .setParameter("s", id).setParameter("a", otro.getId()).getSingleResult();
+        var justificacion = new JustificacionAsistencia(); justificacion.setAsistenciaAlumno(fila); justificacion.setMotivo("Cita medica");
+        justificacion.setFechaHoraEnvio(LocalDateTime.now()); justificacion.setEstado(EstadoJustificacion.ENVIADA); em.persist(justificacion); em.flush();
+
+        docente("PUT", ruta(id), data("marcas", List.of(marca(otro, "PRESENTE")),
+                "motivo", "Si asistio", "version", tomada.path("version").asLong()), 200);
+        em.flush(); em.refresh(justificacion);
+        assertThat(justificacion.getEstado()).isEqualTo(EstadoJustificacion.CANCELADA);
+    }
+
+    @Test void corregirConservaLaJustificacionYNoCreaCambiosFalsos() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        finalizarTodos(id);
+        var fila = em.createQuery("from AsistenciaAlumno a where a.sesionClase.id = :s and a.alumno.id = :a", AsistenciaAlumno.class)
+                .setParameter("s", id).setParameter("a", otro.getId()).getSingleResult();
+        fila.setEstadoAsistencia(EstadoAsistencia.INASISTENCIA_JUSTIFICADA);
+        var justificacion = new JustificacionAsistencia(); justificacion.setAsistenciaAlumno(fila); justificacion.setMotivo("Cita medica");
+        justificacion.setFechaHoraEnvio(LocalDateTime.now()); justificacion.setEstado(EstadoJustificacion.APROBADA); em.persist(justificacion); em.flush();
+
+        var detalle = docente("GET", ruta(id), null, 200);
+        var ausente = java.util.stream.StreamSupport.stream(detalle.path("alumnos").spliterator(), false)
+                .filter(a -> a.path("alumnoId").asLong() == otro.getId()).findFirst().orElseThrow();
+        assertThat(ausente.path("estado").asText()).isEqualTo("INASISTENCIA");
+        assertThat(ausente.path("asistenciaId").asLong()).isEqualTo(fila.getId());
+        assertThat(ausente.path("justificacionId").asLong()).isEqualTo(justificacion.getId());
+        assertThat(ausente.path("estadoJustificacion").asText()).isEqualTo("APROBADA");
+        docente("GET", "/api/justificaciones-asistencia/" + justificacion.getId(), null, 200);
+
+        var sinCambios = docente("PUT", ruta(id), data("marcas", List.of(marca(otro, "INASISTENCIA")),
+                "motivo", "Revision", "version", detalle.path("version").asLong()), 422);
+        assertThat(sinCambios.path("code").asText()).isEqualTo("ASISTENCIA_SIN_CAMBIOS");
+
+        long version = docente("GET", ruta(id), null, 200).path("version").asLong();
+        docente("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA"), marca(otro, "INASISTENCIA")),
+                "motivo", "Llego tarde", "version", version), 200);
+        assertThat(fila.getEstadoAsistencia()).isEqualTo(EstadoAsistencia.INASISTENCIA_JUSTIFICADA);
+        assertThat(docente("GET", ruta(id) + "/correcciones", null, 200).get(0).path("cambios")).hasSize(1);
+        assertThat(em.find(JustificacionAsistencia.class, justificacion.getId()).getEstado()).isEqualTo(EstadoJustificacion.APROBADA);
+    }
+
+    @Test void unAnioEnBorradorNoAdmiteAsistencia() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        year.setEstado(EstadoAnioAcademico.BORRADOR); em.flush();
+
+        var rechazo = docente("GET", "/api/asistencias/asignaciones/" + assignment.getId() + "/sesiones", null, 422);
+        assertThat(rechazo.path("code").asText()).isEqualTo("ASISTENCIA_ANIO_NO_ACTIVO");
+        docente("GET", ruta(id), null, 422);
+        docente("GET", ruta(id) + "/correcciones", null, 422);
+        var marcas = List.of(marca(student, "PRESENTE"), marca(otro, "PRESENTE"));
+        docente("PUT", ruta(id) + "/borrador", data("marcas", marcas), 422);
+        docente("POST", ruta(id) + "/finalizar", data("marcas", marcas, "version", 0), 422);
+        docente("PUT", ruta(id), data("marcas", marcas, "motivo", "Prueba", "version", 0), 422);
+    }
+
+    @Test void unAnioCerradoSeConsultaYSeCorrige() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        finalizarTodos(id);
+        year.setEstado(EstadoAnioAcademico.CERRADO); em.flush();
+
+        docente("GET", "/api/asistencias/asignaciones/" + assignment.getId() + "/sesiones", null, 200);
+        long version = docente("GET", ruta(id), null, 200).path("version").asLong();
+        var corregida = docente("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Correccion posterior", "version", version), 200);
+        assertThat(corregida.path("estado").asText()).isEqualTo("TOMADA");
     }
 
     @Test void borradorVencidoVuelveAPendienteSinGenerarInasistencias() throws Exception {

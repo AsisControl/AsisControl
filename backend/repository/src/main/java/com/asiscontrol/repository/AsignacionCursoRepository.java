@@ -29,6 +29,16 @@ public interface AsignacionCursoRepository extends JpaRepository<AsignacionCurso
 
     Page<AsignacionCurso> findByActivoTrue(Pageable pageable);
 
+    // asistencia alumnos: secciones del docente autenticado, primero las del año más reciente
+    @Query("""
+            SELECT a FROM AsignacionCurso a
+            JOIN FETCH a.curso c
+            JOIN FETCH a.seccion s
+            WHERE a.activo = true AND a.docente.persona.id = :personaId
+            ORDER BY s.anioAcademico DESC, c.nombre, s.grado, s.nombre
+            """)
+    List<AsignacionCurso> buscarPorPersonaDocente(@Param("personaId") Long personaId);
+
     @EntityGraph(attributePaths = {"curso", "seccion", "docente.persona"})
     @Query("""
             SELECT a FROM AsignacionCurso a

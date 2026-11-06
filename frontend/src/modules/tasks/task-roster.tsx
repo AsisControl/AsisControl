@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { message } from "@/core/api/client";
+import { message } from "./task-error-copy";
 import { obtenerSeguimiento } from "./services/entrega-service";
 import type { SeguimientoTareaResponse } from "./types";
 import styles from "./tasks.module.css";

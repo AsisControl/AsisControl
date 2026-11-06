@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import jsQR from "jsqr";
-import styles from "./attendance.module.css";
+import styles from "./teacher-check-in.module.css";
 
 type QrScannerProps = {
   onDetected: (text: string) => void;

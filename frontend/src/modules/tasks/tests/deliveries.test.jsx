@@ -90,6 +90,34 @@ test("Padrón: si no se puede cargar, las entregas se siguen mostrando", async (
   expect(await screen.findByText(/No se pudo cargar el padrón de la sección/)).toBeTruthy();
 });
 
+test("Seguimiento combina pendientes, entregados a tiempo, tarde y calificados con el total del padrón", async () => {
+  backend({
+    "GET /api/tareas/1/seguimiento": roster({
+      totalAlumnos: 4, entregados: 3, calificados: 1, pendientes: 1,
+      alumnos: [
+        { ...roster().alumnos[0], estado: "ENTREGADO" },
+        { ...roster().alumnos[1], entregaId: 11, estado: "ENTREGADO_TARDE" },
+        { ...roster().alumnos[2], entregaId: 12, estado: "CALIFICADO", nota: 18 },
+        { ...roster().alumnos[1], alumnoId: 5, nombreCompleto: "Sin entregar" },
+      ],
+    }),
+    "GET /api/tareas/1/entregas": page([
+      delivery({ estado: "ENTREGADO" }),
+      delivery({ id: 11, alumnoId: 9 }),
+      delivery({ id: 12, alumnoId: 7, estado: "CALIFICADO", nota: 18 }),
+    ]),
+  });
+  render(<TaskDeliveries taskId={1} canWrite />);
+  expect(await screen.findByText("3 de 4 estudiantes entregaron")).toBeTruthy();
+  const table = await screen.findByRole("table");
+  expect(within(table).getByText("Entregado")).toBeTruthy();
+  expect(within(table).getByText("Entregado tarde")).toBeTruthy();
+  expect(within(table).getByText("Calificado")).toBeTruthy();
+  expect(within(table).getByText("18 / 20")).toBeTruthy();
+  expect(screen.getByText("Sin entrega (1)")).toBeTruthy();
+  expect(screen.getByText("Sin entregar")).toBeTruthy();
+});
+
 test("Paginación y actualización conservan caché de alumnos ya resueltos", async () => {
   const calls = backend({ "GET /api/tareas/1/entregas": ({ query }) => ({
     content: [delivery(query.page === "1" ? { id: 11, alumnoId: 9 } : {})],
@@ -114,7 +142,7 @@ test("El fallo de identidad muestra fallback y se reintenta al actualizar", asyn
   let fail = true;
   backend({ "GET /api/alumnos/:id": () => fail ? reply(403) : student() });
   render(<TaskDeliveries taskId={1} canWrite />);
-  await screen.findByText("Alumno #8");
+  await screen.findByText("Estudiante no disponible");
   fail = false;
   await userEvent.setup().click(screen.getByText("Actualizar"));
   expect(await screen.findByText("Lucía Pérez")).toBeTruthy();
@@ -177,7 +205,7 @@ test("Valida nota vacía, negativa, decimal y superior al máximo antes del POST
   for (const value of ["", "-1", "1.5", "21"]) {
     fireEvent.change(input, { target: { value } });
     await user.click(screen.getByText("Guardar calificación"));
-    expect(screen.getByText("Introduce una nota entera entre 0 y 20.")).toBeTruthy();
+    expect(screen.getByText("Escribe una nota sin decimales entre 0 y 20.")).toBeTruthy();
   }
   expect(calls.some((call) => call.method === "POST")).toBe(false);
 });
@@ -196,7 +224,7 @@ test("Conflicto de versión exige recarga explícita y usa la versión nueva", a
   expect(screen.queryByText("Guardar calificación")).toBeNull();
   expect(attempts).toBe(1);
   current = delivery({ version: 9, nota: 12 });
-  await user.click(screen.getByText("Descartar cambios y recargar versión actual"));
+  await user.click(screen.getByText("Descartar cambios y actualizar"));
   expect((await screen.findByLabelText(/^Nota/)).value).toBe("12");
   await user.click(screen.getByText("Guardar calificación"));
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());

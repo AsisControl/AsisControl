@@ -111,19 +111,28 @@ test("La matriz muestra el sábado solo si tiene bloques", () => {
   assert.deepEqual(t.visibleDays([block(1)]), ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"]);
   assert.equal(t.visibleDays([block(1, { diaSemana: "SABADO" })]).at(-1), "SABADO");
 });
-test("Las filas son intervalos distintos ordenados por inicio y fin", () => {
+test("La matriz mantiene franjas de media hora y ubica cada bloque donde empieza", () => {
   const rows = t.timeRows([
     block(1, { horaInicio: "10:00:00", horaFin: "11:00:00" }),
     block(2),
     block(3, { diaSemana: "MARTES" }),
     block(4, { horaFin: "09:00:00" }),
   ]);
-  assert.deepEqual(rows, [
-    { inicio: "08:00", fin: "09:00" },
-    { inicio: "08:00", fin: "09:30" },
-    { inicio: "10:00", fin: "11:00" },
-  ]);
-  assert.deepEqual(t.blocksAt([block(1), block(2, { diaSemana: "MARTES" })], "LUNES", rows[1]).map((b) => b.id), [1]);
+  assert.equal(rows.length, 26);
+  assert.deepEqual(rows[0], { inicio: "07:00", fin: "07:30" });
+  assert.deepEqual(rows.at(-1), { inicio: "19:30", fin: "20:00" });
+  assert.deepEqual(t.blocksAt([block(1), block(2, { diaSemana: "MARTES" })], "LUNES", rows[2]).map((b) => b.id), [1]);
+  assert.deepEqual(t.blocksAt([block(1)], "LUNES", rows[3]), []);
+});
+test("Los bloques simultáneos se reparten en columnas y los contiguos aprovechan el ancho", () => {
+  const lanes = t.blockLanes([
+    block(1, { horaInicio: "08:00:00", horaFin: "10:00:00" }),
+    block(2, { horaInicio: "08:30:00", horaFin: "09:30:00" }),
+    block(3, { horaInicio: "10:00:00", horaFin: "11:00:00" }),
+  ], "LUNES");
+  assert.deepEqual(lanes.get(1), { lane: 0, lanes: 2 });
+  assert.deepEqual(lanes.get(2), { lane: 1, lanes: 2 });
+  assert.deepEqual(lanes.get(3), { lane: 0, lanes: 1 });
 });
 test("Dos intervalos que solo se tocan no se cruzan", () => {
   assert.equal(t.overlaps({ inicio: "08:00", fin: "09:00" }, { inicio: "09:00", fin: "10:00" }), false);

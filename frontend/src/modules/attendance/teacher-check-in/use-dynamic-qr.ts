@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { qrLifetimeMs } from "./lib/format";
-import { qrErrorMessage } from "./lib/messages";
+import { qrLifetimeMs } from "./format";
+import { qrErrorMessage } from "./messages";
 import {
   QR_VIGENCIA_SEGUNDOS,
   cancelarQr,

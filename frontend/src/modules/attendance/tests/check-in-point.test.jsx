@@ -2,16 +2,16 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/core/api/client";
-import { CheckInPoint } from "../check-in-point";
+import { CheckInPoint } from "../teacher-check-in/check-in-point";
 import {
   cancelarQr,
   consultarQr,
   emitirQr,
   listarDocentes,
   renovarQr,
-} from "../services/asistencia-docente-service";
+} from "../teacher-check-in/services/asistencia-docente-service";
 
-vi.mock("../services/asistencia-docente-service", () => ({
+vi.mock("../teacher-check-in/services/asistencia-docente-service", () => ({
   QR_VIGENCIA_SEGUNDOS: 60,
   listarDocentes: vi.fn(),
   emitirQr: vi.fn(),

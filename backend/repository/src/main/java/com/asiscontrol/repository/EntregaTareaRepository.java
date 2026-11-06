@@ -13,6 +13,9 @@ import java.util.Optional;
 
 public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Long> {
 
+    java.util.List<EntregaTarea> findAllByAlumnoIdAndTareaIdInAndActivoTrue(
+            Long alumnoId, java.util.Collection<Long> tareaIds);
+
     Optional<EntregaTarea> findByIdAndActivoTrue(Long id);
 
     Optional<EntregaTarea> findByTareaIdAndAlumnoIdAndActivoTrue(Long tareaId, Long alumnoId);

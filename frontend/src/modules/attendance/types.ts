@@ -1,34 +1,93 @@
-/** Tipos de /api/asistencias/docentes (AsistenciaDtos del backend). */
-export type EstadoCodigoQR = "VIGENTE" | "UTILIZADO" | "EXPIRADO" | "INVALIDADO";
+export type CursoSesiones = { id: number; curso: string; seccion: string };
 
-export type EstadoAsistencia =
-  | "PRESENTE"
-  | "TARDANZA"
-  | "SIN_MARCACION"
-  | "INASISTENCIA"
-  | "INASISTENCIA_JUSTIFICADA"
-  | "TARDANZA_JUSTIFICADA";
+export type EstadoSesion = "PENDIENTE" | "BORRADOR" | "TOMADA";
+export type EstadoMarca = "PRESENTE" | "TARDANZA" | "INASISTENCIA";
+export type EstadoJustificacion =
+  | "ENVIADA"
+  | "EN_REVISION"
+  | "OBSERVADA"
+  | "APROBADA"
+  | "RECHAZADA"
+  | "CANCELADA";
 
-/** Fechas como LocalDateTime del servidor, sin zona: "2026-11-06T07:52:13". */
-export type CodigoQR = {
+/** Refleja SesionClaseDtos.SesionClaseResponse. */
+export type SesionClase = {
   id: number;
-  docenteId: number;
-  token: string;
-  fechaHoraEmision: string;
-  fechaHoraExpiracion: string;
-  estado: EstadoCodigoQR;
-};
-
-export type AsistenciaDocente = {
-  id: number;
-  docenteId: number;
-  codigoQRId: number | null;
-  fechaJornada: string;
-  fechaHoraMarcada: string | null;
-  estado: EstadoAsistencia;
-  contingencia: boolean;
-  motivoContingencia: string | null;
+  asignacionCursoId: number;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  estado: EstadoSesion;
+  puedeTomar: boolean;
+  puedeVer: boolean;
+  puedeEditar: boolean;
   version: number;
 };
 
-export type DocenteOption = { id: number; label: string };
+export type AlumnoSesion = {
+  alumnoId: number;
+  codigoAlumno: string;
+  nombreCompleto: string;
+  estado: EstadoMarca | null;
+  asistenciaId: number | null;
+  justificacionId: number | null;
+  estadoJustificacion: EstadoJustificacion | null;
+};
+
+/** Refleja AsistenciaSesionDtos.SesionAsistenciaResponse. */
+export type SesionAsistencia = {
+  id: number;
+  asignacionCursoId: number;
+  curso: string;
+  seccion: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  estado: EstadoSesion;
+  puedeTomar: boolean;
+  puedeVer: boolean;
+  puedeEditar: boolean;
+  pendientes: number;
+  alumnos: AlumnoSesion[];
+  registradoPor: string | null;
+  registradoEn: string | null;
+  version: number;
+};
+
+export type Marca = { alumnoId: number; estado: EstadoMarca };
+
+export type CorreccionAsistencia = {
+  id: number;
+  fechaHora: string;
+  docenteId: number;
+  docente: string;
+  motivo: string;
+  cambios: {
+    alumnoId: number;
+    nombreCompleto: string;
+    estadoAnterior: string;
+    estadoNuevo: string;
+  }[];
+};
+
+export type ArchivoJustificacion = {
+  id: number;
+  nombreOriginal: string;
+};
+
+/** Refleja AsistenciaDtos.JustificacionAsistenciaResponse. */
+export type Justificacion = {
+  id: number;
+  motivo: string;
+  fechaHoraEnvio: string;
+  fechaHoraRevision: string | null;
+  observacionRevision: string | null;
+  estado: EstadoJustificacion;
+  archivos: ArchivoJustificacion[];
+  version: number;
+  estudiante: string;
+  curso: string;
+  seccion: string;
+  fechaSesion: string;
+  horaSesion: string | null;
+};

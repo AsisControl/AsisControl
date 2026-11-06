@@ -2,8 +2,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
-import { Field, FormDialog } from "@/shared/ui";
+import { FormDialog } from "@/shared/ui";
 import { hour, weekDayLabels } from "../lib/labels";
+import {
+  isSchoolEndSlot,
+  isSchoolStartSlot,
+  SCHOOL_TIME_OPTIONS,
+} from "../lib/time-slots";
 import {
   WEEK_DAYS,
   detectConflicts,
@@ -315,24 +320,37 @@ export function BlockFormDialog({
           </small>
         )}
       </label>
-      <Field
-        label="Hora de inicio"
-        name="horaInicio"
-        type="time"
-        required
-        value={values.horaInicio}
-        error={errors.horaInicio}
-        onChange={(e) => set("horaInicio", e.target.value)}
-      />
-      <Field
-        label="Hora de fin"
-        name="horaFin"
-        type="time"
-        required
-        value={values.horaFin}
-        error={errors.horaFin}
-        onChange={(e) => set("horaFin", e.target.value)}
-      />
+      {(["horaInicio", "horaFin"] as const).map((name) => (
+        <label className="field" key={name}>
+          <span>
+            {name === "horaInicio" ? "Hora de inicio" : "Hora de fin"}
+            <span className="field-required"> *</span>
+          </span>
+          <select
+            name={name}
+            value={values[name]}
+            aria-invalid={errors[name] ? true : undefined}
+            onChange={(event) => set(name, event.target.value)}
+          >
+            <option value="">Seleccionar hora</option>
+            {values[name] && !(name === "horaInicio"
+              ? isSchoolStartSlot(values[name])
+              : isSchoolEndSlot(values[name])) && (
+              <option value={values[name]}>{values[name]} (fuera de la franja permitida)</option>
+            )}
+            {(name === "horaInicio"
+              ? SCHOOL_TIME_OPTIONS.slice(0, -1)
+              : SCHOOL_TIME_OPTIONS.slice(1)).map((time) => (
+              <option key={time} value={time}>{time}</option>
+            ))}
+          </select>
+          {errors[name] ? (
+            <small className="field-error" role="alert">{errors[name]}</small>
+          ) : (
+            <small className="field-hint">De 07:00 a 20:00, en pasos de 30 minutos.</small>
+          )}
+        </label>
+      ))}
     </FormDialog>
   );
 }

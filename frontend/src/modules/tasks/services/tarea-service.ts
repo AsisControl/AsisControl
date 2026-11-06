@@ -44,7 +44,18 @@ export function eliminarTarea(id: number, motivo: string | null) {
 
 /** Asignaciones activas del docente autenticado: nunca el catálogo global. */
 export async function listarAsignacionesPropias() {
-  return normalizePage(await api<Page<AsignacionCursoResponse>>("/api/asignaciones-cursos/mias?size=100")).content;
+  const assignments: AsignacionCursoResponse[] = [];
+  let page = 0;
+  let last: boolean;
+  do {
+    const result = normalizePage(await api<Page<AsignacionCursoResponse>>(
+      `/api/asignaciones-cursos/mias?size=100&page=${page}`,
+    ));
+    assignments.push(...result.content);
+    last = result.last;
+    page++;
+  } while (!last);
+  return assignments;
 }
 
 /** Cantidad de entregas registradas; decide si cambiar el vencimiento o eliminar exige motivo. */

@@ -31,6 +31,8 @@ import java.util.Set;
 @Service
 @Transactional(readOnly = true)
 public class HorarioService {
+    private static final LocalTime INICIO_JORNADA = LocalTime.of(7, 0);
+    private static final LocalTime FIN_JORNADA = LocalTime.of(20, 0);
 
     private final HorarioRepository horarioRepository;
     private final AsignacionCursoRepository asignacionRepository;
@@ -109,6 +111,11 @@ public class HorarioService {
             Pageable pageable) {
         return horarioRepository.buscarConFiltros(
                 anioAcademico, seccionId, docenteId, aulaId, cursoId, pageable).map(this::mapear);
+    }
+
+    public List<HorarioResponse> listarDelAlumno(Long personaId, Integer anioAcademico) {
+        return horarioRepository.buscarDelAlumno(personaId, anioAcademico).stream()
+                .map(this::mapear).toList();
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -209,6 +216,20 @@ public class HorarioService {
             throw new BusinessRuleException(
                     "HORARIO_RANGO_INVALIDO", "La hora de inicio debe ser anterior a la hora de fin");
         }
+        if (inicio.isBefore(INICIO_JORNADA) || !inicio.isBefore(FIN_JORNADA)
+                || !esLimiteMediaHora(inicio)) {
+            throw new BusinessRuleException(
+                    "HORARIO_INICIO_INVALIDO",
+                    "La hora de inicio debe estar entre 07:00 y 19:30, en pasos de 30 minutos",
+                    "horaInicio");
+        }
+        if (!fin.isAfter(INICIO_JORNADA) || fin.isAfter(FIN_JORNADA)
+                || !esLimiteMediaHora(fin)) {
+            throw new BusinessRuleException(
+                    "HORARIO_FIN_INVALIDO",
+                    "La hora de fin debe estar entre 07:30 y 20:00, en pasos de 30 minutos",
+                    "horaFin");
+        }
         if (!AulaService.esSuficiente(aula.getCapacidad(), asignacion.getSeccion().getCapacidadMaxima())) {
             throw new BusinessRuleException(
                     "AULA_CAPACIDAD_INSUFICIENTE",
@@ -235,6 +256,10 @@ public class HorarioService {
                     "HORARIO_SECCION_OCUPADA", "La sección ya tiene una clase: " + describirConflicto(conflicto),
                     detalles);
         }
+    }
+
+    private boolean esLimiteMediaHora(LocalTime hora) {
+        return hora.getMinute() % 30 == 0 && hora.getSecond() == 0 && hora.getNano() == 0;
     }
 
     private String describirConflicto(Horario horario) {

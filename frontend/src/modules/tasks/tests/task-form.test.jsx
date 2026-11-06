@@ -92,8 +92,8 @@ test("Publicada sin entregas: el motivo es opcional y no se envía si no cambia 
   expect(calls.find((call) => call.method === "PUT").body.motivo).toBeNull();
 });
 
-test("El error de motivo del backend se muestra en el campo", async () => {
-  backend({
+test("Si falla el conteo exige motivo localmente y conserva los errores de campo del backend", async () => {
+  const calls = backend({
     "GET /api/tareas/1": published(),
     "GET /api/tareas/1/entregas": reply(500),
     "PUT /api/tareas/1": reply(422, { code: "TAREA_MOTIVO_REQUERIDO", message: "Indique el motivo",
@@ -105,7 +105,36 @@ test("El error de motivo del backend se muestra en el campo", async () => {
   const dialog = screen.getByRole("dialog", { name: "Editar tarea" });
   fireEvent.change(within(dialog).getByLabelText(/^Fecha límite/), { target: { value: "2099-12-05T18:30" } });
   await userEvent.setup().click(within(dialog).getByText("Guardar cambios"));
+  expect(await within(dialog).findByText(/No se pudo confirmar si hay entregas: indica el motivo/)).toBeTruthy();
+  expect(calls.some((call) => call.method === "PUT")).toBe(false);
+  await userEvent.setup().type(within(dialog).getByLabelText(/^Motivo del cambio/), "Ampliación del plazo");
+  await userEvent.setup().click(within(dialog).getByText("Guardar cambios"));
   expect((await within(dialog).findAllByText("Indique el motivo")).length).toBeGreaterThan(0);
+});
+
+test("Nueva tarea incluye asignaciones de todas las páginas y permite elegir la última", async () => {
+  const calls = backend({
+    "GET /api/asignaciones-cursos/mias": ({ query }) => ({
+      content: [{ id: query.page === "1" ? 43 : 42, curso: query.page === "1" ? "Física" : "Matemática", seccion: "A", anioAcademico: 2026 }],
+      page: { number: Number(query.page), totalElements: 2, totalPages: 2 },
+    }),
+    "POST /api/tareas": ({ body }) => task({ ...body, id: 5 }),
+  });
+  const onSaved = vi.fn();
+  render(<TaskFormDialog canUpload={false} onClose={vi.fn()} onSaved={onSaved} />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: "Física · A · 2026" });
+  expect(screen.getByRole("option", { name: "Matemática · A · 2026" })).toBeTruthy();
+  expect(calls.filter((call) => call.path.endsWith("/mias")).map((call) => call.query))
+    .toEqual([{ size: "100", page: "0" }, { size: "100", page: "1" }]);
+  await user.selectOptions(screen.getByLabelText(/^Curso y sección/), "43");
+  await user.type(screen.getByLabelText(/^Nombre/), "Laboratorio");
+  await user.type(screen.getByLabelText(/^Descripción/), "Informe");
+  const { fireEvent } = await import("@testing-library/react");
+  fireEvent.change(screen.getByLabelText(/^Fecha límite/), { target: { value: "2099-12-01T18:30" } });
+  await user.click(screen.getByText("Guardar borrador"));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  expect(calls.find((call) => call.method === "POST").body.asignacionCursoId).toBe(43);
 });
 
 test("Nueva tarea ofrece solo las asignaciones propias y exige elegir una", async () => {
@@ -136,7 +165,7 @@ test("Nueva tarea ofrece solo las asignaciones propias y exige elegir una", asyn
 test("Nueva tarea sin asignaciones activas lo indica y preselecciona si hay una sola", async () => {
   backend({ "GET /api/asignaciones-cursos/mias": page([]) });
   const view = render(<TaskFormDialog canUpload={false} onClose={vi.fn()} onSaved={vi.fn()} />);
-  expect(await screen.findByText(/No tienes cursos asignados activos/)).toBeTruthy();
+  expect(await screen.findByText(/No tienes cursos disponibles para crear tareas/)).toBeTruthy();
   view.unmount();
   backend({ "GET /api/asignaciones-cursos/mias": page([{ id: 42, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]) });
   render(<TaskFormDialog canUpload={false} onClose={vi.fn()} onSaved={vi.fn()} />);
@@ -176,7 +205,7 @@ test("Conflicto de versión exige recarga explícita y usa la versión actual", 
   expect(screen.queryByText("Guardar cambios")).toBeNull();
   expect(saves).toBe(1);
   current = task({ nombre: "Versión del servidor", version: 10 });
-  await user.click(screen.getByText("Descartar cambios y recargar versión actual"));
+  await user.click(screen.getByText("Descartar cambios y actualizar"));
   expect((await screen.findByLabelText(/^Nombre/)).value).toBe("Versión del servidor");
   await user.click(screen.getByText("Guardar cambios"));
   await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());

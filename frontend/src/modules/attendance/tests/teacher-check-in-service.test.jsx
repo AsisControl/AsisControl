@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/core/api/client";
-import { CheckInPoint, TeacherCheckIn } from "..";
 import {
   cancelarQr,
   consultarQr,
@@ -10,7 +9,7 @@ import {
   marcarAsistencia,
   renovarQr,
   toDocenteOption,
-} from "../services/asistencia-docente-service";
+} from "../teacher-check-in/services/asistencia-docente-service";
 
 vi.mock("@/core/api/client", () => ({ api: vi.fn() }));
 
@@ -18,11 +17,6 @@ const page = (content) => ({ content, totalElements: content.length, totalPages:
 
 describe("US-15 · contrato con /api/asistencias/docentes", () => {
   afterEach(() => vi.clearAllMocks());
-
-  it("expone las dos pantallas por su index", () => {
-    expect(typeof CheckInPoint).toBe("function");
-    expect(typeof TeacherCheckIn).toBe("function");
-  });
 
   it("marcar envía únicamente el token, sin hora del dispositivo", async () => {
     await marcarAsistencia("abc");

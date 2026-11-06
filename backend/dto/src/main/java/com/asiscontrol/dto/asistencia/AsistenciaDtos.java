@@ -30,7 +30,12 @@ public final class AsistenciaDtos {
             LocalTime horaRegistro,
             EstadoAsistencia estado,
             String comentario,
-            long version
+            long version,
+            String curso,
+            Long justificacionId,
+            EstadoJustificacion estadoJustificacion,
+            String motivoJustificacion,
+            String observacionRevision
     ) {
     }
 
@@ -85,8 +90,8 @@ public final class AsistenciaDtos {
     }
 
     public record RevisarJustificacionRequest(
-            @NotNull Long docenteRevisorId,
-            @Size(max = 2000) String observacion
+            @Size(max = 2000) String observacion,
+            @NotNull Long version
     ) {
     }
 
@@ -107,7 +112,13 @@ public final class AsistenciaDtos {
             String observacionRevision,
             EstadoJustificacion estado,
             List<ArchivoResponse> archivos,
-            long version
+            long version,
+            String estudiante,
+            String curso,
+            String seccion,
+            LocalDate fechaSesion,
+            LocalTime horaSesion,
+            EstadoAsistencia estadoAsistencia
     ) {
     }
 }

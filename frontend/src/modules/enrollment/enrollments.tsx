@@ -501,7 +501,19 @@ function EnrollmentDetail({
     setError("");
     setSuccess("");
     try {
-      if (action === "MATRICULAR") {
+      if (action === "CAMBIAR_SECCION") {
+        setRecord(
+          await api<EnrollmentRecord>(`${path}/${record.id}/seccion`, {
+            method: "PUT",
+            body: JSON.stringify({
+              seccionId: Number(form.get("seccionId")),
+              motivo: reason,
+              version: record.version,
+            }),
+          }),
+        );
+        setSuccess("Sección actualizada con historial.");
+      } else if (action === "MATRICULAR") {
         const result = await api<EnrollmentRecord>("/api/matriculas", {
           method: "POST",
           body: JSON.stringify({
@@ -605,6 +617,18 @@ function EnrollmentDetail({
         <button disabled={busy} onClick={reload}>
           Actualizar datos
         </button>
+        {!isRequest && record.estado === "ACTIVA" && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              setAction("CAMBIAR_SECCION");
+              setError("");
+              setSuccess("");
+            }}
+          >
+            Cambiar sección
+          </button>
+        )}
         {editable && (
           <button
             disabled={busy}
@@ -643,8 +667,29 @@ function EnrollmentDetail({
       </div>
       {action && (
         <form key={action} className="action-card" onSubmit={save}>
-          <h4>{actionLabels[action]}</h4>
-          {action === "EDITAR" ? (
+          <h4>{action === "CAMBIAR_SECCION" ? "Cambiar sección" : actionLabels[action]}</h4>
+          {action === "CAMBIAR_SECCION" ? (
+            <>
+              <label className="field">
+                Nueva sección del mismo grado y año *
+                <select name="seccionId" required defaultValue="">
+                  <option value="" disabled>Seleccionar sección</option>
+                  {year?.secciones
+                    .filter((value) => value.activo && value.grado === record.grado
+                      && value.id !== record.seccionId)
+                    .map((value) => (
+                      <option key={value.id} value={value.id} disabled={value.vacantes <= 0}>
+                        {value.nombre} · {value.vacantes} vacantes
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="field">
+                Motivo del cambio *
+                <textarea name="motivo" required maxLength={700} rows={3} />
+              </label>
+            </>
+          ) : action === "EDITAR" ? (
             <>
               <label className="field">
                 Sección del mismo grado y año *
@@ -707,7 +752,7 @@ function EnrollmentDetail({
             </button>
             <button
               className="primary-action"
-              disabled={busy || (action === "EDITAR" && !year)}
+              disabled={busy || (["EDITAR", "CAMBIAR_SECCION"].includes(action) && !year)}
             >
               {busy ? "Guardando…" : "Confirmar"}
             </button>

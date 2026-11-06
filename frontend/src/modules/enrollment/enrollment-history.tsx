@@ -4,6 +4,7 @@ import type { History, HistoryField } from "./types";
 const ACTIONS: Record<string, string> = {
   CREAR_MATRICULA: "Matrícula creada",
   CAMBIAR_ESTADO_MATRICULA: "Cambio de estado de la matrícula",
+  CAMBIAR_SECCION_MATRICULA: "Cambio de sección de la matrícula",
   GUARDAR_SOLICITUD: "Solicitud guardada",
   FINALIZAR_SOLICITUD: "Solicitud finalizada",
 };

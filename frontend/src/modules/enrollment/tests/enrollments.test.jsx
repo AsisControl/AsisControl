@@ -378,6 +378,38 @@ test("Retira una matrícula activa con motivo", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
+test("Cambia la sección de una matrícula activa y actualiza su historial", async () => {
+  const calls = backend({
+    "GET /api/configuracion-academica/anios/:anio": {
+      ...activeYear,
+      secciones: activeYear.secciones.map((value) => value.id === 32 ? { ...value, vacantes: 3 } : value),
+    },
+    "PUT /api/matriculas/:id/seccion": ({ body }) =>
+      enrollment({ seccionId: body.seccionId, seccion: "B", version: 4 }),
+    "GET /api/matriculas/:id/historial": [{
+      id: 2, fecha: "2026-03-03T15:00:00Z", accion: "CAMBIAR_SECCION_MATRICULA",
+      motivo: "Redistribución", campos: [{ campo: "seccion", anterior: "2026 · 1° A", nuevo: "2026 · 1° B" }],
+    }],
+  });
+  const user = userEvent.setup();
+  render(<EnrollmentsScreen />);
+  await user.click(await screen.findByText("Matrículas"));
+  const dialog = await openRequest(user);
+  await user.click(within(dialog).getByText("Cambiar sección"));
+  const section = await within(dialog).findByLabelText(/Nueva sección del mismo grado y año/);
+  await waitFor(() => expect(section.options.length).toBe(2));
+  expect(section.options[1].disabled).toBe(false);
+  await user.selectOptions(section, "32");
+  await user.type(within(dialog).getByLabelText(/Motivo del cambio/), "Redistribución");
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(await within(dialog).findByText("Sección actualizada con historial.")).toBeTruthy();
+  expect(calls.find((c) => c.path === "/api/matriculas/200/seccion").body).toEqual({
+    seccionId: 32, motivo: "Redistribución", version: 3,
+  });
+  expect(within(dialog).getByText("2026 · 1° B")).toBeTruthy();
+  expect(await within(dialog).findByText("Cambio de sección de la matrícula")).toBeTruthy();
+});
+
 test("Informa errores al cargar el detalle y al actualizarlo", async () => {
   backend({
     "GET /api/solicitudes-matricula/:id/historial": reply(500, { message: "Historial no disponible" }),

@@ -1,4 +1,4 @@
-import type { CodigoQR, EstadoAsistencia } from "../types";
+import type { CodigoQR, EstadoAsistencia } from "./types";
 
 export const ESTADO_LABEL: Record<EstadoAsistencia, string> = {
   PRESENTE: "Presente",

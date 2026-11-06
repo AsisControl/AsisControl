@@ -5,7 +5,7 @@ import { message } from "@/core/api/client";
 import { listarDocentes, QR_VIGENCIA_SEGUNDOS } from "./services/asistencia-docente-service";
 import type { DocenteOption } from "./types";
 import { useDynamicQr } from "./use-dynamic-qr";
-import styles from "./attendance.module.css";
+import styles from "./teacher-check-in.module.css";
 
 /**
  * Punto de marcación (administrador): muestra el QR dinámico que el docente
