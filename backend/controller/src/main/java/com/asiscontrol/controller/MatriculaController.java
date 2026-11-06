@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
+import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
 import com.asiscontrol.service.MatriculaService;
@@ -51,6 +52,13 @@ public class MatriculaController {
     public MatriculaResponse actualizar(
             @PathVariable Long id, @Valid @RequestBody ActualizarMatriculaRequest request) {
         return matriculaService.actualizar(id, request);
+    }
+
+    @PutMapping("/{id}/seccion")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('MATRICULA_ESCRIBIR')")
+    public MatriculaResponse cambiarSeccion(
+            @PathVariable Long id, @Valid @RequestBody CambiarSeccionMatriculaRequest request) {
+        return matriculaService.cambiarSeccion(id, request);
     }
 
     /** US-49: el apoderado consulta el historial de las matriculas de sus estudiantes asociados. */

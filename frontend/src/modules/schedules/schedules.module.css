@@ -1,6 +1,12 @@
 .tableWrap {
   overflow-x: auto;
 }
+.timetableWrap {
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  max-height: 72vh;
+  overflow: auto;
+}
 .table th {
   background: transparent;
   border-bottom: 1px solid #e2e8f0;
@@ -126,43 +132,92 @@
 .filters .field {
   min-width: 180px;
 }
-/* Matriz semanal: una columna por día y una fila por intervalo. */
+/* Matriz semanal: cada fila representa media hora de la jornada. */
 .timetable {
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 720px;
+  min-width: 900px;
   table-layout: fixed;
   width: 100%;
 }
 .timetable th,
 .timetable td {
-  border-bottom: 1px solid #e2e8f0;
-  padding: 8px;
+  border-bottom: 1px solid #e5ecf4;
+  border-right: 1px solid #e5ecf4;
+  box-sizing: border-box;
   text-align: left;
   vertical-align: top;
 }
 .timetable thead th {
+  background: #f8fafc;
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+  height: 42px;
+  padding: 12px 10px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.timetable thead th:first-child {
+  left: 0;
+  z-index: 6;
+}
+.timetable tbody tr,
+.timetable tbody th,
+.timetable tbody td {
+  height: 64px;
+}
+.timetable tbody td {
+  background: #fff;
+  padding: 0;
+  position: relative;
+}
+.timetable tbody tr:nth-child(even) td {
+  background: #f8fafc;
 }
 .timeCell {
+  background: #f8fafc;
   color: #475569;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  left: 0;
+  padding: 8px 6px;
+  position: sticky;
   white-space: nowrap;
-  width: 110px;
+  width: 90px;
+  z-index: 3;
 }
 .block {
   align-items: flex-start;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
+  box-sizing: border-box;
+  cursor: pointer;
   display: flex;
-  gap: 4px;
+  gap: 2px;
   justify-content: space-between;
-  margin-bottom: 6px;
-  padding: 8px 10px;
+  min-width: 0;
+  padding: 6px 7px;
+  position: absolute;
+  z-index: 2;
+}
+.block[data-tone="1"] {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.block[data-tone="2"] {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+.block[data-tone="3"] {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.block:focus-within {
+  z-index: 7;
 }
 .blockOpen {
   background: none;
@@ -173,6 +228,7 @@
   flex: 1;
   font: inherit;
   min-width: 0;
+  overflow: hidden;
   padding: 0;
   text-align: left;
 }
@@ -183,19 +239,36 @@
   outline: 2px solid #0284c7;
   outline-offset: 2px;
 }
-.timetable .emptyMatrix {
-  height: 120px;
-  text-align: center;
-  vertical-align: middle;
+.emptyGridNotice {
+  background: #f8fafc;
+  caption-side: top;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px;
+  text-align: left;
+}
+.blockTime {
+  color: #334155;
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  white-space: nowrap;
 }
 .block strong {
   display: block;
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .block small {
   color: var(--muted);
   display: block;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .conflicts {
   background: #fef2f2;

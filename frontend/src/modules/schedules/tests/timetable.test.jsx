@@ -131,11 +131,15 @@ test("Muestra la matriz semanal de la primera sección del año", async () => {
   const calls = backend();
   renderTimetable();
   const table = await grid();
-  expect(cellTexts(table)).toEqual([
-    ["Hora", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
-    ["08:00 – 09:30", "MatemáticaPatricia MoralesAula 201", "ComunicaciónLuis QuispeLab. 01", "", "", ""],
-    ["10:00 – 11:00", "", "", "MatemáticaPatricia MoralesAula 201", "", ""],
-  ]);
+  expect(cellTexts(table)[0]).toEqual(["Hora", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]);
+  expect(within(table).getAllByRole("row")).toHaveLength(27);
+  const atEight = within(table).getByRole("rowheader", { name: "08:00 – 08:30" }).closest("tr");
+  expect(within(atEight).getByRole("button", { name: "Ver detalle de Matemática, Lunes 08:00" })).toBeTruthy();
+  expect(within(atEight).getByRole("button", { name: "Ver detalle de Comunicación, Martes 08:00" })).toBeTruthy();
+  expect(within(table).getByRole("rowheader", { name: "08:30 – 09:00" })).toBeTruthy();
+  const card = within(atEight).getByRole("button", { name: "Ver detalle de Matemática, Lunes 08:00" }).closest("article");
+  expect(card.style.height).toBe("186px");
+  expect(card.textContent).toContain("08:00 – 09:30");
   expect(screen.getByText(/^3 bloques asignados · Última actualización: \d{2}:\d{2}/)).toBeTruthy();
   const year = screen.getByLabelText("Año académico");
   expect([...year.options].map((o) => o.textContent)).toEqual(["2026", "2024"]);
@@ -162,7 +166,8 @@ test("Recorre todas las páginas y agrega el sábado si tiene bloques", async ()
   renderTimetable();
   const table = await grid();
   expect(within(table).getByRole("columnheader", { name: "Sábado" })).toBeTruthy();
-  expect(cellTexts(table)[1][0]).toBe("07:00 – 08:00");
+  expect(within(table).getByRole("rowheader", { name: "07:00 – 07:30" })).toBeTruthy();
+  expect(within(table).getByRole("button", { name: "Ver detalle de Matemática, Sábado 07:00" })).toBeTruthy();
   expect(horarioCalls(calls, () => true).map((c) => c.query.page)).toEqual(["0", "1"]);
 });
 
@@ -224,6 +229,13 @@ test("Valida los campos obligatorios antes de enviar", async () => {
   expect(within(dialog).getByText("Seleccione el aula.")).toBeTruthy();
   expect(within(dialog).getByText("Indique la hora de inicio.")).toBeTruthy();
   expect(within(dialog).getByText("Indique la hora de fin.")).toBeTruthy();
+  const starts = [...within(dialog).getByLabelText(/^Hora de inicio/).options].map((o) => o.value);
+  const ends = [...within(dialog).getByLabelText(/^Hora de fin/).options].map((o) => o.value);
+  expect(starts.slice(0, 4)).toEqual(["", "07:00", "07:30", "08:00"]);
+  expect(starts.at(-1)).toBe("19:30");
+  expect(ends[1]).toBe("07:30");
+  expect(ends.at(-1)).toBe("20:00");
+  expect(starts).not.toContain("08:15");
   fireEvent.change(within(dialog).getByLabelText(/^Hora de inicio/), { target: { value: "10:00" } });
   fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "09:00" } });
   await user.click(within(dialog).getByText("Confirmar bloque"));
@@ -297,7 +309,7 @@ test("Recalcula los cruces de docente, aula, sección y aforo antes de guardar",
   await user.selectOptions(within(dialog).getByLabelText(/^Aula/), "2");
   await user.selectOptions(within(dialog).getByLabelText(/^Asignación docente/), "11");
   fireEvent.change(within(dialog).getByLabelText(/^Hora de inicio/), { target: { value: "07:00" } });
-  fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "07:45" } });
+  fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "07:30" } });
   const capacity = await within(dialog).findByText(/^Aforo insuficiente:/);
   expect(capacity.parentElement.textContent).toBe(
     "Aforo insuficiente: El aula admite 20 estudiantes y la sección tiene una capacidad máxima de 30.",
@@ -569,10 +581,20 @@ describe("Perspectivas de la matriz (US-24)", () => {
     renderTimetable();
     await grid();
     expect(screen.getAllByLabelText(/Más acciones/).length).toBeGreaterThan(0);
-    await user.click(screen.getByRole("button", { name: "Ver detalle de Comunicación, Martes 08:00" }));
+    const blockCard = screen.getByRole("button", { name: "Ver detalle de Comunicación, Martes 08:00" }).closest("article");
+    fireEvent.click(blockCard);
     const dialog = screen.getByRole("dialog", { name: "Detalle del bloque" });
     expect(within(dialog).getByText("3° A · 2026")).toBeTruthy();
     expect(within(dialog).getByText("Luis Quispe")).toBeTruthy();
+  });
+
+  test("El menú de acciones no abre el detalle del bloque", async () => {
+    backend();
+    renderTimetable();
+    await grid();
+    await userEvent.setup().click(screen.getByLabelText("Más acciones para Matemática Lunes 08:00"));
+    expect(screen.queryByRole("dialog", { name: "Detalle del bloque" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Editar" })).toBeTruthy();
   });
 
   test("Fuera de la vista por sección es de consulta: sin crear ni editar", async () => {
