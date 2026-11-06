@@ -9,6 +9,8 @@ import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Finance } from "@/modules/finance";
 import { Schedules, TeacherSchedule } from "@/modules/schedules";
 import { TasksModule } from "@/modules/tasks";
+import { TeacherCoursesModule } from "@/modules/teacher-courses";
+import { TeacherHome } from "@/modules/teacher-home";
 import { canAccess } from "./access-policy";
 import {
   HOME_NAV,
@@ -25,6 +27,8 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   DOCENTE: {
+    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
+    "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
     Horario: () => <TeacherSchedule />,
     Tareas: ({ user, subpath }) => (
       <TasksModule

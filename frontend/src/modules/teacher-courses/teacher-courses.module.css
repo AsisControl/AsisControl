@@ -1,0 +1,94 @@
+.encabezado {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.filtro nav {
+  margin-bottom: 0;
+}
+.grilla {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000d;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+.cardTop {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.icon {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 8px;
+  color: var(--blue);
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.card h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.seccion {
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 2px 0 12px;
+}
+.detalles {
+  color: var(--muted);
+  display: grid;
+  flex: 1;
+  font-size: 13px;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.acciones {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+.enlace,
+.secundario {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  text-align: center;
+  text-decoration: none;
+}
+.secundario {
+  background: #fff;
+  border: 1px solid #3b82f6;
+  color: var(--blue);
+}
+.vacio {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 24px;
+  text-align: center;
+}
+.aviso {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
