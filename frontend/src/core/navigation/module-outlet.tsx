@@ -5,8 +5,10 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
+import { JustificationInbox } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Finance } from "@/modules/finance";
+import { GuardianAttendance } from "@/modules/guardian-attendance";
 import { Schedules, TeacherSchedule } from "@/modules/schedules";
 import { TasksModule } from "@/modules/tasks";
 import { TeacherCoursesModule } from "@/modules/teacher-courses";
@@ -29,6 +31,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   DOCENTE: {
     Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
+    Asistencia: () => <JustificationInbox />,
     Horario: () => <TeacherSchedule />,
     Tareas: ({ user, subpath }) => (
       <TasksModule
@@ -62,6 +65,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Matrícula: () => <GuardianEnrollment />,
+    Asistencia: () => <GuardianAttendance />,
   },
 };
 /** Direcciones anteriores que se conservan para no romper enlaces guardados. */

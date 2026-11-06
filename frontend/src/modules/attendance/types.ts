@@ -79,8 +79,15 @@ export type ArchivoJustificacion = {
 export type Justificacion = {
   id: number;
   motivo: string;
+  fechaHoraEnvio: string;
   fechaHoraRevision: string | null;
   observacionRevision: string | null;
   estado: EstadoJustificacion;
   archivos: ArchivoJustificacion[];
+  version: number;
+  estudiante: string;
+  curso: string;
+  seccion: string;
+  fechaSesion: string;
+  horaSesion: string | null;
 };
