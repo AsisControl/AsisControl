@@ -1,0 +1,222 @@
+/* asistencia alumnos */
+.pagina {
+  margin: 0 auto;
+  max-width: 1000px;
+}
+.encabezado {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.encabezado h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  margin: 0;
+}
+.encabezado p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+}
+.selector {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+}
+.aviso {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+}
+.filtros,
+.totales > div,
+.lista {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000d;
+}
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+}
+.filtros label {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 4px;
+}
+.totales {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+.totales > div {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  gap: 2px;
+  justify-items: center;
+  padding: 14px 12px;
+}
+.totales strong {
+  font-size: 24px;
+  line-height: 30px;
+}
+.presencias {
+  color: #15803d;
+}
+.tardanzas {
+  color: #b45309;
+}
+.inasistencias {
+  color: #dc2626;
+}
+.porcentaje {
+  color: var(--blue);
+}
+.lista {
+  padding: 8px 16px 16px;
+}
+.tabla {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+.tabla th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 12px;
+  text-align: left;
+  text-transform: uppercase;
+}
+.tabla td {
+  border-top: 1px solid #e2e8f0;
+  height: 44px;
+  padding: 6px 12px;
+}
+.fecha {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.curso {
+  color: var(--blue);
+  font-weight: 500;
+}
+.detalle {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.accion {
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 6px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+}
+.accion:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.vacio {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 24px;
+  text-align: center;
+}
+.ayuda {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+.datos {
+  background: var(--surface);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 16px;
+  padding: 12px;
+}
+.datos dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.datos dd {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 2px 0 0;
+}
+.campo {
+  display: grid;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.campo em {
+  color: #dc2626;
+  font-style: normal;
+}
+.campo select,
+.campo textarea {
+  font: inherit;
+  font-weight: 400;
+  width: 100%;
+}
+.sustento {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: grid;
+  font-weight: 400;
+  gap: 8px;
+  justify-items: center;
+  padding: 12px;
+}
+.sustento p {
+  color: var(--muted);
+  margin: 0;
+}
+.sustento .archivo {
+  align-items: center;
+  color: #334155;
+  display: flex;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.archivo button {
+  background: none;
+  border: 0;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+@media (max-width: 700px) {
+  .totales {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

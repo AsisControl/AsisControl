@@ -217,7 +217,7 @@ test("Cada rol ve su menú y su pantalla de inicio", async () => {
     sessionFor({ role, permissions: [] });
     const { unmount } = renderApp();
     expect(await screen.findByText(title)).toBeTruthy();
-    expect(screen.getByText(/Has ingresado como/)).toBeTruthy();
+    expect(screen.getByText(role === "DOCENTE" ? /Datos de ejemplo/ : /Has ingresado como/)).toBeTruthy();
     unmount();
   }
 });

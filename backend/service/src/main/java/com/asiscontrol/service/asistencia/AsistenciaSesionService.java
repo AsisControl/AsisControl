@@ -12,16 +12,19 @@ import com.asiscontrol.dto.asistencia.AsistenciaSesionDtos.SesionAsistenciaRespo
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AsistenciaAlumno;
+import com.asiscontrol.entity.JustificacionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistenciaDetalle;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoJustificacion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
+import com.asiscontrol.repository.JustificacionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaDetalleRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
@@ -57,6 +60,11 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AsistenciaSesionService {
 
+    private static final Set<EstadoJustificacion> JUSTIFICACION_PENDIENTE = Set.of(
+            EstadoJustificacion.ENVIADA,
+            EstadoJustificacion.EN_REVISION,
+            EstadoJustificacion.OBSERVADA);
+
     private static final Set<EstadoAsistencia> ESTADOS_PERMITIDOS = Set.of(
             EstadoAsistencia.PRESENTE, EstadoAsistencia.TARDANZA, EstadoAsistencia.INASISTENCIA);
 
@@ -64,9 +72,11 @@ public class AsistenciaSesionService {
     private final AsistenciaAlumnoRepository asistenciaRepository;
     private final CorreccionAsistenciaRepository correccionRepository;
     private final CorreccionAsistenciaDetalleRepository detalleRepository;
+    private final JustificacionAsistenciaRepository justificacionRepository;
     private final MatriculaService matriculaService;
     private final AuditoriaService auditoria;
     private final ModuloAccessGuard accessGuard;
+    private final CalendarioSesionService calendarioService;
     private final Clock reloj;
 
     public AsistenciaSesionService(
@@ -74,17 +84,21 @@ public class AsistenciaSesionService {
             AsistenciaAlumnoRepository asistenciaRepository,
             CorreccionAsistenciaRepository correccionRepository,
             CorreccionAsistenciaDetalleRepository detalleRepository,
+            JustificacionAsistenciaRepository justificacionRepository,
             MatriculaService matriculaService,
             AuditoriaService auditoria,
             ModuloAccessGuard accessGuard,
+            CalendarioSesionService calendarioService,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.correccionRepository = correccionRepository;
         this.detalleRepository = detalleRepository;
+        this.justificacionRepository = justificacionRepository;
         this.matriculaService = matriculaService;
         this.auditoria = auditoria;
         this.accessGuard = accessGuard;
+        this.calendarioService = calendarioService;
         this.reloj = reloj;
     }
 
@@ -95,6 +109,7 @@ public class AsistenciaSesionService {
     public SesionAsistenciaResponse obtener(Long sesionId) {
         SesionClase sesion = buscarSesion(sesionId);
         accessGuard.verificarAsignacionDocente(sesion.getAsignacionCurso());
+        calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         return mapear(sesion, asistenciaRepository.findAllBySesionClaseId(sesionId));
     }
 
@@ -151,6 +166,7 @@ public class AsistenciaSesionService {
     /**
      * Corrige una asistencia TOMADA, incluso días después (R12, R13). Registra un detalle por
      * estudiante cambiado ligado al motivo; si nada cambió se rechaza sin crear una corrección.
+     * Reenviar el estado base de una marca justificada no es un cambio: conserva la justificación.
      */
     @Transactional
     public SesionAsistenciaResponse corregir(Long sesionId, CorregirAsistenciaRequest request) {
@@ -171,13 +187,16 @@ public class AsistenciaSesionService {
                         "ALUMNO_NO_REGISTRADO_EN_SESION",
                         "El estudiante " + alumnoId + " no figura en esta asistencia");
             }
-            if (fila.getEstadoAsistencia() != estado) {
+            if (estadoBase(fila.getEstadoAsistencia()) != estado) {
                 CorreccionAsistenciaDetalle detalle = new CorreccionAsistenciaDetalle();
                 detalle.setAlumno(fila.getAlumno());
                 detalle.setEstadoAnterior(fila.getEstadoAsistencia());
                 detalle.setEstadoNuevo(estado);
                 cambios.add(detalle);
                 fila.setEstadoAsistencia(estado);
+                if (estado != EstadoAsistencia.INASISTENCIA) {
+                    cancelarJustificacionPendiente(fila);
+                }
             }
         });
         if (cambios.isEmpty()) {
@@ -209,6 +228,7 @@ public class AsistenciaSesionService {
     public List<CorreccionAsistenciaResponse> listarCorrecciones(Long sesionId) {
         SesionClase sesion = buscarSesion(sesionId);
         accessGuard.verificarAsignacionDocente(sesion.getAsignacionCurso());
+        calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         List<CorreccionAsistencia> correcciones = correccionRepository.findAllBySesionClaseIdOrderByFechaHoraDesc(sesionId);
         Map<Long, List<CorreccionAsistenciaDetalle>> detalles = detalleRepository
                 .findAllByCorreccionAsistenciaIdIn(correcciones.stream().map(CorreccionAsistencia::getId).toList())
@@ -218,10 +238,11 @@ public class AsistenciaSesionService {
                 c.getId(),
                 c.getFechaHora(),
                 c.getDocente().getId(),
+                c.getDocente().getPersona().nombreCompleto(),
                 c.getMotivo(),
                 detalles.getOrDefault(c.getId(), List.of()).stream().map(d -> new CambioAsistenciaResponse(
                         d.getAlumno().getId(),
-                        d.getAlumno().getPersona().nombreCompleto(),
+                        d.getAlumno().getPersona().nombreLista(),
                         d.getEstadoAnterior(),
                         d.getEstadoNuevo())).toList()))
                 .toList();
@@ -255,6 +276,7 @@ public class AsistenciaSesionService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "SESION_CLASE_NO_ENCONTRADA", "No existe una sesión de clase activa con id " + sesionId));
         accessGuard.verificarDocenteTitular(sesion.getAsignacionCurso());
+        calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         if (version != null && sesion.getVersion() != version) {
             throw new ConflictException(
                     "VERSION_DESACTUALIZADA", "La asistencia fue modificada en otra pantalla; vuelva a cargarla");
@@ -344,19 +366,33 @@ public class AsistenciaSesionService {
         LocalDate hoy = LocalDate.now(reloj);
         EstadoSesionClase estado = CalendarioSesionService.estadoEfectivo(sesion, hoy);
         boolean vencido = sesion.getEstado() == EstadoSesionClase.BORRADOR && estado == EstadoSesionClase.PENDIENTE;
-        Map<Long, EstadoAsistencia> estados = vencido ? Map.of() : filas.stream()
-                .collect(Collectors.toMap(f -> f.getAlumno().getId(), AsistenciaAlumno::getEstadoAsistencia));
+        Map<Long, AsistenciaAlumno> registradas = vencido ? Map.of() : filas.stream()
+                .collect(Collectors.toMap(f -> f.getAlumno().getId(), Function.identity()));
+        Map<Long, JustificacionAsistencia> justificaciones = estado != EstadoSesionClase.TOMADA ? Map.of()
+                : justificacionRepository
+                        .findAllByAsistenciaAlumnoIdInAndActivoTrue(filas.stream().map(AsistenciaAlumno::getId).toList())
+                        .stream()
+                        .collect(Collectors.toMap(j -> j.getAsistenciaAlumno().getId(), Function.identity()));
 
         List<Alumno> alumnos = estado == EstadoSesionClase.TOMADA
                 ? filas.stream().map(AsistenciaAlumno::getAlumno).toList()
                 : matriculaService.alumnosConMatriculaActiva(sesion.getAsignacionCurso().getSeccion().getId());
         List<AlumnoAsistenciaResponse> lista = alumnos.stream()
-                .map(alumno -> new AlumnoAsistenciaResponse(
-                        alumno.getId(),
-                        alumno.getCodigoAlumno(),
-                        alumno.getPersona().nombreCompleto(),
-                        estados.get(alumno.getId())))
-                .sorted(java.util.Comparator.comparing(AlumnoAsistenciaResponse::nombreCompleto))
+                .map(alumno -> {
+                    AsistenciaAlumno fila = registradas.get(alumno.getId());
+                    JustificacionAsistencia justificacion = fila == null ? null : justificaciones.get(fila.getId());
+                    return new AlumnoAsistenciaResponse(
+                            alumno.getId(),
+                            alumno.getCodigoAlumno(),
+                            alumno.getPersona().nombreLista(),
+                            fila == null ? null : estadoBase(fila.getEstadoAsistencia()),
+                            fila == null ? null : fila.getId(),
+                            justificacion == null ? null : justificacion.getId(),
+                            justificacion == null ? null : justificacion.getEstado());
+                })
+                .sorted(java.util.Comparator.comparing(
+                        AlumnoAsistenciaResponse::nombreCompleto,
+                        java.text.Collator.getInstance(java.util.Locale.of("es"))))
                 .toList();
 
         AsignacionCurso asignacion = sesion.getAsignacionCurso();
@@ -364,16 +400,39 @@ public class AsistenciaSesionService {
                 sesion.getId(),
                 asignacion.getId(),
                 asignacion.getCurso().getNombre(),
-                asignacion.getSeccion().getGrado() + "° " + asignacion.getSeccion().getNombre(),
+                asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
                 sesion.getFecha(),
                 sesion.getHoraInicio(),
                 sesion.getHoraFin(),
                 estado,
                 sesion.getFecha().isEqual(hoy) && estado != EstadoSesionClase.TOMADA,
+                !sesion.getFecha().isAfter(hoy),
                 estado == EstadoSesionClase.TOMADA,
                 (int) lista.stream().filter(a -> a.estado() == null).count(),
                 lista,
+                sesion.getDocenteRegistrador() == null
+                        ? null : sesion.getDocenteRegistrador().getPersona().nombreCompleto(),
+                sesion.getFechaHoraFinalizacion(),
                 sesion.getVersion());
+    }
+
+    /** Sin inasistencia ya no hay qué justificar: lo pendiente no debe quedar esperando revisión. */
+    private void cancelarJustificacionPendiente(AsistenciaAlumno fila) {
+        justificacionRepository.findByAsistenciaAlumnoIdAndActivoTrue(fila.getId())
+                .filter(justificacion -> JUSTIFICACION_PENDIENTE.contains(justificacion.getEstado()))
+                .ifPresent(justificacion -> {
+                    justificacion.setEstado(EstadoJustificacion.CANCELADA);
+                    justificacionRepository.save(justificacion);
+                });
+    }
+
+    /** Aprobar una justificación cambia la marca a su variante justificada; el docente ve la base. */
+    private static EstadoAsistencia estadoBase(EstadoAsistencia estado) {
+        return switch (estado) {
+            case INASISTENCIA_JUSTIFICADA -> EstadoAsistencia.INASISTENCIA;
+            case TARDANZA_JUSTIFICADA -> EstadoAsistencia.TARDANZA;
+            default -> estado;
+        };
     }
 
     private String describir(Map<Long, EstadoAsistencia> marcas) {

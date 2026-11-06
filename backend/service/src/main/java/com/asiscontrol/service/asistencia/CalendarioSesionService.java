@@ -1,19 +1,24 @@
 // asistencia alumnos
 package com.asiscontrol.service.asistencia;
 
+import com.asiscontrol.dto.asistencia.PeriodoCurso;
+import com.asiscontrol.dto.asistencia.SesionClaseDtos.AsignacionAsistenciaResponse;
 import com.asiscontrol.dto.asistencia.SesionClaseDtos.SesionClaseResponse;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.DiaSemana;
+import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.planificacion.AnioAcademico;
 import com.asiscontrol.entity.planificacion.DiaNoLectivo;
+import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
 import com.asiscontrol.service.AsignacionCursoService;
 import com.asiscontrol.service.ConfiguracionAcademicaService;
 import com.asiscontrol.service.DiaNoLectivoService;
 import com.asiscontrol.service.HorarioService;
+import com.asiscontrol.service.MatriculaService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -32,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +55,7 @@ public class CalendarioSesionService {
     private final AsignacionCursoService asignacionService;
     private final ConfiguracionAcademicaService configuracionService;
     private final DiaNoLectivoService diaNoLectivoService;
+    private final MatriculaService matriculaService;
     private final ModuloAccessGuard accessGuard;
     private final Clock reloj;
 
@@ -58,6 +65,7 @@ public class CalendarioSesionService {
             AsignacionCursoService asignacionService,
             ConfiguracionAcademicaService configuracionService,
             DiaNoLectivoService diaNoLectivoService,
+            MatriculaService matriculaService,
             ModuloAccessGuard accessGuard,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
@@ -65,6 +73,7 @@ public class CalendarioSesionService {
         this.asignacionService = asignacionService;
         this.configuracionService = configuracionService;
         this.diaNoLectivoService = diaNoLectivoService;
+        this.matriculaService = matriculaService;
         this.accessGuard = accessGuard;
         this.reloj = reloj;
     }
@@ -123,15 +132,67 @@ public class CalendarioSesionService {
         sesionRepository.saveAll(cambios);
     }
 
+    /**
+     * Cursos del docente autenticado. Un año en BORRADOR todavía no se dicta, por eso no aparece
+     * en ningún filtro, ni en TODOS. Para otro perfil la lista queda vacía.
+     */
+    public List<AsignacionAsistenciaResponse> listarAsignaciones(PeriodoCurso periodo) {
+        Map<Integer, Optional<EstadoAnioAcademico>> estados = new HashMap<>();
+        List<AsignacionAsistenciaResponse> cursos = new ArrayList<>();
+        for (AsignacionCurso asignacion : asignacionService.listarPorPersonaDocente(accessGuard.personaIdActual())) {
+            EstadoAnioAcademico estado = estados
+                    .computeIfAbsent(asignacion.getSeccion().getAnioAcademico(), anio ->
+                            configuracionService.buscarOpcional(anio).map(AnioAcademico::getEstado))
+                    .orElse(null);
+            boolean vigente = estado == EstadoAnioAcademico.ACTIVO;
+            boolean pasado = estado == EstadoAnioAcademico.CERRADO;
+            boolean incluido = switch (periodo) {
+                case VIGENTES -> vigente;
+                case PASADOS -> pasado;
+                case TODOS -> vigente || pasado;
+            };
+            if (incluido) {
+                List<Horario> bloques = horarioService.listarActivosPorAsignacion(asignacion.getId());
+                cursos.add(new AsignacionAsistenciaResponse(
+                        asignacion.getId(),
+                        asignacion.getCurso().getNombre(),
+                        asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
+                        asignacion.getSeccion().getAnioAcademico(),
+                        vigente,
+                        matriculaService.alumnosConMatriculaActiva(asignacion.getSeccion().getId()).size(),
+                        resumirHorario(bloques),
+                        resumirAulas(bloques),
+                        vigente ? configuracionService.periodoActivo(asignacion.getSeccion().getAnioAcademico()) : null));
+            }
+        }
+        return cursos;
+    }
+
     public List<SesionClaseResponse> listar(Long asignacionCursoId) {
         AsignacionCurso asignacion = asignacionService.obtenerEntidad(asignacionCursoId);
         accessGuard.verificarAsignacionDocente(asignacion);
+        exigirAnioDictado(asignacion);
         LocalDate hoy = LocalDate.now(reloj);
         return sesionRepository
                 .findAllByAsignacionCursoIdAndActivoTrueOrderByFechaAscHoraInicioAsc(asignacionCursoId)
                 .stream()
                 .map(sesion -> mapear(sesion, hoy))
                 .toList();
+    }
+
+    /**
+     * La asistencia solo opera en un año que se dicta (ACTIVO) o que ya se dictó (CERRADO). Las
+     * sesiones de un año en BORRADOR se generan para tenerlas listas, pero aún no se usan.
+     */
+    public void exigirAnioDictado(AsignacionCurso asignacion) {
+        boolean dictado = configuracionService.buscarOpcional(asignacion.getSeccion().getAnioAcademico())
+                .map(AnioAcademico::getEstado)
+                .filter(estado -> estado != EstadoAnioAcademico.BORRADOR)
+                .isPresent();
+        if (!dictado) {
+            throw new BusinessRuleException(
+                    "ASISTENCIA_ANIO_NO_ACTIVO", "El año académico de este curso todavía no está activo");
+        }
     }
 
     /** Un BORRADOR de un día anterior ya venció: se informa como PENDIENTE (R07, R08). */
@@ -182,6 +243,42 @@ public class CalendarioSesionService {
             }
         }
         return resultado;
+    }
+
+    /** Días agrupados por hora de inicio: "Lun, Mié, Vie 07:30" o "Lun 07:30 · Mar 09:30". */
+    private static String resumirHorario(List<Horario> bloques) {
+        Map<LocalTime, List<String>> diasPorHora = new TreeMap<>();
+        agruparEncuentros(bloques).forEach((dia, encuentros) -> {
+            for (Encuentro encuentro : encuentros) {
+                diasPorHora.computeIfAbsent(encuentro.horaInicio(), hora -> new ArrayList<>()).add(diaAbreviado(dia));
+            }
+        });
+        if (diasPorHora.isEmpty()) {
+            return null;
+        }
+        return diasPorHora.entrySet().stream()
+                .map(e -> String.join(", ", e.getValue()) + " " + e.getKey())
+                .collect(Collectors.joining(" · "));
+    }
+
+    private static String resumirAulas(List<Horario> bloques) {
+        String aulas = bloques.stream()
+                .map(bloque -> bloque.getAula().getNombre())
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(", "));
+        return aulas.isEmpty() ? null : aulas;
+    }
+
+    private static String diaAbreviado(DiaSemana dia) {
+        return switch (dia) {
+            case LUNES -> "Lun";
+            case MARTES -> "Mar";
+            case MIERCOLES -> "Mié";
+            case JUEVES -> "Jue";
+            case VIERNES -> "Vie";
+            case SABADO -> "Sáb";
+        };
     }
 
     /** Une los bloques del mismo día en que uno empieza cuando termina el anterior. */

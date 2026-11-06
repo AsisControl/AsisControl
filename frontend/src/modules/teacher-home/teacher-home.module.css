@@ -1,0 +1,148 @@
+.enlace {
+  display: inline-block;
+  text-decoration: none;
+}
+.ejemplo {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 16px 0;
+  padding: 8px 12px;
+}
+.indicadores {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.indicador,
+.tarjeta {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000d;
+}
+.indicador {
+  display: grid;
+  gap: 2px;
+  padding: 16px 20px;
+}
+.indicador strong {
+  font-size: 24px;
+  line-height: 32px;
+}
+.indicador span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.columnas {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin-top: 16px;
+}
+.tarjeta {
+  padding: 20px;
+}
+.tarjeta h3 {
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+.resumen {
+  color: var(--muted);
+  font-size: 13px;
+  margin: -12px 0 12px;
+}
+.clase,
+.claseActual {
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 12px;
+}
+.clase {
+  background: var(--surface);
+  border: 1px solid #e2e8f0;
+}
+.claseActual {
+  background: #ecfdf5;
+  border: 1px solid #059669;
+}
+.claseFila {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.claseFila p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+.claseHora {
+  align-items: flex-end;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+.claseHora time {
+  color: var(--muted);
+  font-family: monospace;
+  font-size: 12px;
+}
+.claseAcciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.secundario {
+  background: #fff;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+.pendientes {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pendientes li {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.pendientes span:first-child {
+  display: block;
+  font-size: 13px;
+}
+.pendientes small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.accesos {
+  display: grid;
+  gap: 4px;
+}
+.accesos a {
+  border-radius: 8px;
+  color: var(--ink);
+  display: flex;
+  font-size: 14px;
+  font-weight: 500;
+  justify-content: space-between;
+  padding: 12px 8px;
+  text-decoration: none;
+}
+.accesos a:hover {
+  background: var(--surface);
+  color: var(--blue);
+}

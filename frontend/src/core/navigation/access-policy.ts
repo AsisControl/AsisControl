@@ -3,6 +3,7 @@ import { roleDetails } from "./navigation";
 /** Permiso que exige cada opción con pantalla; las pendientes dependen solo del rol. */
 const requiredPermissions: Record<string, string> = {
   Tareas: "TAREAS_LEER",
+  "Mis cursos": "ASISTENCIA_LEER",
   Evaluaciones: "CALIFICACIONES_LEER",
   Matrícula: "MATRICULA_LEER",
   Académico: "ACADEMICO_LEER",

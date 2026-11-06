@@ -77,6 +77,14 @@ public class Persona extends AuditableEntity {
     @Column(name = "direccion", length = 250)
     private String direccion;
 
+    // asistencia alumnos: formato de listas, ordenable por apellido
+    public String nombreLista() {
+        String apellidos = java.util.stream.Stream.of(apellidoPaterno, apellidoMaterno)
+                .filter(value -> value != null && !value.isBlank())
+                .collect(java.util.stream.Collectors.joining(" "));
+        return apellidos + ", " + nombres;
+    }
+
     public String nombreCompleto() {
         return java.util.stream.Stream.of(nombres, apellidoPaterno, apellidoMaterno)
                 .filter(value -> value != null && !value.isBlank())

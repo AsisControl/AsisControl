@@ -12,7 +12,13 @@ import java.util.Optional;
 
 public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlumno, Long> {
 
-    Optional<AsistenciaAlumno> findByIdAndActivoTrue(Long id);
+    // asistencia alumnos: un registro oficial pertenece a una sesión TOMADA; un borrador no se expone
+    @Query("""
+            SELECT a FROM AsistenciaAlumno a
+            WHERE a.id = :id AND a.activo = true
+              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
+            """)
+    Optional<AsistenciaAlumno> buscarOficial(@Param("id") Long id);
 
     // asistencia alumnos
     java.util.List<AsistenciaAlumno> findAllBySesionClaseId(Long sesionClaseId);
@@ -20,6 +26,7 @@ public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlum
     @Query("""
             SELECT a FROM AsistenciaAlumno a
             WHERE a.activo = true
+              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
               AND (:alumnoId IS NULL OR a.alumno.id = :alumnoId)
               AND (:asignacionCursoId IS NULL OR a.asignacionCurso.id = :asignacionCursoId)
               AND (:fechaRegistro IS NULL OR a.fechaRegistro = :fechaRegistro)
