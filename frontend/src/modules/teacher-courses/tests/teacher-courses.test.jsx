@@ -1,8 +1,8 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, reply, signIn } from "../../../../tests/support/backend.js";
-import { setUrl } from "../../../../tests/support/navigation.js";
+import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
 import { ModuleOutlet } from "@/core/navigation/module-outlet";
 import { SessionUserProvider } from "@/core/layout/session-user";
 import { canAccess } from "@/core/navigation/access-policy";
@@ -31,7 +31,7 @@ test("Muestra los cursos vigentes por defecto con sus datos y accesos", async ()
   for (const texto of ["3° Grado A", "36 estudiantes", "Lun, Mié, Vie 07:30", "Aula 201", "Período III", "Activo"])
     expect(within(card).getByText(texto)).toBeTruthy();
   expect(within(card).getByRole("link", { name: "Asistencia" }).getAttribute("href")).toBe("/mis-cursos/42/asistencia");
-  expect(within(card).getByRole("link", { name: "Ver evaluaciones" }).getAttribute("href")).toBe("/mis-cursos/42/evaluaciones");
+  expect(within(card).getByRole("link", { name: "Ver evaluaciones" }).getAttribute("href")).toBe("/evaluaciones");
   expect(calls[0].query).toEqual({ periodo: "VIGENTES" });
 });
 
@@ -55,9 +55,9 @@ test("Informa cuando no hay cursos y permite reintentar tras un error", async ()
   unmount();
 });
 
-test("Valida la dirección y avisa que las pantallas del curso están en construcción", () => {
+test("Redirige enlaces anteriores de evaluaciones y valida direcciones incorrectas", async () => {
   render(<TeacherCoursesModule subpath={["42", "evaluaciones"]} />);
-  expect(screen.getByText("Esta pantalla está en construcción.")).toBeTruthy();
+  await waitFor(() => expect(currentUrl()).toBe("/evaluaciones"));
   render(<TeacherCoursesModule subpath={["abc", "asistencia"]} />);
   expect(screen.getByText("La dirección no es válida.")).toBeTruthy();
 });

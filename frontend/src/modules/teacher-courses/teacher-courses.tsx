@@ -48,7 +48,7 @@ function CursoCard({ curso }: { curso: CursoAsignado }) {
         ))}
       </ul>
       <div className={styles.acciones}>
-        <Link className={`primary-action ${styles.enlace}`} href={`/mis-cursos/${curso.id}/evaluaciones`}>
+        <Link className={`primary-action ${styles.enlace}`} href="/evaluaciones">
           Ver evaluaciones
         </Link>
         <Link className={styles.secundario} href={`/mis-cursos/${curso.id}/asistencia`}>
