@@ -95,6 +95,8 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
     @Query("""
             SELECT h FROM Horario h
             WHERE h.activo = true
+              AND h.asignacionCurso.activo = true
+              AND h.asignacionCurso.seccion.anioAcademico = :anioAcademico
               AND h.diaSemana = :diaSemana
               AND h.horaInicio < :horaFin
               AND h.horaFin > :horaInicio
@@ -102,8 +104,10 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
               AND (h.aula.id = :aulaId
                    OR h.asignacionCurso.docente.id = :docenteId
                    OR h.asignacionCurso.seccion.id = :seccionId)
+            ORDER BY h.id
             """)
     List<Horario> buscarConflictos(
+            @Param("anioAcademico") int anioAcademico,
             @Param("diaSemana") DiaSemana diaSemana,
             @Param("horaInicio") LocalTime horaInicio,
             @Param("horaFin") LocalTime horaFin,

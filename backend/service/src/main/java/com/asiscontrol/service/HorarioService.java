@@ -7,6 +7,7 @@ import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.enums.DiaSemana;
+import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
@@ -14,12 +15,14 @@ import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.AulaRepository;
 import com.asiscontrol.repository.HorarioRepository;
+import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -34,23 +37,27 @@ public class HorarioService {
     private final AulaRepository aulaRepository;
     private final AuditoriaService auditoria;
     private final ApplicationEventPublisher eventos;
+    private final AnioAcademicoRepository anios;
 
     public HorarioService(
             HorarioRepository horarioRepository,
             AsignacionCursoRepository asignacionRepository,
             AulaRepository aulaRepository,
             AuditoriaService auditoria,
-            ApplicationEventPublisher eventos) {
+            ApplicationEventPublisher eventos,
+            AnioAcademicoRepository anios) {
         this.horarioRepository = horarioRepository;
         this.asignacionRepository = asignacionRepository;
         this.aulaRepository = aulaRepository;
         this.auditoria = auditoria;
         this.eventos = eventos;
+        this.anios = anios;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public HorarioResponse crear(CrearHorarioRequest request) {
         AsignacionCurso asignacion = buscarAsignacion(request.asignacionCursoId());
+        bloquearPlanificacion(asignacion.getSeccion().getAnioAcademico());
         Aula aula = buscarAula(request.aulaId());
         validar(request.diaSemana(), request.horaInicio(), request.horaFin(), asignacion, aula, null);
         Horario horario = new Horario();
@@ -63,11 +70,15 @@ public class HorarioService {
         return mapear(saved);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public HorarioResponse actualizar(Long id, ActualizarHorarioRequest request) {
         Horario horario = obtenerEntidad(id);
         exigirVersion(horario.getVersion(), request.version());
         AsignacionCurso asignacion = buscarAsignacion(request.asignacionCursoId());
+        // Orden estable si el bloque se traslada a otra planificación: evita bloqueos cruzados.
+        List.of(horario.getAsignacionCurso().getSeccion().getAnioAcademico(),
+                asignacion.getSeccion().getAnioAcademico()).stream()
+                .distinct().sorted().forEach(this::bloquearPlanificacion);
         Aula aula = buscarAula(request.aulaId());
         validar(request.diaSemana(), request.horaInicio(), request.horaFin(), asignacion, aula, id);
         String anterior = describir(horario);
@@ -100,9 +111,10 @@ public class HorarioService {
                 anioAcademico, seccionId, docenteId, aulaId, cursoId, pageable).map(this::mapear);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void eliminar(Long id) {
         Horario horario = obtenerEntidad(id);
+        bloquearPlanificacion(horario.getAsignacionCurso().getSeccion().getAnioAcademico());
         horario.setActivo(false);
         horarioRepository.save(horario);
         auditoria.registrar("ELIMINAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
@@ -160,6 +172,31 @@ public class HorarioService {
                         "AULA_NO_ENCONTRADA", "No existe un aula activa con id " + id));
     }
 
+    /**
+     * Reserva la planificación hasta el commit. El siguiente guardado espera y vuelve a consultar
+     * los cruces con READ_COMMITTED, de modo que ve el bloque que acaba de confirmar el primero.
+     */
+    private void bloquearPlanificacion(int anio) {
+        var planificacion = anios.bloquear(anio).orElseThrow(() -> new ResourceNotFoundException(
+                "ANIO_NO_ENCONTRADO", "No existe la planificación del año " + anio));
+        if (!planificacion.isActivo() || planificacion.getEstado() == EstadoAnioAcademico.CERRADO) {
+            throw new BusinessRuleException(
+                    "ANIO_NO_VIGENTE", "El año académico está inhabilitado o cerrado");
+        }
+    }
+
+    private void validarContexto(AsignacionCurso asignacion) {
+        if (!asignacion.getCurso().isActivo()) {
+            throw new BusinessRuleException("CURSO_INACTIVO", "El curso está inhabilitado");
+        }
+        if (!asignacion.getSeccion().isActivo()) {
+            throw new BusinessRuleException("SECCION_INACTIVA", "La sección está inhabilitada");
+        }
+        if (!asignacion.getDocente().isActivo() || !asignacion.getDocente().getPersona().isActivo()) {
+            throw new BusinessRuleException("DOCENTE_INACTIVO", "El docente está inhabilitado");
+        }
+    }
+
     private void validar(
             DiaSemana dia,
             LocalTime inicio,
@@ -167,6 +204,7 @@ public class HorarioService {
             AsignacionCurso asignacion,
             Aula aula,
             Long idExcluido) {
+        validarContexto(asignacion);
         if (!inicio.isBefore(fin)) {
             throw new BusinessRuleException(
                     "HORARIO_RANGO_INVALIDO", "La hora de inicio debe ser anterior a la hora de fin");
@@ -177,21 +215,33 @@ public class HorarioService {
                     "El aula no tiene capacidad para la seccion asignada");
         }
         List<Horario> conflictos = horarioRepository.buscarConflictos(
+                asignacion.getSeccion().getAnioAcademico(),
                 dia, inicio, fin, aula.getId(), asignacion.getDocente().getId(),
                 asignacion.getSeccion().getId(), idExcluido);
+        List<HorarioResponse> detalles = conflictos.stream().map(this::mapear).toList();
         for (Horario conflicto : conflictos) {
             if (conflicto.getAula().getId().equals(aula.getId())) {
                 throw new ConflictException(
-                        "HORARIO_AULA_OCUPADA", "El aula ya esta ocupada en ese horario");
+                        "HORARIO_AULA_OCUPADA", "El aula ya está ocupada: " + describirConflicto(conflicto),
+                        detalles);
             }
             if (conflicto.getAsignacionCurso().getDocente().getId()
                     .equals(asignacion.getDocente().getId())) {
                 throw new ConflictException(
-                        "HORARIO_DOCENTE_OCUPADO", "El docente ya tiene una clase en ese horario");
+                        "HORARIO_DOCENTE_OCUPADO", "El docente ya tiene una clase: " + describirConflicto(conflicto),
+                        detalles);
             }
             throw new ConflictException(
-                    "HORARIO_SECCION_OCUPADA", "La seccion ya tiene una clase en ese horario");
+                    "HORARIO_SECCION_OCUPADA", "La sección ya tiene una clase: " + describirConflicto(conflicto),
+                    detalles);
         }
+    }
+
+    private String describirConflicto(Horario horario) {
+        return "bloque #" + horario.getId() + ", " + horario.getAsignacionCurso().getCurso().getNombre()
+                + ", sección " + horario.getAsignacionCurso().getSeccion().getNombre()
+                + ", " + horario.getAula().getNombre() + ", " + horario.getDiaSemana()
+                + " de " + horario.getHoraInicio() + " a " + horario.getHoraFin();
     }
 
     private void aplicar(
