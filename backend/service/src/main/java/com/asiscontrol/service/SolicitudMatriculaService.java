@@ -241,9 +241,9 @@ public class SolicitudMatriculaService {
     }
 
     public Page<SolicitudMatriculaResponse> listar(
-            Long personaAlumnoId, Long personaApoderadoId, Pageable pageable) {
+            Long alumnoId, Long personaAlumnoId, Long personaApoderadoId, Pageable pageable) {
         return solicitudRepository
-                .buscarVisibles(personaAlumnoId, personaApoderadoId, pageable)
+                .buscarVisibles(alumnoId, personaAlumnoId, personaApoderadoId, pageable)
                 .map(this::mapear);
     }
 

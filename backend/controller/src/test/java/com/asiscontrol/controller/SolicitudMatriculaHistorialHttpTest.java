@@ -2,8 +2,10 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
+import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.RegistroAuditoria;
 import com.asiscontrol.entity.SolicitudMatricula;
+import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -104,6 +106,63 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
     }
 
     @Test
+    void apoderadoConsultaElHistorialDeLaMatriculaDeSuEstudiante() throws Exception {
+        Long matricula = matriculaDe(student);
+        RegistroAuditoria creacion = evento("Matricula", matricula, "CREAR_MATRICULA", "2026-10-30T09:00:00Z");
+        creacion.setNuevoValor("estado=ACTIVA,seccion=" + section.getId());
+        em.flush();
+
+        JsonNode historial = json.readTree(mvc.perform(get("/api/matriculas/" + matricula + "/historial")
+                        .with(apoderado()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+
+        assertThat(historial).hasSize(1);
+        assertThat(historial.get(0).path("campos").get(1).path("nuevo").asText()).isEqualTo("2090 · 1° A");
+    }
+
+    @Test
+    void rechazaElHistorialDeMatriculaDeUnEstudianteNoAsociado() throws Exception {
+        Long ajenaMatricula = matricular(ajena);
+        mvc.perform(get("/api/matriculas/" + ajenaMatricula + "/historial").with(apoderado()))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/matriculas/" + Long.MAX_VALUE + "/historial").with(apoderado()))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"VINCULO", "APODERADO", "PERSONA_APODERADO", "ALUMNO", "PERSONA_ALUMNO"})
+    void rechazaHistorialDeMatriculaConVinculosInactivos(String registro) throws Exception {
+        Long matricula = matriculaDe(student);
+        switch (registro) {
+            case "VINCULO" -> em.createQuery("from AlumnoApoderado v where v.alumno.id = :id",
+                    AlumnoApoderado.class).setParameter("id", student.getId())
+                    .getSingleResult().setActivo(false);
+            case "APODERADO" -> guardian.setActivo(false);
+            case "PERSONA_APODERADO" -> guardian.getPersona().setActivo(false);
+            case "ALUMNO" -> student.setActivo(false);
+            default -> student.getPersona().setActivo(false);
+        }
+        em.flush();
+        mvc.perform(get("/api/matriculas/" + matricula + "/historial").with(apoderado()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void otrosRolesNoConsultanElHistorialDeMatricula() throws Exception {
+        mvc.perform(get("/api/matriculas/" + matriculaDe(student) + "/historial")
+                        .with(identidad("DOCENTE", true)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void elApoderadoFiltraPorSuEstudianteSinVerAjenos() throws Exception {
+        JsonNode propias = listado("/api/solicitudes-matricula?alumnoId=" + student.getId());
+        assertThat(propias.path("content").findValuesAsText("id")).contains(solicitud.getId().toString());
+        JsonNode ajenas = listado("/api/solicitudes-matricula?alumnoId=" + ajena.getAlumno().getId());
+        assertThat(ajenas.path("content")).isEmpty();
+    }
+
+    @Test
     void permiteConsultarHistorialVacio() throws Exception {
         assertThat(consultar(solicitud.getId(), apoderado(), 200)).isEmpty();
     }
@@ -160,6 +219,30 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
         solicitud.setActivo(false);
         em.flush();
         consultar(solicitud.getId(), asAdmin(), 404);
+    }
+
+    private JsonNode listado(String ruta) throws Exception {
+        return json.readTree(mvc.perform(get(ruta).with(apoderado()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray());
+    }
+
+    private Long matriculaDe(Alumno alumno) {
+        return em.createQuery("select m.id from Matricula m where m.alumno.id = :alumnoId", Long.class)
+                .setParameter("alumnoId", alumno.getId()).getSingleResult();
+    }
+
+    private Long matricular(SolicitudMatricula origen) {
+        Matricula matricula = new Matricula();
+        matricula.setAlumno(origen.getAlumno());
+        matricula.setSeccion(section);
+        matricula.setSolicitudMatricula(origen);
+        matricula.setCodigoMatricula("MAT" + key());
+        matricula.setAnioAcademico(2090);
+        matricula.setFechaMatricula(Instant.now());
+        matricula.setEstado(EstadoMatricula.ACTIVA);
+        em.persist(matricula);
+        em.flush();
+        return matricula.getId();
     }
 
     private JsonNode consultar(Long id, JwtRequestPostProcessor identidad, int esperado) throws Exception {

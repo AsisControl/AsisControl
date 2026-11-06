@@ -389,6 +389,27 @@ public class ModuloAccessGuard {
         return false;
     }
 
+    /** US-18: la planilla expone el padron: solo administracion, direccion y el docente del curso. */
+    public boolean puedeGestionarEvaluacion(Long evaluacionId) {
+        if (evaluacionId == null) {
+            return false;
+        }
+        if (tieneAlgunRol("ADMINISTRADOR", "DIRECTOR")) {
+            return true;
+        }
+        if (!tieneRol("DOCENTE")) {
+            return false;
+        }
+        return entityManager.createQuery("""
+                        SELECT COUNT(e) FROM Evaluacion e
+                        WHERE e.id = :id AND e.activo = true
+                          AND e.asignacionCurso.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", evaluacionId)
+                .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
+    }
+
     public boolean puedeAccederEvaluacion(Long evaluacionId) {
         if (evaluacionId == null) {
             return false;
@@ -623,6 +644,8 @@ public class ModuloAccessGuard {
                             SELECT COUNT(m) FROM Matricula m, AlumnoApoderado v
                             WHERE m.id = :id AND m.activo = true
                               AND v.activo = true
+                              AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                              AND v.alumno.activo = true AND v.alumno.persona.activo = true
                               AND v.alumno.id = m.alumno.id
                               AND v.apoderado.persona.id = :personaId
                             """, Long.class)

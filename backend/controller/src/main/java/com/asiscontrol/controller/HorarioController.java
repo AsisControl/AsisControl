@@ -8,6 +8,7 @@ import com.asiscontrol.dto.academico.HistorialHorarioDtos.FiltroHistorialHorario
 import com.asiscontrol.dto.academico.HistorialHorarioDtos.HistorialHorarioResponse;
 import com.asiscontrol.service.HistorialHorarioService;
 import com.asiscontrol.service.HorarioService;
+import com.asiscontrol.service.ModuloAccessGuard;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -40,22 +41,25 @@ public class HorarioController {
 
     private final HorarioService horarioService;
     private final HistorialHorarioService historialService;
+    private final ModuloAccessGuard accessGuard;
 
     public HorarioController(
-            HorarioService horarioService, HistorialHorarioService historialService) {
+            HorarioService horarioService, HistorialHorarioService historialService,
+            ModuloAccessGuard accessGuard) {
         this.horarioService = horarioService;
         this.historialService = historialService;
+        this.accessGuard = accessGuard;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR') and !hasRole('ALUMNO')")
     public HorarioResponse crear(@Valid @RequestBody CrearHorarioRequest request) {
         return horarioService.crear(request);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR') and !hasRole('ALUMNO')")
     public HorarioResponse actualizar(
             @PathVariable Long id,
             @Valid @RequestBody ActualizarHorarioRequest request) {
@@ -64,7 +68,7 @@ public class HorarioController {
 
     /** US-27: solo lectura; muestra quien hizo cada cambio, por eso exige tambien leer auditoria. */
     @GetMapping("/historial")
-    @PreAuthorize("hasAuthority('ACADEMICO_LEER') and hasAuthority('AUDITORIA_LEER')")
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER') and hasAuthority('AUDITORIA_LEER') and !hasRole('ALUMNO')")
     public PageResponse<HistorialHorarioResponse> historial(
             @RequestParam(required = false) @Min(2000) @Max(2100) Integer anioAcademico,
             @RequestParam(required = false) @Positive Long seccionId,
@@ -81,11 +85,21 @@ public class HorarioController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER') and !hasRole('ALUMNO')")
     public HorarioResponse obtener(@PathVariable Long id) {
         return horarioService.obtener(id);
     }
 
+    @GetMapping("/mio")
+    @PreAuthorize("hasRole('ALUMNO') and hasAuthority('ACADEMICO_LEER')")
+    public java.util.List<HorarioResponse> mio(
+            @RequestParam(required = false) @Min(2000) @Max(2100) Integer anioAcademico) {
+        return horarioService.listarDelAlumno(
+                accessGuard.restriccionAlumnoPersonaId(), anioAcademico);
+    }
+
     @GetMapping
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER') and !hasRole('ALUMNO')")
     public Page<HorarioResponse> listar(
             @RequestParam(required = false) @Min(2000) @Max(2100) Integer anioAcademico,
             @RequestParam(required = false) @Positive Long seccionId,
@@ -99,7 +113,7 @@ public class HorarioController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR') and !hasRole('ALUMNO')")
     public void eliminar(@PathVariable Long id) {
         horarioService.eliminar(id);
     }

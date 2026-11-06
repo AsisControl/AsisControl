@@ -51,6 +51,26 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
             @Param("cursoId") Long cursoId,
             Pageable pageable);
 
+    @EntityGraph(attributePaths = {
+            "aula", "asignacionCurso.curso", "asignacionCurso.seccion",
+            "asignacionCurso.docente.persona"
+    })
+    @Query("""
+            SELECT h FROM Horario h
+            JOIN h.asignacionCurso a
+            JOIN Matricula m ON m.seccion.id = a.seccion.id
+            WHERE h.activo = true AND a.activo = true
+              AND m.activo = true
+              AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
+              AND m.alumno.activo = true AND m.alumno.persona.activo = true
+              AND m.alumno.persona.id = :personaId
+              AND (:anioAcademico IS NULL OR m.anioAcademico = :anioAcademico)
+            ORDER BY a.seccion.anioAcademico, h.diaSemana, h.horaInicio, h.id
+            """)
+    List<Horario> buscarDelAlumno(
+            @Param("personaId") Long personaId,
+            @Param("anioAcademico") Integer anioAcademico);
+
     boolean existsByAulaId(Long aulaId);
 
     long countByAsignacionCursoIdAndActivoTrue(Long asignacionCursoId);
@@ -95,6 +115,8 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
     @Query("""
             SELECT h FROM Horario h
             WHERE h.activo = true
+              AND h.asignacionCurso.activo = true
+              AND h.asignacionCurso.seccion.anioAcademico = :anioAcademico
               AND h.diaSemana = :diaSemana
               AND h.horaInicio < :horaFin
               AND h.horaFin > :horaInicio
@@ -102,8 +124,10 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
               AND (h.aula.id = :aulaId
                    OR h.asignacionCurso.docente.id = :docenteId
                    OR h.asignacionCurso.seccion.id = :seccionId)
+            ORDER BY h.id
             """)
     List<Horario> buscarConflictos(
+            @Param("anioAcademico") int anioAcademico,
             @Param("diaSemana") DiaSemana diaSemana,
             @Param("horaInicio") LocalTime horaInicio,
             @Param("horaFin") LocalTime horaFin,

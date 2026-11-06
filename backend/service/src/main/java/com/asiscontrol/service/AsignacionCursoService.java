@@ -253,6 +253,7 @@ public class AsignacionCursoService {
     private void validarSinCruces(Docente docente, List<Horario> horarios) {
         List<HorarioProgramadoAsignacion> cruces = horarios.stream()
                 .filter(h -> !horarioRepository.buscarConflictos(
+                                h.getAsignacionCurso().getSeccion().getAnioAcademico(),
                                 h.getDiaSemana(), h.getHoraInicio(), h.getHoraFin(),
                                 null, docente.getId(), null, h.getId())
                         .isEmpty())

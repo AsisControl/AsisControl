@@ -39,6 +39,11 @@ export function listarHorarios(filters: ScheduleFilters) {
   );
   return listAll<ScheduleBlock>(`${HORARIOS_PATH}?${query}`);
 }
+
+/** El servidor limita esta consulta a las matrículas activas del estudiante autenticado. */
+export function listarHorariosPropios(anioAcademico: number) {
+  return api<ScheduleBlock[]>(`${HORARIOS_PATH}/mio?anioAcademico=${anioAcademico}`);
+}
 /** Secciones habilitadas de todos los años; el año se elige en la pantalla. */
 export function listarSeccionesActivas() {
   return listAll<ScheduleSection>("/api/secciones?activo=true");

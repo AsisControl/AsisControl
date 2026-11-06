@@ -28,11 +28,21 @@ type Screen = (context: ScreenContext) => ReactNode;
  * el aviso de módulo pendiente. El backend sigue siendo quien autoriza.
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
+  ESTUDIANTE: {
+    Horario: () => <StudentSchedule />,
+  },
   DOCENTE: {
     Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
     Asistencia: () => <JustificationInbox />,
     Horario: () => <TeacherSchedule />,
+    Evaluaciones: ({ user, subpath: [tab, evaluationId] }) => (
+      <Evaluations
+        tab={tab}
+        evaluationId={evaluationId}
+        canWrite={(user.permissions ?? []).includes("CALIFICACIONES_ESCRIBIR")}
+      />
+    ),
     Tareas: ({ user, subpath }) => (
       <TasksModule
         subpath={subpath}
