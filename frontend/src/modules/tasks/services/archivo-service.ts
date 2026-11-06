@@ -7,7 +7,7 @@ export function subirArchivo(file: File) {
   return api<ArchivoResponse>("/api/archivos", { method: "POST", body, timeoutMs: 120000 });
 }
 
-export async function descargarArchivo(file: ArchivoResponse) {
+export async function descargarArchivo(file: Pick<ArchivoResponse, "id" | "nombreOriginal">) {
   const blob = await apiBlob(`/api/archivos/${file.id}/descarga`);
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
