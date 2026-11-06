@@ -178,7 +178,9 @@ export function SessionCorrection({
           onLeave={() => (salida === "cancelar" ? onCancel() : router.push(salida))}
         />
       )}
-      {consulta && <JustificationDialog alumno={consulta} sesion={sesion} onClose={() => setConsulta(null)} />}
+      {consulta?.justificacionId != null && (
+        <JustificationDialog justificacionId={consulta.justificacionId} onClose={() => setConsulta(null)} />
+      )}
     </section>
   );
 }

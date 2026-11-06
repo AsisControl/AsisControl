@@ -175,10 +175,11 @@ export function JustificationIndicator({
   alumno: AlumnoSesion;
   onOpen: (alumno: AlumnoSesion) => void;
 }) {
-  if (alumno.estado !== "INASISTENCIA" && alumno.estado !== "TARDANZA") return null;
+  const sinSolicitud = alumno.justificacionId === null || alumno.estadoJustificacion === "CANCELADA";
+  if (alumno.estado !== "INASISTENCIA" && (alumno.estado !== "TARDANZA" || sinSolicitud)) return null;
   const { etiqueta, tono } = indicadorJustificacion(alumno.estadoJustificacion);
   const clase = `${styles.indicador} ${styles[`indicador-${tono}`]}`;
-  if (alumno.justificacionId === null) return <span className={clase}>{etiqueta}</span>;
+  if (sinSolicitud) return <span className={clase}>{etiqueta}</span>;
   return (
     <button type="button" className={clase} onClick={() => onOpen(alumno)}>
       {etiqueta} <ChevronIcon />

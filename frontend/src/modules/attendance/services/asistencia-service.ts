@@ -1,7 +1,10 @@
 import { api } from "@/core/api/client";
+import { normalizePage } from "@/shared/lib/pagination";
+import type { Page } from "@/shared/types/api";
 import type {
   CorreccionAsistencia,
   CursoSesiones,
+  EstadoJustificacion,
   Justificacion,
   Marca,
   SesionAsistencia,
@@ -9,6 +12,7 @@ import type {
 } from "../types";
 
 const SESIONES_PATH = "/api/asistencias/sesiones";
+const JUSTIFICACIONES_PATH = "/api/justificaciones-asistencia";
 
 /** Nombre del curso para el encabezado: el historial solo trae sus sesiones. */
 export function listarCursosDocente() {
@@ -49,5 +53,25 @@ export function listarCorrecciones(id: number) {
 }
 
 export function obtenerJustificacion(id: number) {
-  return api<Justificacion>(`/api/justificaciones-asistencia/${id}`);
+  return api<Justificacion>(`${JUSTIFICACIONES_PATH}/${id}`);
+}
+
+export async function listarJustificaciones(estados: EstadoJustificacion[], orden: string, pagina: number) {
+  const params = new URLSearchParams({ page: String(pagina), size: "20", sort: orden });
+  estados.forEach((estado) => params.append("estado", estado));
+  return normalizePage(await api<Page<Justificacion>>(`${JUSTIFICACIONES_PATH}?${params}`));
+}
+
+export function aprobarJustificacion(id: number, version: number) {
+  return api<Justificacion>(`${JUSTIFICACIONES_PATH}/${id}/aprobar`, {
+    method: "POST",
+    body: JSON.stringify({ version }),
+  });
+}
+
+export function rechazarJustificacion(id: number, version: number, observacion: string) {
+  return api<Justificacion>(`${JUSTIFICACIONES_PATH}/${id}/rechazar`, {
+    method: "POST",
+    body: JSON.stringify({ version, observacion }),
+  });
 }

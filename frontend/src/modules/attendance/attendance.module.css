@@ -623,6 +623,26 @@ section > .subtitulo {
   border-color: #bfdbfe;
   color: var(--blue);
 }
+.pestanas {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.pestanas button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+}
+.pestanas button[aria-pressed="true"] {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: var(--blue);
+}
 .vacio {
   background: #fff;
   border: 1px solid var(--border);

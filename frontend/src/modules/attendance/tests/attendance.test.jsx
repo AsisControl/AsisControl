@@ -1,9 +1,9 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { fakeBackend, reply, signIn } from "../../../../tests/support/backend.js";
+import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
-import { SessionDetail, SessionHistory } from "@/modules/attendance";
+import { JustificationInbox, SessionDetail, SessionHistory } from "@/modules/attendance";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
@@ -31,6 +31,13 @@ const tomada = (overrides = {}) => sesion({
   ],
   ...overrides,
 });
+const justificacion = (overrides = {}) => ({
+  id: 5, motivo: "Cita médica", fechaHoraEnvio: "2026-08-18T07:00:00", fechaHoraRevision: null, observacionRevision: null,
+  estado: "ENVIADA", archivos: [{ id: 3, nombreOriginal: "constancia.pdf" }], version: 2, estudiante: "Bravo, Ana",
+  curso: "Matemática", seccion: "3° Grado A", fechaSesion: "2026-08-17", horaSesion: "07:30:00", ...overrides,
+});
+const JUSTIFICACION = "GET /api/justificaciones-asistencia/5";
+const JUSTIFICACIONES = "GET /api/justificaciones-asistencia";
 const SESION = "GET /api/asistencias/sesiones/7";
 const CORRECCIONES = "GET /api/asistencias/sesiones/7/correcciones";
 
@@ -122,10 +129,7 @@ test("Solo lectura muestra auditoría y abre la justificación sin salir de la s
   fakeBackend({
     [SESION]: tomada(),
     [CORRECCIONES]: [{ id: 1, fechaHora: "2026-08-18T08:15:00", docenteId: 2, docente: "Patricia Morales", motivo: "Error de digitación", cambios: [] }],
-    "GET /api/justificaciones-asistencia/5": {
-      id: 5, motivo: "Cita médica", fechaHoraRevision: "2026-08-18T10:15:00", observacionRevision: null,
-      estado: "APROBADA", archivos: [{ id: 3, nombreOriginal: "constancia.pdf" }],
-    },
+    [JUSTIFICACION]: justificacion({ estado: "APROBADA", fechaHoraRevision: "2026-08-18T10:15:00" }),
   });
   render(<SessionDetail asignacionId={42} sesionId={7} />);
   expect(await screen.findByText("Registrada por Patricia Morales · 17-08-2026 a las 09:40")).toBeTruthy();
@@ -141,6 +145,89 @@ test("Solo lectura muestra auditoría y abre la justificación sin salir de la s
   expect(await within(dialogo).findByText("Cita médica")).toBeTruthy();
   expect(within(dialogo).getByText("constancia.pdf")).toBeTruthy();
   expect(within(dialogo).queryByText("Observación")).toBeNull();
+  expect(within(dialogo).queryByRole("button", { name: "Aprobar" })).toBeNull();
+});
+
+test("El docente aprueba desde la sesión con confirmación y la vista se actualiza", async () => {
+  const pendiente = { estadoJustificacion: "ENVIADA" };
+  let resuelta = false;
+  const calls = fakeBackend({
+    [SESION]: () => tomada({
+      alumnos: tomada().alumnos.map((item) => item.alumnoId === 2
+        ? { ...item, estadoJustificacion: resuelta ? "APROBADA" : pendiente.estadoJustificacion } : item),
+    }),
+    [CORRECCIONES]: [],
+    [JUSTIFICACION]: justificacion(),
+    "POST /api/justificaciones-asistencia/5/aprobar": () => {
+      resuelta = true;
+      return justificacion({ estado: "APROBADA" });
+    },
+  });
+  render(<SessionDetail asignacionId={42} sesionId={7} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Justificación pendiente" }));
+  const dialogo = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialogo).findByRole("button", { name: "Aprobar" }));
+  expect(within(dialogo).getByText(/no se puede deshacer/)).toBeTruthy();
+  expect(calls.some((call) => call.path.endsWith("/aprobar"))).toBe(false);
+  await userEvent.click(within(dialogo).getByRole("button", { name: "Confirmar aprobación" }));
+  expect(await screen.findByText("Justificación aprobada.")).toBeTruthy();
+  expect(calls.find((call) => call.path.endsWith("/aprobar")).body).toEqual({ version: 2 });
+  expect(await screen.findByRole("button", { name: "Justificada" })).toBeTruthy();
+});
+
+test("Un administrador consulta la justificación pero no la resuelve", async () => {
+  fakeBackend({
+    [SESION]: tomada({
+      puedeEditar: false,
+      alumnos: tomada().alumnos.map((item) => ({ ...item, estadoJustificacion: item.justificacionId && "ENVIADA" })),
+    }),
+    [CORRECCIONES]: [],
+    [JUSTIFICACION]: justificacion(),
+  });
+  render(<SessionDetail asignacionId={42} sesionId={7} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Justificación pendiente" }));
+  const dialogo = await screen.findByRole("dialog");
+  await within(dialogo).findByText("Cita médica");
+  expect(within(dialogo).queryByRole("button", { name: "Aprobar" })).toBeNull();
+});
+
+test("La bandeja lista lo pendiente y rechazar exige un motivo", async () => {
+  let resuelta = false;
+  const calls = fakeBackend({
+    [JUSTIFICACION]: justificacion(),
+    "POST /api/justificaciones-asistencia/5/rechazar": () => {
+      resuelta = true;
+      return justificacion({ estado: "RECHAZADA" });
+    },
+    [JUSTIFICACIONES]: () => page(resuelta ? [] : [justificacion()]),
+  });
+  render(<JustificationInbox />);
+  await userEvent.click(await screen.findByRole("button", { name: "Revisar justificación de Bravo, Ana" }));
+  expect(calls[0].query.sort).toBe("fechaHoraEnvio,asc");
+  const dialogo = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialogo).findByRole("button", { name: "Rechazar" }));
+  const confirmar = within(dialogo).getByRole("button", { name: "Confirmar rechazo" });
+  expect(confirmar.disabled).toBe(true);
+  await userEvent.type(within(dialogo).getByLabelText(/Motivo del rechazo/), "Fecha distinta");
+  await userEvent.click(confirmar);
+  expect(await screen.findByText("Justificación rechazada.")).toBeTruthy();
+  expect(calls.find((call) => call.path.endsWith("/rechazar")).body).toEqual({ version: 2, observacion: "Fecha distinta" });
+  expect(await screen.findByText("No tienes justificaciones por revisar.")).toBeTruthy();
+});
+
+test("La pestaña Resueltas muestra el resultado y solo permite consultar", async () => {
+  const calls = fakeBackend({
+    [JUSTIFICACION]: justificacion({ estado: "RECHAZADA" }),
+    [JUSTIFICACIONES]: () => page([justificacion({ estado: "RECHAZADA", observacionRevision: "Sin sustento" })]),
+  });
+  render(<JustificationInbox />);
+  await screen.findByRole("button", { name: "Revisar justificación de Bravo, Ana" });
+  await userEvent.click(screen.getByRole("button", { name: "Resueltas" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Ver justificación de Bravo, Ana" }));
+  expect(calls.at(-2).query.sort).toBe("fechaHoraRevision,desc");
+  const dialogo = await screen.findByRole("dialog");
+  await within(dialogo).findByText("Cita médica");
+  expect(within(dialogo).queryByRole("button", { name: "Rechazar" })).toBeNull();
 });
 
 test("Una sesión pasada sin asistencia avisa y no ofrece registrar ni editar", async () => {

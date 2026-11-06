@@ -20,10 +20,12 @@ export function SessionReadonly({
   sesion,
   aviso,
   onEdit,
+  onJustificationResolved,
 }: {
   sesion: SesionAsistencia;
   aviso?: string;
   onEdit: () => void;
+  onJustificationResolved: (mensaje: string) => void;
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [consulta, setConsulta] = useState<AlumnoSesion | null>(null);
@@ -71,7 +73,20 @@ export function SessionReadonly({
           renderIndicador={(alumno) => <JustificationIndicator alumno={alumno} onOpen={setConsulta} />}
         />
       </div>
-      {consulta && <JustificationDialog alumno={consulta} sesion={sesion} onClose={() => setConsulta(null)} />}
+      {consulta?.justificacionId != null && (
+        <JustificationDialog
+          justificacionId={consulta.justificacionId}
+          onClose={() => setConsulta(null)}
+          onResolved={
+            sesion.puedeEditar
+              ? (mensaje) => {
+                  setConsulta(null);
+                  onJustificationResolved(mensaje);
+                }
+              : undefined
+          }
+        />
+      )}
     </section>
   );
 }

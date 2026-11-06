@@ -75,6 +75,10 @@ export function SessionDetail({ asignacionId, sesionId }: { asignacionId: number
         setAviso("");
         setCorrigiendo(true);
       }}
+      onJustificationResolved={(mensaje) => {
+        setAviso(mensaje);
+        obtenerSesion(sesionId).then(setSesion).catch((e) => setError(message(e)));
+      }}
     />
   );
 }
