@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { message } from "@/core/api/client";
+import { message } from "./task-error-copy";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, PageHeader, Pager, StatusPill, type StatusTone } from "@/shared/ui";
 import { obtenerContextoAsignacion, obtenerTarea } from "./services/tarea-service";
@@ -78,7 +78,7 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
     deliveries.refresh();
     setRosterReload((value) => value + 1);
   }
-  const error = taskError || deliveries.error;
+  const error = taskError || (deliveries.error ? message(deliveries.error, "No se pudieron cargar las entregas. Inténtalo de nuevo.") : "");
   return <>
     {success && <div className={styles.successNotice}>
       <Feedback success={success} />
@@ -103,7 +103,7 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
             </tr></thead>
             <tbody>{deliveries.data.content.map((delivery) => {
               const student = students?.get(delivery.alumnoId);
-              const name = student?.persona.nombreCompleto || `Alumno #${delivery.alumnoId}`;
+              const name = student?.persona.nombreCompleto || "Estudiante no disponible";
               return <tr key={delivery.id}>
                 <td data-label="Estudiante"><strong>{name}</strong>{student?.codigoAlumno && <small>{student.codigoAlumno}</small>}</td>
                 <td data-label="Fecha y hora"><time dateTime={delivery.fechaHoraEntrega}>{deliveryDate(delivery.fechaHoraEntrega)}</time></td>

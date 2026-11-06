@@ -11,7 +11,7 @@ export const FILE_ACCEPT = ".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.ppt
 
 export function fileError(file: File): string {
   if (!file.size) return "El archivo está vacío.";
-  if (file.size > 10485760) return "Cada archivo admite hasta 10 MiB con la configuración actual.";
+  if (file.size > 10485760) return "Cada archivo admite hasta 10 MiB.";
   if (!/\.(pdf|jpe?g|png|docx?|xlsx?|pptx?)$/i.test(file.name))
     return "Selecciona PDF, JPEG, PNG, Word, Excel o PowerPoint.";
   return "";
@@ -33,7 +33,7 @@ export function validateTask(fields: TaskFields, count: number, now = new Date()
   for (const [key, min, max] of [["puntajeMaximo", 1, 1000], ["maxArchivosEntrega", 0, 20]] as const) {
     const value = Number(fields[key]);
     if (!fields[key].trim() || !Number.isInteger(value) || value < min || value > max)
-      errors[key] = `Introduce un entero entre ${min} y ${max}.`;
+      errors[key] = `Escribe un número sin decimales entre ${min} y ${max}.`;
   }
   if (count > 20) errors.archivoIds = "La tarea admite hasta 20 adjuntos.";
   return errors;

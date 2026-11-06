@@ -66,6 +66,20 @@ test("Publicada sin entregas se elimina sin motivo; el rechazo del backend se mu
 test("Con la asignación retirada no se ofrece eliminar", async () => {
   backend("BORRADOR", { "GET /api/asignaciones-cursos/42": { id: 42, curso: "Matemática", seccion: "A", anioAcademico: 2026, activo: false } });
   render(<Tasks canWrite />);
-  await screen.findByText("Asignación retirada: solo consulta");
+  await screen.findByText("Ya no estás asignado a este curso: solo consulta");
   expect(screen.queryByRole("button", { name: "Eliminar Práctica" })).toBeNull();
+});
+
+test("Si falla el conteo la eliminación exige motivo antes de enviar", async () => {
+  const calls = backend("PUBLICADA", { "GET /api/tareas/1/entregas": reply(500) });
+  const { user, dialog } = await openDelete();
+  const reason = await within(dialog).findByLabelText(/^Motivo/);
+  await waitFor(() => expect(within(dialog).getByRole("button", { name: "Eliminar tarea" }).disabled).toBe(false));
+  await user.click(within(dialog).getByRole("button", { name: "Eliminar tarea" }));
+  expect(await within(dialog).findByText(/No se pudo confirmar si hay entregas: indica el motivo/)).toBeTruthy();
+  expect(calls.some((call) => call.method === "DELETE")).toBe(false);
+  await user.type(reason, "  Duplicada  ");
+  await user.click(within(dialog).getByRole("button", { name: "Eliminar tarea" }));
+  await screen.findByText("Tarea eliminada.");
+  expect(calls.find((call) => call.method === "DELETE").body).toEqual({ motivo: "Duplicada" });
 });

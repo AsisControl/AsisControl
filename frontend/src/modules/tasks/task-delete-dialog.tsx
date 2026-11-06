@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ApiError, fieldErrorsOf, message } from "@/core/api/client";
+import { ApiError } from "@/core/api/client";
+import { fieldErrorsOf, message } from "./task-error-copy";
 import { FormDialog } from "@/shared/ui";
 import { contarEntregas, eliminarTarea } from "./services/tarea-service";
 import { REASON_MAX } from "./task-form-dialog";
@@ -37,8 +38,10 @@ export function TaskDeleteDialog({ task, onClose, onSaved }: {
     event.preventDefault();
     if (sending.current || count === undefined) return;
     const motivo = reason.trim();
-    if (count && !motivo) {
-      setReasonError("La tarea ya tiene entregas: indica el motivo de la eliminación.");
+    if (required && !motivo) {
+      setReasonError(count
+        ? "La tarea ya tiene entregas: indica el motivo de la eliminación."
+        : "No se pudo confirmar si hay entregas: indica el motivo de la eliminación.");
       return;
     }
     sending.current = true;
@@ -50,7 +53,7 @@ export function TaskDeleteDialog({ task, onClose, onSaved }: {
     } catch (e) {
       setError(message(e));
       const fields = fieldErrorsOf(e);
-      setReasonError(fields.motivo ?? (e instanceof ApiError && e.code === "TAREA_MOTIVO_REQUERIDO" ? e.message : ""));
+      setReasonError(fields.motivo ?? (e instanceof ApiError && e.code === "TAREA_MOTIVO_REQUERIDO" ? message(e, "Indica el motivo de la eliminación.") : ""));
       sending.current = false;
       setBusy(false);
     }
@@ -60,7 +63,7 @@ export function TaskDeleteDialog({ task, onClose, onSaved }: {
     busy={busy || count === undefined} error={error} onClose={onClose} onSubmit={submit} noValidate>
     <p className="full-field hint">
       {count === undefined ? "Consultando las entregas de la tarea…"
-        : count ? `La tarea tiene ${count} ${count === 1 ? "entrega" : "entregas"}. Dejará de mostrarse a los estudiantes y apoderados; las entregas se conservan para la trazabilidad.`
+        : count ? `La tarea tiene ${count} ${count === 1 ? "entrega" : "entregas"}. Dejará de mostrarse a los estudiantes y apoderados; las entregas se conservarán para su consulta.`
           : "La tarea dejará de mostrarse a los estudiantes y apoderados. Esta acción no se puede deshacer desde la pantalla."}
     </p>
     {count !== 0 && <label className="field full-field">Motivo{required && <span className="field-required"> *</span>}
@@ -68,7 +71,7 @@ export function TaskDeleteDialog({ task, onClose, onSaved }: {
         placeholder="Ej. Tarea duplicada por error" aria-invalid={reasonError ? true : undefined}
         onChange={(event) => { setReason(event.target.value); setReasonError(""); }} />
       {reasonError ? <small className="field-error" role="alert">{reasonError}</small>
-        : <small className="field-hint">Se registra en la auditoría. Máximo {REASON_MAX} caracteres.</small>}
+        : <small className="field-hint">El motivo quedará registrado para su consulta. Máximo {REASON_MAX} caracteres.</small>}
     </label>}
   </FormDialog>;
 }

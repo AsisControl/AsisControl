@@ -29,17 +29,17 @@ export function TaskAttachments({ existing, pending, disabled, canUpload, error,
     </label>
     <button ref={buttonRef} className={styles.addFiles} type="button" disabled={disabled || !canUpload}
       aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`} onClick={() => inputRef.current?.click()}>Agregar archivos</button>
-    <p id={hintId} className="hint">Hasta 20 adjuntos. PDF, imágenes JPEG/PNG y documentos Office; hasta 10 MiB por archivo con la configuración actual.</p>
+    <p id={hintId} className="hint">Hasta 20 adjuntos. PDF, imágenes JPEG/PNG y documentos Office; hasta 10 MiB por archivo.</p>
     {!canUpload && <p className="hint">No tienes permiso para subir archivos nuevos.</p>}
     {error && <p id={errorId} className="form-error" role="alert">{error}</p>}
     <ul>{existing.map((file) => <li key={file.id}>
-      <span>{file.nombreOriginal} · Existente</span>
-      <button type="button" disabled={disabled} onClick={() => onRemoveExisting(file.id)} aria-label={`Quitar ${file.nombreOriginal}`}>Quitar</button>
+      <div className={styles.attachmentInfo}><strong>{file.nombreOriginal}</strong><small>Guardado</small></div>
+      <button className={styles.removeAttachment} type="button" disabled={disabled} onClick={() => onRemoveExisting(file.id)} aria-label={`Quitar ${file.nombreOriginal}`}>Quitar</button>
     </li>)}{pending.map((item, index) => <li key={index}>
-      <span>{item.file.name} · {item.uploaded ? "Subido" : "Pendiente de subir"}</span>
-      <button type="button" disabled={disabled} onClick={() => onRemoveNew(index)} aria-label={`Quitar ${item.file.name}`}>Quitar</button>
+      <div className={styles.attachmentInfo}><strong>{item.file.name}</strong><small>{item.uploaded ? "Listo para guardar" : "Pendiente de subir"}</small></div>
+      <button className={styles.removeAttachment} type="button" disabled={disabled} onClick={() => onRemoveNew(index)} aria-label={`Quitar ${item.file.name}`}>Quitar</button>
     </li>)}</ul>
-    <p className="hint">Quitar desvincula el adjunto al guardar; no elimina el archivo. Los archivos nuevos ya subidos pueden quedar sin vincular si cancelas.</p>
+    <p className="hint">Los cambios en los adjuntos se aplican al guardar la tarea.</p>
   </div>;
 }
 import { useId, useRef } from "react";

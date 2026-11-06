@@ -58,7 +58,7 @@ test.each([
   [422, "TAREA_TRANSICION_INVALIDA", /El estado de la tarea cambió/, true],
   [422, "TAREA_FECHA_LIMITE_VENCIDA", /la fecha límite ya se alcanzó/, false],
   [422, "TAREA_PUBLICACION_FUTURA", /la fecha de publicación está en el futuro/, false],
-  [422, "TAREA_AUN_VIGENTE", /todavía está vigente/, false],
+  [422, "TAREA_AUN_VIGENTE", /Aún no puedes cerrar la tarea porque la fecha límite no ha vencido\./, false],
   [401, "AUTENTICACION_REQUERIDA", /La sesión no es válida/, true],
   [403, "ACCESO_DENEGADO", /No tienes permiso/, true],
   [404, "TAREA_NO_ENCONTRADA", /ya no está disponible/, true],
@@ -79,13 +79,31 @@ test.each([
   expect(onRefresh).toHaveBeenCalledOnce();
 });
 
+test("El cierre rechazado conserva el error y solo las acciones Cancelar y Cerrar tarea", async () => {
+  const calls = fakeBackend({ "POST /api/tareas/1/cerrar": reply(422, { code: "TAREA_AUN_VIGENTE" }) });
+  const onClose = vi.fn(), onSaved = vi.fn(), onRefresh = vi.fn();
+  render(<TaskTransitionDialog task={task("PUBLICADA")} action="cerrar" onClose={onClose} onSaved={onSaved} onRefresh={onRefresh} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Cerrar tarea" }));
+  expect((await screen.findByRole("alert")).textContent).toBe("Aún no puedes cerrar la tarea porque la fecha límite no ha vencido.");
+  expect(screen.queryByRole("button", { name: "Actualizar listado" })).toBeNull();
+  const actions = screen.getByText("Cancelar").closest(".form-actions");
+  expect(within(actions).getAllByRole("button").map((button) => button.textContent)).toEqual(["Cancelar", "Cerrar tarea"]);
+  expect(screen.getByRole("button", { name: "Cerrar tarea" }).disabled).toBe(false);
+  expect(calls).toHaveLength(1);
+  expect(onSaved).not.toHaveBeenCalled();
+  expect(onRefresh).not.toHaveBeenCalled();
+  await user.click(screen.getByText("Cancelar"));
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
 test("Bloquea doble envío y cierre mientras procesa; Cancelar no envía", async () => {
   let release;
   const calls = fakeBackend({ "POST /api/tareas/1/cerrar": () => new Promise((resolve) => { release = resolve; }) });
   const onClose = vi.fn(), onSaved = vi.fn();
   render(<TaskTransitionDialog task={task("PUBLICADA")} action="cerrar" onClose={onClose} onRefresh={vi.fn()} onSaved={onSaved} />);
   const user = userEvent.setup();
-  expect(screen.getByText(/según su reloj/)).toBeTruthy();
+  expect(screen.getByText("Al cerrar la tarea, dejará de recibir entregas.")).toBeTruthy();
   await user.click(screen.getByText("Cancelar"));
   expect(onClose).toHaveBeenCalledOnce();
   expect(calls).toHaveLength(0);
