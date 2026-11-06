@@ -220,6 +220,20 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         assertThat(docente("GET", ruta(id) + "/correcciones", null, 200).get(0).path("docente").asText()).isEqualTo(nombre);
     }
 
+    @Test void corregirAPresenteCancelaLaJustificacionPendiente() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        var tomada = finalizarTodos(id);
+        var fila = em.createQuery("from AsistenciaAlumno a where a.sesionClase.id = :s and a.alumno.id = :a", AsistenciaAlumno.class)
+                .setParameter("s", id).setParameter("a", otro.getId()).getSingleResult();
+        var justificacion = new JustificacionAsistencia(); justificacion.setAsistenciaAlumno(fila); justificacion.setMotivo("Cita medica");
+        justificacion.setFechaHoraEnvio(LocalDateTime.now()); justificacion.setEstado(EstadoJustificacion.ENVIADA); em.persist(justificacion); em.flush();
+
+        docente("PUT", ruta(id), data("marcas", List.of(marca(otro, "PRESENTE")),
+                "motivo", "Si asistio", "version", tomada.path("version").asLong()), 200);
+        em.flush(); em.refresh(justificacion);
+        assertThat(justificacion.getEstado()).isEqualTo(EstadoJustificacion.CANCELADA);
+    }
+
     @Test void corregirConservaLaJustificacionYNoCreaCambiosFalsos() throws Exception {
         long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
         finalizarTodos(id);

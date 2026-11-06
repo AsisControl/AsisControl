@@ -18,6 +18,7 @@ import com.asiscontrol.entity.asistencia.CorreccionAsistenciaDetalle;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoJustificacion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
@@ -58,6 +59,11 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 public class AsistenciaSesionService {
+
+    private static final Set<EstadoJustificacion> JUSTIFICACION_PENDIENTE = Set.of(
+            EstadoJustificacion.ENVIADA,
+            EstadoJustificacion.EN_REVISION,
+            EstadoJustificacion.OBSERVADA);
 
     private static final Set<EstadoAsistencia> ESTADOS_PERMITIDOS = Set.of(
             EstadoAsistencia.PRESENTE, EstadoAsistencia.TARDANZA, EstadoAsistencia.INASISTENCIA);
@@ -188,6 +194,9 @@ public class AsistenciaSesionService {
                 detalle.setEstadoNuevo(estado);
                 cambios.add(detalle);
                 fila.setEstadoAsistencia(estado);
+                if (estado != EstadoAsistencia.INASISTENCIA) {
+                    cancelarJustificacionPendiente(fila);
+                }
             }
         });
         if (cambios.isEmpty()) {
@@ -405,6 +414,16 @@ public class AsistenciaSesionService {
                         ? null : sesion.getDocenteRegistrador().getPersona().nombreCompleto(),
                 sesion.getFechaHoraFinalizacion(),
                 sesion.getVersion());
+    }
+
+    /** Sin inasistencia ya no hay qué justificar: lo pendiente no debe quedar esperando revisión. */
+    private void cancelarJustificacionPendiente(AsistenciaAlumno fila) {
+        justificacionRepository.findByAsistenciaAlumnoIdAndActivoTrue(fila.getId())
+                .filter(justificacion -> JUSTIFICACION_PENDIENTE.contains(justificacion.getEstado()))
+                .ifPresent(justificacion -> {
+                    justificacion.setEstado(EstadoJustificacion.CANCELADA);
+                    justificacionRepository.save(justificacion);
+                });
     }
 
     /** Aprobar una justificación cambia la marca a su variante justificada; el docente ve la base. */
