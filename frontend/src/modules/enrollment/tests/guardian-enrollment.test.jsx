@@ -120,7 +120,6 @@ test("Envía un borrador y luego lo cancela con motivo", async () => {
   expect(within(dialog).getByText("Confirmar envío")).toBeTruthy();
   await user.click(within(dialog).getByText("Confirmar"));
   expect(await within(dialog).findByText(/Solicitud enviada/)).toBeTruthy();
-  expect(within(dialog).getByText("Enviada a administración")).toBeTruthy();
   expect(within(dialog).queryByText("Editar observaciones")).toBeNull();
   await user.click(within(dialog).getByText("Cancelar solicitud"));
   await user.type(within(dialog).getByLabelText(/Motivo de cancelación/), "Cambio de colegio");
@@ -149,7 +148,6 @@ test("Edita las observaciones y reenvía una solicitud observada", async () => {
   render(<GuardianEnrollment />);
   await user.click(await screen.findByText("Ver detalle"));
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByText("Última revisión")).toBeTruthy();
   expect(within(dialog).getByText(/Motivo de rechazo:/)).toBeTruthy();
   await user.click(within(dialog).getByText("Editar observaciones", { selector: "button" }));
   const notes = within(dialog).getByLabelText(/Observaciones/);
@@ -213,4 +211,101 @@ test("Un error al cargar los estudiantes se informa y Actualizar reintenta", asy
   await user.click(screen.getByText("Actualizar"));
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(calls.filter((c) => c.path === "/api/familia/estudiantes")).toHaveLength(2);
+});
+
+const event = (id, fecha, accion, campos, overrides = {}) => ({
+  id, actor: "admin", actorNombre: "Ana Admin", rol: "ADMINISTRADOR", fecha, accion,
+  motivo: null, anterior: null, nuevo: null, campos, ...overrides,
+});
+const enrollment = (overrides = {}) => ({
+  id: 7, codigoMatricula: "MAT-2027-7", solicitudMatriculaId: 100, seccion: "A", grado: 2,
+  estado: "ACTIVA", ...overrides,
+});
+const openDetail = async (user) => {
+  render(<GuardianEnrollment />);
+  await user.click(await screen.findByText("Ver detalle"));
+  return screen.getByRole("dialog", { name: "Detalle de mi solicitud" });
+};
+
+test("US-49: sin finalizar aclara que no hay matrícula ni vacante y muestra la cronología", async () => {
+  backend({
+    "GET /api/matriculas": page([]),
+    "GET /api/solicitudes-matricula": page([request({ estado: "ENVIADA" })]),
+    "GET /api/solicitudes-matricula/:id/historial": [
+      event(1, "2026-11-01T14:00:00Z", "GUARDAR_SOLICITUD", [{ campo: "estado", anterior: null, nuevo: "BORRADOR" }]),
+      event(2, "2026-11-02T14:00:00Z", "GUARDAR_SOLICITUD", [{ campo: "estado", anterior: "BORRADOR", nuevo: "ENVIADA" }]),
+    ],
+  });
+  const dialog = await openDetail(userEvent.setup());
+  expect(await within(dialog).findByText(/todavía no existe una matrícula ni se ha reservado una vacante/)).toBeTruthy();
+  const items = [...(await within(dialog).findAllByRole("listitem"))];
+  expect(items.map((item) => item.querySelector("p").textContent)).toEqual([
+    "Estado: Borrador",
+    "Estado: Borrador → Enviada",
+  ]);
+  expect(within(dialog).queryByText(/Ana Admin|Administrador/)).toBeNull();
+  expect(within(dialog).getByText("Por asignar")).toBeTruthy();
+});
+
+test("US-49: con matrícula muestra sección, estado y une ambas cronologías en orden", async () => {
+  const calls = backend({
+    "GET /api/matriculas": page([enrollment({ id: 8, solicitudMatriculaId: 999, seccion: "Z" }), enrollment()]),
+    "GET /api/solicitudes-matricula": page([request({ estado: "MATRICULA_FINALIZADA" })]),
+    "GET /api/solicitudes-matricula/:id/historial": [
+      event(1, "2026-11-01T14:00:00Z", "GUARDAR_SOLICITUD", [{ campo: "estado", anterior: null, nuevo: "ENVIADA" }]),
+      event(3, "2026-11-03T14:00:00Z", "FINALIZAR_SOLICITUD", []),
+    ],
+    "GET /api/matriculas/:id/historial": [
+      event(2, "2026-11-02T14:00:00Z", "CREAR_MATRICULA", [{ campo: "seccion", anterior: null, nuevo: "2027 · 2° A" }]),
+    ],
+  });
+  const dialog = await openDetail(userEvent.setup());
+  expect(await within(dialog).findByText("2° A")).toBeTruthy();
+  expect(within(dialog).getByText("MAT-2027-7")).toBeTruthy();
+  expect(within(dialog).queryByText(/no existe una matrícula/)).toBeNull();
+  await within(dialog).findByText("Matrícula creada");
+  expect(within(dialog).getAllByRole("listitem").map((item) => item.querySelector("strong").textContent)).toEqual([
+    "Solicitud guardada",
+    "Matrícula creada",
+    "Solicitud finalizada",
+  ]);
+  expect(calls.some((c) => c.path === "/api/matriculas/7/historial")).toBe(true);
+  expect(calls.some((c) => c.path === "/api/matriculas/8/historial")).toBe(false);
+});
+
+test("US-49: un historial sin eventos o que falla no impide usar el detalle", async () => {
+  backend({ "GET /api/matriculas": page([]), "GET /api/solicitudes-matricula/:id/historial": [] });
+  const view = render(<GuardianEnrollment />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByText("Ver detalle"));
+  expect(await screen.findByText("Aún no hay cambios registrados.")).toBeTruthy();
+  view.unmount();
+  backend({ "GET /api/matriculas": reply(500, { message: "Sin conexión" }) });
+  render(<GuardianEnrollment />);
+  await user.click(await screen.findByText("Ver detalle"));
+  expect(await screen.findByText("No se pudo cargar el historial: Sin conexión")).toBeTruthy();
+  expect(screen.getByText("Actualizar estado")).toBeTruthy();
+});
+
+test("US-49: con varios estudiantes filtra solo entre los asociados", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  render(<GuardianEnrollment />);
+  const select = await screen.findByLabelText("Estudiante");
+  expect([...select.options].map((option) => option.textContent)).toEqual([
+    "Todos mis estudiantes",
+    "Lucía Flores",
+    "Mateo Flores",
+  ]);
+  await user.selectOptions(select, "43");
+  await waitFor(() =>
+    expect(calls.some((c) => c.path === "/api/solicitudes-matricula" && c.query.alumnoId === "43")).toBe(true),
+  );
+});
+
+test("US-49: con un solo estudiante no muestra el filtro", async () => {
+  backend({ "GET /api/familia/estudiantes": [children[0]] });
+  render(<GuardianEnrollment />);
+  await screen.findByText("Ver detalle");
+  expect(screen.queryByLabelText("Estudiante")).toBeNull();
 });

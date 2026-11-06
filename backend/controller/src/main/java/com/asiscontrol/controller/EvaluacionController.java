@@ -42,6 +42,9 @@ public class EvaluacionController {
     public Page<EvaluacionDto.Response> listar(
             @RequestParam(required = false) EstadoEvaluacion estado,
             @RequestParam(required = false) Long idAsignacionCurso,
+            @RequestParam(required = false) com.asiscontrol.entity.enums.PeriodoEvaluacion periodo,
+            @RequestParam(required = false) Long idCurso,
+            @RequestParam(required = false) Long idSeccion,
             @RequestParam(required = false) String busqueda,
             @PageableDefault(size = 20, sort = "fechaEvaluacion", direction = Sort.Direction.DESC)
             Pageable pageable
@@ -49,11 +52,21 @@ public class EvaluacionController {
         return evaluacionService.listar(
                 estado,
                 idAsignacionCurso,
+                periodo,
+                idCurso,
+                idSeccion,
                 busqueda,
                 accessGuard.restriccionDocentePersonaId(),
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
                 pageable);
+    }
+
+    /** US-18: alumnos de la seccion y sus niveles; nunca para alumnos ni apoderados. */
+    @GetMapping("/{id}/planilla")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and @moduloAccessGuard.puedeGestionarEvaluacion(#id)")
+    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id) {
+        return evaluacionService.planilla(id);
     }
 
     @GetMapping("/{id}")

@@ -13,6 +13,18 @@ import java.util.Optional;
 
 public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
 
+    /** US-18: alumnos con matricula activa en la seccion, por apellidos. */
+    @Query("""
+            SELECT a FROM Matricula m
+            JOIN m.alumno a
+            JOIN FETCH a.persona p
+            WHERE m.activo = true
+              AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
+              AND m.seccion.id = :seccionId
+            ORDER BY p.apellidoPaterno, p.apellidoMaterno, p.nombres
+            """)
+    java.util.List<com.asiscontrol.entity.Alumno> buscarAlumnosActivosDeSeccion(@Param("seccionId") Long seccionId);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Matricula m where m.id = :id and m.activo = true")
     Optional<Matricula> bloquearPorId(@Param("id") Long id);

@@ -7,6 +7,7 @@ import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Finance } from "@/modules/finance";
+import { Evaluations } from "@/modules/evaluations";
 import { Schedules, TeacherSchedule } from "@/modules/schedules";
 import { TasksModule } from "@/modules/tasks";
 import { canAccess } from "./access-policy";
@@ -26,6 +27,13 @@ type Screen = (context: ScreenContext) => ReactNode;
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   DOCENTE: {
     Horario: () => <TeacherSchedule />,
+    Evaluaciones: ({ user, subpath: [tab, evaluationId] }) => (
+      <Evaluations
+        tab={tab}
+        evaluationId={evaluationId}
+        canWrite={(user.permissions ?? []).includes("CALIFICACIONES_ESCRIBIR")}
+      />
+    ),
     Tareas: ({ user, subpath }) => (
       <TasksModule
         subpath={subpath}

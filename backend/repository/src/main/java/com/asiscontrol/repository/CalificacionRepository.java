@@ -14,6 +14,8 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Long
 
     Optional<Calificacion> findByIdAndActivoTrue(Long id);
 
+    List<Calificacion> findAllByEvaluacionIdAndActivoTrue(Long idEvaluacion);
+
     Optional<Calificacion> findByEvaluacionIdAndAlumnoIdAndCompetenciaIdAndActivoTrue(
             Long idEvaluacion,
             Long idAlumno,
@@ -50,7 +52,10 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Long
             WHERE c.activo = true
               AND c.alumno.id = :idAlumno
               AND e.activo = true
-              AND e.estado <> com.asiscontrol.entity.enums.EstadoEvaluacion.ANULADA
+              AND e.estado IN (
+                  com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                  com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
+              )
               AND (:idAsignacionCurso IS NULL OR e.asignacionCurso.id = :idAsignacionCurso)
             """)
     List<Calificacion> buscarParaConsolidado(

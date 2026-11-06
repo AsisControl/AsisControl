@@ -26,7 +26,14 @@ function changeLabel({ campo, anterior, nuevo }: HistoryField) {
   return `${FIELD_LABELS[campo] ?? campo}: ${values.join(" → ")}`;
 }
 /** Cronología de una solicitud o matrícula, sin códigos ni identificadores internos. */
-export function EnrollmentHistory({ events }: { events: History[] }) {
+export function EnrollmentHistory({
+  events,
+  showActor = true,
+}: {
+  events: History[];
+  /** La familia ve qué cambió y cuándo; quién lo operó es información interna. */
+  showActor?: boolean;
+}) {
   return (
     <ol className="history-list">
       {events.map((item) => (
@@ -35,8 +42,8 @@ export function EnrollmentHistory({ events }: { events: History[] }) {
           <small>
             {[
               dateLabel(item.fecha),
-              item.actorNombre ?? item.actor,
-              item.rol && stateLabel(roleLabel(item.rol)),
+              showActor && (item.actorNombre ?? item.actor),
+              showActor && item.rol && stateLabel(roleLabel(item.rol)),
             ]
               .filter(Boolean)
               .join(" · ")}
