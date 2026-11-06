@@ -38,10 +38,7 @@ class BackendErroresHttpTest extends ApiIntegrationSupport {
         request("POST","/api/evaluaciones",data("idAsignacionCurso",assignment.getId(),"titulo","Examen",
                 "tipoEvaluacion","EXAMEN","periodoEvaluacion","ANUAL","fechaEvaluacion",LocalDate.now(),
                 "ponderacionPorcentaje",100,"idsCompetencia",Set.of(Long.MAX_VALUE)),404);
-        request("POST","/api/asistencias/alumnos",data("alumnoId",Long.MAX_VALUE,"asignacionCursoId",assignment.getId(),
-                "fechaRegistro",LocalDate.now(),"estado","PRESENTE"),404);
-        request("POST","/api/asistencias/alumnos",data("alumnoId",student.getId(),"asignacionCursoId",assignment.getId(),
-                "docenteRegistradorId",Long.MAX_VALUE,"fechaRegistro",LocalDate.now(),"estado","PRESENTE"),422);
+        request("GET","/api/asistencias/alumnos/"+Long.MAX_VALUE,null,404);
     }
 
     @Test void controlaFormatoJsonYTiposSinExponerDetallesInternos() throws Exception {

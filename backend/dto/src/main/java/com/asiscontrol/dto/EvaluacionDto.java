@@ -3,6 +3,7 @@ package com.asiscontrol.dto;
 
 import com.asiscontrol.dto.CompetenciaDto;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
+import com.asiscontrol.entity.enums.NivelLogro;
 import com.asiscontrol.entity.enums.PeriodoEvaluacion;
 import com.asiscontrol.entity.enums.TipoEvaluacion;
 import jakarta.validation.constraints.DecimalMax;
@@ -15,6 +16,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 public final class EvaluacionDto {
@@ -51,7 +53,36 @@ public final class EvaluacionDto {
             Instant fechaPublicacion,
             Instant fechaCierre,
             Instant fechaCreacion,
-            Instant fechaActualizacion
+            Instant fechaActualizacion,
+            Long idCurso,
+            String curso,
+            Long idSeccion,
+            String seccion,
+            int anioAcademico
+    ) {
+    }
+
+    /** US-18: planilla de una evaluacion con los alumnos matriculados en la seccion. */
+    public record PlanillaResponse(
+            Response evaluacion,
+            List<PlanillaAlumno> alumnos
+    ) {
+    }
+
+    public record PlanillaAlumno(
+            Long idAlumno,
+            String codigoAlumno,
+            String nombreCompleto,
+            List<PlanillaNota> notas
+    ) {
+    }
+
+    public record PlanillaNota(
+            Long idCalificacion,
+            Long idCompetencia,
+            NivelLogro nivelLogro,
+            long version,
+            boolean corregida
     ) {
     }
 }

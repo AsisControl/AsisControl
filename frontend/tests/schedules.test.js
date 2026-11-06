@@ -76,3 +76,103 @@ test("Horarios exige ACADEMICO_LEER", () => {
   assert.equal(canAccess(admin(["ACADEMICO_LEER"]), "Horarios", ["aulas"]), true);
   assert.equal(canAccess(admin([]), "Horarios"), false);
 });
+
+import * as t from "@/modules/schedules/lib/timetable";
+import { ApiError } from "@/core/api/client";
+const block = (id, overrides = {}) => ({
+  id,
+  asignacionCursoId: 1,
+  cursoId: 1,
+  curso: "Matemática",
+  seccionId: 8,
+  seccion: "A",
+  docenteId: 9,
+  docente: "Patricia Morales",
+  aulaId: 1,
+  aula: "Aula 201",
+  diaSemana: "LUNES",
+  horaInicio: "08:00:00",
+  horaFin: "09:30:00",
+  activo: true,
+  version: 0,
+  ...overrides,
+});
+const draft = {
+  diaSemana: "LUNES",
+  horaInicio: "09:00",
+  horaFin: "10:00",
+  aulaId: 2,
+  docenteId: 3,
+  seccionId: 4,
+  capacidadSeccion: 30,
+  capacidadAula: 30,
+};
+test("La matriz muestra el sábado solo si tiene bloques", () => {
+  assert.deepEqual(t.visibleDays([block(1)]), ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"]);
+  assert.equal(t.visibleDays([block(1, { diaSemana: "SABADO" })]).at(-1), "SABADO");
+});
+test("La matriz mantiene franjas de media hora y ubica cada bloque donde empieza", () => {
+  const rows = t.timeRows([
+    block(1, { horaInicio: "10:00:00", horaFin: "11:00:00" }),
+    block(2),
+    block(3, { diaSemana: "MARTES" }),
+    block(4, { horaFin: "09:00:00" }),
+  ]);
+  assert.equal(rows.length, 26);
+  assert.deepEqual(rows[0], { inicio: "07:00", fin: "07:30" });
+  assert.deepEqual(rows.at(-1), { inicio: "19:30", fin: "20:00" });
+  assert.deepEqual(t.blocksAt([block(1), block(2, { diaSemana: "MARTES" })], "LUNES", rows[2]).map((b) => b.id), [1]);
+  assert.deepEqual(t.blocksAt([block(1)], "LUNES", rows[3]), []);
+});
+test("Los bloques simultáneos se reparten en columnas y los contiguos aprovechan el ancho", () => {
+  const lanes = t.blockLanes([
+    block(1, { horaInicio: "08:00:00", horaFin: "10:00:00" }),
+    block(2, { horaInicio: "08:30:00", horaFin: "09:30:00" }),
+    block(3, { horaInicio: "10:00:00", horaFin: "11:00:00" }),
+  ], "LUNES");
+  assert.deepEqual(lanes.get(1), { lane: 0, lanes: 2 });
+  assert.deepEqual(lanes.get(2), { lane: 1, lanes: 2 });
+  assert.deepEqual(lanes.get(3), { lane: 0, lanes: 1 });
+});
+test("Dos intervalos que solo se tocan no se cruzan", () => {
+  assert.equal(t.overlaps({ inicio: "08:00", fin: "09:00" }, { inicio: "09:00", fin: "10:00" }), false);
+  assert.equal(t.overlaps({ inicio: "08:00", fin: "09:01" }, { inicio: "09:00", fin: "10:00" }), true);
+});
+test("Detecta rango inválido, aforo y cruces por aula, docente y sección", () => {
+  assert.deepEqual(t.detectConflicts({ ...draft, horaFin: "09:00" }, []).map((c) => c.kind), ["rango"]);
+  assert.deepEqual(t.detectConflicts({ ...draft, capacidadAula: 29 }, []).map((c) => c.kind), ["aforo"]);
+  const blocks = [
+    block(1, { aulaId: 2, docenteId: 3 }),
+    block(2, { docenteId: 3 }),
+    block(3, { seccionId: 4 }),
+    block(3, { seccionId: 4 }),
+    block(4, { aulaId: 2, diaSemana: "MARTES" }),
+    block(5, { aulaId: 2, horaInicio: "10:00:00", horaFin: "11:00:00" }),
+    block(6, { aulaId: 2, activo: false }),
+    block(7, { aulaId: 2 }),
+    block(8),
+  ];
+  assert.deepEqual(
+    t.detectConflicts({ ...draft, id: 7 }, blocks).map((c) => c.kind),
+    ["aula", "docente", "seccion"],
+  );
+});
+test("Traduce los rechazos del servidor a conflictos", () => {
+  const error = (status, code) => new ApiError("mensaje", status, code);
+  assert.equal(t.serverConflict(error(409, "HORARIO_DOCENTE_OCUPADO")).kind, "docente");
+  assert.equal(t.serverConflict(error(409, "VERSION_DESACTUALIZADA")).title, "Bloque modificado por otro usuario");
+  assert.equal(t.serverConflict(error(404, "AULA_NO_ENCONTRADA")).kind, "inhabilitado");
+  assert.equal(t.serverConflict(error(400, "OTRO")).kind, "otro");
+  assert.equal(t.serverConflict(error(403, "")), null);
+  assert.equal(t.serverConflict(error(401, "")), null);
+  assert.equal(t.serverConflict(new Error("red")), null);
+  assert.equal(t.needsReload(t.serverConflict(error(409, "HORARIO_AULA_OCUPADA"))), true);
+  assert.equal(t.needsReload(t.serverConflict(error(422, "AULA_CAPACIDAD_INSUFICIENTE"))), false);
+});
+test("El bloque exige curso, aula, día y un rango válido", () => {
+  const empty = { asignacionCursoId: "", aulaId: "", diaSemana: "DOMINGO", horaInicio: "", horaFin: "" };
+  assert.deepEqual(Object.keys(t.validateBlock(empty)).sort(), ["asignacionCursoId", "aulaId", "diaSemana", "horaFin", "horaInicio"]);
+  const valid = { asignacionCursoId: "1", aulaId: "2", diaSemana: "LUNES", horaInicio: "08:00", horaFin: "09:00" };
+  assert.deepEqual(t.validateBlock(valid), {});
+  assert.deepEqual(Object.keys(t.validateBlock({ ...valid, horaFin: "08:00" })), ["horaFin"]);
+});

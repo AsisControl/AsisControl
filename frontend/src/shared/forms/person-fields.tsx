@@ -48,7 +48,7 @@ export function PersonFields({ person }: { person?: Persona }) {
         label="Número de documento"
         name="numeroDocumento"
         required
-        pattern={documentType === "DNI" ? "[0-9]{8}" : "[A-Za-z0-9-]{6,20}"}
+        pattern={documentType === "DNI" ? "[0-9]{8}" : "[A-Za-z0-9\\-]{6,20}"}
         maxLength={documentType === "DNI" ? 8 : 20}
         defaultValue={person?.numeroDocumento}
       />
@@ -83,7 +83,7 @@ export function PersonFields({ person }: { person?: Persona }) {
       <Field
         label="Teléfono"
         name="telefono"
-        pattern="[0-9+() -]{7,20}"
+        pattern={"[0-9+\\(\\) \\-]{7,20}"}
         defaultValue={person?.telefono || ""}
       />
       <Field

@@ -4,11 +4,9 @@ import com.asiscontrol.dto.archivo.ArchivoDtos.ArchivoResponse;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoCodigoQR;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -23,40 +21,6 @@ public final class AsistenciaDtos {
     private AsistenciaDtos() {
     }
 
-    public record RegistrarAsistenciaAlumnoRequest(
-            @NotNull Long alumnoId,
-            @NotNull Long asignacionCursoId,
-            Long docenteRegistradorId,
-            @NotNull LocalDate fechaRegistro,
-            LocalTime horaRegistro,
-            @NotNull EstadoAsistencia estado,
-            @Size(max = 1000) String comentario
-    ) {
-    }
-
-    public record AsistenciaAlumnoItemRequest(
-            @NotNull Long alumnoId,
-            LocalTime horaRegistro,
-            @NotNull EstadoAsistencia estado,
-            @Size(max = 1000) String comentario
-    ) {
-    }
-
-    public record RegistrarAsistenciaAlumnoLoteRequest(
-            @NotNull Long asignacionCursoId,
-            Long docenteRegistradorId,
-            @NotNull LocalDate fechaRegistro,
-            @NotEmpty @Size(max = 200) List<@Valid AsistenciaAlumnoItemRequest> asistencias
-    ) {
-    }
-
-    public record ActualizarAsistenciaAlumnoRequest(
-            @NotNull EstadoAsistencia estado,
-            @Size(max = 1000) String comentario,
-            @NotNull Long version
-    ) {
-    }
-
     public record AsistenciaAlumnoResponse(
             Long id,
             Long alumnoId,
@@ -66,7 +30,12 @@ public final class AsistenciaDtos {
             LocalTime horaRegistro,
             EstadoAsistencia estado,
             String comentario,
-            long version
+            long version,
+            String curso,
+            Long justificacionId,
+            EstadoJustificacion estadoJustificacion,
+            String motivoJustificacion,
+            String observacionRevision
     ) {
     }
 
@@ -121,8 +90,8 @@ public final class AsistenciaDtos {
     }
 
     public record RevisarJustificacionRequest(
-            @NotNull Long docenteRevisorId,
-            @Size(max = 2000) String observacion
+            @Size(max = 2000) String observacion,
+            @NotNull Long version
     ) {
     }
 
@@ -143,7 +112,13 @@ public final class AsistenciaDtos {
             String observacionRevision,
             EstadoJustificacion estado,
             List<ArchivoResponse> archivos,
-            long version
+            long version,
+            String estudiante,
+            String curso,
+            String seccion,
+            LocalDate fechaSesion,
+            LocalTime horaSesion,
+            EstadoAsistencia estadoAsistencia
     ) {
     }
 }

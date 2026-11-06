@@ -2,6 +2,7 @@ package com.asiscontrol.dto;
 
 import com.asiscontrol.entity.enums.NivelLogro;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -39,7 +40,33 @@ public final class CalificacionDto {
             NivelLogro nivelLogro,
             String observacion,
             Instant fechaRegistro,
-            Instant fechaActualizacion
+            Instant fechaActualizacion,
+            long version
+    ) {
+    }
+
+    /** US-50: una calificacion a corregir; la version evita pisar un cambio de otro usuario. */
+    public record CorreccionItem(
+            @NotNull Long idCalificacion,
+            @NotNull NivelLogro nivelLogro,
+            @NotNull Long version
+    ) {
+    }
+
+    /** US-50: el motivo es comun a todos los cambios guardados a la vez. */
+    public record CorreccionRequest(
+            @NotBlank @Size(max = 500) String motivo,
+            @NotEmpty List<@NotNull @Valid CorreccionItem> correcciones
+    ) {
+    }
+
+    public record CorreccionResponse(
+            int numeroVersion,
+            NivelLogro nivelAnterior,
+            NivelLogro nivelNuevo,
+            String motivo,
+            String autor,
+            Instant fecha
     ) {
     }
 

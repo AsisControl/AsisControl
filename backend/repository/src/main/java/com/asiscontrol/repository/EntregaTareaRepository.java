@@ -3,13 +3,18 @@ package com.asiscontrol.repository;
 import com.asiscontrol.entity.EntregaTarea;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Long> {
+
+    java.util.List<EntregaTarea> findAllByAlumnoIdAndTareaIdInAndActivoTrue(
+            Long alumnoId, java.util.Collection<Long> tareaIds);
 
     Optional<EntregaTarea> findByIdAndActivoTrue(Long id);
 
@@ -18,6 +23,15 @@ public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Long
     boolean existsByTareaIdAndAlumnoIdAndActivoTrue(Long tareaId, Long alumnoId);
 
     Page<EntregaTarea> findAllByTareaIdAndActivoTrue(Long tareaId, Pageable pageable);
+
+    /** US-22: entregas de la tarea para el padrón de seguimiento y el recálculo de estados. */
+    @EntityGraph(attributePaths = {"alumno.persona"})
+    List<EntregaTarea> findAllByTareaIdAndActivoTrue(Long tareaId);
+
+    long countByTareaIdAndActivoTrue(Long tareaId);
+
+    @Query("SELECT MAX(e.nota) FROM EntregaTarea e WHERE e.activo = true AND e.tarea.id = :tareaId")
+    Integer maxNotaPorTarea(@Param("tareaId") Long tareaId);
 
     @Query("""
             SELECT e FROM EntregaTarea e

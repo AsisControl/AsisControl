@@ -1,6 +1,7 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
+import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
 import com.asiscontrol.entity.Matricula;
@@ -191,6 +192,57 @@ public class MatriculaService {
                 anterior,
                 request.estado().name());
         return mapear(matricula);
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public MatriculaResponse cambiarSeccion(Long id, CambiarSeccionMatriculaRequest request) {
+        configuracion.bloquear(obtenerEntidad(id).getAnioAcademico());
+        Matricula matricula = matriculaRepository.bloquearPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "MATRICULA_NO_ENCONTRADA", "No existe la matrícula indicada"));
+        exigirVersion(matricula.getVersion(), request.version(), "matricula");
+        if (matricula.getEstado() != EstadoMatricula.ACTIVA) {
+            throw new BusinessRuleException(
+                    "MATRICULA_NO_ACTIVA", "Solo puede cambiarse la sección de una matrícula activa");
+        }
+        Seccion actual = matricula.getSeccion();
+        if (actual.getId().equals(request.seccionId())) {
+            throw new BusinessRuleException(
+                    "SECCION_SIN_CAMBIOS", "Seleccione una sección diferente");
+        }
+        Seccion nueva = seccionRepository.buscarActivaParaActualizar(request.seccionId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "SECCION_NO_ENCONTRADA", "La sección seleccionada no está disponible"));
+        if (nueva.getAnioAcademico() != matricula.getAnioAcademico()
+                || nueva.getGrado() != actual.getGrado()) {
+            throw new BusinessRuleException(
+                    "SECCION_GRADO_INVALIDO", "La sección debe pertenecer al mismo año y grado");
+        }
+        configuracion.exigirOferta(nueva.getAnioAcademico(), nueva.getGrado(), true);
+        long ocupados = matriculaRepository.countBySeccionIdAndEstadoAndActivoTrue(
+                nueva.getId(), EstadoMatricula.ACTIVA);
+        if (ocupados >= nueva.getCapacidadMaxima()) {
+            throw new BusinessRuleException(
+                    "SECCION_SIN_VACANTES", "La sección ya alcanzó su capacidad máxima");
+        }
+        matricula.setSeccion(nueva);
+        matriculaRepository.saveAndFlush(matricula);
+        auditoria.registrar(
+                "CAMBIAR_SECCION_MATRICULA",
+                ModuloAuditoria.MATRICULA,
+                "Matricula",
+                id.toString(),
+                com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
+                request.motivo().trim(),
+                "seccion=" + actual.getId(),
+                "seccion=" + nueva.getId());
+        return mapear(matricula);
+    }
+
+    // asistencia alumnos: estudiantes con matrícula ACTIVA en la sección
+    public java.util.List<com.asiscontrol.entity.Alumno> alumnosConMatriculaActiva(Long seccionId) {
+        return matriculaRepository.findAlumnosPorSeccionYEstado(
+                seccionId, com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA);
     }
 
     public MatriculaResponse obtener(Long id) {

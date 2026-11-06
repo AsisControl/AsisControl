@@ -38,6 +38,19 @@ public class ModuloAccessGuard {
                 || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {
             throw new AccessDeniedException("La asignación no pertenece al docente autenticado");
         }
+        // US-58: un docente retirado del curso conserva la consulta de su historial, pero ya no
+        // puede registrar ni modificar nada en esa asignacion.
+        if (!asignacion.isActivo()) {
+            throw new AccessDeniedException("El docente ya no está asignado a este curso y sección");
+        }
+    }
+
+    // asistencia alumnos: solo el docente asignado registra o corrige (R01); el administrador no
+    public void verificarDocenteTitular(AsignacionCurso asignacion) {
+        if (!tieneRol("DOCENTE")
+                || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {
+            throw new AccessDeniedException("La asignación no pertenece al docente autenticado");
+        }
     }
 
     public void verificarEntregaAlumno(Alumno alumno) {
@@ -220,6 +233,30 @@ public class ModuloAccessGuard {
         return false;
     }
 
+    /**
+     * US-22: el padron de la seccion solo lo ven administracion, direccion y el docente de la tarea
+     * (aunque ya este retirado, para consultar su historial); nunca alumnos ni apoderados.
+     */
+    public boolean puedeConsultarSeguimientoTarea(Long tareaId) {
+        if (tareaId == null) {
+            return false;
+        }
+        if (tieneAlgunRol("ADMINISTRADOR", "DIRECTOR")) {
+            return true;
+        }
+        if (!tieneRol("DOCENTE")) {
+            return false;
+        }
+        return entityManager.createQuery("""
+                        SELECT COUNT(t) FROM Tarea t
+                        WHERE t.id = :id AND t.activo = true
+                          AND t.asignacionCurso.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", tareaId)
+                .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
+    }
+
     public boolean puedeAccederAsistenciaAlumno(Long asistenciaId) {
         if (asistenciaId == null) {
             return false;
@@ -232,6 +269,7 @@ public class ModuloAccessGuard {
             return entityManager.createQuery("""
                             SELECT COUNT(a) FROM AsistenciaAlumno a
                             WHERE a.id = :id AND a.activo = true
+                              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                               AND a.asignacionCurso.docente.persona.id = :personaId
                             """, Long.class)
                     .setParameter("id", asistenciaId)
@@ -242,6 +280,7 @@ public class ModuloAccessGuard {
             return entityManager.createQuery("""
                             SELECT COUNT(a) FROM AsistenciaAlumno a
                             WHERE a.id = :id AND a.activo = true
+                              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                               AND a.alumno.persona.id = :personaId
                             """, Long.class)
                     .setParameter("id", asistenciaId)
@@ -252,6 +291,7 @@ public class ModuloAccessGuard {
             return entityManager.createQuery("""
                             SELECT COUNT(a) FROM AsistenciaAlumno a, AlumnoApoderado v
                             WHERE a.id = :id AND a.activo = true
+                              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
                               AND v.activo = true
                               AND v.alumno.id = a.alumno.id
                               AND v.apoderado.persona.id = :personaId
@@ -347,6 +387,27 @@ public class ModuloAccessGuard {
                     .getSingleResult() > 0;
         }
         return false;
+    }
+
+    /** US-18: la planilla expone el padron: solo administracion, direccion y el docente del curso. */
+    public boolean puedeGestionarEvaluacion(Long evaluacionId) {
+        if (evaluacionId == null) {
+            return false;
+        }
+        if (tieneAlgunRol("ADMINISTRADOR", "DIRECTOR")) {
+            return true;
+        }
+        if (!tieneRol("DOCENTE")) {
+            return false;
+        }
+        return entityManager.createQuery("""
+                        SELECT COUNT(e) FROM Evaluacion e
+                        WHERE e.id = :id AND e.activo = true
+                          AND e.asignacionCurso.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", evaluacionId)
+                .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
     }
 
     public boolean puedeAccederEvaluacion(Long evaluacionId) {
@@ -583,6 +644,8 @@ public class ModuloAccessGuard {
                             SELECT COUNT(m) FROM Matricula m, AlumnoApoderado v
                             WHERE m.id = :id AND m.activo = true
                               AND v.activo = true
+                              AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                              AND v.alumno.activo = true AND v.alumno.persona.activo = true
                               AND v.alumno.id = m.alumno.id
                               AND v.apoderado.persona.id = :personaId
                             """, Long.class)

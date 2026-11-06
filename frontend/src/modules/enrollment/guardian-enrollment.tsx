@@ -11,32 +11,18 @@ import {
   StatusPill,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
-import {
-  countLabel,
-  dateLabel,
-  shortDateLabel,
-  stateLabel,
-  timeLabel,
-} from "@/shared/lib/formatters";
+import { countLabel, shortDateLabel, timeLabel } from "@/shared/lib/formatters";
+import { GuardianEnrollmentTrack, type GuardianRequest } from "./guardian-enrollment-track";
 type Child = { id: number; codigoAlumno: string; nombreCompleto: string };
 type Offer = { anio: number; grados: number[] };
-type Request = {
-  id: number;
-  alumnoId: number;
-  alumno: string;
-  codigoAlumno: string;
-  anioAcademico: number;
-  grado: number;
-  seccion: string;
-  estado: string;
-  version: number;
-  fechaEnvio: string | null;
-  fechaRevision: string | null;
-  observaciones: string | null;
-  motivoRechazo: string | null;
-};
+type Request = GuardianRequest;
 export function GuardianEnrollment() {
-  const list = usePaged<Request>("/api/solicitudes-matricula");
+  const [studentFilter, setStudentFilter] = useState("");
+  const list = usePaged<Request>(
+    studentFilter
+      ? `/api/solicitudes-matricula?alumnoId=${studentFilter}`
+      : "/api/solicitudes-matricula",
+  );
   const [students, setStudents] = useState<Child[] | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [error, setError] = useState("");
@@ -211,6 +197,25 @@ export function GuardianEnrollment() {
             tus solicitudes existentes.
           </p>
         )}
+        {(students?.length ?? 0) > 1 && (
+          <label className="field">
+            Estudiante
+            <select
+              value={studentFilter}
+              onChange={(e) => {
+                setStudentFilter(e.target.value);
+                list.setPage(0);
+              }}
+            >
+              <option value="">Todos mis estudiantes</option>
+              {students?.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombreCompleto}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {list.loading ? (
           <p role="status">Cargando solicitudes…</p>
         ) : list.data?.content.length ? (
@@ -354,46 +359,7 @@ export function GuardianEnrollment() {
           }}
         >
           <Feedback error={error} success={success} />
-          <dl className="detail-grid">
-            <div>
-              <dt>Estudiante</dt>
-              <dd>{selected.alumno}</dd>
-            </div>
-            <div>
-              <dt>Año / grado</dt>
-              <dd>
-                {selected.anioAcademico} · {selected.grado}°
-              </dd>
-            </div>
-            <div>
-              <dt>Estado</dt>
-              <dd>
-                <StatusPill state={selected.estado} />
-              </dd>
-            </div>
-            <div>
-              <dt>Sección</dt>
-              <dd>{selected.seccion}</dd>
-            </div>
-          </dl>
-          <ol className="history-list">
-            <li>
-              <strong>Guardada</strong>
-              <p>{stateLabel(selected.estado)}</p>
-            </li>
-            {selected.fechaEnvio && (
-              <li>
-                <strong>Enviada a administración</strong>
-                <small>{dateLabel(selected.fechaEnvio)}</small>
-              </li>
-            )}
-            {selected.fechaRevision && (
-              <li>
-                <strong>Última revisión</strong>
-                <small>{dateLabel(selected.fechaRevision)}</small>
-              </li>
-            )}
-          </ol>
+          <GuardianEnrollmentTrack request={selected} />
           {selected.observaciones && (
             <p className="dialog-note">
               <strong>Observaciones:</strong> {selected.observaciones}

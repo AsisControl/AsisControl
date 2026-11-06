@@ -207,7 +207,30 @@ public final class AcademicoDtos {
             Long docenteId,
             String docente,
             boolean activo,
-            long version) {}
+            long version,
+            int grado,
+            /** Bloques de horario activos; mientras haya alguno no se puede retirar (PLA-06). */
+            long horariosActivos) {}
+
+    /** US-58: el retiro siempre registra el motivo. */
+    public record RetirarAsignacionCursoRequest(
+            @NotBlank @Size(max = 500) String motivo,
+            @NotNull Long version) {}
+
+    /** Bloque de horario que impide retirar al docente de la asignacion. */
+    public record HorarioProgramadoAsignacion(
+            Long horarioId,
+            DiaSemana diaSemana,
+            LocalTime horaInicio,
+            LocalTime horaFin,
+            Long aulaId,
+            String aula) {}
+
+    public enum EstadoAsignacion {
+        ACTIVAS,
+        RETIRADAS,
+        TODAS
+    }
 
     public record CrearHorarioRequest(
             @NotNull Long asignacionCursoId,

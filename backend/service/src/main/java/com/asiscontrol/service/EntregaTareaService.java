@@ -7,7 +7,10 @@ import com.asiscontrol.dto.tarea.TareaDtos.ActualizarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.CalificarEntregaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.EntregaTareaResponse;
 import com.asiscontrol.dto.tarea.TareaDtos.RegistrarEntregaRequest;
+import com.asiscontrol.dto.tarea.TareaDtos.SeguimientoAlumno;
+import com.asiscontrol.dto.tarea.TareaDtos.SeguimientoTareaResponse;
 import com.asiscontrol.entity.Alumno;
+import com.asiscontrol.entity.ArchivoAdjunto;
 import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.EntregaTarea;
 import com.asiscontrol.entity.Tarea;
@@ -26,6 +29,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 
 @Service
 @Transactional(readOnly = true)
@@ -71,7 +82,7 @@ public class EntregaTareaService {
         entrega.setTarea(tarea);
         entrega.setAlumno(alumno);
         entrega.setFechaHoraEntrega(ahora);
-        entrega.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
+        entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(ahora.isAfter(tarea.getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
@@ -89,6 +100,7 @@ public class EntregaTareaService {
         accessGuard.verificarEntregaAlumno(entrega.getAlumno());
         exigirVersion(entrega.getVersion(), request.version());
         validarRecepcion(entrega.getTarea());
+        validarMatriculaActiva(entrega.getAlumno().getId(), entrega.getTarea().getAsignacionCurso().getSeccion().getId());
         if (entrega.getEstado() == EstadoTarea.CALIFICADO) {
             throw new BusinessRuleException("ENTREGA_YA_CALIFICADA", "No se puede reemplazar una entrega calificada");
         }
@@ -96,12 +108,13 @@ public class EntregaTareaService {
         String anterior = describir(entrega);
         LocalDateTime ahora = LocalDateTime.now();
         entrega.setFechaHoraEntrega(ahora);
-        entrega.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
-        entrega.setComentario(normalizar(request.comentario()));
+        entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
+        // Los clientes que solo editan archivos no deben borrar comentarios existentes.
+        if (request.comentario() != null) entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(ahora.isAfter(entrega.getTarea().getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
-        EntregaTarea saved = entregaRepository.save(entrega);
+        EntregaTarea saved = entregaRepository.saveAndFlush(entrega);
         auditoria.registrar("ACTUALIZAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return mapResponse(saved);
@@ -131,7 +144,7 @@ public class EntregaTareaService {
         entrega.setNota(request.nota());
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(EstadoTarea.CALIFICADO);
-        EntregaTarea saved = entregaRepository.save(entrega);
+        EntregaTarea saved = entregaRepository.saveAndFlush(entrega);
         auditoria.registrar("CALIFICAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "estado=" + saved.getEstado() + ",nota=" + saved.getNota());
@@ -159,6 +172,71 @@ public class EntregaTareaService {
                 .map(this::mapResponse);
     }
 
+    /**
+     * US-22: padron completo de la seccion con el estado de entrega de cada alumno matriculado.
+     * Quien entrego y luego dejo la seccion se conserva en la lista, pero no suma al total.
+     */
+    public SeguimientoTareaResponse seguimiento(Long tareaId) {
+        Tarea tarea = tareaService.obtenerEntidad(tareaId);
+        Map<Long, EntregaTarea> entregas = new HashMap<>();
+        for (EntregaTarea entrega : entregaRepository.findAllByTareaIdAndActivoTrue(tareaId)) {
+            entregas.put(entrega.getAlumno().getId(), entrega);
+        }
+        List<Alumno> matriculados = entityManager.createQuery("""
+                        SELECT DISTINCT m.alumno FROM Matricula m
+                        JOIN FETCH m.alumno.persona
+                        WHERE m.activo = true
+                          AND m.estado = :estado
+                          AND m.seccion.id = :seccionId
+                        """, Alumno.class)
+                .setParameter("estado", EstadoMatricula.ACTIVA)
+                .setParameter("seccionId", tarea.getAsignacionCurso().getSeccion().getId())
+                .getResultList();
+
+        List<SeguimientoAlumno> filas = new ArrayList<>();
+        Set<Long> enPadron = new HashSet<>();
+        for (Alumno alumno : matriculados) {
+            enPadron.add(alumno.getId());
+            filas.add(filaSeguimiento(alumno, true, entregas.get(alumno.getId())));
+        }
+        for (EntregaTarea entrega : entregas.values()) {
+            if (!enPadron.contains(entrega.getAlumno().getId())) {
+                filas.add(filaSeguimiento(entrega.getAlumno(), false, entrega));
+            }
+        }
+        filas.sort(Comparator.comparing(SeguimientoAlumno::nombreCompleto, String.CASE_INSENSITIVE_ORDER));
+
+        int entregados = 0;
+        int calificados = 0;
+        for (SeguimientoAlumno fila : filas) {
+            if (!fila.matriculaActiva()) {
+                continue;
+            }
+            if (fila.estado() == EstadoTarea.CALIFICADO) {
+                calificados++;
+            }
+            if (fila.estado() == EstadoTarea.ENTREGADO
+                    || fila.estado() == EstadoTarea.ENTREGADO_TARDE
+                    || fila.estado() == EstadoTarea.CALIFICADO) {
+                entregados++;
+            }
+        }
+        int total = matriculados.size();
+        return new SeguimientoTareaResponse(tareaId, total, entregados, calificados, total - entregados, filas);
+    }
+
+    private SeguimientoAlumno filaSeguimiento(Alumno alumno, boolean matriculaActiva, EntregaTarea entrega) {
+        return new SeguimientoAlumno(
+                alumno.getId(),
+                alumno.getCodigoAlumno(),
+                alumno.getPersona().nombreCompleto(),
+                matriculaActiva,
+                entrega == null ? null : entrega.getId(),
+                entrega == null ? EstadoTarea.PENDIENTE : entrega.getEstado(),
+                entrega == null ? null : entrega.getFechaHoraEntrega(),
+                entrega == null ? null : entrega.getNota());
+    }
+
     private EntregaTarea obtenerEntidad(Long id) {
         return entregaRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -173,6 +251,19 @@ public class EntregaTareaService {
         if (tarea.getFechaPublicacion() != null && LocalDateTime.now().isBefore(tarea.getFechaPublicacion())) {
             throw new BusinessRuleException("TAREA_AUN_NO_PUBLICADA", "La tarea todavía no está disponible");
         }
+        if (!LocalDateTime.now().isBefore(tarea.getFechaLimite())) {
+            throw new BusinessRuleException("TAREA_PLAZO_VENCIDO", "La fecha límite venció; la tarea ya no acepta entregas ni cambios");
+        }
+    }
+
+    private Set<ArchivoAdjunto> archivosDeEntrega(Set<Long> ids) {
+        var archivos = archivoService.obtenerActivos(ids);
+        Long personaAlumnoId = accessGuard.restriccionAlumnoPersonaId();
+        if (personaAlumnoId != null && archivos.stream().anyMatch(
+                archivo -> !personaAlumnoId.equals(archivo.getCargadoPor().getId()))) {
+            throw new AccessDeniedException("Solo puede entregar archivos cargados por usted");
+        }
+        return archivos;
     }
 
     private void validarCantidadArchivos(Tarea tarea, int cantidad) {
@@ -201,7 +292,7 @@ public class EntregaTareaService {
         }
     }
 
-    private EntregaTareaResponse mapResponse(EntregaTarea entrega) {
+    EntregaTareaResponse mapResponse(EntregaTarea entrega) {
         return new EntregaTareaResponse(
                 entrega.getId(),
                 entrega.getTarea().getId(),

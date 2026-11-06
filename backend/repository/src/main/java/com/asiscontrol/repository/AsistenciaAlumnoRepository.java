@@ -12,13 +12,21 @@ import java.util.Optional;
 
 public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlumno, Long> {
 
-    Optional<AsistenciaAlumno> findByIdAndActivoTrue(Long id);
+    // asistencia alumnos: un registro oficial pertenece a una sesión TOMADA; un borrador no se expone
+    @Query("""
+            SELECT a FROM AsistenciaAlumno a
+            WHERE a.id = :id AND a.activo = true
+              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
+            """)
+    Optional<AsistenciaAlumno> buscarOficial(@Param("id") Long id);
 
-    Page<AsistenciaAlumno> findAllByActivoTrue(Pageable pageable);
+    // asistencia alumnos
+    java.util.List<AsistenciaAlumno> findAllBySesionClaseId(Long sesionClaseId);
 
     @Query("""
             SELECT a FROM AsistenciaAlumno a
             WHERE a.activo = true
+              AND a.sesionClase.estado = com.asiscontrol.entity.asistencia.EstadoSesionClase.TOMADA
               AND (:alumnoId IS NULL OR a.alumno.id = :alumnoId)
               AND (:asignacionCursoId IS NULL OR a.asignacionCurso.id = :asignacionCursoId)
               AND (:fechaRegistro IS NULL OR a.fechaRegistro = :fechaRegistro)
@@ -39,12 +47,4 @@ public interface AsistenciaAlumnoRepository extends JpaRepository<AsistenciaAlum
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,
             Pageable pageable);
-
-    Optional<AsistenciaAlumno> findByAlumnoIdAndAsignacionCursoIdAndFechaRegistroAndActivoTrue(
-            Long alumnoId, Long asignacionCursoId, LocalDate fechaRegistro);
-
-    Page<AsistenciaAlumno> findAllByAsignacionCursoIdAndFechaRegistroAndActivoTrue(
-            Long asignacionCursoId, LocalDate fechaRegistro, Pageable pageable);
-
-    Page<AsistenciaAlumno> findAllByAlumnoIdAndActivoTrue(Long alumnoId, Pageable pageable);
 }

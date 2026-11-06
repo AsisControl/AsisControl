@@ -316,6 +316,20 @@ public class ConfiguracionAcademicaService {
                                         "Configure el año académico en Administración"));
     }
 
+    // asistencia alumnos: nombre del período en curso; null si el año no tiene uno activo
+    public String periodoActivo(int numeroAnio) {
+        return periodos.findByAnioAcademicoAnioOrderByOrden(numeroAnio).stream()
+                .filter(periodo -> periodo.getEstado() == EstadoPeriodoAcademico.ACTIVO)
+                .map(PeriodoAcademico::getNombre)
+                .findFirst()
+                .orElse(null);
+    }
+
+    // asistencia alumnos: sin excepción, para no marcar la transacción del llamador como fallida
+    public java.util.Optional<AnioAcademico> buscarOpcional(int numeroAnio) {
+        return anios.findByAnio(numeroAnio);
+    }
+
     public AnioAcademico bloquear(int numeroAnio) {
         return anios.bloquear(numeroAnio)
                 .orElseThrow(

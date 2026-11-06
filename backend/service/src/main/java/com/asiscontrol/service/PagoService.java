@@ -6,7 +6,6 @@ import com.asiscontrol.entity.Apoderado;
 import com.asiscontrol.entity.ArchivoAdjunto;
 import com.asiscontrol.entity.Comprobante;
 import com.asiscontrol.entity.CompromisoPago;
-import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.TransaccionPago;
 import com.asiscontrol.entity.enums.EstadoCompromisoPago;
 import com.asiscontrol.entity.enums.EstadoTransaccionPago;
@@ -14,14 +13,12 @@ import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 
-import com.asiscontrol.service.AuditoriaService;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.repository.AdministradorRepository;
 import com.asiscontrol.repository.ApoderadoRepository;
 import com.asiscontrol.repository.ArchivoAdjuntoRepository;
 import com.asiscontrol.repository.ComprobanteRepository;
 import com.asiscontrol.repository.CompromisoPagoRepository;
-import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.TransaccionPagoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +43,6 @@ public class PagoService {
     private final CompromisoPagoRepository compromisoPagoRepository;
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final ComprobanteRepository comprobanteRepository;
-    private final MatriculaRepository matriculaRepository;
     private final ApoderadoRepository apoderadoRepository;
     private final AdministradorRepository administradorRepository;
     private final ArchivoAdjuntoRepository archivoAdjuntoRepository;
@@ -56,7 +52,6 @@ public class PagoService {
             CompromisoPagoRepository compromisoPagoRepository,
             TransaccionPagoRepository transaccionPagoRepository,
             ComprobanteRepository comprobanteRepository,
-            MatriculaRepository matriculaRepository,
             ApoderadoRepository apoderadoRepository,
             AdministradorRepository administradorRepository,
             ArchivoAdjuntoRepository archivoAdjuntoRepository,
@@ -65,159 +60,10 @@ public class PagoService {
         this.compromisoPagoRepository = compromisoPagoRepository;
         this.transaccionPagoRepository = transaccionPagoRepository;
         this.comprobanteRepository = comprobanteRepository;
-        this.matriculaRepository = matriculaRepository;
         this.apoderadoRepository = apoderadoRepository;
         this.administradorRepository = administradorRepository;
         this.archivoAdjuntoRepository = archivoAdjuntoRepository;
         this.auditoria = auditoria;
-    }
-
-    @Transactional
-    public Page<PagoDto.CompromisoResponse> listarCompromisos(
-            EstadoCompromisoPago estado,
-            Long idMatricula,
-            String busqueda,
-            Long personaApoderadoId,
-            Pageable pageable
-    ) {
-        actualizarCompromisosVencidos();
-        String filtro = busqueda == null || busqueda.isBlank() ? null : busqueda.trim();
-        return compromisoPagoRepository.buscar(
-                        estado,
-                        idMatricula,
-                        filtro,
-                        personaApoderadoId,
-                        pageable)
-                .map(this::toCompromisoResponse);
-    }
-
-    @Transactional
-    public PagoDto.CompromisoResponse obtenerCompromiso(Long id) {
-        actualizarCompromisosVencidos();
-        return toCompromisoResponse(buscarCompromisoActivo(id));
-    }
-
-    @Transactional
-    public PagoDto.CompromisoResponse crearCompromiso(PagoDto.CompromisoRequest request) {
-        String codigo = normalizarCodigo(request.codigoCompromiso());
-        validarCodigoDisponible(codigo, null);
-        Matricula matricula = matriculaRepository.findByIdAndActivoTrue(request.idMatricula())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "MATRICULA_NO_ENCONTRADA",
-                        "No se encontro la matricula con id " + request.idMatricula()
-                ));
-
-        CompromisoPago compromiso = new CompromisoPago();
-        compromiso.setMatricula(matricula);
-        compromiso.setCodigoCompromiso(codigo);
-        compromiso.setConcepto(request.concepto().trim());
-        compromiso.setDescripcion(limpiar(request.descripcion()));
-        compromiso.setMontoTotal(dinero(request.montoTotal()));
-        compromiso.setMontoPagado(BigDecimal.ZERO.setScale(ESCALA_DINERO));
-        compromiso.setMoneda(request.moneda().trim().toUpperCase());
-        compromiso.setFechaVencimiento(request.fechaVencimiento());
-        compromiso.setEstado(calcularEstado(compromiso));
-        CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
-        auditoria.registrar(
-                "CREAR_COMPROMISO",
-                ModuloAuditoria.FINANZAS,
-                "CompromisoPago",
-                savedCompromiso.getId().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                null,
-                describirCompromiso(savedCompromiso));
-        return toCompromisoResponse(savedCompromiso);
-    }
-
-    @Transactional
-    public PagoDto.CompromisoResponse actualizarCompromiso(
-            Long id,
-            PagoDto.CompromisoRequest request
-    ) {
-        CompromisoPago compromiso = compromisoPagoRepository.bloquearPorId(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "COMPROMISO_PAGO_NO_ENCONTRADO",
-                        "No se encontro el compromiso de pago con id " + id
-                ));
-        if (compromiso.getEstado() == EstadoCompromisoPago.ANULADO) {
-            throw new BusinessRuleException(
-                    "COMPROMISO_ANULADO",
-                    "Un compromiso anulado no puede modificarse"
-            );
-        }
-
-        BigDecimal nuevoTotal = dinero(request.montoTotal());
-        if (nuevoTotal.compareTo(compromiso.getMontoPagado()) < 0) {
-            throw new BusinessRuleException(
-                    "MONTO_MENOR_QUE_PAGADO",
-                    "El monto total no puede ser menor que el monto ya pagado"
-            );
-        }
-        if (compromiso.getMontoPagado().signum() > 0
-                && !compromiso.getMatricula().getId().equals(request.idMatricula())) {
-            throw new BusinessRuleException(
-                    "MATRICULA_DE_COMPROMISO_INMUTABLE",
-                    "No se puede cambiar la matricula de un compromiso con pagos registrados"
-            );
-        }
-
-        String codigo = normalizarCodigo(request.codigoCompromiso());
-        validarCodigoDisponible(codigo, id);
-        String anterior = describirCompromiso(compromiso);
-        Matricula matricula = matriculaRepository.findByIdAndActivoTrue(request.idMatricula())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "MATRICULA_NO_ENCONTRADA",
-                        "No se encontro la matricula con id " + request.idMatricula()
-                ));
-
-        compromiso.setMatricula(matricula);
-        compromiso.setCodigoCompromiso(codigo);
-        compromiso.setConcepto(request.concepto().trim());
-        compromiso.setDescripcion(limpiar(request.descripcion()));
-        compromiso.setMontoTotal(nuevoTotal);
-        compromiso.setMoneda(request.moneda().trim().toUpperCase());
-        compromiso.setFechaVencimiento(request.fechaVencimiento());
-        compromiso.setEstado(calcularEstado(compromiso));
-        CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
-        auditoria.registrar(
-                "ACTUALIZAR_COMPROMISO",
-                ModuloAuditoria.FINANZAS,
-                "CompromisoPago",
-                savedCompromiso.getId().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                anterior,
-                describirCompromiso(savedCompromiso));
-        return toCompromisoResponse(savedCompromiso);
-    }
-
-    @Transactional
-    public void eliminarCompromiso(Long id) {
-        CompromisoPago compromiso = compromisoPagoRepository.bloquearPorId(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "COMPROMISO_PAGO_NO_ENCONTRADO",
-                        "No se encontro el compromiso de pago con id " + id
-                ));
-        if (compromiso.getMontoPagado().signum() > 0) {
-            throw new BusinessRuleException(
-                    "COMPROMISO_CON_PAGOS",
-                    "No se puede eliminar un compromiso que ya tiene pagos registrados"
-            );
-        }
-        String anterior = describirCompromiso(compromiso);
-        compromiso.setEstado(EstadoCompromisoPago.ANULADO);
-        compromiso.setActivo(false);
-        CompromisoPago savedCompromiso = compromisoPagoRepository.save(compromiso);
-        auditoria.registrar(
-                "ELIMINAR_COMPROMISO",
-                ModuloAuditoria.FINANZAS,
-                "CompromisoPago",
-                savedCompromiso.getId().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                anterior,
-                "estado=" + savedCompromiso.getEstado() + ",activo=false");
     }
 
     @Transactional(readOnly = true)
@@ -260,7 +106,7 @@ public class PagoService {
                         "COMPROMISO_PAGO_NO_ENCONTRADO",
                         "No se encontro el compromiso de pago con id " + request.idCompromisoPago()
                 ));
-        if (compromiso.getEstado() == EstadoCompromisoPago.ANULADO
+        if (compromiso.getEstadoAdministrativo() == com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO
                 || compromiso.getEstado() == EstadoCompromisoPago.PAGADO) {
             throw new BusinessRuleException(
                     "COMPROMISO_NO_ADMITE_PAGOS",
@@ -426,17 +272,6 @@ public class PagoService {
         return toComprobanteResponse(guardado);
     }
 
-    private String describirCompromiso(CompromisoPago compromiso) {
-        return "codigo=" + compromiso.getCodigoCompromiso()
-                + ",matriculaId=" + compromiso.getMatricula().getId()
-                + ",concepto=" + compromiso.getConcepto()
-                + ",montoTotal=" + compromiso.getMontoTotal()
-                + ",montoPagado=" + compromiso.getMontoPagado()
-                + ",moneda=" + compromiso.getMoneda()
-                + ",vencimiento=" + compromiso.getFechaVencimiento()
-                + ",estado=" + compromiso.getEstado();
-    }
-
     public PagoDto.SimulacionResponse simular(PagoDto.SimulacionRequest request) {
         BigDecimal montoTotal = dinero(request.montoTotal());
         BigDecimal cuotaInicial = dinero(request.cuotaInicial());
@@ -510,31 +345,12 @@ public class PagoService {
         );
     }
 
-    private CompromisoPago buscarCompromisoActivo(Long id) {
-        return compromisoPagoRepository.findByIdAndActivoTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "COMPROMISO_PAGO_NO_ENCONTRADO",
-                        "No se encontro el compromiso de pago con id " + id
-                ));
-    }
-
     private TransaccionPago buscarTransaccionActiva(Long id) {
         return transaccionPagoRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "TRANSACCION_PAGO_NO_ENCONTRADA",
                         "No se encontro la transaccion de pago con id " + id
                 ));
-    }
-
-    private void validarCodigoDisponible(String codigo, Long idActual) {
-        compromisoPagoRepository.findByCodigoCompromisoIgnoreCase(codigo)
-                .filter(existente -> !Objects.equals(existente.getId(), idActual))
-                .ifPresent(existente -> {
-                    throw new ConflictException(
-                            "CODIGO_COMPROMISO_DUPLICADO",
-                            "Ya existe un compromiso activo con el codigo " + codigo
-                    );
-                });
     }
 
     private boolean esMismaOperacion(
@@ -559,7 +375,7 @@ public class PagoService {
         if (saldo(compromiso).signum() == 0) {
             return EstadoCompromisoPago.PAGADO;
         }
-        if (compromiso.getFechaVencimiento().isBefore(LocalDate.now())) {
+        if (compromiso.getFechaVencimiento().isBefore(LocalDate.now(java.time.ZoneId.of("America/Lima")))) {
             return EstadoCompromisoPago.VENCIDO;
         }
         if (compromiso.getMontoPagado().signum() > 0) {
@@ -568,33 +384,8 @@ public class PagoService {
         return EstadoCompromisoPago.PENDIENTE;
     }
 
-    private void actualizarCompromisosVencidos() {
-        compromisoPagoRepository.marcarVencidos(
-                LocalDate.now(),
-                List.of(EstadoCompromisoPago.PENDIENTE, EstadoCompromisoPago.PARCIAL)
-        );
-    }
-
     private BigDecimal saldo(CompromisoPago compromiso) {
         return dinero(compromiso.getMontoTotal().subtract(compromiso.getMontoPagado()));
-    }
-
-    private PagoDto.CompromisoResponse toCompromisoResponse(CompromisoPago compromiso) {
-        return new PagoDto.CompromisoResponse(
-                compromiso.getId(),
-                compromiso.getMatricula().getId(),
-                compromiso.getCodigoCompromiso(),
-                compromiso.getConcepto(),
-                compromiso.getDescripcion(),
-                compromiso.getMontoTotal(),
-                compromiso.getMontoPagado(),
-                saldo(compromiso),
-                compromiso.getMoneda(),
-                compromiso.getFechaVencimiento(),
-                calcularEstado(compromiso),
-                compromiso.getFechaCreacion(),
-                compromiso.getFechaActualizacion()
-        );
     }
 
     private PagoDto.TransaccionResponse toTransaccionResponse(TransaccionPago transaccion) {
@@ -628,10 +419,6 @@ public class PagoService {
 
     private BigDecimal dinero(BigDecimal monto) {
         return monto.setScale(ESCALA_DINERO, RoundingMode.HALF_UP);
-    }
-
-    private String normalizarCodigo(String codigo) {
-        return codigo.trim().toUpperCase();
     }
 
     private String limpiar(String texto) {
