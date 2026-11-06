@@ -5,7 +5,7 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
-import { JustificationInbox } from "@/modules/attendance";
+import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Evaluations } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
@@ -37,7 +37,12 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   DOCENTE: {
     Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
-    Asistencia: () => <JustificationInbox />,
+    Asistencia: ({ user, subpath: [tab] }) => (
+      <TeacherAttendance
+        tab={tab}
+        canCheckIn={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
+      />
+    ),
     Horario: () => <TeacherSchedule />,
     Evaluaciones: ({ user, subpath: [tab, evaluationId] }) => (
       <Evaluations
@@ -55,6 +60,11 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   ADMINISTRADOR: {
+    Asistencia: ({ user }) => (
+      <CheckInPoint
+        canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
+      />
+    ),
     Matrícula: ({ subpath: [tab, view] }) => <Enrollments tab={tab} view={view} />,
     Finanzas: ({ user }) => (
       <Finance canWrite={(user.permissions ?? []).includes("PAGOS_ESCRIBIR")} />
