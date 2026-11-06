@@ -17,7 +17,11 @@ public final class SesionClaseDtos {
             String curso,
             String seccion,
             int anioAcademico,
-            boolean vigente
+            boolean vigente,
+            int estudiantes,
+            String horario,
+            String aula,
+            String periodo
     ) {
     }
 

@@ -18,6 +18,7 @@ import com.asiscontrol.service.AsignacionCursoService;
 import com.asiscontrol.service.ConfiguracionAcademicaService;
 import com.asiscontrol.service.DiaNoLectivoService;
 import com.asiscontrol.service.HorarioService;
+import com.asiscontrol.service.MatriculaService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +55,7 @@ public class CalendarioSesionService {
     private final AsignacionCursoService asignacionService;
     private final ConfiguracionAcademicaService configuracionService;
     private final DiaNoLectivoService diaNoLectivoService;
+    private final MatriculaService matriculaService;
     private final ModuloAccessGuard accessGuard;
     private final Clock reloj;
 
@@ -62,6 +65,7 @@ public class CalendarioSesionService {
             AsignacionCursoService asignacionService,
             ConfiguracionAcademicaService configuracionService,
             DiaNoLectivoService diaNoLectivoService,
+            MatriculaService matriculaService,
             ModuloAccessGuard accessGuard,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
@@ -69,6 +73,7 @@ public class CalendarioSesionService {
         this.asignacionService = asignacionService;
         this.configuracionService = configuracionService;
         this.diaNoLectivoService = diaNoLectivoService;
+        this.matriculaService = matriculaService;
         this.accessGuard = accessGuard;
         this.reloj = reloj;
     }
@@ -147,12 +152,17 @@ public class CalendarioSesionService {
                 case TODOS -> vigente || pasado;
             };
             if (incluido) {
+                List<Horario> bloques = horarioService.listarActivosPorAsignacion(asignacion.getId());
                 cursos.add(new AsignacionAsistenciaResponse(
                         asignacion.getId(),
                         asignacion.getCurso().getNombre(),
-                        asignacion.getSeccion().getGrado() + "° " + asignacion.getSeccion().getNombre(),
+                        asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
                         asignacion.getSeccion().getAnioAcademico(),
-                        vigente));
+                        vigente,
+                        matriculaService.alumnosConMatriculaActiva(asignacion.getSeccion().getId()).size(),
+                        resumirHorario(bloques),
+                        resumirAulas(bloques),
+                        vigente ? configuracionService.periodoActivo(asignacion.getSeccion().getAnioAcademico()) : null));
             }
         }
         return cursos;
@@ -233,6 +243,42 @@ public class CalendarioSesionService {
             }
         }
         return resultado;
+    }
+
+    /** Días agrupados por hora de inicio: "Lun, Mié, Vie 07:30" o "Lun 07:30 · Mar 09:30". */
+    private static String resumirHorario(List<Horario> bloques) {
+        Map<LocalTime, List<String>> diasPorHora = new TreeMap<>();
+        agruparEncuentros(bloques).forEach((dia, encuentros) -> {
+            for (Encuentro encuentro : encuentros) {
+                diasPorHora.computeIfAbsent(encuentro.horaInicio(), hora -> new ArrayList<>()).add(diaAbreviado(dia));
+            }
+        });
+        if (diasPorHora.isEmpty()) {
+            return null;
+        }
+        return diasPorHora.entrySet().stream()
+                .map(e -> String.join(", ", e.getValue()) + " " + e.getKey())
+                .collect(Collectors.joining(" · "));
+    }
+
+    private static String resumirAulas(List<Horario> bloques) {
+        String aulas = bloques.stream()
+                .map(bloque -> bloque.getAula().getNombre())
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(", "));
+        return aulas.isEmpty() ? null : aulas;
+    }
+
+    private static String diaAbreviado(DiaSemana dia) {
+        return switch (dia) {
+            case LUNES -> "Lun";
+            case MARTES -> "Mar";
+            case MIERCOLES -> "Mié";
+            case JUEVES -> "Jue";
+            case VIERNES -> "Vie";
+            case SABADO -> "Sáb";
+        };
     }
 
     /** Une los bloques del mismo día en que uno empieza cuando termina el anterior. */

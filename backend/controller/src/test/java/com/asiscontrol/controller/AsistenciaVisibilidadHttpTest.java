@@ -14,8 +14,10 @@ import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.Especialidad;
 import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoPeriodoAcademico;
 import com.asiscontrol.entity.enums.TipoAula;
 import com.asiscontrol.entity.planificacion.AnioAcademico;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,12 +108,32 @@ class AsistenciaVisibilidadHttpTest extends ApiIntegrationSupport {
         assertThat(propias).hasSize(1);
         assertThat(propias.get(0).path("id").asLong()).isEqualTo(assignment.getId());
         assertThat(propias.get(0).path("curso").asText()).isEqualTo("Matematica");
-        assertThat(propias.get(0).path("seccion").asText()).isEqualTo("1° A");
+        assertThat(propias.get(0).path("seccion").asText()).isEqualTo("1° Grado A");
         assertThat(propias.get(0).path("anioAcademico").asInt()).isEqualTo(2090);
 
         var ajeno = new Docente(); ajeno.setPersona(person()); ajeno.setCodigoDocente("DOC" + key());
         ajeno.setFechaIngreso(LocalDate.now().minusYears(1)); ajeno.setEspecialidad(Especialidad.MATEMATICA); em.persist(ajeno); em.flush();
         assertThat(comoRol("DOCENTE", ajeno.getPersona(), ruta, 200)).isEmpty();
+    }
+
+    @Test void misCursosResumeEstudiantesHorarioAulaYPeriodo() throws Exception {
+        var periodo = new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Período III"); periodo.setOrden(3);
+        periodo.setFechaInicio(LocalDate.of(2090, 8, 1)); periodo.setFechaFin(LocalDate.of(2090, 10, 31));
+        periodo.setEstado(EstadoPeriodoAcademico.ACTIVO); em.persist(periodo);
+        for (var dia : List.of(DiaSemana.MIERCOLES, DiaSemana.VIERNES)) {
+            var bloque = new Horario(); bloque.setAsignacionCurso(assignment); bloque.setAula(horario.getAula());
+            bloque.setDiaSemana(dia); bloque.setHoraInicio(LocalTime.of(8, 0)); bloque.setHoraFin(LocalTime.of(10, 0));
+            em.persist(bloque);
+        }
+        var tarde = new Horario(); tarde.setAsignacionCurso(assignment); tarde.setAula(horario.getAula());
+        tarde.setDiaSemana(DiaSemana.MARTES); tarde.setHoraInicio(LocalTime.of(13, 30)); tarde.setHoraFin(LocalTime.of(15, 0));
+        em.persist(tarde); em.flush();
+
+        var curso = comoRol("DOCENTE", teacher.getPersona(), "/api/asistencias/asignaciones", 200).get(0);
+        assertThat(curso.path("estudiantes").asInt()).isEqualTo(1);
+        assertThat(curso.path("horario").asText()).isEqualTo("Lun, Mié, Vie 08:00 · Mar 13:30");
+        assertThat(curso.path("aula").asText()).isEqualTo("Aula");
+        assertThat(curso.path("periodo").asText()).isEqualTo("Período III");
     }
 
     private AsignacionCurso cursoEnAnio(int numero, EstadoAnioAcademico estado) {
