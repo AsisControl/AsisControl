@@ -10,11 +10,10 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-  esbuild: { jsx: "automatic" },
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     include: ["tests/**/*.test.{js,jsx}", "src/**/tests/**/*.test.{js,jsx}"],
     // Los entornos jsdom compiten por CPU y memoria si se abren demasiados procesos.
-    minWorkers: 1,
     maxWorkers: 2,
     // Los recorridos de formularios simulan escritura y varias acciones del usuario.
     testTimeout: 20_000,
