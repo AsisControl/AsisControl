@@ -11,6 +11,16 @@ import java.util.Optional;
 
 public interface TareaRepository extends JpaRepository<Tarea, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT t FROM Tarea t
+            WHERE t.activo = true
+              AND t.estadoPublicacion = com.asiscontrol.entity.enums.EstadoPublicacionTarea.PUBLICADA
+              AND t.fechaLimite <= :ahora
+            ORDER BY t.id
+            """)
+    java.util.List<Tarea> buscarVencidasParaCerrar(@Param("ahora") java.time.LocalDateTime ahora, Pageable pageable);
+
     @Query("""
             SELECT t FROM Tarea t
             WHERE t.activo = true

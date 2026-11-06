@@ -92,6 +92,7 @@ public class EntregaTareaService {
         accessGuard.verificarEntregaAlumno(entrega.getAlumno());
         exigirVersion(entrega.getVersion(), request.version());
         validarRecepcion(entrega.getTarea());
+        validarMatriculaActiva(entrega.getAlumno().getId(), entrega.getTarea().getAsignacionCurso().getSeccion().getId());
         if (entrega.getEstado() == EstadoTarea.CALIFICADO) {
             throw new BusinessRuleException("ENTREGA_YA_CALIFICADA", "No se puede reemplazar una entrega calificada");
         }
@@ -100,11 +101,12 @@ public class EntregaTareaService {
         LocalDateTime ahora = LocalDateTime.now();
         entrega.setFechaHoraEntrega(ahora);
         entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
-        entrega.setComentario(normalizar(request.comentario()));
+        // Los clientes que solo editan archivos no deben borrar comentarios existentes.
+        if (request.comentario() != null) entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(ahora.isAfter(entrega.getTarea().getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
-        EntregaTarea saved = entregaRepository.save(entrega);
+        EntregaTarea saved = entregaRepository.saveAndFlush(entrega);
         auditoria.registrar("ACTUALIZAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return mapResponse(saved);
@@ -134,7 +136,7 @@ public class EntregaTareaService {
         entrega.setNota(request.nota());
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(EstadoTarea.CALIFICADO);
-        EntregaTarea saved = entregaRepository.save(entrega);
+        EntregaTarea saved = entregaRepository.saveAndFlush(entrega);
         auditoria.registrar("CALIFICAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "estado=" + saved.getEstado() + ",nota=" + saved.getNota());
@@ -175,6 +177,9 @@ public class EntregaTareaService {
         }
         if (tarea.getFechaPublicacion() != null && LocalDateTime.now().isBefore(tarea.getFechaPublicacion())) {
             throw new BusinessRuleException("TAREA_AUN_NO_PUBLICADA", "La tarea todavía no está disponible");
+        }
+        if (!LocalDateTime.now().isBefore(tarea.getFechaLimite())) {
+            throw new BusinessRuleException("TAREA_PLAZO_VENCIDO", "La fecha límite venció; la tarea ya no acepta entregas ni cambios");
         }
     }
 
