@@ -1,0 +1,220 @@
+.panel {
+  margin-top: 0;
+}
+.context { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.error { color: #b91c1c; }
+.taskHeader {
+  background: #f7f9fb;
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin: 4px 0 18px;
+}
+.taskHeader h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.4; color: var(--ink); }
+.taskHeader p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.taskHeader small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.grade { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 18px 0; font-size: 14px; }
+.grade strong { color: var(--blue); }
+.teacherComment { margin: 0 0 20px; font-size: 14px; line-height: 1.6; }
+.teacherComment h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.teacherComment p { margin: 0; }
+.deliveryMeta { color: var(--muted); font-size: 13px; }
+.fileActions { display: flex; flex-shrink: 0; justify-content: flex-end; gap: 8px; }
+.fileActions button { width: 90px; min-height: 36px; white-space: nowrap; }
+.filters {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.filters input,
+.filters select {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 16px;
+}
+.filters input {
+  flex: 1;
+  min-width: 0;
+}
+.filters input::placeholder {
+  color: #94a3b8;
+}
+.filters select {
+  width: 190px;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+}
+.table th {
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px 12px 14px 0;
+  white-space: nowrap;
+}
+.table td {
+  border-top: 0;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--ink);
+  padding: 14px 12px 14px 0;
+  vertical-align: middle;
+}
+.table .course {
+  color: var(--blue);
+  font-weight: 600;
+  width: 13%;
+}
+.table .taskTitle {
+  font-size: 15px;
+  width: 35%;
+}
+.table .teacher {
+  color: var(--muted);
+  font-size: 13px;
+  width: 14%;
+}
+.deadline {
+  white-space: nowrap;
+  width: 14%;
+}
+.badge {
+  align-items: center;
+  border: 1px solid;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 4px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.pending {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+.submitted {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+.table .deliverButton {
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  border-radius: 9px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.table .deliverButton:hover {
+  background: var(--blue-2);
+}
+.table .viewButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: inline-flex;
+  justify-content: center;
+  height: 36px;
+  width: 36px;
+  padding: 0;
+}
+.table .viewButton:hover {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.empty {
+  color: var(--muted);
+  padding: 24px 0;
+  text-align: center;
+}
+.editForm {
+  padding-top: 24px;
+}
+.filePicker {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 10px;
+  color: var(--blue);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 16px;
+  text-align: center;
+}
+.filePicker label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.filePicker input {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 100%;
+}
+.filePicker input::file-selector-button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--blue);
+  cursor: pointer;
+  margin-right: 8px;
+  padding: 8px 12px;
+}
+.selectedFile {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.selectedFile > span { flex: 1 1 180px; }
+.selectedFile span,
+.attachment p {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.selectedFile small,
+.hint {
+  color: var(--muted);
+}
+.selectedFile button {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--blue);
+  padding: 6px 10px;
+}
+.hint {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 16px 0 0;
+}
+@media (max-width: 600px) {
+  .filters {
+    flex-direction: column;
+  }
+  .filters select {
+    width: 100%;
+  }
+  .table td {
+    padding: 6px 0;
+    border: 0;
+    width: auto;
+  }
+  .table .course,
+  .table .taskTitle,
+  .table .teacher {
+    width: auto;
+  }
+}
