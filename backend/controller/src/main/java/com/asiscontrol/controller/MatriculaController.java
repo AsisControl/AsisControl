@@ -53,8 +53,10 @@ public class MatriculaController {
         return matriculaService.actualizar(id, request);
     }
 
+    /** US-49: el apoderado consulta el historial de las matriculas de sus estudiantes asociados. */
     @GetMapping("/{id}/historial")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAuthority('MATRICULA_LEER') and (hasRole('ADMINISTRADOR') or"
+            + " (hasRole('APODERADO') and @moduloAccessGuard.puedeAccederMatricula(#id)))")
     public java.util.List<com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse> historial(
             @PathVariable Long id) {
         matriculaService.obtener(id);

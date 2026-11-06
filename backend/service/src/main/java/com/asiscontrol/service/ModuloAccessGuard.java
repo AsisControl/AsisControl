@@ -620,6 +620,8 @@ public class ModuloAccessGuard {
                             SELECT COUNT(m) FROM Matricula m, AlumnoApoderado v
                             WHERE m.id = :id AND m.activo = true
                               AND v.activo = true
+                              AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                              AND v.alumno.activo = true AND v.alumno.persona.activo = true
                               AND v.alumno.id = m.alumno.id
                               AND v.apoderado.persona.id = :personaId
                             """, Long.class)
