@@ -90,8 +90,8 @@ class AsistenciaVisibilidadHttpTest extends ApiIntegrationSupport {
         comoRol("DOCENTE", teacher.getPersona(), ruta + tomada, 200);
         comoRol("DOCENTE", teacher.getPersona(), ruta + borrador, 403);
 
-        request("POST", "/api/justificaciones-asistencia", data("asistenciaAlumnoId", borrador,
-                "motivo", "Cita medica", "archivoIds", Set.of()), 404);
+        comoRol("APODERADO", guardian.getPersona(), "POST", "/api/justificaciones-asistencia",
+                data("asistenciaAlumnoId", borrador, "motivo", "Cita medica", "archivoIds", Set.of()), 404);
     }
 
     @Test void dashboardSoloCuentaAsistenciasFinalizadas() throws Exception {

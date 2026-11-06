@@ -40,7 +40,7 @@ public class JustificacionAsistenciaController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ALUMNO','APODERADO','ADMINISTRADOR')")
+    @PreAuthorize("hasRole('APODERADO')")
     public ResponseEntity<JustificacionAsistenciaResponse> crear(
             @Valid @RequestBody CrearJustificacionRequest request) {
         return ResponseEntity.status(201).body(justificacionService.crear(request));
@@ -97,7 +97,7 @@ public class JustificacionAsistenciaController {
     }
 
     @PostMapping("/{id}/subsanar")
-    @PreAuthorize("hasAnyRole('ALUMNO','APODERADO','ADMINISTRADOR')")
+    @PreAuthorize("hasRole('APODERADO')")
     public JustificacionAsistenciaResponse subsanar(
             @PathVariable Long id,
             @Valid @RequestBody SubsanarJustificacionRequest request) {
@@ -105,7 +105,7 @@ public class JustificacionAsistenciaController {
     }
 
     @PostMapping("/{id}/cancelar")
-    @PreAuthorize("hasAnyRole('ALUMNO','APODERADO','ADMINISTRADOR')")
+    @PreAuthorize("hasRole('APODERADO')")
     public JustificacionAsistenciaResponse cancelar(@PathVariable Long id) {
         return justificacionService.cancelar(id);
     }

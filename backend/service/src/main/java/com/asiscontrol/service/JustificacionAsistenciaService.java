@@ -8,17 +8,18 @@ import com.asiscontrol.dto.asistencia.AsistenciaDtos.JustificacionAsistenciaResp
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.RevisarJustificacionRequest;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.SubsanarJustificacionRequest;
 import com.asiscontrol.entity.AsistenciaAlumno;
-import com.asiscontrol.entity.AuditableEntity;
-import com.asiscontrol.entity.Docente;
+import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.JustificacionAsistencia;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
+import com.asiscontrol.entity.enums.TipoNotificacion;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
+import com.asiscontrol.repository.AccesoUsuarioRepository;
+import com.asiscontrol.repository.AlumnoApoderadoRepository;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
 import com.asiscontrol.repository.JustificacionAsistenciaRepository;
-import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import com.asiscontrol.service.AuditoriaService;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Set;
 
@@ -34,8 +36,15 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class JustificacionAsistenciaService {
 
+    private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
     private static final Set<EstadoAsistencia> ESTADOS_JUSTIFICABLES = Set.of(
             EstadoAsistencia.TARDANZA,
+            EstadoAsistencia.INASISTENCIA,
+            EstadoAsistencia.SIN_MARCACION);
+
+    // asistencia alumnos: el apoderado solo solicita sobre inasistencias
+    private static final Set<EstadoAsistencia> ESTADOS_SOLICITABLES = Set.of(
             EstadoAsistencia.INASISTENCIA,
             EstadoAsistencia.SIN_MARCACION);
 
@@ -43,42 +52,54 @@ public class JustificacionAsistenciaService {
     private final AsistenciaAlumnoRepository asistenciaRepository;
     private final AsistenciaAlumnoService asistenciaService;
     private final ArchivoStorageService archivoService;
-    private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
+    private final NotificacionService notificaciones;
+    private final AlumnoApoderadoRepository vinculoRepository;
+    private final AccesoUsuarioRepository accesoRepository;
 
     public JustificacionAsistenciaService(
             JustificacionAsistenciaRepository justificacionRepository,
             AsistenciaAlumnoRepository asistenciaRepository,
             AsistenciaAlumnoService asistenciaService,
             ArchivoStorageService archivoService,
-            EntityManager entityManager,
             ModuloAccessGuard accessGuard,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            NotificacionService notificaciones,
+            AlumnoApoderadoRepository vinculoRepository,
+            AccesoUsuarioRepository accesoRepository) {
         this.justificacionRepository = justificacionRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.asistenciaService = asistenciaService;
         this.archivoService = archivoService;
-        this.entityManager = entityManager;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
+        this.notificaciones = notificaciones;
+        this.vinculoRepository = vinculoRepository;
+        this.accesoRepository = accesoRepository;
     }
 
     @Transactional
     public JustificacionAsistenciaResponse crear(CrearJustificacionRequest request) {
         AsistenciaAlumno asistencia = asistenciaService.obtenerEntidad(request.asistenciaAlumnoId());
         accessGuard.verificarSolicitanteJustificacion(asistencia.getAlumno());
-        if (!ESTADOS_JUSTIFICABLES.contains(asistencia.getEstadoAsistencia())) {
+        if (!ESTADOS_SOLICITABLES.contains(asistencia.getEstadoAsistencia())) {
             throw new BusinessRuleException(
                     "ASISTENCIA_NO_JUSTIFICABLE", "El estado actual de asistencia no admite justificación");
         }
-        if (justificacionRepository.findByAsistenciaAlumnoIdAndActivoTrue(asistencia.getId()).isPresent()) {
+        // asistencia alumnos: solo cabe una fila por asistencia; una cancelada se reutiliza
+        JustificacionAsistencia justificacion = justificacionRepository
+                .findByAsistenciaAlumnoIdAndActivoTrue(asistencia.getId())
+                .orElseGet(JustificacionAsistencia::new);
+        if (justificacion.getId() != null && justificacion.getEstado() != EstadoJustificacion.CANCELADA) {
             throw new ConflictException(
                     "JUSTIFICACION_DUPLICADA", "La asistencia ya posee una justificación activa");
         }
 
-        JustificacionAsistencia justificacion = new JustificacionAsistencia();
         justificacion.setAsistenciaAlumno(asistencia);
+        justificacion.setDocenteRevisor(null);
+        justificacion.setFechaHoraRevision(null);
+        justificacion.setObservacionRevision(null);
         justificacion.setMotivo(request.motivo().trim());
         justificacion.setFechaHoraEnvio(LocalDateTime.now());
         justificacion.setEstado(EstadoJustificacion.ENVIADA);
@@ -118,7 +139,7 @@ public class JustificacionAsistenciaService {
     @Transactional
     public JustificacionAsistenciaResponse observar(Long id, RevisarJustificacionRequest request) {
         JustificacionAsistencia justificacion = obtenerEntidad(id);
-        exigirEstado(justificacion, EstadoJustificacion.EN_REVISION, "Solo se observa una justificación en revisión");
+        exigirPorResolver(justificacion, "Solo se observa una justificación en revisión");
         if (request.observacion() == null || request.observacion().isBlank()) {
             throw new BusinessRuleException(
                     "JUSTIFICACION_OBSERVACION_REQUERIDA", "Debe indicar qué información debe subsanarse");
@@ -140,7 +161,7 @@ public class JustificacionAsistenciaService {
     @Transactional
     public JustificacionAsistenciaResponse aprobar(Long id, RevisarJustificacionRequest request) {
         JustificacionAsistencia justificacion = obtenerEntidad(id);
-        exigirEstado(justificacion, EstadoJustificacion.EN_REVISION, "Solo se aprueba una justificación en revisión");
+        exigirPorResolver(justificacion, "Solo se aprueba una justificación en revisión");
         aplicarRevision(justificacion, request, EstadoJustificacion.APROBADA);
 
         AsistenciaAlumno asistencia = justificacion.getAsistenciaAlumno();
@@ -164,13 +185,14 @@ public class JustificacionAsistenciaService {
                 null,
                 null,
                 null);
+        avisarApoderados(savedJustificacion, "Justificación aprobada", "fue aprobada.");
         return mapResponse(savedJustificacion);
     }
 
     @Transactional
     public JustificacionAsistenciaResponse rechazar(Long id, RevisarJustificacionRequest request) {
         JustificacionAsistencia justificacion = obtenerEntidad(id);
-        exigirEstado(justificacion, EstadoJustificacion.EN_REVISION, "Solo se rechaza una justificación en revisión");
+        exigirPorResolver(justificacion, "Solo se rechaza una justificación en revisión");
         if (request.observacion() == null || request.observacion().isBlank()) {
             throw new BusinessRuleException(
                     "JUSTIFICACION_MOTIVO_REQUERIDO", "El rechazo debe incluir un motivo");
@@ -186,6 +208,8 @@ public class JustificacionAsistenciaService {
                 null,
                 null,
                 null);
+        avisarApoderados(savedJustificacion, "Justificación rechazada",
+                "fue rechazada. Motivo: " + savedJustificacion.getObservacionRevision());
         return mapResponse(savedJustificacion);
     }
 
@@ -271,17 +295,32 @@ public class JustificacionAsistenciaService {
             JustificacionAsistencia justificacion,
             RevisarJustificacionRequest request,
             EstadoJustificacion nuevoEstado) {
-        Docente revisor = buscarActivo(
-                Docente.class, request.docenteRevisorId(), "DOCENTE_NO_ENCONTRADO", "docente revisor");
-        accessGuard.verificarDocentePropietario(revisor);
-        accessGuard.verificarAsignacionDocente(justificacion.getAsistenciaAlumno().getAsignacionCurso());
-        justificacion.setDocenteRevisor(revisor);
+        exigirVersion(justificacion.getVersion(), request.version());
+        AsignacionCurso asignacion = justificacion.getAsistenciaAlumno().getAsignacionCurso();
+        accessGuard.verificarAsignacionDocente(asignacion);
+        justificacion.setDocenteRevisor(asignacion.getDocente());
         justificacion.setFechaHoraRevision(LocalDateTime.now());
         justificacion.setObservacionRevision(normalizar(request.observacion()));
         justificacion.setEstado(nuevoEstado);
     }
 
+    /** Avisa a cada apoderado vinculado que tenga acceso; quien no tenga cuenta lo ve en la pantalla. */
+    private void avisarApoderados(JustificacionAsistencia justificacion, String titulo, String resultado) {
+        AsistenciaAlumno asistencia = justificacion.getAsistenciaAlumno();
+        String mensaje = "La justificación de " + asistencia.getAlumno().getPersona().nombreCompleto()
+                + " para " + asistencia.getAsignacionCurso().getCurso().getNombre()
+                + " del " + asistencia.getFechaRegistro().format(FECHA) + " " + resultado;
+        vinculoRepository.findAllByAlumnoIdAndActivoTrue(asistencia.getAlumno().getId()).stream()
+                .flatMap(vinculo -> accesoRepository
+                        .findAllByPersonaIdAndActivoTrue(vinculo.getApoderado().getPersona().getId()).stream())
+                .filter(acceso -> "APODERADO".equals(acceso.getRol().getNombre()))
+                .forEach(acceso -> notificaciones.create(
+                        acceso.getId(), titulo, mensaje, TipoNotificacion.ASISTENCIA, "/asistencia"));
+    }
+
     private JustificacionAsistenciaResponse mapResponse(JustificacionAsistencia justificacion) {
+        AsistenciaAlumno asistencia = justificacion.getAsistenciaAlumno();
+        AsignacionCurso asignacion = asistencia.getAsignacionCurso();
         return new JustificacionAsistenciaResponse(
                 justificacion.getId(),
                 justificacion.getAsistenciaAlumno().getId(),
@@ -292,12 +331,26 @@ public class JustificacionAsistenciaService {
                 justificacion.getObservacionRevision(),
                 justificacion.getEstado(),
                 justificacion.getArchivos().stream().map(archivoService::mapResponse).toList(),
-                justificacion.getVersion());
+                justificacion.getVersion(),
+                asistencia.getAlumno().getPersona().nombreLista(),
+                asignacion.getCurso().getNombre(),
+                asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
+                asistencia.getFechaRegistro(),
+                asistencia.getSesionClase() == null ? null : asistencia.getSesionClase().getHoraInicio(),
+                asistencia.getEstadoAsistencia());
     }
 
     private void exigirEstado(
             JustificacionAsistencia justificacion, EstadoJustificacion esperado, String mensaje) {
         if (justificacion.getEstado() != esperado) {
+            throw new BusinessRuleException("JUSTIFICACION_TRANSICION_INVALIDA", mensaje);
+        }
+    }
+
+    /** Enviada o en revisión: el docente resuelve directo, sin marcar antes el inicio de la revisión. */
+    private void exigirPorResolver(JustificacionAsistencia justificacion, String mensaje) {
+        if (justificacion.getEstado() != EstadoJustificacion.ENVIADA
+                && justificacion.getEstado() != EstadoJustificacion.EN_REVISION) {
             throw new BusinessRuleException("JUSTIFICACION_TRANSICION_INVALIDA", mensaje);
         }
     }
@@ -311,14 +364,5 @@ public class JustificacionAsistenciaService {
 
     private String normalizar(String valor) {
         return valor == null || valor.isBlank() ? null : valor.trim();
-    }
-
-    private <T extends AuditableEntity> T buscarActivo(
-            Class<T> tipo, Long id, String codigo, String nombreRecurso) {
-        T entidad = entityManager.find(tipo, id);
-        if (entidad == null || !entidad.isActivo()) {
-            throw new ResourceNotFoundException(codigo, "No existe un " + nombreRecurso + " activo con id " + id);
-        }
-        return entidad;
     }
 }
