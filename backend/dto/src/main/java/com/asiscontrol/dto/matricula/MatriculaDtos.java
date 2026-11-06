@@ -57,6 +57,11 @@ public final class MatriculaDtos {
             @NotNull Long version,
             @jakarta.validation.constraints.NotBlank @Size(max = 700) String motivo) {}
 
+    public record CambiarSeccionMatriculaRequest(
+            @NotNull Long seccionId,
+            @NotNull Long version,
+            @jakarta.validation.constraints.NotBlank @Size(max = 700) String motivo) {}
+
     public record MatriculaResponse(
             Long id,
             String codigoMatricula,

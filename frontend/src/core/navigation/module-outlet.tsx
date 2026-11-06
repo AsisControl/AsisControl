@@ -8,7 +8,7 @@ import { Administration } from "@/modules/administration";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Finance } from "@/modules/finance";
 import { Evaluations } from "@/modules/evaluations";
-import { Schedules, TeacherSchedule } from "@/modules/schedules";
+import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { TasksModule } from "@/modules/tasks";
 import { canAccess } from "./access-policy";
 import {
@@ -25,6 +25,9 @@ type Screen = (context: ScreenContext) => ReactNode;
  * el aviso de módulo pendiente. El backend sigue siendo quien autoriza.
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
+  ESTUDIANTE: {
+    Horario: () => <StudentSchedule />,
+  },
   DOCENTE: {
     Horario: () => <TeacherSchedule />,
     Evaluaciones: ({ user, subpath: [tab, evaluationId] }) => (

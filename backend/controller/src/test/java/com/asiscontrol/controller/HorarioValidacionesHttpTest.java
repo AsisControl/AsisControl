@@ -101,6 +101,41 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
     }
 
     @Test
+    void aceptaTurnosDeMananaYTardeEnIntervalosDeMediaHora() throws Exception {
+        crear(assignment, aulaPrincipal, "LUNES", "07:00", "08:30");
+        crear(assignment, aulaPrincipal, "MARTES", "13:00", "15:30");
+        crear(assignment, aulaPrincipal, "MIERCOLES", "19:30", "20:00");
+        assertThat(cantidadHorarios()).isEqualTo(3);
+    }
+
+    @Test
+    void rechazaHorasFueraDeJornadaODeLosLimitesDeMediaHora() throws Exception {
+        for (String inicio : new String[]{"06:30", "08:15", "19:45", "20:00"}) {
+            JsonNode error = request("POST", RUTA,
+                    bloque(assignment, aulaPrincipal, "LUNES", inicio,
+                            inicio.equals("20:00") ? "20:30" : "20:00"), 422);
+            assertThat(error.path("code").asText()).isEqualTo("HORARIO_INICIO_INVALIDO");
+        }
+        for (String fin : new String[]{"08:15", "20:30", "08:30:10"}) {
+            JsonNode error = request("POST", RUTA,
+                    bloque(assignment, aulaPrincipal, "LUNES", "08:00", fin), 422);
+            assertThat(error.path("code").asText()).isEqualTo("HORARIO_FIN_INVALIDO");
+        }
+        assertThat(cantidadHorarios()).isZero();
+    }
+
+    @Test
+    void alEditarRechazaUnaHoraIntermediaYSostieneElBloqueOriginal() throws Exception {
+        JsonNode creado = crear(assignment, aulaPrincipal, "LUNES", "08:00", "09:00");
+        String ruta = RUTA + "/" + creado.path("id").asLong();
+        Map<String, Object> cambios = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:15");
+        cambios.put("version", creado.path("version").asLong());
+        JsonNode error = request("PUT", ruta, cambios, 422);
+        assertThat(error.path("code").asText()).isEqualTo("HORARIO_FIN_INVALIDO");
+        assertThat(getOk(ruta).path("horaFin").asText()).startsWith("09:00");
+    }
+
+    @Test
     void admiteBloquesContiguosYEnOtroDia() throws Exception {
         crear(assignment, aulaPrincipal, "LUNES", "08:00", "09:00");
         crear(assignment, aulaPrincipal, "LUNES", "09:00", "10:00");

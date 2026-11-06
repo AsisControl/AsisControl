@@ -2,6 +2,8 @@
 import { ApiError } from "@/core/api/client";
 import type { Classroom, CourseAssignment, ScheduleBlock, WeekDay } from "../types";
 import { hour, weekDayLabels } from "./labels";
+import { isSchoolEndSlot, isSchoolStartSlot } from "./time-slots";
+import { SCHOOL_END, SCHOOL_START } from "./time-slots";
 
 export const WEEK_DAYS = Object.keys(weekDayLabels) as WeekDay[];
 /** Perspectivas de la matriz (US-24); solo la de sección permite editar bloques. */
@@ -38,26 +40,62 @@ export function visibleDays(blocks: ScheduleBlock[]): WeekDay[] {
   return WEEK_DAYS.filter((day) => day !== "SABADO" || saturday);
 }
 
-/** Fila de la matriz: un intervalo "08:00"–"09:30". */
+/** Fila fija de media hora de la matriz semanal. */
 export type TimeRow = { inicio: string; fin: string };
-/** Intervalos distintos de los bloques, por hora de inicio y luego de fin. */
+const minutesOf = (time: string) => {
+  const [hours, minutes] = hour(time).split(":").map(Number);
+  return hours * 60 + minutes;
+};
+const timeOf = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+/** La jornada siempre se ve completa; se extiende si existen bloques antiguos fuera de ella. */
 export function timeRows(blocks: ScheduleBlock[]): TimeRow[] {
-  const rows = new Map<string, TimeRow>();
-  for (const block of blocks) {
-    const row = { inicio: hour(block.horaInicio), fin: hour(block.horaFin) };
-    rows.set(`${row.inicio}-${row.fin}`, row);
-  }
-  return [...rows.values()].sort(
-    (a, b) => a.inicio.localeCompare(b.inicio) || a.fin.localeCompare(b.fin),
-  );
+  const start = Math.min(minutesOf(SCHOOL_START), ...blocks.map((block) =>
+    Math.floor(minutesOf(block.horaInicio) / 30) * 30));
+  const end = Math.max(minutesOf(SCHOOL_END), ...blocks.map((block) =>
+    Math.ceil(minutesOf(block.horaFin) / 30) * 30));
+  return Array.from({ length: (end - start) / 30 }, (_, index) => {
+    const inicio = start + index * 30;
+    return { inicio: timeOf(inicio), fin: timeOf(inicio + 30) };
+  });
 }
+/** Bloques que comienzan dentro de esta fila; su tarjeta se extiende hasta la hora de fin. */
 export function blocksAt(blocks: ScheduleBlock[], day: WeekDay, row: TimeRow) {
   return blocks.filter(
     (block) =>
       block.diaSemana === day &&
-      hour(block.horaInicio) === row.inicio &&
-      hour(block.horaFin) === row.fin,
+      hour(block.horaInicio) >= row.inicio &&
+      hour(block.horaInicio) < row.fin,
   );
+}
+
+/** Da una columna propia a los bloques simultáneos de una misma perspectiva. */
+export function blockLanes(blocks: ScheduleBlock[], day: WeekDay) {
+  const ordered = blocks.filter((block) => block.diaSemana === day).sort(
+    (a, b) => a.horaInicio.localeCompare(b.horaInicio) || a.id - b.id,
+  );
+  const result = new Map<number, { lane: number; lanes: number }>();
+  let active: { fin: string; lane: number }[] = [];
+  let cluster: number[] = [];
+  let clusterLanes = 0;
+  const finishCluster = () => {
+    for (const id of cluster) result.set(id, { lane: result.get(id)!.lane, lanes: clusterLanes });
+    cluster = [];
+    clusterLanes = 0;
+  };
+  for (const block of ordered) {
+    active = active.filter((item) => item.fin > hour(block.horaInicio));
+    if (!active.length && cluster.length) finishCluster();
+    const occupied = new Set(active.map((item) => item.lane));
+    let lane = 0;
+    while (occupied.has(lane)) lane++;
+    result.set(block.id, { lane, lanes: 1 });
+    active.push({ fin: hour(block.horaFin), lane });
+    cluster.push(block.id);
+    clusterLanes = Math.max(clusterLanes, lane + 1);
+  }
+  if (cluster.length) finishCluster();
+  return result;
 }
 
 /** Dos intervalos se cruzan si uno empieza antes de que termine el otro. */
@@ -152,6 +190,8 @@ export function detectConflicts(
 /** Códigos de rechazo de /api/horarios. */
 const serverKinds: Record<string, ConflictKind> = {
   HORARIO_RANGO_INVALIDO: "rango",
+  HORARIO_INICIO_INVALIDO: "rango",
+  HORARIO_FIN_INVALIDO: "rango",
   AULA_CAPACIDAD_INSUFICIENTE: "aforo",
   HORARIO_DOCENTE_OCUPADO: "docente",
   HORARIO_AULA_OCUPADA: "aula",
@@ -191,7 +231,11 @@ export function validateBlock(values: BlockFormValues): BlockErrors {
   if (!(WEEK_DAYS as string[]).includes(values.diaSemana))
     errors.diaSemana = "Seleccione el día.";
   if (!values.horaInicio) errors.horaInicio = "Indique la hora de inicio.";
+  else if (!isSchoolStartSlot(values.horaInicio))
+    errors.horaInicio = "Elija una hora entre 07:00 y 19:30, en pasos de 30 minutos.";
   if (!values.horaFin) errors.horaFin = "Indique la hora de fin.";
+  else if (!isSchoolEndSlot(values.horaFin))
+    errors.horaFin = "Elija una hora entre 07:30 y 20:00, en pasos de 30 minutos.";
   else if (values.horaInicio && values.horaInicio >= values.horaFin)
     errors.horaFin = "Debe ser posterior a la hora de inicio.";
   return errors;
