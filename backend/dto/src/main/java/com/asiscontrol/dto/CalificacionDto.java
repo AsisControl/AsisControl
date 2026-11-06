@@ -56,7 +56,7 @@ public final class CalificacionDto {
     /** US-50: el motivo es comun a todos los cambios guardados a la vez. */
     public record CorreccionRequest(
             @NotBlank @Size(max = 500) String motivo,
-            @NotEmpty List<@Valid CorreccionItem> correcciones
+            @NotEmpty List<@NotNull @Valid CorreccionItem> correcciones
     ) {
     }
 
