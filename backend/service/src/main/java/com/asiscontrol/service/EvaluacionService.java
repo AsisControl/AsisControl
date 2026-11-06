@@ -1,6 +1,16 @@
 package com.asiscontrol.service;
 
 
+import java.util.Map;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.ArrayList;
+import com.asiscontrol.repository.MatriculaRepository;
+import com.asiscontrol.repository.CorreccionCalificacionRepository;
+import com.asiscontrol.repository.CalificacionRepository;
+import com.asiscontrol.entity.Persona;
+import com.asiscontrol.entity.Calificacion;
+import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.dto.CompetenciaDto;
 import com.asiscontrol.dto.EvaluacionDto;
@@ -33,6 +43,9 @@ public class EvaluacionService {
     private final AsignacionCursoRepository asignacionCursoRepository;
     private final CompetenciaRepository competenciaRepository;
     private final CursoCompetenciaRepository cursoCompetenciaRepository;
+    private final CalificacionRepository calificacionRepository;
+    private final CorreccionCalificacionRepository correccionRepository;
+    private final MatriculaRepository matriculaRepository;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
 
@@ -41,9 +54,15 @@ public class EvaluacionService {
             AsignacionCursoRepository asignacionCursoRepository,
             CompetenciaRepository competenciaRepository,
             CursoCompetenciaRepository cursoCompetenciaRepository,
+            CalificacionRepository calificacionRepository,
+            CorreccionCalificacionRepository correccionRepository,
+            MatriculaRepository matriculaRepository,
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria
     ) {
+        this.calificacionRepository = calificacionRepository;
+        this.correccionRepository = correccionRepository;
+        this.matriculaRepository = matriculaRepository;
         this.evaluacionRepository = evaluacionRepository;
         this.asignacionCursoRepository = asignacionCursoRepository;
         this.competenciaRepository = competenciaRepository;
@@ -56,6 +75,9 @@ public class EvaluacionService {
     public Page<EvaluacionDto.Response> listar(
             EstadoEvaluacion estado,
             Long idAsignacionCurso,
+            com.asiscontrol.entity.enums.PeriodoEvaluacion periodo,
+            Long idCurso,
+            Long idSeccion,
             String busqueda,
             Long personaDocenteId,
             Long personaAlumnoId,
@@ -66,6 +88,9 @@ public class EvaluacionService {
         return evaluacionRepository.buscar(
                         estado,
                         idAsignacionCurso,
+                        periodo,
+                        idCurso,
+                        idSeccion,
                         filtro,
                         personaDocenteId,
                         personaAlumnoId,
@@ -77,6 +102,43 @@ public class EvaluacionService {
     @Transactional(readOnly = true)
     public EvaluacionDto.Response obtener(Long id) {
         return toResponse(buscarActiva(id));
+    }
+
+    /** US-18: alumnos matriculados en la seccion con sus niveles vigentes en esta evaluacion. */
+    @Transactional(readOnly = true)
+    public EvaluacionDto.PlanillaResponse planilla(Long id) {
+        Evaluacion evaluacion = buscarActiva(id);
+        List<Calificacion> calificaciones = calificacionRepository.findAllByEvaluacionIdAndActivoTrue(id);
+        Set<Long> corregidas = calificaciones.isEmpty()
+                ? Set.of()
+                : new HashSet<>(correccionRepository.buscarCalificacionesCorregidas(
+                        calificaciones.stream().map(Calificacion::getId).toList()));
+        Map<Long, List<EvaluacionDto.PlanillaNota>> notas = new HashMap<>();
+        for (Calificacion calificacion : calificaciones) {
+            notas.computeIfAbsent(calificacion.getAlumno().getId(), alumno -> new ArrayList<>())
+                    .add(new EvaluacionDto.PlanillaNota(
+                            calificacion.getId(),
+                            calificacion.getCompetencia().getId(),
+                            calificacion.getNivelLogro(),
+                            calificacion.getVersion(),
+                            corregidas.contains(calificacion.getId())));
+        }
+        List<EvaluacionDto.PlanillaAlumno> alumnos = matriculaRepository
+                .buscarAlumnosActivosDeSeccion(evaluacion.getAsignacionCurso().getSeccion().getId())
+                .stream()
+                .map(alumno -> new EvaluacionDto.PlanillaAlumno(
+                        alumno.getId(),
+                        alumno.getCodigoAlumno(),
+                        nombreEnPlanilla(alumno.getPersona()),
+                        notas.getOrDefault(alumno.getId(), List.of())))
+                .toList();
+        return new EvaluacionDto.PlanillaResponse(toResponse(evaluacion), alumnos);
+    }
+
+    private String nombreEnPlanilla(Persona persona) {
+        String apellidos = (persona.getApellidoPaterno() + " "
+                + (persona.getApellidoMaterno() == null ? "" : persona.getApellidoMaterno())).trim();
+        return apellidos + ", " + persona.getNombres();
     }
 
     @Transactional
@@ -129,7 +191,50 @@ public class EvaluacionService {
         auditoria.registrar(accionEstado(estadoDestino), ModuloAuditoria.ACADEMICO, "Evaluacion",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + estadoActual, "estado=" + estadoDestino);
+        if (estadoDestino == EstadoEvaluacion.PUBLICADA) {
+            auditarNivelesPublicados(saved);
+        }
         return toResponse(saved);
+    }
+
+    /** US-18: la auditoria conserva actor, nivel, competencia, estudiante y fecha de cada nivel. */
+    private void auditarNivelesPublicados(Evaluacion evaluacion) {
+        for (Calificacion calificacion : calificacionRepository.findAllByEvaluacionIdAndActivoTrue(evaluacion.getId())) {
+            auditoria.registrar("PUBLICAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
+                    calificacion.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                    "nivelLogro=" + calificacion.getNivelLogro()
+                            + ",competencia=" + calificacion.getCompetencia().getNombre()
+                            + ",alumnoId=" + calificacion.getAlumno().getId()
+                            + ",evaluacionId=" + evaluacion.getId()
+                            + ",fechaPublicacion=" + evaluacion.getFechaPublicacion());
+        }
+    }
+
+    /** US-18: solo se publica una planilla completa: todos los alumnos en todas las competencias. */
+    private void exigirPlanillaCompleta(Evaluacion evaluacion) {
+        List<Alumno> alumnos = matriculaRepository
+                .buscarAlumnosActivosDeSeccion(evaluacion.getAsignacionCurso().getSeccion().getId());
+        if (alumnos.isEmpty()) {
+            throw new BusinessRuleException(
+                    "EVALUACION_SIN_ESTUDIANTES",
+                    "La seccion no tiene estudiantes matriculados para evaluar"
+            );
+        }
+        Set<String> registradas = calificacionRepository.findAllByEvaluacionIdAndActivoTrue(evaluacion.getId())
+                .stream()
+                .map(item -> item.getAlumno().getId() + ":" + item.getCompetencia().getId())
+                .collect(Collectors.toSet());
+        long faltantes = alumnos.stream()
+                .flatMap(alumno -> evaluacion.getCompetencias().stream()
+                        .map(competencia -> alumno.getId() + ":" + competencia.getId()))
+                .filter(clave -> !registradas.contains(clave))
+                .count();
+        if (faltantes > 0) {
+            throw new BusinessRuleException(
+                    "EVALUACION_INCOMPLETA",
+                    "Faltan " + faltantes + " niveles por registrar antes de publicar la evaluacion"
+            );
+        }
     }
 
     @Transactional
@@ -233,6 +338,7 @@ public class EvaluacionService {
                     .map(Competencia::getId)
                     .collect(Collectors.toSet());
             validarCompetenciasDisponibles(evaluacion.getAsignacionCurso(), idsCompetencia);
+            exigirPlanillaCompleta(evaluacion);
         }
     }
 
@@ -271,7 +377,12 @@ public class EvaluacionService {
                 evaluacion.getFechaPublicacion(),
                 evaluacion.getFechaCierre(),
                 evaluacion.getFechaCreacion(),
-                evaluacion.getFechaActualizacion()
+                evaluacion.getFechaActualizacion(),
+                evaluacion.getAsignacionCurso().getCurso().getId(),
+                evaluacion.getAsignacionCurso().getCurso().getNombre(),
+                evaluacion.getAsignacionCurso().getSeccion().getId(),
+                AsignacionCursoService.etiquetaSeccion(evaluacion.getAsignacionCurso().getSeccion()),
+                evaluacion.getAsignacionCurso().getSeccion().getAnioAcademico()
         );
     }
 

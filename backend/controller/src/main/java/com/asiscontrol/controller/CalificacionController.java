@@ -77,6 +77,22 @@ public class CalificacionController {
         return calificacionService.registrarLote(request);
     }
 
+    /** US-50: corrige niveles publicados con un motivo comun. */
+    @PostMapping("/correcciones")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public java.util.List<CalificacionDto.Response> corregir(
+            @Valid @RequestBody CalificacionDto.CorreccionRequest request) {
+        return calificacionService.corregir(request);
+    }
+
+    /** US-50: trazabilidad de una calificacion; alumnos y apoderados no la consultan. */
+    @GetMapping("/{id}/correcciones")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DIRECTOR','DOCENTE')"
+            + " and @moduloAccessGuard.puedeAccederCalificacion(#id)")
+    public java.util.List<CalificacionDto.CorreccionResponse> correcciones(@PathVariable Long id) {
+        return calificacionService.correcciones(id);
+    }
+
     @GetMapping("/consolidados")
     @PreAuthorize("@moduloAccessGuard.puedeAccederAlumno(#idAlumno)")
     public List<CalificacionDto.ConsolidadoResponse> obtenerConsolidado(

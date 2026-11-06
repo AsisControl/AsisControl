@@ -67,7 +67,7 @@ class ScopedRepositoryIntegrationTest {
         assertThat(entregaRepository.buscarVisibles(
                 1L, null, null, null, pagina)).isEmpty();
         assertThat(evaluacionRepository.buscar(
-                null, null, null, null, null, null, pagina)).isEmpty();
+                null, null, null, null, null, null, null, null, null, pagina)).isEmpty();
         assertThat(calificacionRepository.buscar(
                 null, null, null, null, pagina)).isEmpty();
         assertThat(matriculaRepository.buscarVisibles(null, null, pagina)).isEmpty();

@@ -78,17 +78,21 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         String ep="/api/evaluaciones/"+evaluation.path("id").asLong();
         getOk("/api/evaluaciones"); getOk(ep);
         putOk(ep,evaluacion("Evaluacion final"));
-        putOk(ep+"/estado",data("estado","PUBLICADA"));
+        // US-18: sin todos los niveles no se publica; los niveles se registran en borrador.
+        request("PUT",ep+"/estado",data("estado","PUBLICADA"),422);
         var grade=postOk("/api/calificaciones",nota(evaluation.path("id").asLong(),"A"));
         long id=grade.path("id").asLong();
         assertThat(grade.path("nivelLogro").asText()).isEqualTo("A");
         getOk("/api/calificaciones"); getOk("/api/calificaciones/"+id);
         var batch=putOk("/api/calificaciones/lote",data("calificaciones",List.of(nota(evaluation.path("id").asLong(),"AD"))));
         assertThat(batch.get(0).path("nivelLogro").asText()).isEqualTo("AD");
+        assertThat(getOk("/api/calificaciones/consolidados?idAlumno="+student.getId())).isEmpty();
+        putOk(ep+"/estado",data("estado","PUBLICADA"));
         var consolidated=getOk("/api/calificaciones/consolidados?idAlumno="+student.getId());
         assertThat(consolidated).hasSize(1);
         assertThat(consolidated.get(0).path("nivelConsolidado").asText()).isEqualTo("AD");
-        deleteOk("/api/calificaciones/"+id);
+        request("DELETE","/api/calificaciones/"+id,null,422);
+        request("POST","/api/calificaciones",nota(evaluation.path("id").asLong(),"C"),422);
         putOk(ep+"/estado",data("estado","CERRADA"));
         request("POST","/api/calificaciones",nota(evaluation.path("id").asLong(),"C"),422);
         var draft=postOk("/api/evaluaciones",evaluacion("Borrador"));
