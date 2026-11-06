@@ -54,6 +54,8 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Auditar dependencias de producción
+        run: npm audit --omit=dev --audit-level=moderate
       - run: npm test
       - run: npm run lint
       - run: npm run build
