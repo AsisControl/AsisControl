@@ -19,6 +19,9 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
             WHERE e.activo = true
               AND (:estado IS NULL OR e.estado = :estado)
               AND (:idAsignacionCurso IS NULL OR e.asignacionCurso.id = :idAsignacionCurso)
+              AND (:periodo IS NULL OR e.periodoEvaluacion = :periodo)
+              AND (:idCurso IS NULL OR e.asignacionCurso.curso.id = :idCurso)
+              AND (:idSeccion IS NULL OR e.asignacionCurso.seccion.id = :idSeccion)
               AND (:personaDocenteId IS NULL
                    OR e.asignacionCurso.docente.persona.id = :personaDocenteId)
               AND (:personaAlumnoId IS NULL OR (
@@ -56,6 +59,9 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
     Page<Evaluacion> buscar(
             @Param("estado") EstadoEvaluacion estado,
             @Param("idAsignacionCurso") Long idAsignacionCurso,
+            @Param("periodo") com.asiscontrol.entity.enums.PeriodoEvaluacion periodo,
+            @Param("idCurso") Long idCurso,
+            @Param("idSeccion") Long idSeccion,
             @Param("busqueda") String busqueda,
             @Param("personaDocenteId") Long personaDocenteId,
             @Param("personaAlumnoId") Long personaAlumnoId,

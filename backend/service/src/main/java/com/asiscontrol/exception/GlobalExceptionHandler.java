@@ -278,6 +278,22 @@ public class GlobalExceptionHandler {
                 List.of());
     }
 
+    /**
+     * La ruta existe pero no con ese metodo (por ejemplo, DELETE de una asignacion docente, que
+     * ahora se retira con PATCH). Sin este manejador terminaba en un 500 y se registraba como error.
+     */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request) {
+        return build(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "METODO_NO_PERMITIDO",
+                "La operacion " + exception.getMethod() + " no esta disponible en esta ruta",
+                request,
+                List.of());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
             ResourceNotFoundException exception, HttpServletRequest request) {
@@ -419,6 +435,12 @@ public class GlobalExceptionHandler {
         } else if (constraint.contains("uk_persona_correo")) {
             duplicateCode = "CORREO_DUPLICADO";
             duplicateMessage = "Este correo ya está asociado a otra persona";
+        } else if (constraint.contains("uk_compromiso_obligacion")) {
+            duplicateCode = "COMPROMISO_DUPLICADO";
+            duplicateMessage = "El estudiante ya tiene un compromiso activo para ese año, concepto y cuota.";
+        } else if (constraint.contains("uk_compromiso_pago_codigo")) {
+            duplicateCode = "CODIGO_COMPROMISO_DUPLICADO";
+            duplicateMessage = "Ese código de compromiso ya está registrado.";
         }
         if (duplicateCode != null) {
             return build(

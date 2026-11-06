@@ -100,11 +100,21 @@ abstract class ApiIntegrationSupport {
         return result;
     }
     protected JsonNode request(String method, String path, Object body, int expected) throws Exception {
+        return request(asAdmin(), method, path, body, expected);
+    }
+    /** Mismo pedido con la sesión del rol indicado; ese rol llega con los permisos de asistencia. */
+    protected JsonNode comoRol(String rol, Persona persona, String method, String path, Object body, int expected) throws Exception {
+        return request(jwt().jwt(j -> j.subject(rol + key()).claim("personaId", persona.getId()))
+                .authorities(java.util.List.of(new SimpleGrantedAuthority("ROLE_" + rol),
+                        new SimpleGrantedAuthority("ASISTENCIA_LEER"))), method, path, body, expected);
+    }
+    private JsonNode request(org.springframework.test.web.servlet.request.RequestPostProcessor sesion,
+            String method, String path, Object body, int expected) throws Exception {
         MockHttpServletRequestBuilder builder = switch(method) {
             case "POST" -> post(path); case "PUT" -> put(path); case "DELETE" -> delete(path);
             case "PATCH" -> patch(path); default -> get(path);
         };
-        builder.with(asAdmin());
+        builder.with(sesion);
         if (body != null) builder.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body));
         var response = mvc.perform(builder).andExpect(status().is(expected)).andReturn().getResponse();
         return response.getContentAsByteArray().length==0 ? json.nullNode() : json.readTree(response.getContentAsByteArray());

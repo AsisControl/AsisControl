@@ -31,6 +31,7 @@ public interface SolicitudMatriculaRepository extends JpaRepository<SolicitudMat
             """
 SELECT s FROM SolicitudMatricula s
 WHERE s.activo = true
+  AND (:alumnoId IS NULL OR s.alumno.id = :alumnoId)
   AND (:personaAlumnoId IS NULL OR s.alumno.persona.id = :personaAlumnoId)
   AND (:personaApoderadoId IS NULL OR EXISTS (
         SELECT v.id FROM AlumnoApoderado v
@@ -41,6 +42,7 @@ WHERE s.activo = true
       ))
 """)
     Page<SolicitudMatricula> buscarVisibles(
+            @Param("alumnoId") Long alumnoId,
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,
             Pageable pageable);

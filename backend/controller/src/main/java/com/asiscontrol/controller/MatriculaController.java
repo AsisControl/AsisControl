@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
+import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
 import com.asiscontrol.service.MatriculaService;
@@ -53,8 +54,17 @@ public class MatriculaController {
         return matriculaService.actualizar(id, request);
     }
 
+    @PutMapping("/{id}/seccion")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('MATRICULA_ESCRIBIR')")
+    public MatriculaResponse cambiarSeccion(
+            @PathVariable Long id, @Valid @RequestBody CambiarSeccionMatriculaRequest request) {
+        return matriculaService.cambiarSeccion(id, request);
+    }
+
+    /** US-49: el apoderado consulta el historial de las matriculas de sus estudiantes asociados. */
     @GetMapping("/{id}/historial")
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAuthority('MATRICULA_LEER') and (hasRole('ADMINISTRADOR') or"
+            + " (hasRole('APODERADO') and @moduloAccessGuard.puedeAccederMatricula(#id)))")
     public java.util.List<com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse> historial(
             @PathVariable Long id) {
         matriculaService.obtener(id);

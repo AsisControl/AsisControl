@@ -54,7 +54,7 @@ function backend(routes = {}) {
   });
 }
 
-const renderSchedules = (props = {}) => render(<Schedules canWrite {...props} />);
+const renderSchedules = (props = {}) => render(<Schedules canWrite tab="aulas" {...props} />);
 const rowOf = async (name) => (await screen.findByText(name, { selector: "strong" })).closest("tr");
 async function chooseAction(user, name, action) {
   await user.click(within(await rowOf(name)).getByLabelText(`Más acciones para ${name}`));
@@ -334,13 +334,12 @@ test("Eliminar muestra el rechazo de un aula usada y elimina una sin horarios", 
   expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual(["/api/aulas/1", "/api/aulas/2"]);
 });
 
-test("Las pestañas navegan por URL y las pendientes lo indican", async () => {
+test("Las pestañas navegan por URL y una inexistente vuelve al horario", async () => {
   backend();
   const user = userEvent.setup();
-  const { rerender } = renderSchedules({ tab: "horario" });
-  expect(screen.getByText("Esta sección todavía está pendiente de implementación.")).toBeTruthy();
+  const { rerender } = renderSchedules({ tab: "asignaciones-docentes" });
   await user.click(screen.getByText("Aulas", { selector: "button" }));
   expect(currentUrl()).toBe("/horarios/aulas");
   rerender(<Schedules canWrite tab="no-existe" />);
-  await waitFor(() => expect(currentUrl()).toBe("/horarios/aulas"));
+  await waitFor(() => expect(currentUrl()).toBe("/horarios/horario"));
 });

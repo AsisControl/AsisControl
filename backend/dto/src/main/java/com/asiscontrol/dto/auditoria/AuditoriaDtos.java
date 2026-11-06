@@ -1,5 +1,6 @@
 package com.asiscontrol.dto.auditoria;
 
+import com.asiscontrol.dto.academico.HistorialHorarioDtos.CampoHistorial;
 import com.asiscontrol.entity.enums.EstadoError;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.entity.enums.SeveridadError;
@@ -8,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.List;
 
 public final class AuditoriaDtos {
 
@@ -53,12 +55,16 @@ public final class AuditoriaDtos {
     public record HistorialResponse(
             Long id,
             String actor,
+            /** Nombre de la persona del acceso; null para "SISTEMA" o accesos ya inactivos. */
+            String actorNombre,
             String rol,
             Instant fecha,
             String accion,
             String motivo,
             String anterior,
-            String nuevo) {}
+            String nuevo,
+            /** Valores legibles por campo: sin identificadores internos. */
+            List<CampoHistorial> campos) {}
 
     public record UpdateErrorRequest(
             @NotNull EstadoError estado,

@@ -1,0 +1,247 @@
+.filters {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 16px;
+  padding: 16px;
+}
+.filtersFive {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.filters :global(.field) {
+  margin: 0;
+}
+.actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+.count {
+  color: var(--brand-primary, #1e3a8a);
+  font-weight: 500;
+}
+.linkButton {
+  background: none;
+  border: 0;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.competencies {
+  border: 0;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+.competencies legend {
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 0 0 4px;
+  text-transform: uppercase;
+}
+.competencies label {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  gap: 8px;
+}
+.emptyState {
+  align-items: center;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 48px;
+  text-align: center;
+}
+.emptyState small {
+  color: #94a3b8;
+}
+.sheetLayout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 2.1fr) minmax(260px, 1fr);
+  margin-top: 16px;
+}
+.sheetColumn {
+  min-width: 0;
+}
+.sheetLayout :global(.panel) {
+  margin-top: 0;
+}
+.sidebar {
+  display: grid;
+  gap: 16px;
+}
+.sidebar h4 {
+  margin: 0 0 8px;
+}
+.notice {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1e3a8a;
+  font-size: 13px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+}
+.sheet {
+  padding: 20px;
+}
+.sheetHeading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.sheetHeading button {
+  flex: none;
+  white-space: nowrap;
+}
+.sheetHeading h3 {
+  font-size: 16px;
+  margin: 0;
+}
+.sheetHeading p {
+  color: #64748b;
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+.sheetTable {
+  overflow-x: auto;
+}
+.sheetTable table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+.sheetTable th,
+.sheetTable td {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 8px;
+  text-align: center;
+}
+.sheetTable thead th {
+  border-bottom-color: #e2e8f0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  min-width: 124px;
+  text-transform: uppercase;
+}
+.sheetTable th:first-child {
+  min-width: 190px;
+  text-align: left;
+}
+.selectedRow {
+  background: #eff6ff;
+}
+.studentName {
+  background: none;
+  border: 0;
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0;
+  text-align: left;
+}
+.studentName:hover {
+  text-decoration: underline;
+}
+.levels {
+  display: inline-flex;
+  gap: 4px;
+}
+.level {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+.level:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #1e3a8a;
+}
+.level:focus-visible,
+.studentName:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+.level:disabled {
+  cursor: default;
+}
+.levelActive,
+.levelActive:disabled {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  color: #fff;
+}
+.levelActive.levelChanged {
+  background: #b45309;
+  border-color: #b45309;
+}
+.corrected {
+  color: #1e3a8a;
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.changeList {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.changeList li {
+  background: #eff6ff;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+.changeList small {
+  color: #1e3a8a;
+  display: block;
+  font-weight: 600;
+}
+.placeholder {
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 48px 24px;
+  text-align: center;
+}
+.progressList {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.progressList li {
+  display: flex;
+  font-size: 13px;
+  gap: 12px;
+  justify-content: space-between;
+}
+.progressList strong {
+  color: #1e3a8a;
+}
+@media (max-width: 900px) {
+  .sheetLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

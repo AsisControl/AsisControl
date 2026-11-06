@@ -1,6 +1,10 @@
 package com.asiscontrol.service;
 
 
+import jakarta.persistence.EntityManager;
+import com.asiscontrol.repository.CorreccionCalificacionRepository;
+import com.asiscontrol.entity.Persona;
+import com.asiscontrol.entity.CorreccionCalificacion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.dto.CalificacionDto;
@@ -42,6 +46,8 @@ public class CalificacionService {
     private final AlumnoRepository alumnoRepository;
     private final CompetenciaRepository competenciaRepository;
     private final MatriculaRepository matriculaRepository;
+    private final CorreccionCalificacionRepository correccionRepository;
+    private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
 
@@ -51,8 +57,12 @@ public class CalificacionService {
             AlumnoRepository alumnoRepository,
             CompetenciaRepository competenciaRepository,
             MatriculaRepository matriculaRepository,
+            CorreccionCalificacionRepository correccionRepository,
+            EntityManager entityManager,
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria) {
+        this.correccionRepository = correccionRepository;
+        this.entityManager = entityManager;
         this.calificacionRepository = calificacionRepository;
         this.evaluacionRepository = evaluacionRepository;
         this.alumnoRepository = alumnoRepository;
@@ -109,15 +119,98 @@ public class CalificacionService {
         return resultados;
     }
 
+    /**
+     * US-50: corrige niveles ya publicados. Cada cambio deja su version anterior con motivo, autor
+     * y fecha; el consolidado usa el nivel vigente, de modo que se actualiza sin mas pasos.
+     */
+    @Transactional
+    public List<CalificacionDto.Response> corregir(CalificacionDto.CorreccionRequest request) {
+        String motivo = request.motivo().trim();
+        String autor = entityManager.find(Persona.class, accessGuard.personaIdActual()).nombreCompleto();
+        Instant ahora = Instant.now();
+        List<CalificacionDto.Response> resultados = new ArrayList<>();
+        Set<Long> procesadas = new HashSet<>();
+        for (CalificacionDto.CorreccionItem item : request.correcciones()) {
+            if (!procesadas.add(item.idCalificacion())) {
+                throw new ConflictException(
+                        "CALIFICACION_DUPLICADA_EN_LOTE",
+                        "La correccion incluye mas de una vez la calificacion " + item.idCalificacion()
+                );
+            }
+            resultados.add(toResponse(corregirInterno(item, motivo, autor, ahora)));
+        }
+        return resultados;
+    }
+
+    private Calificacion corregirInterno(
+            CalificacionDto.CorreccionItem item, String motivo, String autor, Instant fecha) {
+        Calificacion calificacion = buscarActiva(item.idCalificacion());
+        Evaluacion evaluacion = calificacion.getEvaluacion();
+        accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        if (evaluacion.getEstado() != EstadoEvaluacion.PUBLICADA) {
+            throw new BusinessRuleException(
+                    "CALIFICACION_NO_CORREGIBLE",
+                    "Solo se corrigen calificaciones de una evaluacion publicada"
+            );
+        }
+        if (calificacion.getVersion() != item.version()) {
+            throw new ConflictException(
+                    "VERSION_DESACTUALIZADA",
+                    "La calificacion fue modificada por otro usuario; vuelva a cargarla"
+            );
+        }
+        NivelLogro anterior = calificacion.getNivelLogro();
+        if (anterior == item.nivelLogro()) {
+            throw new BusinessRuleException(
+                    "CORRECCION_SIN_CAMBIOS",
+                    "El nuevo nivel debe ser distinto del nivel vigente"
+            );
+        }
+        CorreccionCalificacion correccion = new CorreccionCalificacion();
+        correccion.setCalificacion(calificacion);
+        correccion.setNumeroVersion(correccionRepository.countByCalificacionId(calificacion.getId()) + 1);
+        correccion.setNivelAnterior(anterior);
+        correccion.setNivelNuevo(item.nivelLogro());
+        correccion.setMotivo(motivo);
+        correccion.setAutor(autor);
+        correccion.setFechaCorreccion(fecha);
+        correccionRepository.save(correccion);
+        calificacion.setNivelLogro(item.nivelLogro());
+        Calificacion saved = calificacionRepository.saveAndFlush(calificacion);
+        auditoria.registrar("CORREGIR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
+                saved.getId().toString(), ResultadoAuditoria.EXITOSO, motivo,
+                "nivelLogro=" + anterior,
+                "nivelLogro=" + saved.getNivelLogro()
+                        + ",competencia=" + saved.getCompetencia().getNombre()
+                        + ",alumnoId=" + saved.getAlumno().getId()
+                        + ",version=" + correccion.getNumeroVersion());
+        return saved;
+    }
+
+    /** US-50: historial de una calificacion: valores, motivos, autores y fechas. */
+    @Transactional(readOnly = true)
+    public List<CalificacionDto.CorreccionResponse> correcciones(Long id) {
+        buscarActiva(id);
+        return correccionRepository.findAllByCalificacionIdOrderByNumeroVersionAsc(id).stream()
+                .map(item -> new CalificacionDto.CorreccionResponse(
+                        item.getNumeroVersion(),
+                        item.getNivelAnterior(),
+                        item.getNivelNuevo(),
+                        item.getMotivo(),
+                        item.getAutor(),
+                        item.getFechaCorreccion()))
+                .toList();
+    }
+
     @Transactional
     public void eliminar(Long id) {
         Calificacion calificacion = buscarActiva(id);
         accessGuard.verificarAsignacionDocente(
                 calificacion.getEvaluacion().getAsignacionCurso());
-        if (calificacion.getEvaluacion().getEstado() != EstadoEvaluacion.PUBLICADA) {
+        if (calificacion.getEvaluacion().getEstado() != EstadoEvaluacion.BORRADOR) {
             throw new BusinessRuleException(
                     "CALIFICACION_NO_ELIMINABLE",
-                    "Las calificaciones solo se pueden modificar mientras la evaluacion esta publicada"
+                    "Las calificaciones solo se pueden quitar mientras la evaluacion esta en borrador"
             );
         }
         calificacion.setActivo(false);
@@ -181,13 +274,20 @@ public class CalificacionService {
                         "EVALUACION_NO_ENCONTRADA",
                         "No se encontro la evaluacion con id " + request.idEvaluacion()
                 ));
-        if (evaluacion.getEstado() != EstadoEvaluacion.PUBLICADA) {
+        accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        // US-18: lo publicado no se edita directamente; se corrige con motivo (US-50).
+        if (evaluacion.getEstado() == EstadoEvaluacion.PUBLICADA) {
             throw new BusinessRuleException(
-                    "EVALUACION_NO_ADMITE_CALIFICACIONES",
-                    "La evaluacion debe estar publicada para registrar calificaciones"
+                    "CALIFICACION_PUBLICADA",
+                    "La evaluacion esta publicada: use la correccion con motivo"
             );
         }
-        accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        if (evaluacion.getEstado() != EstadoEvaluacion.BORRADOR) {
+            throw new BusinessRuleException(
+                    "EVALUACION_NO_ADMITE_CALIFICACIONES",
+                    "Solo se registran calificaciones mientras la evaluacion esta en borrador"
+            );
+        }
 
         Alumno alumno = alumnoRepository.findByIdAndActivoTrue(request.idAlumno())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -264,7 +364,8 @@ public class CalificacionService {
                 calificacion.getNivelLogro(),
                 calificacion.getObservacion(),
                 calificacion.getFechaRegistro(),
-                calificacion.getFechaActualizacion()
+                calificacion.getFechaActualizacion(),
+                calificacion.getVersion()
         );
     }
 

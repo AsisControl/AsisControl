@@ -44,7 +44,10 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         getOk("/api/horarios"); getOk(hp);
         request("POST","/api/horarios",data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","LUNES","horaInicio","08:30:00","horaFin","09:30:00"),409);
         putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0));
-        deleteOk(hp); deleteOk(asp);
+        deleteOk(hp);
+        // US-58: el retiro exige motivo y version, y solo procede sin bloques de horario activos.
+        long versionAsignacion = getOk(asp).path("version").asLong();
+        request("PATCH", asp + "/retirar", data("motivo", "Fin de prueba", "version", versionAsignacion), 200);
         long versionAula = getOk(ap).path("version").asLong();
         request("PATCH", ap + "/inhabilitar", data("motivo", "Fin de prueba", "version", versionAula), 200);
         //deleteOk(hp); deleteOk(asp); deleteOk(ap);
@@ -65,7 +68,9 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         var graded=request("POST",dp+"/calificar",data("nota",18,"comentario","Buen trabajo","version",v),200);
         assertThat(graded.path("estado").asText()).isEqualTo("CALIFICADO");
         var entity=em.find(Tarea.class,tid); entity.setFechaLimite(LocalDateTime.now().minusSeconds(1)); em.flush();
-        request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200); deleteOk(tp);
+        request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200);
+        // US-22: con entregas, eliminar exige motivo.
+        request("DELETE",tp,null,422); request("DELETE",tp,data("motivo","Fin del bimestre"),204);
     }
 
     @Test void registraNivelesAdABCPorCompetenciaYConsolida() throws Exception {
@@ -73,17 +78,21 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         String ep="/api/evaluaciones/"+evaluation.path("id").asLong();
         getOk("/api/evaluaciones"); getOk(ep);
         putOk(ep,evaluacion("Evaluacion final"));
-        putOk(ep+"/estado",data("estado","PUBLICADA"));
+        // US-18: sin todos los niveles no se publica; los niveles se registran en borrador.
+        request("PUT",ep+"/estado",data("estado","PUBLICADA"),422);
         var grade=postOk("/api/calificaciones",nota(evaluation.path("id").asLong(),"A"));
         long id=grade.path("id").asLong();
         assertThat(grade.path("nivelLogro").asText()).isEqualTo("A");
         getOk("/api/calificaciones"); getOk("/api/calificaciones/"+id);
         var batch=putOk("/api/calificaciones/lote",data("calificaciones",List.of(nota(evaluation.path("id").asLong(),"AD"))));
         assertThat(batch.get(0).path("nivelLogro").asText()).isEqualTo("AD");
+        assertThat(getOk("/api/calificaciones/consolidados?idAlumno="+student.getId())).isEmpty();
+        putOk(ep+"/estado",data("estado","PUBLICADA"));
         var consolidated=getOk("/api/calificaciones/consolidados?idAlumno="+student.getId());
         assertThat(consolidated).hasSize(1);
         assertThat(consolidated.get(0).path("nivelConsolidado").asText()).isEqualTo("AD");
-        deleteOk("/api/calificaciones/"+id);
+        request("DELETE","/api/calificaciones/"+id,null,422);
+        request("POST","/api/calificaciones",nota(evaluation.path("id").asLong(),"C"),422);
         putOk(ep+"/estado",data("estado","CERRADA"));
         request("POST","/api/calificaciones",nota(evaluation.path("id").asLong(),"C"),422);
         var draft=postOk("/api/evaluaciones",evaluacion("Borrador"));

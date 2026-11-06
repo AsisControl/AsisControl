@@ -45,6 +45,7 @@ export function CredentialsStep({
       <div className={styles.passwordRow}>
         <PasswordField
           label="Contraseña temporal"
+          name="password"
           required
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}

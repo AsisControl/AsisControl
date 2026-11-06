@@ -11,6 +11,9 @@ import java.util.Optional;
 
 public interface TransaccionPagoRepository extends JpaRepository<TransaccionPago, Long> {
 
+    boolean existsByCompromisoPagoIdAndEstado(
+            Long idCompromisoPago, com.asiscontrol.entity.enums.EstadoTransaccionPago estado);
+
     Optional<TransaccionPago> findByIdAndActivoTrue(Long id);
 
     Optional<TransaccionPago> findByNumeroOperacionIgnoreCaseAndActivoTrue(String numeroOperacion);

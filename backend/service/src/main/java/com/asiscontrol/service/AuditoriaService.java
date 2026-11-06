@@ -1,6 +1,7 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.PageResponse;
+import com.asiscontrol.dto.academico.HistorialHorarioDtos.CampoHistorial;
 import com.asiscontrol.dto.auditoria.AuditoriaDtos;
 import com.asiscontrol.entity.AccesoUsuario;
 import com.asiscontrol.entity.RegistroAuditoria;
@@ -12,6 +13,7 @@ import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
 import com.asiscontrol.repository.RegistroAuditoriaRepository;
 import com.asiscontrol.repository.RegistroErrorRepository;
+import com.asiscontrol.repository.SeccionRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,16 +37,19 @@ public class AuditoriaService {
     private final RegistroErrorRepository errorRepository;
     private final AccesoUsuarioRepository usuarioRepository;
     private final com.asiscontrol.repository.SeguimientoErrorRepository seguimientos;
+    private final SeccionRepository seccionRepository;
 
     public AuditoriaService(
             RegistroAuditoriaRepository auditoriaRepository,
             RegistroErrorRepository errorRepository,
             AccesoUsuarioRepository usuarioRepository,
-            com.asiscontrol.repository.SeguimientoErrorRepository seguimientos) {
+            com.asiscontrol.repository.SeguimientoErrorRepository seguimientos,
+            SeccionRepository seccionRepository) {
         this.auditoriaRepository = auditoriaRepository;
         this.errorRepository = errorRepository;
         this.usuarioRepository = usuarioRepository;
         this.seguimientos = seguimientos;
+        this.seccionRepository = seccionRepository;
     }
 
     @Transactional
@@ -213,7 +218,15 @@ public class AuditoriaService {
                     return cb.and(filtros.toArray(jakarta.persistence.criteria.Predicate[]::new));
                 };
         var registros = auditoriaRepository.findAll(spec, pageable);
-        // Un nombre por actor distinto de la pagina, en vez de una consulta por fila.
+        java.util.Map<String, String> nombres = nombresDeActores(registros);
+        return PageResponse.from(
+                registros,
+                registro -> toAuditResponse(registro, nombres.get(registro.getActorIdentificador())));
+    }
+
+    /** Un nombre por actor distinto de la pagina, en vez de una consulta por fila. */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, String> nombresDeActores(Iterable<RegistroAuditoria> registros) {
         java.util.Map<String, String> nombres = new java.util.HashMap<>();
         registros.forEach(
                 registro ->
@@ -224,9 +237,7 @@ public class AuditoriaService {
                                                 .findActiveByIdentifier(identificador)
                                                 .map(usuario -> usuario.getPersona().nombreCompleto())
                                                 .orElse(null)));
-        return PageResponse.from(
-                registros,
-                registro -> toAuditResponse(registro, nombres.get(registro.getActorIdentificador())));
+        return nombres;
     }
 
     @Transactional(readOnly = true)
@@ -354,14 +365,17 @@ public class AuditoriaService {
 
     @Transactional(readOnly = true)
     public java.util.List<AuditoriaDtos.HistorialResponse> historial(String entidad, Long id) {
-        return auditoriaRepository
-                .findByEntidadAndRegistroIdOrderByFechaHoraAsc(entidad, id.toString())
-                .stream()
+        java.util.List<RegistroAuditoria> registros =
+                auditoriaRepository.findByEntidadAndRegistroIdOrderByFechaHoraAsc(
+                        entidad, id.toString());
+        java.util.Map<String, String> nombres = nombresDeActores(registros);
+        return registros.stream()
                 .map(
                         a ->
                                 new AuditoriaDtos.HistorialResponse(
                                         a.getId(),
                                         a.getActorIdentificador(),
+                                        nombres.get(a.getActorIdentificador()),
                                         a.getRolActor() == null
                                                 ? null
                                                 : a.getRolActor().getNombre(),
@@ -369,8 +383,49 @@ public class AuditoriaService {
                                         a.getAccion(),
                                         a.getMotivo(),
                                         a.getValorAnterior(),
-                                        a.getNuevoValor()))
+                                        a.getNuevoValor(),
+                                        camposLegibles(a)))
                 .toList();
+    }
+
+    private java.util.List<CampoHistorial> camposLegibles(RegistroAuditoria registro) {
+        java.util.Map<String, String> anterior = valoresDeMatricula(registro.getValorAnterior());
+        java.util.Map<String, String> nuevo = valoresDeMatricula(registro.getNuevoValor());
+        java.util.Set<String> campos = new java.util.LinkedHashSet<>(anterior.keySet());
+        campos.addAll(nuevo.keySet());
+        return campos.stream()
+                .map(campo -> new CampoHistorial(campo, anterior.get(campo), nuevo.get(campo)))
+                .toList();
+    }
+
+    /**
+     * Las matriculas guardan el estado solo ("ACTIVA") o con la seccion por su id
+     * ("estado=ACTIVA,seccion=1"), que se traduce a su nombre. Una seccion sin elegir no se muestra.
+     */
+    private java.util.Map<String, String> valoresDeMatricula(String valores) {
+        if (valores == null) {
+            return java.util.Map.of();
+        }
+        if (!valores.contains("=")) {
+            return java.util.Map.of("estado", valores);
+        }
+        java.util.Map<String, String> campos = ValoresAuditoria.separar(valores);
+        String seccionId = campos.remove("seccion");
+        if (seccionId != null && !"null".equals(seccionId)) {
+            campos.put("seccion", etiquetaDeSeccion(seccionId));
+        }
+        return campos;
+    }
+
+    private String etiquetaDeSeccion(String seccionId) {
+        if (!seccionId.chars().allMatch(Character::isDigit)) {
+            return seccionId;
+        }
+        return seccionRepository
+                .findById(Long.valueOf(seccionId))
+                .map(seccion -> seccion.getAnioAcademico() + " · "
+                        + AsignacionCursoService.etiquetaSeccion(seccion))
+                .orElse("Sección no disponible");
     }
 
     private AuditoriaDtos.AuditResponse toAuditResponse(RegistroAuditoria audit, String actorNombre) {

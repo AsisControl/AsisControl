@@ -5,6 +5,7 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
+import { JustificationInbox } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Schedules } from "@/modules/schedules";
 import { StudentTasks } from "@/modules/student-tasks";
@@ -23,8 +24,34 @@ type Screen = (context: ScreenContext) => ReactNode;
  * el aviso de módulo pendiente. El backend sigue siendo quien autoriza.
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
+  ESTUDIANTE: {
+    Horario: () => <StudentSchedule />,
+  },
+  DOCENTE: {
+    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
+    "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
+    Asistencia: () => <JustificationInbox />,
+    Horario: () => <TeacherSchedule />,
+    Evaluaciones: ({ user, subpath: [tab, evaluationId] }) => (
+      <Evaluations
+        tab={tab}
+        evaluationId={evaluationId}
+        canWrite={(user.permissions ?? []).includes("CALIFICACIONES_ESCRIBIR")}
+      />
+    ),
+    Tareas: ({ user, subpath }) => (
+      <TasksModule
+        subpath={subpath}
+        canWrite={(user.permissions ?? []).includes("TAREAS_ESCRIBIR")}
+        canUpload={(user.permissions ?? []).includes("ARCHIVOS_ESCRIBIR")}
+      />
+    ),
+  },
   ADMINISTRADOR: {
     Matrícula: ({ subpath: [tab, view] }) => <Enrollments tab={tab} view={view} />,
+    Finanzas: ({ user }) => (
+      <Finance canWrite={(user.permissions ?? []).includes("PAGOS_ESCRIBIR")} />
+    ),
     Académico: ({ user, subpath: [tab] }) => (
       <Academic
         tab={tab}
@@ -35,6 +62,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
       <Schedules
         tab={tab}
         canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+        canViewHistory={(user.permissions ?? []).includes("AUDITORIA_LEER")}
       />
     ),
     Administración: ({ user, subpath: [tab, view] }) => (
@@ -43,6 +71,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Matrícula: () => <GuardianEnrollment />,
+    Asistencia: () => <GuardianAttendance />,
   },
   ESTUDIANTE: {
     Tareas: () => <StudentTasks />,
