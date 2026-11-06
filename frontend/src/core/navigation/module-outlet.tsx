@@ -7,8 +7,13 @@ import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { JustificationInbox } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
-import { Schedules } from "@/modules/schedules";
-import { StudentTasks } from "@/modules/student-tasks";
+import { Evaluations } from "@/modules/evaluations";
+import { Finance } from "@/modules/finance";
+import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
+import { TasksModule } from "@/modules/tasks";
+import { TeacherCoursesModule } from "@/modules/teacher-courses";
+import { TeacherHome } from "@/modules/teacher-home";
 import { canAccess } from "./access-policy";
 import {
   HOME_NAV,
@@ -72,9 +77,6 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   APODERADO: {
     Matrícula: () => <GuardianEnrollment />,
     Asistencia: () => <GuardianAttendance />,
-  },
-  ESTUDIANTE: {
-    Tareas: () => <StudentTasks />,
   },
 };
 /** Direcciones anteriores que se conservan para no romper enlaces guardados. */
