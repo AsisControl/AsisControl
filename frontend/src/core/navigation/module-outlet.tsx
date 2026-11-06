@@ -5,6 +5,7 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
+import { CheckInPoint, TeacherCheckIn } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Finance } from "@/modules/finance";
 import { Evaluations } from "@/modules/evaluations";
@@ -26,6 +27,11 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   DOCENTE: {
+    Asistencia: ({ user }) => (
+      <TeacherCheckIn
+        canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
+      />
+    ),
     Horario: () => <TeacherSchedule />,
     Evaluaciones: ({ user, subpath: [tab, evaluationId] }) => (
       <Evaluations
@@ -43,6 +49,11 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   ADMINISTRADOR: {
+    Asistencia: ({ user }) => (
+      <CheckInPoint
+        canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
+      />
+    ),
     Matrícula: ({ subpath: [tab, view] }) => <Enrollments tab={tab} view={view} />,
     Finanzas: ({ user }) => (
       <Finance canWrite={(user.permissions ?? []).includes("PAGOS_ESCRIBIR")} />

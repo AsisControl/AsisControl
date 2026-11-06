@@ -1,0 +1,214 @@
+.layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.field input {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.inputError,
+.field input.inputError {
+  border: 2px solid #dc2626;
+}
+
+.muted {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+.errorBox {
+  padding: 0.75rem 0.9rem;
+  border-left: 4px solid #dc2626;
+  border-radius: 0.5rem;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.errorBox p {
+  margin: 0.2rem 0;
+}
+
+.secondaryButton {
+  align-self: flex-start;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.teacherList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 22rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.teacherButton {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.teacherButton[aria-pressed="true"] {
+  border-color: #2563eb;
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+.qrCard {
+  align-items: center;
+  text-align: center;
+}
+
+.teacherName {
+  margin: 0;
+  font-weight: 600;
+}
+
+.qrFrame {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.12);
+}
+
+.countdown {
+  margin: 0;
+}
+
+.progress {
+  width: 260px;
+  max-width: 100%;
+}
+
+.manual {
+  max-width: 100%;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.manual code {
+  display: block;
+  margin-top: 0.35rem;
+  word-break: break-all;
+}
+
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bigMark {
+  margin: 0;
+  color: #16a34a;
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.scanner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.video {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 0.75rem;
+  background: #0f172a;
+}
+
+.manualForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.result {
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+}
+
+.result p {
+  margin: 0.2rem 0;
+}
+
+.resultState {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.PRESENTE {
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.TARDANZA {
+  border-left: 4px solid #d97706;
+  background: #fffbeb;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
