@@ -11,6 +11,7 @@ import { Evaluations } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
+import { StudentTasks } from "@/modules/student-tasks";
 import { TasksModule } from "@/modules/tasks";
 import { TeacherCoursesModule } from "@/modules/teacher-courses";
 import { TeacherHome } from "@/modules/teacher-home";
@@ -30,6 +31,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
+    Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
   },
   DOCENTE: {
