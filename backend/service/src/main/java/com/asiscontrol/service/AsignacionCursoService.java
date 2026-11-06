@@ -312,9 +312,14 @@ public class AsignacionCursoService {
                 + ",cursoId=" + asignacion.getCurso().getId()
                 + ",curso=" + asignacion.getCurso().getNombre()
                 + ",seccionId=" + asignacion.getSeccion().getId()
-                + ",seccion=" + asignacion.getSeccion().getGrado() + "° " + asignacion.getSeccion().getNombre()
+                + ",seccion=" + etiquetaSeccion(asignacion.getSeccion())
                 + ",anio=" + asignacion.getSeccion().getAnioAcademico()
                 + ",activo=" + asignacion.isActivo();
+    }
+
+    /** "1° A": grado y nombre, porque el nombre solo se repite entre grados. */
+    static String etiquetaSeccion(Seccion seccion) {
+        return seccion.getGrado() + "° " + seccion.getNombre();
     }
 
     private HorarioProgramadoAsignacion mapearHorario(Horario horario) {

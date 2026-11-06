@@ -2,7 +2,6 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.entity.enums.Parentesco;
-import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.entity.enums.Sexo;
 import com.asiscontrol.entity.enums.TipoDocumento;
 import com.asiscontrol.exception.BusinessRuleException;
@@ -10,7 +9,6 @@ import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.ApoderadoRepository;
 import com.asiscontrol.repository.PersonaRepository;
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,7 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Importacion de apoderados y de sus parentescos con los alumnos, con las plantillas de
@@ -83,10 +80,10 @@ public class ImportacionFamiliaService {
                     fila.obligatorio("correo"),
                     fila.opcional("direccion"));
             var request = new PersonaDtos.ApoderadoCreateRequest(persona);
-            validar(request);
+            LectorExcel.validar(validator, request);
             personaService.createApoderado(request);
         });
-        auditar("IMPORTAR_APODERADOS", "Apoderado", file, resumen);
+        resumen.auditar(auditoria, "IMPORTAR_APODERADOS", "Apoderado", file);
         return resumen.resultado();
     }
 
@@ -132,39 +129,7 @@ public class ImportacionFamiliaService {
                 principalPorAlumno.put(codigo, fila.numero());
             }
         });
-        auditar("IMPORTAR_PARENTESCOS", "AlumnoApoderado", file, resumen);
+        resumen.auditar(auditoria, "IMPORTAR_PARENTESCOS", "AlumnoApoderado", file);
         return resumen.resultado();
-    }
-
-    private <T> void validar(T request) {
-        var errors = validator.validate(request);
-        if (!errors.isEmpty()) {
-            throw new BusinessRuleException("FILA_INVALIDA", errors.stream()
-                    .map(ConstraintViolation::getMessage)
-                    .sorted()
-                    .collect(Collectors.joining("; ")));
-        }
-    }
-
-    /** Un registro por archivo; cada alta o vinculo ya deja su propio registro de auditoria. */
-    private void auditar(
-            String accion, String entidad, MultipartFile file, LectorExcel.Resumen resumen) {
-        String filasConError = resumen.issues().stream()
-                .map(issue -> String.valueOf(issue.row()))
-                .collect(Collectors.joining(","));
-        auditoria.registrar(
-                accion,
-                ModuloAuditoria.PERSONAS,
-                entidad,
-                null,
-                resumen.importadas() > 0 || resumen.total() == 0
-                        ? ResultadoAuditoria.EXITOSO
-                        : ResultadoAuditoria.RECHAZADO,
-                resumen.issues().isEmpty() ? null : "Filas con errores: " + filasConError,
-                null,
-                "archivo=" + file.getOriginalFilename()
-                        + ",filas=" + resumen.total()
-                        + ",importados=" + resumen.importadas()
-                        + ",fallidos=" + (resumen.total() - resumen.importadas()));
     }
 }

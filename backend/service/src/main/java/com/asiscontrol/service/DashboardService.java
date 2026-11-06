@@ -3,8 +3,8 @@ package com.asiscontrol.service;
 import com.asiscontrol.dto.dashboard.DashboardDtos.DashboardResponse;
 import com.asiscontrol.dto.dashboard.DashboardDtos.IndicadorResponse;
 import com.asiscontrol.entity.enums.EstadoAlerta;
+import com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
-import com.asiscontrol.entity.enums.EstadoCompromisoPago;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoPublicacionTarea;
@@ -23,6 +23,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -37,6 +38,7 @@ public class DashboardService {
     private static final String TONO_EXITO = "success";
     private static final String TONO_ADVERTENCIA = "warning";
     private static final String TONO_PELIGRO = "danger";
+    private static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Lima");
 
     private final EntityManager entityManager;
     private final Clock reloj;
@@ -103,8 +105,12 @@ public class DashboardService {
         result.add(indicador("PAGOS_VENCIDOS", "Pagos vencidos",
                 contar("""
                         SELECT COUNT(c) FROM CompromisoPago c
-                        WHERE c.activo = true AND c.estado = :estado
-                        """, Map.of("estado", EstadoCompromisoPago.VENCIDO)),
+                        WHERE c.activo = true
+                          AND c.estadoAdministrativo = :estadoAdministrativo
+                          AND c.montoPagado < c.montoTotal
+                          AND c.fechaVencimiento < :hoy
+                        """, Map.of("estadoAdministrativo", EstadoAdministrativoCompromiso.ACTIVO,
+                        "hoy", LocalDate.now(ZONA_NEGOCIO))),
                 TONO_PELIGRO, "/pagos"));
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas de riesgo activas",
                 contar("""
@@ -152,16 +158,22 @@ public class DashboardService {
                 indicador("PAGOS_PENDIENTES", "Compromisos pendientes",
                         contar("""
                                 SELECT COUNT(c) FROM CompromisoPago c
-                                WHERE c.activo = true AND c.estado IN :estados
-                                """, Map.of("estados", EnumSet.of(
-                                EstadoCompromisoPago.PENDIENTE,
-                                EstadoCompromisoPago.PARCIAL))),
+                                WHERE c.activo = true
+                                  AND c.estadoAdministrativo = :estadoAdministrativo
+                                  AND c.montoPagado < c.montoTotal
+                                  AND c.fechaVencimiento >= :hoy
+                                """, Map.of("estadoAdministrativo", EstadoAdministrativoCompromiso.ACTIVO,
+                                "hoy", LocalDate.now(ZONA_NEGOCIO))),
                         TONO_ADVERTENCIA, "/pagos"),
                 indicador("PAGOS_VENCIDOS", "Compromisos vencidos",
                         contar("""
                                 SELECT COUNT(c) FROM CompromisoPago c
-                                WHERE c.activo = true AND c.estado = :estado
-                                """, Map.of("estado", EstadoCompromisoPago.VENCIDO)),
+                                WHERE c.activo = true
+                                  AND c.estadoAdministrativo = :estadoAdministrativo
+                                  AND c.montoPagado < c.montoTotal
+                                  AND c.fechaVencimiento < :hoy
+                                """, Map.of("estadoAdministrativo", EstadoAdministrativoCompromiso.ACTIVO,
+                                "hoy", LocalDate.now(ZONA_NEGOCIO))),
                         TONO_PELIGRO, "/pagos"),
                 indicador("TRANSACCIONES_PENDIENTES", "Transacciones por confirmar",
                         contar("""
@@ -251,11 +263,10 @@ public class DashboardService {
                         SELECT COUNT(c) FROM CompromisoPago c
                         WHERE c.activo = true
                           AND c.matricula.alumno.persona.id = :personaId
-                          AND c.estado IN :estados
-                        """, parametros(persona, "estados", EnumSet.of(
-                        EstadoCompromisoPago.PENDIENTE,
-                        EstadoCompromisoPago.PARCIAL,
-                        EstadoCompromisoPago.VENCIDO))),
+                          AND c.estadoAdministrativo = :estadoAdministrativo
+                          AND c.montoPagado < c.montoTotal
+                        """, parametros(persona,
+                        "estadoAdministrativo", EstadoAdministrativoCompromiso.ACTIVO)),
                 TONO_ADVERTENCIA, "/pagos"));
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas activas",
                 contar("""
@@ -307,11 +318,10 @@ public class DashboardService {
                           AND v.apoderado.persona.id = :personaId
                           AND c.activo = true
                           AND c.matricula.alumno.id = v.alumno.id
-                          AND c.estado IN :estados
-                        """, parametros(persona, "estados", EnumSet.of(
-                        EstadoCompromisoPago.PENDIENTE,
-                        EstadoCompromisoPago.PARCIAL,
-                        EstadoCompromisoPago.VENCIDO))),
+                          AND c.estadoAdministrativo = :estadoAdministrativo
+                          AND c.montoPagado < c.montoTotal
+                        """, parametros(persona,
+                        "estadoAdministrativo", EstadoAdministrativoCompromiso.ACTIVO)),
                 TONO_ADVERTENCIA, "/pagos"));
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas activas",
                 contar("""

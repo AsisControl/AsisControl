@@ -116,3 +116,23 @@ export type ScheduleSection = {
 };
 /** Curso y docente de una sección: mismo contrato que la pestaña Asignaciones docentes. */
 export type CourseAssignment = TeacherAssignment;
+/** Valor de un campo antes y después del cambio (CampoHistorial); null si no existía. */
+export type ScheduleHistoryField = {
+  campo: string;
+  anterior: string | null;
+  nuevo: string | null;
+};
+/** Respuesta de /api/horarios/historial (HistorialHorarioResponse). */
+export type ScheduleHistoryEntry = {
+  id: number;
+  fecha: string;
+  actorIdentificador: string;
+  /** null para accesos que ya no están activos. */
+  actorNombre: string | null;
+  rolActor: string | null;
+  accion: string;
+  entidad: string;
+  registroId: string;
+  motivo: string | null;
+  campos: ScheduleHistoryField[];
+};

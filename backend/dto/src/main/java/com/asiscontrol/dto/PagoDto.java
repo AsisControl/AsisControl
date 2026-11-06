@@ -1,11 +1,13 @@
 package com.asiscontrol.dto;
 
 import com.asiscontrol.entity.enums.EstadoCompromisoPago;
+import com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso;
 import com.asiscontrol.entity.enums.EstadoTransaccionPago;
 import com.asiscontrol.entity.enums.MedioPago;
 import com.asiscontrol.entity.enums.TipoComprobante;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -26,12 +28,40 @@ public final class PagoDto {
 
     public record CompromisoRequest(
             @NotNull Long idMatricula,
-            @NotBlank @Size(max = 50) String codigoCompromiso,
+            @Size(max = 50) String codigoCompromiso,
             @NotBlank @Size(max = 160) String concepto,
             @Size(max = 600) String descripcion,
-            @NotNull @DecimalMin("0.01") BigDecimal montoTotal,
-            @NotBlank @Pattern(regexp = "[A-Z]{3}") String moneda,
-            @NotNull LocalDate fechaVencimiento
+            @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal montoTotal,
+            @NotBlank @Pattern(regexp = "PEN", message = "Los compromisos se emiten en soles (PEN)") String moneda,
+            @NotNull LocalDate fechaVencimiento,
+            @NotNull @Min(1) Integer numeroCuota
+    ) {
+    }
+
+    public record CompromisoActualizacionRequest(
+            @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal montoTotal,
+            @NotNull LocalDate fechaVencimiento,
+            @NotBlank @Size(max = 500) String motivo,
+            @NotNull @Min(0) Long version
+    ) {
+    }
+
+    public record CompromisoAnulacionRequest(
+            @NotBlank @Size(max = 500) String motivo,
+            @NotNull @Min(0) Long version
+    ) {
+    }
+
+    public record MatriculaCompromisoResponse(
+            Long id,
+            String codigoMatricula,
+            String alumno,
+            String codigoAlumno,
+            Long alumnoId,
+            int anioAcademico,
+            int grado,
+            String seccion,
+            String estado
     ) {
     }
 
@@ -48,7 +78,18 @@ public final class PagoDto {
             LocalDate fechaVencimiento,
             EstadoCompromisoPago estado,
             Instant fechaCreacion,
-            Instant fechaActualizacion
+            Instant fechaActualizacion,
+            Integer numeroCuota,
+            EstadoAdministrativoCompromiso estadoAdministrativo,
+            EstadoCompromisoPago estadoFinanciero,
+            Long idAlumno,
+            String alumno,
+            String codigoAlumno,
+            int anioAcademico,
+            String codigoMatricula,
+            String motivoAnulacion,
+            Instant fechaAnulacion,
+            long version
     ) {
     }
 

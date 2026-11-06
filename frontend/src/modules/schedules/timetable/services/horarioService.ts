@@ -12,7 +12,7 @@ import { ASIGNACIONES_PATH } from "../../assignments/services/asignacionService"
 export const HORARIOS_PATH = "/api/horarios";
 const PAGE_SIZE = 100;
 /** Recorre todas las páginas: la primera no representa toda la matriz. */
-async function listAll<T>(path: string): Promise<T[]> {
+export async function listAll<T>(path: string): Promise<T[]> {
   const items: T[] = [];
   for (let page = 0; ; page++) {
     const separator = path.includes("?") ? "&" : "?";
@@ -29,6 +29,7 @@ export type ScheduleFilters = {
   seccionId?: number;
   docenteId?: number;
   aulaId?: number;
+  cursoId?: number;
 };
 export function listarHorarios(filters: ScheduleFilters) {
   const query = new URLSearchParams(
@@ -45,6 +46,10 @@ export function listarSeccionesActivas() {
 /** Solo asignaciones activas (las retiradas no admiten bloques); se filtran por sección en la pantalla. */
 export function listarAsignaciones() {
   return listAll<CourseAssignment>(`${ASIGNACIONES_PATH}?estado=ACTIVAS`);
+}
+/** Asignaciones activas del docente de la sesión; nunca las de otro docente. */
+export function listarAsignacionesPropias() {
+  return listAll<CourseAssignment>(`${ASIGNACIONES_PATH}/mias`);
 }
 /** Sin estado, el backend lista solo las aulas habilitadas. */
 export function listarAulasHabilitadas() {

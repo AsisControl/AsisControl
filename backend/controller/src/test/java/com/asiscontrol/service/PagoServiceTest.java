@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,6 +29,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PagoServiceTest {
+
+    private static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Lima");
 
     @Mock
     private CompromisoPagoRepository compromisoPagoRepository;
@@ -76,7 +79,7 @@ class PagoServiceTest {
         compromiso.setMontoTotal(new BigDecimal("100.00"));
         compromiso.setMontoPagado(new BigDecimal("80.00"));
         compromiso.setEstado(EstadoCompromisoPago.PARCIAL);
-        compromiso.setFechaVencimiento(LocalDate.now().plusDays(5));
+        compromiso.setFechaVencimiento(LocalDate.now(ZONA_NEGOCIO).plusDays(5));
         when(compromisoPagoRepository.bloquearPorId(10L)).thenReturn(Optional.of(compromiso));
 
         PagoDto.TransaccionRequest request = new PagoDto.TransaccionRequest(

@@ -4,7 +4,12 @@ import { message } from "@/core/api/client";
 import { Feedback, FormDialog, PanelHeading } from "@/shared/ui";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { scheduleSlotLabel } from "../lib/labels";
-import { serverConflict } from "../lib/timetable";
+import {
+  PERSPECTIVES,
+  perspectiveOptions,
+  serverConflict,
+  type Perspective,
+} from "../lib/timetable";
 import type {
   Classroom,
   CourseAssignment,
@@ -12,6 +17,7 @@ import type {
   ScheduleSection,
 } from "../types";
 import styles from "../schedules.module.css";
+import { BlockDetailDialog } from "./block-detail-dialog";
 import { BlockFormDialog } from "./block-form-dialog";
 import { TimetableGrid } from "./timetable-grid";
 import {
@@ -25,10 +31,22 @@ type BlockDialog =
   | { kind: "create" }
   | { kind: "edit" | "delete"; block: ScheduleBlock };
 type Catalogs = { assignments: CourseAssignment[]; classrooms: Classroom[] };
+/** Parámetro de GET /api/horarios de cada perspectiva. */
+const FILTERS = {
+  seccion: "seccionId",
+  docente: "docenteId",
+  aula: "aulaId",
+  curso: "cursoId",
+} as const;
+const EMPTY_OPTIONS: Record<Exclude<Perspective, "seccion">, string> = {
+  docente: "No hay docentes con asignaciones activas en",
+  curso: "No hay cursos con asignaciones activas en",
+  aula: "No hay aulas habilitadas para",
+};
 const sectionLabel = (section: ScheduleSection) => `${section.grado}° ${section.nombre}`;
 const bySection = (a: ScheduleSection, b: ScheduleSection) =>
   a.grado - b.grado || a.nombre.localeCompare(b.nombre);
-/** Pestaña Horario: matriz semanal por sección y asignación manual de bloques. */
+/** Pestaña Horario: matriz por sección, docente, aula o curso y asignación manual de bloques. */
 export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   const [sections, setSections] = useState<ScheduleSection[] | null>(null);
   const [catalogs, setCatalogs] = useState<Catalogs | null>(null);
@@ -44,6 +62,11 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [assignmentsStatus, setAssignmentsStatus] = useState<"loading" | "ready" | "failed">("ready");
+  const [perspective, setPerspective] = useState<Perspective>("seccion");
+  const [targetId, setTargetId] = useState<number | null>(null);
+  const [viewCatalogs, setViewCatalogs] = useState<Catalogs | null>(null);
+  const [detail, setDetail] = useState<ScheduleBlock | null>(null);
   useEffect(() => {
     let active = true;
     // Los catálogos del formulario solo hacen falta con permiso de escritura.
@@ -77,13 +100,35 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   const section =
     yearSections.find((s) => s.id === sectionId) ?? yearSections[0] ?? null;
   const selectedId = section?.id ?? null;
+  const options =
+    perspective === "seccion" || !viewCatalogs
+      ? []
+      : perspectiveOptions(perspective, year, viewCatalogs.assignments, viewCatalogs.classrooms);
+  const target = options.find((item) => item.id === targetId) ?? options[0] ?? null;
+  const filterName = FILTERS[perspective];
+  const filterValue = perspective === "seccion" ? selectedId : (target?.id ?? null);
   useEffect(() => {
-    if (selectedId === null || year === null) return;
+    if (perspective === "seccion") return;
+    let active = true;
+    // Se consultan al cambiar de vista: quien solo lee no carga los catálogos del formulario.
+    Promise.all([listarAsignaciones(), listarAulasHabilitadas()])
+      .then(([loadedAssignments, classrooms]) => {
+        if (active) setViewCatalogs({ assignments: loadedAssignments, classrooms });
+      })
+      .catch((e) => {
+        if (active) setLoadError(message(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [perspective, tick]);
+  useEffect(() => {
+    if (filterValue === null || year === null) return;
     let active = true;
     const timer = setTimeout(() => {
       setLoading(true);
       setLoadError("");
-      listarHorarios({ anioAcademico: year, seccionId: selectedId })
+      listarHorarios({ anioAcademico: year, [filterName]: filterValue })
         .then((loaded) => {
           if (!active) return;
           setBlocks(loaded);
@@ -100,12 +145,21 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
       active = false;
       clearTimeout(timer);
     };
-  }, [year, selectedId, tick]);
+  }, [year, filterName, filterValue, tick]);
   const refresh = () => setTick((value) => value + 1);
   function open(next: BlockDialog) {
     setError("");
     setSuccess("");
     setDialog(next);
+    if (next.kind === "delete") return;
+    // El catálogo de la pestaña puede ser anterior a una asignación recién registrada.
+    setAssignmentsStatus("loading");
+    listarAsignaciones()
+      .then((loaded) => {
+        setCatalogs((current) => current && { ...current, assignments: loaded });
+        setAssignmentsStatus("ready");
+      })
+      .catch(() => setAssignmentsStatus("failed"));
   }
   function close() {
     setDialog(null);
@@ -134,19 +188,33 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   const assignments = (catalogs?.assignments ?? []).filter(
     (a) => a.seccionId === selectedId,
   );
-  const rows = blocks ?? [];
+  const rows = filterValue === null ? [] : (blocks ?? []);
   const writable = canWrite && catalogs !== null;
+  // Los bloques se editan por sección: el formulario valida los cruces de una sola.
+  const editable = writable && perspective === "seccion";
+  const title = `Horario por ${PERSPECTIVES[perspective].toLowerCase()}`;
+  const blockSection = (block: ScheduleBlock) => {
+    const found = sections?.find((item) => item.id === block.seccionId);
+    return found ? sectionLabel(found) : block.seccion;
+  };
+  const changePerspective = (next: Perspective) => {
+    setPerspective(next);
+    setTargetId(null);
+    setBlocks(null);
+    setLoadError("");
+    setSuccess("");
+  };
   if (setupError)
     return (
       <section className="panel">
-        <PanelHeading title="Horario por sección" />
+        <PanelHeading title={title} />
         <Feedback error={setupError} />
       </section>
     );
   return (
     <section className="panel">
       <PanelHeading
-        title="Horario por sección"
+        title={title}
         summary={
           <>
             {blocks
@@ -159,12 +227,12 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
           <>
             <button
               type="button"
-              disabled={loading || !section}
+              disabled={loading || filterValue === null}
               onClick={refresh}
             >
               Actualizar
             </button>
-            {writable && (
+            {editable && (
               <button
                 type="button"
                 className="primary-action"
@@ -188,6 +256,19 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
         <>
           <div className={styles.filters}>
             <label className="field">
+              Ver horario por
+              <select
+                value={perspective}
+                onChange={(e) => changePerspective(e.target.value as Perspective)}
+              >
+                {Object.entries(PERSPECTIVES).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
               Año académico
               <select
                 value={year ?? ""}
@@ -204,48 +285,92 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
                 ))}
               </select>
             </label>
-            <label className="field">
-              Sección
-              <select
-                value={selectedId ?? ""}
-                onChange={(e) => {
-                  setSectionId(Number(e.target.value));
-                  setSuccess("");
-                }}
-              >
-                {yearSections.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {sectionLabel(item)} · aforo {item.capacidadMaxima}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {perspective === "seccion" ? (
+              <label className="field">
+                Sección
+                <select
+                  value={selectedId ?? ""}
+                  onChange={(e) => {
+                    setSectionId(Number(e.target.value));
+                    setSuccess("");
+                  }}
+                >
+                  {yearSections.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {sectionLabel(item)} · aforo {item.capacidadMaxima}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="field">
+                {PERSPECTIVES[perspective]}
+                <select
+                  value={target?.id ?? ""}
+                  disabled={!options.length}
+                  onChange={(e) => {
+                    setTargetId(Number(e.target.value));
+                    setSuccess("");
+                  }}
+                >
+                  {!options.length && <option value="">Sin opciones</option>}
+                  {options.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
           <Feedback error={loadError} success={success} />
-          {loading ? (
+          {loading || (filterValue !== null && !blocks && !loadError) ? (
             <p role="status">Cargando horario…</p>
-          ) : rows.length ? (
-            <TimetableGrid
-              blocks={rows}
-              onEdit={writable ? (block) => open({ kind: "edit", block }) : undefined}
-              onDelete={writable ? (block) => open({ kind: "delete", block }) : undefined}
-            />
+          ) : perspective !== "seccion" && !viewCatalogs ? (
+            !loadError && <p role="status">Cargando opciones…</p>
           ) : (
             !loadError && (
-              <p className="empty">
-                La sección {section && sectionLabel(section)} aún no tiene bloques
-                de horario.
-                {writable && " Usa «Nuevo bloque» para asignar el primero."}
-              </p>
+              <TimetableGrid
+                blocks={rows}
+                label={
+                  perspective === "seccion"
+                    ? "Horario semanal de la sección"
+                    : `Horario semanal por ${PERSPECTIVES[perspective].toLowerCase()}`
+                }
+                emptyMessage={
+                  perspective === "seccion" ? (
+                    <>
+                      La sección {section && sectionLabel(section)} aún no tiene bloques de horario.
+                      {writable && " Usa «Nuevo bloque» para asignar el primero."}
+                    </>
+                  ) : target ? (
+                    `${target.label} no tiene bloques de horario en ${year}.`
+                  ) : (
+                    `${EMPTY_OPTIONS[perspective]} ${year}.`
+                  )
+                }
+                sectionOf={perspective === "seccion" ? undefined : blockSection}
+                onOpen={setDetail}
+                onEdit={editable ? (block) => open({ kind: "edit", block }) : undefined}
+                onDelete={editable ? (block) => open({ kind: "delete", block }) : undefined}
+              />
             )
           )}
         </>
+      )}
+      {detail && (
+        <BlockDetailDialog
+          block={detail}
+          section={`${blockSection(detail)} · ${year}`}
+          onClose={() => setDetail(null)}
+        />
       )}
       {section && catalogs && (dialog?.kind === "create" || dialog?.kind === "edit") && (
         <BlockFormDialog
           section={section}
           block={dialog.kind === "edit" ? dialog.block : undefined}
           assignments={assignments}
+          assignmentsStatus={assignmentsStatus}
           classrooms={catalogs.classrooms}
           sectionBlocks={rows}
           onClose={close}

@@ -87,3 +87,17 @@
     padding: 8px 10px;
   }
 }
+.templateRow {
+  display: flex;
+  margin-bottom: 12px;
+}
+/* .templateRow eleva la especificidad sobre los estilos globales de button. */
+.templateRow .templateDownload {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.templateDownload svg {
+  flex: none;
+}

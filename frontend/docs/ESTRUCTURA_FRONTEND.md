@@ -102,6 +102,11 @@ npm run test:coverage
 npm run build
 ```
 
+`vitest.config.mts` limita la ejecución a dos procesos y permite hasta 20 segundos
+por prueba. Esta configuración se aplica tanto a `npm test` como a
+`npm run test:coverage`, sin parámetros adicionales. Conserva las aserciones y
+los tiempos de espera de las consultas de Testing Library.
+
 ## Aplicación del estándar en FE2 — v0.4
 
 El módulo `students` conserva esta organización por responsabilidad:
@@ -115,3 +120,15 @@ El módulo `students` conserva esta organización por responsabilidad:
 - `student-api.ts`: reexportaciones compatibles con las importaciones anteriores de FE2.
 
 La recomendación `services/` del estándar se aplica dentro del módulo. La estructura general `core/shared/modules` y la API pública `index.ts` del equipo se conservan.
+
+## Ampliación US-12 — Compromisos de pago
+
+El módulo `src/modules/finance/` expone `Finance` mediante su `index.ts` y se
+integra en la opción Finanzas. Separa consultas HTTP en `services/`, estado y
+validación del formulario en un hook, vistas de listado/detalle/formulario y
+estilos en un CSS Module. Las pruebas están en `finance/tests/`.
+
+La navegación exige `PAGOS_LEER`; las acciones de gestión requieren
+`PAGOS_ESCRIBIR`. El backend comprueba también los permisos y el ámbito de cada
+consulta. El alcance, los criterios y la verificación se documentan en
+`US-12_COMPROMISOS_PAGO.md`.

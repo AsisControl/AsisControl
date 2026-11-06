@@ -16,6 +16,7 @@ const toResponse = ({ status, body }) => ({
   status,
   ok: status >= 200 && status < 300,
   json: async () => body,
+  blob: async () => new Blob(["archivo"]),
 });
 
 /** "/api/usuarios/:id" coincide con "/api/usuarios/42". */
@@ -42,7 +43,7 @@ export function fakeBackend(routes = {}) {
       method,
       path: pathname,
       query: Object.fromEntries(searchParams),
-      body: options.body ? JSON.parse(options.body) : undefined,
+      body: typeof options.body === "string" ? JSON.parse(options.body) : options.body,
     };
     calls.push(call);
     const key = Object.keys(routes).find((route) => {

@@ -4,19 +4,21 @@ import { useRouter } from "next/navigation";
 import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
 import { TeacherAssignmentsPanel } from "./assignments/teacher-assignments-panel";
 import { ClassroomsPanel } from "./classrooms/classrooms-panel";
+import { ScheduleHistoryPanel } from "./history/schedule-history-panel";
 import { TimetablePanel } from "./timetable/timetable-panel";
 /** Pestañas de Horario Académico en el orden del prototipo; la URL es /horarios/{id}. */
-const tabs: TabItem[] = [
+const baseTabs: TabItem[] = [
   { id: "horario", label: "Horario" },
   { id: "aulas", label: "Aulas" },
   { id: "asignaciones-docentes", label: "Asignaciones docentes" },
-  { id: "historial-de-cambios", label: "Historial de cambios" },
 ];
-/** Pestañas con pantalla; las demás muestran el aviso de pendiente. */
+const HISTORY_TAB: TabItem = { id: "historial-de-cambios", label: "Historial de cambios" };
+/** Pantalla de cada pestaña. */
 const panels: Record<string, (canWrite: boolean) => ReactNode> = {
   horario: (canWrite) => <TimetablePanel canWrite={canWrite} />,
   aulas: (canWrite) => <ClassroomsPanel canWrite={canWrite} />,
   "asignaciones-docentes": (canWrite) => <TeacherAssignmentsPanel canWrite={canWrite} />,
+  [HISTORY_TAB.id]: () => <ScheduleHistoryPanel />,
 };
 export const SCHEDULES_PATH = "/horarios";
 const DEFAULT_TAB = "horario";
@@ -24,12 +26,16 @@ const DEFAULT_TAB = "horario";
 export function Schedules({
   tab = DEFAULT_TAB,
   canWrite,
+  canViewHistory = false,
 }: {
   tab?: string;
   /** Permiso ACADEMICO_ESCRIBIR: sin él la pantalla es de solo consulta. */
   canWrite: boolean;
+  /** Permiso AUDITORIA_LEER: el historial muestra qué usuario hizo cada cambio. */
+  canViewHistory?: boolean;
 }) {
   const router = useRouter();
+  const tabs = canViewHistory ? [...baseTabs, HISTORY_TAB] : baseTabs;
   const current = tabs.find((item) => item.id === tab);
   useEffect(() => {
     if (!current) router.replace(`${SCHEDULES_PATH}/${DEFAULT_TAB}`);
@@ -47,17 +53,7 @@ export function Schedules({
         current={current.id}
         onSelect={(id) => router.push(`${SCHEDULES_PATH}/${id}`)}
       />
-      {panels[current.id] ? (
-        panels[current.id](canWrite)
-      ) : (
-        <article className="role-message">
-          <span className="message-mark">!</span>
-          <div>
-            <p className="eyebrow">{current.label.toUpperCase()}</p>
-            <h2>Esta sección todavía está pendiente de implementación.</h2>
-          </div>
-        </article>
-      )}
+      {panels[current.id](canWrite)}
     </section>
   );
 }

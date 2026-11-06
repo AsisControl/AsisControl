@@ -164,6 +164,30 @@
   margin-bottom: 6px;
   padding: 8px 10px;
 }
+.blockOpen {
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+.blockOpen:hover strong {
+  text-decoration: underline;
+}
+.blockOpen:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+}
+.timetable .emptyMatrix {
+  height: 120px;
+  text-align: center;
+  vertical-align: middle;
+}
 .block strong {
   display: block;
   font-size: 13px;
@@ -186,4 +210,22 @@
 .conflicts ul {
   margin: 4px 0 0;
   padding-left: 18px;
+}
+.historyChanges {
+  font-size: 13px;
+  line-height: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.table .historyChanges strong {
+  display: inline;
+}
+.historyBefore {
+  color: var(--muted);
+}
+.historyMuted {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
 }
