@@ -71,6 +71,7 @@ public final class AsistenciaSesionDtos {
             LocalTime horaFin,
             EstadoSesionClase estado,
             boolean puedeTomar,
+            boolean puedeVer,
             boolean puedeEditar,
             int pendientes,
             List<AlumnoAsistenciaResponse> alumnos,

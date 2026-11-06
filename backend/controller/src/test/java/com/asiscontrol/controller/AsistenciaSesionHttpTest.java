@@ -107,6 +107,7 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         var inicial = docente("GET", ruta(id), null, 200);
         assertThat(inicial.path("estado").asText()).isEqualTo("PENDIENTE");
         assertThat(inicial.path("alumnos")).hasSize(2);
+        assertThat(inicial.path("alumnos").get(0).path("nombreCompleto").asText()).startsWith("Prueba Sistema, ");
         assertThat(inicial.path("pendientes").asInt()).isEqualTo(2);
         assertThat(inicial.path("puedeTomar").asBoolean()).isTrue();
 
@@ -150,6 +151,9 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         long futura = sesion(hoy.plusDays(7), EstadoSesionClase.PENDIENTE);
         var vista = docente("GET", ruta(pasada), null, 200);
         assertThat(vista.path("puedeTomar").asBoolean()).isFalse();
+        assertThat(vista.path("puedeVer").asBoolean()).isTrue();
+        assertThat(vista.path("seccion").asText()).isEqualTo("1° Grado A");
+        assertThat(docente("GET", ruta(futura), null, 200).path("puedeVer").asBoolean()).isFalse();
         var fuera = docente("PUT", ruta(pasada) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 422);
         assertThat(fuera.path("code").asText()).isEqualTo("ASISTENCIA_FUERA_DE_FECHA");
         docente("PUT", ruta(futura) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 422);

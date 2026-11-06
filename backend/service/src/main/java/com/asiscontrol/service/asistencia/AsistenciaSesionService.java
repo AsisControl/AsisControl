@@ -233,7 +233,7 @@ public class AsistenciaSesionService {
                 c.getMotivo(),
                 detalles.getOrDefault(c.getId(), List.of()).stream().map(d -> new CambioAsistenciaResponse(
                         d.getAlumno().getId(),
-                        d.getAlumno().getPersona().nombreCompleto(),
+                        d.getAlumno().getPersona().nombreLista(),
                         d.getEstadoAnterior(),
                         d.getEstadoNuevo())).toList()))
                 .toList();
@@ -375,13 +375,15 @@ public class AsistenciaSesionService {
                     return new AlumnoAsistenciaResponse(
                             alumno.getId(),
                             alumno.getCodigoAlumno(),
-                            alumno.getPersona().nombreCompleto(),
+                            alumno.getPersona().nombreLista(),
                             fila == null ? null : estadoBase(fila.getEstadoAsistencia()),
                             fila == null ? null : fila.getId(),
                             justificacion == null ? null : justificacion.getId(),
                             justificacion == null ? null : justificacion.getEstado());
                 })
-                .sorted(java.util.Comparator.comparing(AlumnoAsistenciaResponse::nombreCompleto))
+                .sorted(java.util.Comparator.comparing(
+                        AlumnoAsistenciaResponse::nombreCompleto,
+                        java.text.Collator.getInstance(java.util.Locale.of("es"))))
                 .toList();
 
         AsignacionCurso asignacion = sesion.getAsignacionCurso();
@@ -389,12 +391,13 @@ public class AsistenciaSesionService {
                 sesion.getId(),
                 asignacion.getId(),
                 asignacion.getCurso().getNombre(),
-                asignacion.getSeccion().getGrado() + "° " + asignacion.getSeccion().getNombre(),
+                asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
                 sesion.getFecha(),
                 sesion.getHoraInicio(),
                 sesion.getHoraFin(),
                 estado,
                 sesion.getFecha().isEqual(hoy) && estado != EstadoSesionClase.TOMADA,
+                !sesion.getFecha().isAfter(hoy),
                 estado == EstadoSesionClase.TOMADA,
                 (int) lista.stream().filter(a -> a.estado() == null).count(),
                 lista,
