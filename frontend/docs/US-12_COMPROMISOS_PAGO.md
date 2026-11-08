@@ -200,3 +200,40 @@ las 380 pruebas, el empaquetado y el umbral de cobertura (93,68 % de líneas y
 las fuentes para conservar la aplicación local abierta y sus datos de prueba.
 Las 24 pruebas financieras dirigidas también pasaron con la JVM en
 `America/Lima`, sin fallos ni errores.
+
+## Ajustes de presentación y referencias — 7 de noviembre de 2026
+
+- Los filtros eliminan el margen inferior de sus etiquetas y usan controles de
+  44 px de alto para que «Buscar» quede alineado con los campos en escritorio.
+- «Cerrar» se alinea al extremo derecho del grupo de acciones del detalle. Las
+  acciones de modificar y anular permanecen juntas a la izquierda.
+- Las nuevas emisiones automáticas usan referencias cortas `CP-000001`,
+  `CP-000002`, etc. El número corresponde al compromiso, no al número de cuota
+  ni al estudiante. La matrícula y el historial de auditoría siguen vinculados
+  al registro original.
+- El backend mantiene un contador global persistente con bloqueo en base de
+  datos. No se reinicia por año ni por anulación; los códigos ya emitidos se
+  conservan. Si existen referencias numéricas anteriores o integraciones que
+  reservan una, la generación continúa después de ellas.
+- La migración nueva es V10; no se modifican migraciones anteriores ni se
+  renumeran compromisos existentes. El frontend no calcula ni asigna códigos.
+
+Verificación de estos ajustes:
+
+- Frontend: 18 pruebas de Finanzas aprobadas, compilación de producción correcta
+  y revisión visual de filtros y detalle en escritorio y pantalla pequeña.
+- Backend: 495 casos verificados sin fallos ni errores en los reportes finales,
+  incluida emisión simultánea desde dos matrículas distintas y ejecución de V10
+  en H2 con modo MySQL. La primera ejecución detectó una incidencia de limpieza
+  de carpeta temporal en una prueba de adjuntos; esa clase se repitió y sus diez
+  casos pasaron, conservando la cobertura de la ejecución completa.
+- Empaquetado y umbral de cobertura correctos: 93,43 % de instrucciones y
+  94,01 % de líneas. No se cambiaron umbrales ni aserciones para superar la
+  comprobación.
+- Backend QA local reconstruido y reiniciado sobre la misma base H2 persistente,
+  con respaldo previo. Se compararon los dos compromisos existentes antes y
+  después: mantuvieron IDs, códigos, importes, saldos, estados y versiones.
+- Se emitió desde la interfaz local «Prueba de correlativo 07NOV», que recibió
+  `CP-000001`. Sus capturas están en `outputs/us12-correlativo-y-alineacion` en
+  la carpeta de trabajo exterior al repositorio. No se actualizó el servidor
+  desplegado ni se publicaron cambios en GitHub.

@@ -706,6 +706,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = c.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", compromisoId)
                 .setParameter("personaId", personaIdActual())
@@ -729,6 +731,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = t.compromisoPago.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", transaccionId)
                 .setParameter("personaId", personaIdActual())
@@ -752,6 +756,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = c.transaccionPago.compromisoPago.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", comprobanteId)
                 .setParameter("personaId", personaIdActual())

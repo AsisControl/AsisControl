@@ -41,15 +41,18 @@ test("consulta compromisos, aplica filtros y pagina sin depender de edición", a
   expect(screen.getByText("Cuota 1 · CP-012")).toBeTruthy();
   await user.type(screen.getByLabelText("Buscar estudiante o compromiso"), "Lucía");
   await user.type(screen.getByLabelText("Año académico"), "2026");
-  await user.selectOptions(screen.getByLabelText("Estado del compromiso"), "ACTIVO");
-  await user.selectOptions(screen.getByLabelText("Situación de pago"), "PENDIENTE");
+  await user.selectOptions(screen.getByLabelText("Estado del compromiso"), "PENDIENTE");
   await user.click(screen.getByRole("button", { name: "Buscar", exact: true }));
-  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ busqueda: "Lucía", anioAcademico: "2026", estadoAdministrativo: "ACTIVO", estado: "PENDIENTE", page: "0" }));
+  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ busqueda: "Lucía", anioAcademico: "2026", estado: "PENDIENTE", page: "0" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(false));
   await user.click(screen.getByRole("button", { name: "Siguiente" }));
   await waitFor(() => expect(calls.at(-1).query.page).toBe("1"));
   await user.click(screen.getByRole("button", { name: "Actualizar" }));
   await waitFor(() => expect(calls.filter((call) => call.query.page === "1")).toHaveLength(2));
+  await user.selectOptions(screen.getByLabelText("Estado del compromiso"), "ANULADO");
+  await user.click(screen.getByRole("button", { name: "Buscar", exact: true }));
+  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ estado: "ANULADO", page: "0" }));
+  expect(calls.at(-1).query.estadoAdministrativo).toBeUndefined();
 });
 
 test("informa un fallo del listado y permite recuperar una consulta vacía", async () => {
@@ -61,6 +64,25 @@ test("informa un fallo del listado y permite recuperar una consulta vacía", asy
   failing = false;
   await user.click(screen.getByRole("button", { name: "Actualizar" }));
   expect(await screen.findByText("No hay compromisos que coincidan con la consulta.")).toBeTruthy();
+});
+
+test("un compromiso pagado muestra su monto y un único estado aunque siga vigente internamente", async () => {
+  const paid = { ...record, montoPagado: 350, saldo: 0, estadoFinanciero: "PAGADO" };
+  fakeBackend({ "GET /api/compromisos-pago": page([paid]), "GET /api/compromisos-pago/12": paid });
+  const user = userEvent.setup();
+  render(<Finance canWrite />);
+  await screen.findByText("Lucía Flores");
+  expect(screen.getByRole("columnheader", { name: "Monto", exact: true })).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name: "Saldo" })).toBeNull();
+  expect(screen.queryByText("Activo", { exact: true })).toBeNull();
+  expect(screen.getByText("Pagado", { selector: ".status" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Ver compromiso CP-012" }));
+  const detail = await screen.findByRole("dialog");
+  await within(detail).findByText("Pagado");
+  expect(within(detail).queryByText("Importe pendiente")).toBeNull();
+  expect(within(detail).queryByText("Activo")).toBeNull();
+  expect(within(detail).getByText(/^S\/\s350\.00$/)).toBeTruthy();
+  expect(within(detail).queryByRole("button", { name: "Modificar monto o vencimiento" })).toBeNull();
 });
 
 test("emite en soles para la matrícula elegida y actualiza el listado", async () => {
@@ -99,21 +121,59 @@ test("valida los campos antes de emitir y lleva el foco al dato faltante", async
   expect(calls.some((call) => call.method === "POST")).toBe(false);
 });
 
-test("busca matrículas con teclado, pagina y permite cambiar la elección", async () => {
-  const calls = fakeBackend({ "GET /api/compromisos-pago/matriculas": { ...page([enrollment], 2), totalElements: 30 } });
+test("muestra cinco matrículas por página, busca con teclado y permite elegir en la segunda", async () => {
+  const enrollments = Array.from({ length: 7 }, (_, index) => ({
+    ...enrollment,
+    id: index + 1,
+    alumnoId: index + 1,
+    alumno: `Estudiante ${index + 1}`,
+    codigoAlumno: `EST-00${index + 1}`,
+    codigoMatricula: `MAT-00${index + 1}`,
+  }));
+  const calls = fakeBackend({ "GET /api/compromisos-pago/matriculas": ({ query }) => {
+    const filtered = enrollments.filter((item) => item.codigoAlumno.includes(query.busqueda));
+    const pageNumber = Number(query.page);
+    const pageSize = Number(query.size);
+    return {
+      content: filtered.slice(pageNumber * pageSize, (pageNumber + 1) * pageSize),
+      page: pageNumber,
+      totalElements: filtered.length,
+      totalPages: Math.ceil(filtered.length / pageSize),
+    };
+  } });
   const user = userEvent.setup();
   render(<CommitmentForm onClose={vi.fn()} onSaved={vi.fn()} />);
-  await screen.findByRole("button", { name: "Elegir matrícula de Lucía Flores" });
-  await user.type(screen.getByLabelText("Buscar estudiante con matrícula vigente"), "EST-003{Enter}");
-  await waitFor(() => expect(calls.at(-1).query.busqueda).toBe("EST-003"));
+  const choices = () => within(screen.getByRole("list", { name: "Matrículas disponibles" }));
+  await screen.findByRole("button", { name: "Elegir matrícula de Estudiante 1" });
+  expect(choices().getAllByRole("listitem")).toHaveLength(5);
+  expect(calls.at(-1).query).toMatchObject({ page: "0", size: "5" });
+  expect(screen.queryByRole("button", { name: "Elegir matrícula de Estudiante 6" })).toBeNull();
+  await user.type(screen.getByLabelText("Buscar estudiante con matrícula vigente"), "EST-{Enter}");
+  await waitFor(() => expect(calls.at(-1).query.busqueda).toBe("EST-"));
   await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(false));
   await user.click(screen.getByRole("button", { name: "Siguiente" }));
-  await waitFor(() => expect(calls.at(-1).query.page).toBe("1"));
-  await user.click(screen.getByRole("button", { name: "Elegir matrícula de Lucía Flores" }));
+  await screen.findByRole("button", { name: "Elegir matrícula de Estudiante 7" });
+  expect(choices().getAllByRole("listitem")).toHaveLength(2);
+  expect(calls.at(-1).query).toMatchObject({ page: "1", size: "5", busqueda: "EST-" });
+  expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(true);
+  expect(screen.queryByText("Selecciona la matrícula del estudiante.")).toBeNull();
+  expect(screen.queryByText("Escribe el concepto del compromiso.")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Anterior" }));
+  await screen.findByRole("button", { name: "Elegir matrícula de Estudiante 1" });
+  expect(choices().getAllByRole("listitem")).toHaveLength(5);
+  expect(screen.queryByText("Selecciona la matrícula del estudiante.")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Siguiente" }));
+  await user.click(await screen.findByRole("button", { name: "Elegir matrícula de Estudiante 7" }));
+  expect(screen.getByText("Matrícula MAT-007")).toBeTruthy();
+  expect(screen.getByText("Estudiante 7")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Cambiar matrícula" }));
   await user.clear(screen.getByLabelText("Buscar estudiante con matrícula vigente"));
+  await user.type(screen.getByLabelText("Buscar estudiante con matrícula vigente"), "EST-007");
   await user.click(screen.getByRole("button", { name: "Buscar matrícula" }));
-  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ busqueda: "", page: "0" }));
+  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ busqueda: "EST-007", page: "0", size: "5" }));
+  await waitFor(() => expect(choices().getAllByRole("listitem")).toHaveLength(1));
+  expect(screen.queryByText("Selecciona la matrícula del estudiante.")).toBeNull();
+  expect(calls.some((call) => call.method !== "GET")).toBe(false);
 });
 
 test("recupera errores del selector y muestra ausencia de matrículas vigentes", async () => {
@@ -245,13 +305,13 @@ test("anula con motivo y conserva el registro consultable", async () => {
   await user.type(screen.getByLabelText(/Motivo de anulación/), "Emisión equivocada");
   await user.click(screen.getByRole("button", { name: "Confirmar anulación" }));
   expect(await screen.findByText("Compromiso anulado. El registro se conserva para su consulta.")).toBeTruthy();
-  expect(await screen.findByText("Sin obligación de pago")).toBeTruthy();
+  expect(await screen.findByText("Anulado", { selector: ".status" })).toBeTruthy();
   expect(screen.getByText("Sin cuota registrada · CP-012")).toBeTruthy();
   expect(calls.find((call) => call.path.endsWith("/anulacion")).body).toEqual({ motivo: "Emisión equivocada", version: 2 });
   await user.click(await screen.findByRole("button", { name: "Ver compromiso CP-012" }));
   expect(await screen.findByText("Emisión equivocada")).toBeTruthy();
   expect(within(screen.getByRole("dialog")).getByText("Sin cuota registrada")).toBeTruthy();
-  expect(within(screen.getByRole("dialog")).getByText("Sin obligación de pago")).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByText("Anulado")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Anular compromiso" })).toBeNull();
   expect(calls.some((call) => call.method === "DELETE")).toBe(false);
 });
@@ -262,6 +322,10 @@ test("bloquea acciones sobre compromisos con pagos y respeta consulta sin escrit
   const view = render(<Finance canWrite />);
   await user.click(await screen.findByRole("button", { name: "Ver compromiso CP-012" }));
   expect(await screen.findByText("Este compromiso ya tiene pagos registrados. No se puede modificar ni anular.")).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByText("Importe abonado")).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByText(/^S\/\s50\.00$/)).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByText("Importe pendiente")).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByText(/^S\/\s300\.00$/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Anular compromiso" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Cerrar", exact: true }));
   view.rerender(<Finance canWrite={false} />);

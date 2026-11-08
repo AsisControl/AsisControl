@@ -12,8 +12,31 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.List;
 
 public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, Long> {
+
+    @Query("""
+            SELECT DISTINCT c FROM CompromisoPago c
+            JOIN c.matricula m JOIN m.alumno a JOIN a.persona p
+            JOIN AlumnoApoderado v ON v.alumno = a
+            JOIN v.apoderado ap JOIN ap.persona pp
+            WHERE c.activo=true AND v.activo=true AND ap.id=:apoderadoId
+              AND ap.activo=true AND pp.activo=true AND a.activo=true AND p.activo=true
+              AND (:idAlumno IS NULL OR a.id=:idAlumno)
+              AND (:estado IS NULL
+                OR (:estado='ANULADO' AND c.estadoAdministrativo=com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO)
+                OR (c.estadoAdministrativo=com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ACTIVO
+                  AND ((:estado='PAGADO' AND c.montoPagado>=c.montoTotal)
+                    OR (:estado='VENCIDO' AND c.montoPagado<c.montoTotal AND c.fechaVencimiento<:hoy)
+                    OR (:estado='PARCIAL' AND c.montoPagado>0 AND c.montoPagado<c.montoTotal AND c.fechaVencimiento>=:hoy)
+                    OR (:estado='PENDIENTE' AND c.montoPagado=0 AND c.fechaVencimiento>=:hoy))))
+            """)
+    Page<CompromisoPago> buscarDeApoderado(@Param("apoderadoId") Long apoderadoId,
+                                         @Param("idAlumno") Long idAlumno,
+                                         @Param("estado") String estado,
+                                         @Param("hoy") LocalDate hoy,
+                                         Pageable pageable);
 
     @Query("""
             SELECT COUNT(c) > 0 FROM CompromisoPago c
@@ -48,7 +71,9 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
               AND (:personaApoderadoId IS NULL OR EXISTS (
                     SELECT v.id FROM AlumnoApoderado v
                     WHERE v.activo = true AND v.alumno.id = a.id
-                      AND v.apoderado.persona.id = :personaApoderadoId))
+                      AND v.apoderado.persona.id = :personaApoderadoId
+                      AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                      AND v.alumno.activo = true AND v.alumno.persona.activo = true))
               AND (:busqueda IS NULL
                    OR LOWER(c.codigoCompromiso) LIKE LOWER(CONCAT('%', :busqueda, '%'))
                    OR LOWER(c.concepto) LIKE LOWER(CONCAT('%', :busqueda, '%'))
@@ -71,6 +96,10 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
 
     Optional<CompromisoPago> findByCodigoCompromisoIgnoreCase(String codigoCompromiso);
 
+    /** Incluye anulados y legados: sus referencias nunca se vuelven a asignar. */
+    @Query("select c.codigoCompromiso from CompromisoPago c where upper(c.codigoCompromiso) like 'CP-%'")
+    List<String> codigosConPrefijoCorrelativo();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM CompromisoPago c WHERE c.id = :id AND c.activo = true")
     Optional<CompromisoPago> bloquearPorId(@Param("id") Long id);
@@ -85,6 +114,8 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
                     WHERE v.activo = true
                       AND v.alumno.id = c.matricula.alumno.id
                       AND v.apoderado.persona.id = :personaApoderadoId
+                      AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                      AND v.alumno.activo = true AND v.alumno.persona.activo = true
                   ))
               AND (:busqueda IS NULL
                    OR LOWER(c.codigoCompromiso) LIKE LOWER(CONCAT('%', :busqueda, '%'))

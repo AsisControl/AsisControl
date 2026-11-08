@@ -270,6 +270,16 @@ test("La URL abre la pantalla del módulo según el rol", async () => {
   expect(await screen.findByText("Solicitudes de mis estudiantes")).toBeTruthy();
 });
 
+test("Pagos del apoderado abre sus obligaciones y requiere permiso financiero", async () => {
+  backend({ "GET /api/auth/me": summary({ rol: "APODERADO", permisos: ["PAGOS_LEER"] }),
+    "GET /api/apoderado/obligaciones/estudiantes": [], "GET /api/apoderado/obligaciones": page([]) });
+  sessionFor({ role: "APODERADO", permissions: ["PAGOS_LEER"] });
+  setUrl("/pagos");
+  renderApp();
+  expect(await screen.findByText("Mis pagos")).toBeTruthy();
+  expect(await screen.findByText("No hay obligaciones que coincidan con la consulta.")).toBeTruthy();
+});
+
 test("Administración recibe la pestaña desde la URL", async () => {
   backend({
     "GET /api/roles": [],

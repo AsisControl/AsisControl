@@ -31,6 +31,8 @@ public interface TransaccionPagoRepository extends JpaRepository<TransaccionPago
                     WHERE v.activo = true
                       AND v.alumno.id = t.compromisoPago.matricula.alumno.id
                       AND v.apoderado.persona.id = :personaApoderadoId
+                      AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                      AND v.alumno.activo = true AND v.alumno.persona.activo = true
                   ))
             """)
     Page<TransaccionPago> buscarVisibles(

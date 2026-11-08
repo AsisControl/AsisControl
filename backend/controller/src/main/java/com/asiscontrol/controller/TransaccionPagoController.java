@@ -45,15 +45,14 @@ public class TransaccionPagoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@moduloAccessGuard.puedeAccederTransaccionPago(#id)")
+    @PreAuthorize("hasAuthority('PAGOS_LEER') and @moduloAccessGuard.puedeAccederTransaccionPago(#id)")
     public PagoDto.TransaccionResponse obtener(@PathVariable Long id) {
         return pagoService.obtenerTransaccion(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('PAGOS_ESCRIBIR') or "
-            + "@moduloAccessGuard.puedeRegistrarPago(#request.idApoderado(), #request.idCompromisoPago())")
+    @PreAuthorize("hasAuthority('PAGOS_ESCRIBIR') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'SECRETARIA', 'TESORERIA')")
     public PagoDto.TransaccionResponse registrar(
             @Valid @RequestBody PagoDto.TransaccionRequest request
     ) {

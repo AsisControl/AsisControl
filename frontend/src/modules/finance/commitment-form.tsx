@@ -147,7 +147,7 @@ export function CommitmentForm(props: CommitmentFormProps) {
             <p className="hint">El código del compromiso se asignará al emitirlo.</p>
           )}
           <div className="form-actions">
-            <button type="button" disabled={busy} onClick={requestClose}>Cancelar</button>
+            <button type="button" className="secondary-action" disabled={busy} onClick={requestClose}>Cancelar</button>
             <button
               className={isAnnul ? "primary-action danger" : "primary-action"}
               disabled={busy}

@@ -46,7 +46,7 @@ public class PasswordChangeRequiredFilter extends OncePerRequestFilter {
                     HttpServletResponse.SC_FORBIDDEN,
                     "CAMBIO_CONTRASENA_REQUERIDO",
                     "Debe cambiar la contraseña temporal antes de continuar",
-                    request.getRequestURI(),
+                    SafeRequestPath.redact(request.getRequestURI()),
                     MDC.get("correlationId"),
                     List.of()
             );

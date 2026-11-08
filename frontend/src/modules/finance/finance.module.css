@@ -6,10 +6,19 @@
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(200px, 2fr) minmax(110px, 1fr) repeat(2, minmax(160px, 1fr)) auto;
+  grid-template-columns: minmax(200px, 2fr) minmax(110px, 1fr) minmax(160px, 1fr) auto;
   align-items: end;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.filters > label {
+  margin: 0;
+}
+
+.filters > label input,
+.filters > label select {
+  min-height: 44px;
 }
 
 .filters button,
@@ -18,7 +27,7 @@
 }
 
 .table {
-  min-width: 960px;
+  min-width: 800px;
 }
 
 .money {
@@ -40,30 +49,6 @@
   flex: 1;
   min-width: 0;
   margin-bottom: 0;
-}
-
-.searchButton {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--blue);
-  border-radius: 8px;
-  color: var(--blue);
-  display: inline-flex;
-  flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 600;
-  justify-content: center;
-  padding: 10px 16px;
-  white-space: nowrap;
-}
-
-.searchButton:hover:not(:disabled) {
-  background: #eff6ff;
-}
-
-.searchButton:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 3px;
 }
 
 .enrollmentChoices {
@@ -122,6 +107,10 @@
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 20px;
+}
+
+.closeButton {
+  margin-inline-start: auto;
 }
 
 .fieldError {

@@ -13,6 +13,7 @@ import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.CompromisoPagoRepository;
+import com.asiscontrol.repository.ContadorCodigoCompromisoRepository;
 import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.TransaccionPagoRepository;
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
@@ -30,13 +31,14 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.Locale;
-import java.util.UUID;
+import java.util.OptionalLong;
 
 @Service
 public class CompromisoPagoService {
 
     private static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Lima");
     private final CompromisoPagoRepository compromisos;
+    private final ContadorCodigoCompromisoRepository contadorCodigos;
     private final MatriculaRepository matriculas;
     private final AnioAcademicoRepository anios;
     private final TransaccionPagoRepository transacciones;
@@ -44,11 +46,13 @@ public class CompromisoPagoService {
 
     public CompromisoPagoService(
             CompromisoPagoRepository compromisos,
+            ContadorCodigoCompromisoRepository contadorCodigos,
             MatriculaRepository matriculas,
             AnioAcademicoRepository anios,
             TransaccionPagoRepository transacciones,
             AuditoriaService auditoria) {
         this.compromisos = compromisos;
+        this.contadorCodigos = contadorCodigos;
         this.matriculas = matriculas;
         this.anios = anios;
         this.transacciones = transacciones;
@@ -100,12 +104,7 @@ public class CompromisoPagoService {
             throw new ConflictException("COMPROMISO_DUPLICADO",
                     "El estudiante ya tiene un compromiso activo para ese año, concepto y cuota.");
         }
-        String codigo = limpiar(request.codigoCompromiso());
-        codigo = codigo == null ? "CP-" + UUID.randomUUID().toString().toUpperCase(Locale.ROOT)
-                : codigo.toUpperCase(Locale.ROOT);
-        if (compromisos.findByCodigoCompromisoIgnoreCase(codigo).isPresent()) {
-            throw new ConflictException("CODIGO_COMPROMISO_DUPLICADO", "Ese código de compromiso ya está registrado.");
-        }
+        String codigo = resolverCodigo(request.codigoCompromiso());
         CompromisoPago compromiso = new CompromisoPago();
         compromiso.setMatricula(matricula);
         compromiso.setCodigoCompromiso(codigo);
@@ -121,6 +120,49 @@ public class CompromisoPagoService {
         compromisos.saveAndFlush(compromiso);
         registrar("EMITIR_COMPROMISO", compromiso, "Emisión manual del compromiso de pago", null);
         return respuesta(compromiso);
+    }
+
+    /** El contador y el compromiso se confirman o revierten en la misma transacción. */
+    private String resolverCodigo(String solicitado) {
+        contadorCodigos.initializeCounter();
+        var contador = contadorCodigos.lockCounter();
+        // También cubre perfiles locales con ddl-auto=update y bases sin códigos numéricos previos.
+        if (contador.getUltimoValor() == 0) {
+            long maximoLegado = compromisos.codigosConPrefijoCorrelativo().stream()
+                    .mapToLong(codigo -> numeroCorrelativo(codigo).orElse(0)).max().orElse(0);
+            contador.setUltimoValor(maximoLegado);
+        }
+        String codigo = limpiar(solicitado);
+        if (codigo != null) {
+            // Compatibilidad con integraciones anteriores: también participan del mismo bloqueo.
+            codigo = codigo.toUpperCase(Locale.ROOT);
+            if (compromisos.findByCodigoCompromisoIgnoreCase(codigo).isPresent()) {
+                throw new ConflictException("CODIGO_COMPROMISO_DUPLICADO", "Ese código de compromiso ya está registrado.");
+            }
+            contador.setUltimoValor(Math.max(contador.getUltimoValor(), numeroCorrelativo(codigo).orElse(0)));
+        } else {
+            do {
+                if (contador.getUltimoValor() == Long.MAX_VALUE) {
+                    throw new BusinessRuleException("CORRELATIVO_COMPROMISO_AGOTADO",
+                            "No quedan referencias disponibles para emitir compromisos. Contacta a administración.");
+                }
+                contador.setUltimoValor(contador.getUltimoValor() + 1);
+                codigo = String.format(Locale.ROOT, "CP-%06d", contador.getUltimoValor());
+            } while (compromisos.findByCodigoCompromisoIgnoreCase(codigo).isPresent());
+        }
+        contadorCodigos.save(contador);
+        return codigo;
+    }
+
+    private OptionalLong numeroCorrelativo(String codigo) {
+        String normalizado = codigo.toUpperCase(Locale.ROOT);
+        if (!normalizado.matches("CP-[0-9]+")) return OptionalLong.empty();
+        try {
+            return OptionalLong.of(Long.parseLong(normalizado.substring(3)));
+        } catch (NumberFormatException exception) {
+            // Los identificadores históricos fuera del rango se conservan como referencias opacas.
+            return OptionalLong.empty();
+        }
     }
 
     @Transactional

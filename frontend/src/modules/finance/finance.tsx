@@ -16,6 +16,8 @@ import {
   dueDateLabel,
   financialLabel,
   financialLabels,
+  financialStatus,
+  financialTone,
   quotaLabel,
   moneyLabel,
 } from "./commitment-format";
@@ -40,7 +42,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const query = new URLSearchParams();
-    const names = ["busqueda", "anioAcademico", "estadoAdministrativo", "estado"];
+    const names = ["busqueda", "anioAcademico", "estado"];
     for (const name of names) {
       const value = String(data.get(name) || "").trim();
       if (value) query.set(name, value);
@@ -84,7 +86,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
           title="Compromisos registrados"
           summary="Los compromisos anulados se conservan para su consulta."
           actions={
-            <button disabled={list.loading} onClick={list.refresh}>
+            <button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>
               Actualizar
             </button>
           }
@@ -106,24 +108,15 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
           />
           <label className="field">
             Estado del compromiso
-            <select name="estadoAdministrativo" defaultValue="">
-              <option value="">Todos</option>
-              <option value="ACTIVO">Activo</option>
-              <option value="ANULADO">Anulado</option>
-            </select>
-          </label>
-          <label className="field">
-            Situación de pago
             <select name="estado" defaultValue="">
-              <option value="">Todas</option>
+              <option value="">Todos</option>
               {Object.entries(financialLabels)
-                .filter(([key]) => key !== "ANULADO")
                 .map(([key, label]) => (
                   <option key={key} value={key}>{label}</option>
                 ))}
             </select>
           </label>
-          <button>Buscar</button>
+          <button type="submit" className="primary-action">Buscar</button>
         </form>
         {list.loading ? (
           <p role="status">Cargando compromisos…</p>
@@ -141,7 +134,6 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
                   <th>Estudiante</th>
                   <th>Concepto y cuota</th>
                   <th>Monto</th>
-                  <th>Saldo</th>
                   <th>Vencimiento</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -165,21 +157,20 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
                     <td className={styles.money}>
                       {moneyLabel(record.montoTotal, record.moneda)}
                     </td>
-                    <td className={styles.money}>
-                      {moneyLabel(record.saldo, record.moneda)}
-                    </td>
                     <td>{dueDateLabel(record.fechaVencimiento)}</td>
                     <td>
                       <div className={styles.statusColumn}>
                         <StatusPill
-                          state={record.estadoAdministrativo}
-                          tone={record.estadoAdministrativo === "ACTIVO" ? "success" : "neutral"}
+                          state={financialStatus(record)}
+                          label={financialLabel(record)}
+                          tone={financialTone(record)}
                         />
-                        <small>{financialLabel(record)}</small>
                       </div>
                     </td>
                     <td>
                       <button
+                        type="button"
+                        className="secondary-action"
                         onClick={() => setSelected({ id: record.id, action: "detail" })}
                         aria-label={`Ver compromiso ${record.codigoCompromiso}`}
                       >

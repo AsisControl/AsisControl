@@ -17,7 +17,7 @@ export function DiscardCommitmentDialog({ onContinue, onDiscard }: {
       onClose={onContinue}
     >
       <div className="form-actions">
-        <button ref={continueButton} type="button" onClick={onContinue}>
+        <button ref={continueButton} type="button" className="secondary-action" onClick={onContinue}>
           Seguir editando
         </button>
         <button type="button" className="primary-action danger" onClick={onDiscard}>

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { Dialog, Feedback, StatusPill } from "@/shared/ui";
 import { dateLabel } from "@/shared/lib/formatters";
-import { dueDateLabel, financialLabel, moneyLabel } from "./commitment-format";
+import { dueDateLabel, financialLabel, financialStatus, financialTone, moneyLabel } from "./commitment-format";
 import { getCommitment } from "./services/commitment-service";
 import type { PaymentCommitment } from "./types";
 import styles from "./finance.module.css";
@@ -42,7 +42,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
     >
       <Feedback error={error} />
       {error && (
-        <button onClick={() => {
+        <button type="button" className="secondary-action" onClick={() => {
           setError("");
           setTick((value) => value + 1);
         }}>
@@ -79,30 +79,29 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
               <dt>Vencimiento</dt>
               <dd>{dueDateLabel(record.fechaVencimiento)}</dd>
             </div>
+            {record.estadoAdministrativo !== "ANULADO" && record.montoPagado > 0 && record.saldo > 0 && <>
             <div>
-              <dt>Pagado</dt>
+              <dt>Importe abonado</dt>
               <dd className={styles.money}>
                 {moneyLabel(record.montoPagado, record.moneda)}
               </dd>
             </div>
             <div>
-              <dt>Saldo</dt>
+              <dt>Importe pendiente</dt>
               <dd className={styles.money}>
                 {moneyLabel(record.saldo, record.moneda)}
               </dd>
             </div>
+            </>}
             <div>
               <dt>Estado del compromiso</dt>
               <dd>
                 <StatusPill
-                  state={record.estadoAdministrativo}
-                  tone={record.estadoAdministrativo === "ACTIVO" ? "success" : "neutral"}
+                  state={financialStatus(record)}
+                  label={financialLabel(record)}
+                  tone={financialTone(record)}
                 />
               </dd>
-            </div>
-            <div>
-              <dt>Situación de pago</dt>
-              <dd>{financialLabel(record)}</dd>
             </div>
             <div>
               <dt>Emisión</dt>
@@ -137,16 +136,16 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
             {canWrite && eligible && (
               <>
                 {record.moneda === "PEN" && (
-                  <button onClick={() => onAction("edit", record)}>
+                  <button type="button" className="secondary-action" onClick={() => onAction("edit", record)}>
                     Modificar monto o vencimiento
                   </button>
                 )}
-                <button onClick={() => onAction("annul", record)}>
+                <button type="button" className="secondary-action danger-action" onClick={() => onAction("annul", record)}>
                   Anular compromiso
                 </button>
               </>
             )}
-            <button onClick={onClose}>Cerrar</button>
+            <button type="button" className={`secondary-action ${styles.closeButton}`} onClick={onClose}>Cerrar</button>
           </div>
         </>
       )}
