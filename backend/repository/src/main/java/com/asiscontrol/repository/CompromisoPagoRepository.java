@@ -27,10 +27,11 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
               AND (:estado IS NULL
                 OR (:estado='ANULADO' AND c.estadoAdministrativo=com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO)
                 OR (c.estadoAdministrativo=com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ACTIVO
-                  AND ((:estado='PAGADO' AND c.montoPagado>=c.montoTotal)
+                  AND ((:estado='EXONERADO' AND c.montoTotal=0)
+                    OR (:estado='PAGADO' AND c.montoTotal>0 AND c.montoPagado>=c.montoTotal)
                     OR (:estado='VENCIDO' AND c.montoPagado<c.montoTotal AND c.fechaVencimiento<:hoy)
                     OR (:estado='PARCIAL' AND c.montoPagado>0 AND c.montoPagado<c.montoTotal AND c.fechaVencimiento>=:hoy)
-                    OR (:estado='PENDIENTE' AND c.montoPagado=0 AND c.fechaVencimiento>=:hoy))))
+                    OR (:estado='PENDIENTE' AND c.montoTotal>0 AND c.montoPagado=0 AND c.fechaVencimiento>=:hoy))))
             """)
     Page<CompromisoPago> buscarDeApoderado(@Param("apoderadoId") Long apoderadoId,
                                          @Param("idAlumno") Long idAlumno,
@@ -64,10 +65,11 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
                    OR (:estado = 'ANULADO'
                        AND c.estadoAdministrativo = com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO)
                    OR (c.estadoAdministrativo = com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ACTIVO
-                       AND ((:estado = 'PAGADO' AND c.montoPagado >= c.montoTotal)
+                       AND ((:estado = 'EXONERADO' AND c.montoTotal=0)
+                         OR (:estado = 'PAGADO' AND c.montoTotal>0 AND c.montoPagado >= c.montoTotal)
                          OR (:estado = 'VENCIDO' AND c.montoPagado < c.montoTotal AND c.fechaVencimiento < :hoy)
                          OR (:estado = 'PARCIAL' AND c.montoPagado > 0 AND c.montoPagado < c.montoTotal AND c.fechaVencimiento >= :hoy)
-                         OR (:estado = 'PENDIENTE' AND c.montoPagado = 0 AND c.fechaVencimiento >= :hoy))))
+                         OR (:estado = 'PENDIENTE' AND c.montoTotal>0 AND c.montoPagado = 0 AND c.fechaVencimiento >= :hoy))))
               AND (:personaApoderadoId IS NULL OR EXISTS (
                     SELECT v.id FROM AlumnoApoderado v
                     WHERE v.activo = true AND v.alumno.id = a.id
@@ -93,6 +95,9 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
             Pageable pageable);
 
     Optional<CompromisoPago> findByIdAndActivoTrue(Long id);
+    Optional<CompromisoPago> findByClaveObligacion(String claveObligacion);
+    @Query("select c from CompromisoPago c where c.activo=true and c.matricula.alumno.id=:alumno and c.matricula.anioAcademico=:anio order by c.id")
+    List<CompromisoPago> porAlumnoAnio(@Param("alumno")Long alumno,@Param("anio")int anio);
 
     Optional<CompromisoPago> findByCodigoCompromisoIgnoreCase(String codigoCompromiso);
 

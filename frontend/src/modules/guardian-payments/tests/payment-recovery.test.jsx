@@ -14,7 +14,7 @@ afterEach(() => vi.useRealTimers());
 const backend = (routes = {}) => fakeBackend({ "GET /api/apoderado/obligaciones/estudiantes": [student], [OBLIGATIONS]: page([obligation()]), ...routes });
 
 test("las pestañas permiten navegación por teclado y mantienen el panel asociado", async () => {
-  backend({ "GET /api/apoderado/comprobantes": page([]), "GET /api/pagos/ordenes": page([]) });
+  backend({ "GET /api/apoderado/comprobantes": page([]), "GET /api/pagos/ordenes": page([]), "GET /api/apoderado/ofertas": page([]) });
   const user = userEvent.setup(); render(<GuardianPayments />);
   const obligationsTab = screen.getByRole("tab", { name: "Obligaciones" });
   obligationsTab.focus(); await user.keyboard("{ArrowRight}");
@@ -24,7 +24,7 @@ test("las pestañas permiten navegación por teclado y mantienen el panel asocia
   expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(historyTab.id);
   await user.keyboard("{ArrowLeft}");
   expect(document.activeElement).toBe(obligationsTab);
-  await user.keyboard("{End}"); expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Seguimiento de pagos" }));
+  await user.keyboard("{End}"); expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Actividades y servicios" }));
   await user.keyboard("{Home}"); expect(document.activeElement).toBe(obligationsTab);
   await user.keyboard("a");
   expect(screen.getByRole("tab", { name: "Obligaciones" }).getAttribute("aria-selected")).toBe("true");

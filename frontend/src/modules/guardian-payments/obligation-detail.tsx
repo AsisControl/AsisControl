@@ -28,13 +28,16 @@ export function ObligationDetailDialog({ id, onClose }: { id: number; onClose: (
     {error && <button type="button" className="secondary-action" onClick={() => setRevision((value) => value + 1)}>Reintentar consulta</button>}
     {detail && item && <>
       <dl className={styles.summary}>
-        <div><dt>Concepto</dt><dd>{item.concepto}<small>{quotaLabel(item.numeroCuota)}</small></dd></div>
+        <div><dt>Concepto</dt><dd>{item.concepto}{item.numeroCuota != null && <small>{quotaLabel(item.numeroCuota)}</small>}</dd></div>
         <div><dt>Estado</dt><dd>{financialLabel(item)}</dd></div>
         <div><dt>Monto</dt><dd>{moneyLabel(item.montoTotal, item.moneda)}</dd></div>
+        {(item.montoDescuento ?? 0) > 0 && <><div><dt>Importe regular</dt><dd>{moneyLabel(item.montoBase ?? item.montoTotal, item.moneda)}</dd></div>
+          <div><dt>Beneficio aplicado</dt><dd>{item.beneficioNombre}<small>−{moneyLabel(item.montoDescuento!, item.moneda)}</small></dd></div></>}
         {item.montoPagado > 0 && item.saldo > 0 && <><div><dt>Pagado a la fecha</dt><dd>{moneyLabel(item.montoPagado, item.moneda)}</dd></div><div><dt>Por pagar</dt><dd>{moneyLabel(item.saldo, item.moneda)}</dd></div></>}
         <div><dt>Vencimiento</dt><dd>{dueDateLabel(item.fechaVencimiento)}</dd></div>
         <div><dt>Matrícula</dt><dd>{item.codigoMatricula}<small>{item.anioAcademico}</small></dd></div>
       </dl>
+      {item.estadoFinanciero === "EXONERADO" && <p className={styles.notice}>Esta obligación está exonerada. No requiere pago y no genera un comprobante de dinero recibido.</p>}
       <h4>Historial de transacciones</h4>
       {!detail.transacciones.length ? <p className={styles.hint}>Todavía no hay intentos de pago para esta obligación.</p> : <ul className={styles.historyList}>
         {detail.transacciones.map((tx) => <li key={tx.id}>

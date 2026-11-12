@@ -65,10 +65,15 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
               <dt>Concepto</dt>
               <dd>{record.concepto}</dd>
             </div>
-            <div>
+            {(record.numeroCuota != null || !record.idConcepto) && <div>
               <dt>Número de cuota</dt>
               <dd>{record.numeroCuota ?? "Sin cuota registrada"}</dd>
-            </div>
+            </div>}
+            {record.referenciaCobro && <div><dt>Referencia del cobro</dt><dd>{record.referenciaCobro}</dd></div>}
+            {(record.montoDescuento ?? 0) > 0 && <>
+              <div><dt>Importe regular</dt><dd>{moneyLabel(record.montoBase ?? record.montoTotal, record.moneda)}</dd></div>
+              <div><dt>Beneficio aplicado</dt><dd>{record.beneficioNombre ?? "Beca o descuento"}<small>−{moneyLabel(record.montoDescuento ?? 0, record.moneda)}</small></dd></div>
+            </>}
             <div>
               <dt>Monto del compromiso</dt>
               <dd className={styles.money}>
@@ -115,6 +120,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
           {record.descripcion && (
             <p><strong>Descripción:</strong> {record.descripcion}</p>
           )}
+          {record.estadoFinanciero === "EXONERADO" && <p className={styles.notice}>Esta obligación está exonerada por el beneficio aplicado. No requiere un pago ni genera un comprobante de dinero recibido.</p>}
           {record.moneda !== "PEN" && (
             <p className={styles.notice}>
               Este compromiso se conserva en su moneda original.
@@ -135,7 +141,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
           <div className={styles.detailActions}>
             {canWrite && eligible && (
               <>
-                {record.moneda === "PEN" && (
+                {record.moneda === "PEN" && !(record.idConcepto && record.mes) && record.estadoFinanciero !== "EXONERADO" && !record.idBeneficio && (
                   <button type="button" className="secondary-action" onClick={() => onAction("edit", record)}>
                     Modificar monto o vencimiento
                   </button>

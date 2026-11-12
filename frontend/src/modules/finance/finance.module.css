@@ -4,6 +4,9 @@
   overflow-wrap: anywhere;
 }
 
+.financeTabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.financeTabs button { min-height: 44px; }
+
 .filters {
   display: grid;
   grid-template-columns: minmax(200px, 2fr) minmax(110px, 1fr) minmax(160px, 1fr) auto;

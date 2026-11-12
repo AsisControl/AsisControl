@@ -38,7 +38,7 @@ export function ReceiptDetail({ id }: { id: number }) {
         <div><dt>Medio de pago</dt><dd>{paymentMethodLabel(receipt.medioPago)}</dd></div>
         {receipt.codigoOrden && <div><dt>Operación</dt><dd>{receipt.codigoOrden}</dd></div>}
       </dl>
-      <ul className={styles.itemList}><li><span><strong>{receipt.alumno}</strong><small>{receipt.concepto} · {quotaLabel(receipt.numeroCuota)}</small><small>{receipt.codigoCompromiso}</small></span><strong>{moneyLabel(receipt.montoTotal, receipt.moneda)}</strong></li></ul>
+      <ul className={styles.itemList}><li><span><strong>{receipt.alumno}</strong><small>{receipt.concepto}{receipt.numeroCuota != null && ` · ${quotaLabel(receipt.numeroCuota)}`}</small><small>{receipt.codigoCompromiso}</small></span><strong>{moneyLabel(receipt.montoTotal, receipt.moneda)}</strong></li></ul>
       <div className={styles.receiptTotal}><span>Total pagado</span><strong>{moneyLabel(receipt.montoTotal, receipt.moneda)}</strong></div>
       <p className={styles.hint}>Documento de control institucional.</p>
       <button type="button" className="secondary-action" disabled={downloading} onClick={download}>{downloading ? "Descargando…" : "Descargar comprobante"}</button>

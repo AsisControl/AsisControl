@@ -54,6 +54,7 @@ class MatriculaFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void revisaObservaSubsanaAsignaSeccionYFinalizaMatricula() throws Exception {
+        com.asiscontrol.support.TarifasTestSupport.configurar(em, 2090, 1);
         String s=nuevaSolicitud();
         getOk("/api/solicitudes-matricula");
         putOk(s,data("observaciones","Informacion actualizada","version",getOk(s).path("version").asLong()));
@@ -62,7 +63,8 @@ class MatriculaFlujosHttpTest extends ApiIntegrationSupport {
         estado(s,"ENVIADA",null,null); estado(s,"EN_REVISION",null,null);
         putOk(s,data("seccionId",section.getId(),"version",getOk(s).path("version").asLong()));
         var reviewed=getOk(s);
-        var enrollment=postOk("/api/matriculas",data("solicitudMatriculaId",reviewed.path("id").asLong(),"versionSolicitud",reviewed.path("version").asLong()));
+        var plan=getOk("/api/configuracion-pagos/planes/solicitudes/"+reviewed.path("id").asLong()+"/preview");
+        var enrollment=postOk("/api/matriculas",data("solicitudMatriculaId",reviewed.path("id").asLong(),"versionSolicitud",reviewed.path("version").asLong(),"firmaPlan",plan.path("firmaPlan").asText()));
         String m="/api/matriculas/"+enrollment.path("id").asLong();
         assertThat(getOk(s).path("estado").asText()).isEqualTo("MATRICULA_FINALIZADA");
         getOk("/api/matriculas"); getOk(m); getOk(s+"/historial"); getOk(m+"/historial");

@@ -114,7 +114,7 @@ test("Finanzas permite consultar y habilita la emisión solo con PAGOS_ESCRIBIR"
     sessionFor({ permissions });
     setUrl("/finanzas");
     const { unmount } = renderApp();
-    expect(await screen.findByRole("heading", { name: "Compromisos de pago" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Finanzas" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Navegación principal" });
     expect(within(nav).getByText("Finanzas").getAttribute("aria-current")).toBe("page");
     expect(Boolean(screen.queryByRole("button", { name: /Emitir compromiso/ }))).toBe(writable);

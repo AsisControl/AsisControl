@@ -4,6 +4,8 @@ Guía para integrar frontend, backend y base de datos en la versión del equipo.
 Implementación y comprobaciones locales terminadas el 8 de noviembre de 2026.
 La actualización posterior de importes, estados, códigos, historial completo y
 constancias se detalla en [US13_US48_REFINAMIENTO.md](US13_US48_REFINAMIENTO.md).
+El plan automático de diez mensualidades, tarifas por año y grado, becas y cobros
+opcionales se documenta en [PLANES_PENSIONES_BECAS_IMPLEMENTACION.md](PLANES_PENSIONES_BECAS_IMPLEMENTACION.md).
 
 ## Decisiones sobre la propuesta
 

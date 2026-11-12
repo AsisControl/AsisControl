@@ -21,7 +21,7 @@ export function ReceiptsHistory() {
       <table className={`user-table ${styles.historyTable}`} aria-label="Comprobantes de mis estudiantes"><thead><tr><th>Comprobante y fecha</th><th>Estudiante</th><th>Concepto y cuota</th><th>Medio</th><th>Monto pagado</th><th>Acciones</th></tr></thead><tbody>
         {list.data.content.map((receipt) => <tr key={receipt.id}>
           <td><strong>{receipt.codigo}</strong><small>{dateLabel(receipt.fechaEmision)}</small>{receipt.codigoOrden && <small>{receipt.codigoOrden}</small>}</td>
-          <td>{receipt.alumno}</td><td><strong>{receipt.concepto}</strong><small>{quotaLabel(receipt.numeroCuota)} · {receipt.codigoCompromiso}</small></td>
+          <td>{receipt.alumno}</td><td><strong>{receipt.concepto}</strong><small>{receipt.numeroCuota != null ? `${quotaLabel(receipt.numeroCuota)} · ` : ""}{receipt.codigoCompromiso}</small></td>
           <td>{paymentMethodLabel(receipt.medioPago)}</td><td>{moneyLabel(receipt.montoTotal, receipt.moneda)}</td>
           <td><button type="button" className="secondary-action" aria-label={`Ver comprobante ${receipt.codigo}`} onClick={() => setSelected(receipt)}>Ver comprobante</button></td>
         </tr>)}

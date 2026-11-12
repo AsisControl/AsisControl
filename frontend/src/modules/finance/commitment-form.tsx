@@ -12,6 +12,7 @@ export function CommitmentForm(props: CommitmentFormProps) {
     draft, enrollment, errors, error, busy, discard, setDiscard,
     isCreate, isAnnul, formRef, errorRef, change, field,
     selectEnrollment, requestClose, submit,
+    concepts, conceptLoading, conceptError, selectConcept, retryConcepts,
   } = useCommitmentForm(props);
   const title = isCreate
     ? "Emitir compromiso de pago"
@@ -33,7 +34,8 @@ export function CommitmentForm(props: CommitmentFormProps) {
           : <span className={styles.codeText}>{commitment!.alumno} · {commitment!.codigoCompromiso}</span>}
       >
         <form ref={formRef} noValidate onSubmit={submit} aria-busy={busy}>
-          <div ref={errorRef} tabIndex={-1}><Feedback error={error} /></div>
+          <div ref={errorRef} tabIndex={-1}><Feedback error={error || conceptError} /></div>
+          {isCreate && conceptError && <button type="button" className="secondary-action" onClick={retryConcepts}>Reintentar conceptos</button>}
           <div className="form-grid">
             {isCreate && (
               <EnrollmentPicker
@@ -52,22 +54,16 @@ export function CommitmentForm(props: CommitmentFormProps) {
                 <h4 className={`full-field ${styles.pickerTitle}`}>
                   2. Completa el compromiso
                 </h4>
+                <label className="field">Concepto *<select name="idConcepto" value={draft.idConcepto} required disabled={busy || conceptLoading} aria-invalid={!!errors.idConcepto} onChange={(event) => selectConcept(event.target.value)}><option value="">{conceptLoading ? "Cargando conceptos…" : "Selecciona el concepto"}</option>{concepts.map((concept) => <option key={concept.id} value={concept.id}>{concept.nombre}</option>)}</select>{errors.idConcepto && <small className={styles.fieldError} role="alert">{errors.idConcepto}</small>}</label>
                 <Field
-                  label="Concepto"
+                  label="Referencia del cobro"
                   required
-                  maxLength={160}
-                  placeholder="Ej. Pensión de marzo"
-                  {...field("concepto")}
+                  maxLength={80}
+                  placeholder="Ej. FERIA-2027"
+                  {...field("referenciaCobro")}
                 />
-                <Field
-                  label="Número de cuota"
-                  required
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="Ej. 1"
-                  {...field("numeroCuota")}
-                />
+                <p className="hint full-field">Las pensiones se generan desde el plan anual. Los conceptos opcionales se publican desde Cobros opcionales para solicitar aceptación.</p>
+                {!conceptLoading && !conceptError && !concepts.length && <p className={styles.notice}>No hay conceptos disponibles para emisión directa. Revisa Configuración de pagos.</p>}
               </>
             )}
             {isAnnul ? (
@@ -150,7 +146,7 @@ export function CommitmentForm(props: CommitmentFormProps) {
             <button type="button" className="secondary-action" disabled={busy} onClick={requestClose}>Cancelar</button>
             <button
               className={isAnnul ? "primary-action danger" : "primary-action"}
-              disabled={busy}
+              disabled={busy || (isCreate && (conceptLoading || !concepts.length))}
             >
               {busy ? "Guardando…" : submitLabel}
             </button>

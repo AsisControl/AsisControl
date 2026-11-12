@@ -29,6 +29,7 @@ export const financialLabels: Record<FinancialStatus, string> = {
   PAGADO: "Pagado",
   VENCIDO: "Vencido",
   ANULADO: "Anulado",
+  EXONERADO: "Exonerado",
 };
 
 export const financialStatus = (record: PaymentCommitment): FinancialStatus =>
@@ -37,11 +38,16 @@ export const financialStatus = (record: PaymentCommitment): FinancialStatus =>
 export const financialLabel = (record: PaymentCommitment) => financialLabels[financialStatus(record)];
 
 export function financialTone(record: PaymentCommitment): "success" | "warning" | "danger" | "info" | "neutral" {
-  switch (financialStatus(record)) {
+  return financialToneForStatus(financialStatus(record));
+}
+
+export function financialToneForStatus(state: FinancialStatus): "success" | "warning" | "danger" | "info" | "neutral" {
+  switch (state) {
     case "PAGADO": return "success";
     case "VENCIDO": return "danger";
     case "PARCIAL": return "warning";
     case "PENDIENTE": return "info";
+    case "EXONERADO": return "info";
     default: return "neutral";
   }
 }

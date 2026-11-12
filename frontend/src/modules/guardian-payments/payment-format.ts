@@ -6,7 +6,7 @@ export const orderLabels: Record<OrderStatus, string> = {
   COMPLETADO: "Pago aprobado", RECHAZADO: "Pago rechazado", EXPIRADO: "Orden vencida",
 };
 export const isPending = (status: OrderStatus) => status === "PENDIENTE" || status === "REQUIERE_AUTENTICACION";
-export const canPay = (item: PaymentCommitment) => item.estadoAdministrativo === "ACTIVO" && item.saldo > 0 && item.moneda === "PEN";
+export const canPay = (item: PaymentCommitment) => item.estadoAdministrativo === "ACTIVO" && item.estadoFinanciero !== "EXONERADO" && item.saldo > 0 && item.moneda === "PEN";
 export function countdownLabel(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }

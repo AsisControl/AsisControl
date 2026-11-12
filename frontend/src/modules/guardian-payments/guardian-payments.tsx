@@ -9,6 +9,7 @@ import { canPay, dueDateLabel, financialLabel, financialLabels, financialStatus,
 import { ObligationDetailDialog } from "./obligation-detail";
 import { OrdersHistory } from "./orders-history";
 import { ReceiptsHistory } from "./receipts-history";
+import { OptionalCharges } from "./optional-charges";
 import { PaymentCheckout } from "./payment-checkout";
 import { PaymentTabs } from "./payment-tabs";
 import type { FamilyStudent, PaymentOrder } from "./types";
@@ -64,9 +65,10 @@ export function GuardianPayments() {
   }
   return <section className={styles.payments}>
     <PageHeader title="Mis pagos" description="Consulta las obligaciones y los pagos de tus estudiantes en soles." />
-    <PaymentTabs label="Secciones de pagos" selected={tab} onSelect={setTab} items={[{ id: "obligaciones", label: "Obligaciones" }, { id: "historial", label: "Historial de pagos" }, { id: "operaciones", label: "Seguimiento de pagos" }]}>
-    {tab === "historial" ? <ReceiptsHistory /> : tab === "operaciones" ? <OrdersHistory onRefreshObligations={list.refresh} /> : <section className="panel">
-      <PanelHeading title="Obligaciones de mis estudiantes" summary="Selecciona las cuotas que deseas pagar."
+    <PaymentTabs label="Secciones de pagos" selected={tab} onSelect={setTab} items={[{ id: "obligaciones", label: "Obligaciones" }, { id: "historial", label: "Historial de pagos" }, { id: "operaciones", label: "Seguimiento de pagos" }, { id: "opcionales", label: "Actividades y servicios" }]}>
+    {tab === "historial" ? <ReceiptsHistory /> : tab === "operaciones" ? <OrdersHistory onRefreshObligations={list.refresh} />
+      : tab === "opcionales" ? <OptionalCharges onChanged={list.refresh} onObligation={setDetail} /> : <section className="panel">
+      <PanelHeading title="Obligaciones de mis estudiantes" summary="Selecciona las obligaciones que deseas pagar."
         actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar obligaciones</button>} />
       <Feedback error={studentError || list.error || selectionError} success={success} />
       {studentError && <button type="button" className="secondary-action" onClick={() => setRevision((value) => value + 1)}>Reintentar estudiantes</button>}
@@ -83,7 +85,7 @@ export function GuardianPayments() {
         </tr></thead><tbody>{list.data.content.map((item) => <tr key={item.id}>
           <td><input type="checkbox" aria-label={`Seleccionar ${item.codigoCompromiso} de ${item.alumno}`} disabled={!canPay(item)} checked={selected.some((value) => value.id === item.id)} onChange={() => toggle(item)} /></td>
           <td><PersonCell name={item.alumno} detail={`${item.codigoAlumno} · ${item.anioAcademico}`} /></td>
-          <td><strong>{item.concepto}</strong><small>{quotaLabel(item.numeroCuota)} · {item.codigoCompromiso}</small></td>
+          <td><strong>{item.concepto}</strong><small>{item.numeroCuota == null ? item.codigoCompromiso : `${quotaLabel(item.numeroCuota)} · ${item.codigoCompromiso}`}</small></td>
           <td>{dueDateLabel(item.fechaVencimiento)}</td><td>{moneyLabel(item.montoTotal, item.moneda)}{item.montoPagado > 0 && item.saldo > 0 && <small>Por pagar: {moneyLabel(item.saldo, item.moneda)}</small>}</td>
           <td><StatusPill state={financialStatus(item)} label={financialLabel(item)} tone={financialTone(item)} /></td>
           <td><button type="button" className="secondary-action" aria-label={`Ver obligación ${item.codigoCompromiso}`} onClick={() => setDetail(item.id)}>Ver detalle</button></td>

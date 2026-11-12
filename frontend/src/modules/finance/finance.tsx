@@ -1,6 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { PaymentSettings } from "@/modules/payment-settings";
 import {
   Feedback,
   Field,
@@ -12,6 +13,8 @@ import {
 } from "@/shared/ui";
 import { CommitmentDetail } from "./commitment-detail";
 import { CommitmentForm } from "./commitment-form";
+import { PensionPlanManager } from "./pension-plan-manager";
+import { OptionalChargesAdmin } from "./optional-charges-admin";
 import {
   dueDateLabel,
   financialLabel,
@@ -37,6 +40,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<SelectedCommitment | null>(null);
   const [success, setSuccess] = useState("");
+  const [tab, setTab] = useState("compromisos");
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,9 +71,9 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
   return (
     <section className={styles.finance}>
       <PageHeader
-        title="Compromisos de pago"
+        title="Finanzas"
         description="Consulta y administra las obligaciones económicas de cada estudiante en soles."
-        actions={canWrite && (
+        actions={canWrite && tab === "compromisos" && (
           <button
             className="primary-action"
             onClick={() => {
@@ -81,6 +85,10 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
           </button>
         )}
       />
+      <nav className={styles.financeTabs} aria-label="Secciones de finanzas">
+        {[{ id: "compromisos", label: "Compromisos de pago" }, { id: "planes", label: "Plan anual de pensiones" }, { id: "configuracion", label: "Configuración de pagos" }, { id: "opcionales", label: "Cobros opcionales" }].map((item) => <button key={item.id} type="button" className={tab === item.id ? "primary-action" : "secondary-action"} aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}>{item.label}</button>)}
+      </nav>
+      {tab === "configuracion" ? <PaymentSettings canWrite={canWrite} /> : tab === "planes" ? <PensionPlanManager canWrite={canWrite} /> : tab === "opcionales" ? <OptionalChargesAdmin canWrite={canWrite} /> : <>
       <section className="panel">
         <PanelHeading
           title="Compromisos registrados"
@@ -151,7 +159,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
                     <td>
                       <strong>{record.concepto}</strong>
                       <small>
-                        {quotaLabel(record.numeroCuota)} · {record.codigoCompromiso}
+                        {record.numeroCuota == null && record.idConcepto ? record.referenciaCobro || "Pago único" : quotaLabel(record.numeroCuota)} · {record.codigoCompromiso}
                       </small>
                     </td>
                     <td className={styles.money}>
@@ -205,6 +213,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
           onSaved={saved}
         />
       )}
+      </>}
     </section>
   );
 }

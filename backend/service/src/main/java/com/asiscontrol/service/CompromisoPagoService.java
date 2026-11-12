@@ -3,6 +3,8 @@ package com.asiscontrol.service;
 import com.asiscontrol.dto.PagoDto;
 import com.asiscontrol.entity.CompromisoPago;
 import com.asiscontrol.entity.Matricula;
+import com.asiscontrol.entity.ConceptoCobro;
+import com.asiscontrol.entity.TarifaPension;
 import com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso;
 import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.EstadoCompromisoPago;
@@ -16,6 +18,10 @@ import com.asiscontrol.repository.CompromisoPagoRepository;
 import com.asiscontrol.repository.ContadorCodigoCompromisoRepository;
 import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.TransaccionPagoRepository;
+import com.asiscontrol.repository.ConceptoCobroRepository;
+import com.asiscontrol.repository.OrdenPagoRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +49,10 @@ public class CompromisoPagoService {
     private final AnioAcademicoRepository anios;
     private final TransaccionPagoRepository transacciones;
     private final AuditoriaService auditoria;
+    private final BeneficioCalculoService beneficios;
+    private final ConceptoCobroRepository conceptos;
+    private final OrdenPagoRepository ordenes;
+    private final EntityManager em;
 
     public CompromisoPagoService(
             CompromisoPagoRepository compromisos,
@@ -50,13 +60,15 @@ public class CompromisoPagoService {
             MatriculaRepository matriculas,
             AnioAcademicoRepository anios,
             TransaccionPagoRepository transacciones,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria, BeneficioCalculoService beneficios,
+            ConceptoCobroRepository conceptos,OrdenPagoRepository ordenes,EntityManager em) {
         this.compromisos = compromisos;
         this.contadorCodigos = contadorCodigos;
         this.matriculas = matriculas;
         this.anios = anios;
         this.transacciones = transacciones;
         this.auditoria = auditoria;
+        this.beneficios=beneficios;this.conceptos=conceptos;this.ordenes=ordenes;this.em=em;
     }
 
     @Transactional(readOnly = true)
@@ -93,14 +105,37 @@ public class CompromisoPagoService {
 
     @Transactional
     public PagoDto.CompromisoResponse emitir(PagoDto.CompromisoRequest request) {
+        return emitirInterno(request,false);
+    }
+
+    /** Solo se invoca después de aceptar una oferta perteneciente al apoderado autenticado. */
+    @Transactional
+    public PagoDto.CompromisoResponse emitirAceptado(PagoDto.CompromisoRequest request) {
+        return emitirInterno(request,true);
+    }
+
+    private PagoDto.CompromisoResponse emitirInterno(PagoDto.CompromisoRequest request,boolean aceptado) {
         Matricula matricula = matriculas.bloquearPorId(request.idMatricula())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "MATRICULA_NO_ENCONTRADA", "No se encontró la matrícula seleccionada."));
         validarMatricula(matricula);
-        String concepto = request.concepto().trim().replaceAll("\\s+", " ");
-        String clave = claveObligacion(matricula, concepto, request.numeroCuota());
-        if (compromisos.existeObligacionCoincidente(matricula.getAlumno().getId(),
-                matricula.getAnioAcademico(), concepto.toLowerCase(Locale.ROOT), request.numeroCuota())) {
+        em.flush();em.refresh(matricula.getAlumno(),LockModeType.PESSIMISTIC_WRITE);
+        ConceptoCobro catalogo=request.idConcepto()==null?null:conceptos.findByIdAndActivoTrue(request.idConcepto())
+                .orElseThrow(()->new ResourceNotFoundException("CONCEPTO_NO_ENCONTRADO","Selecciona un concepto activo."));
+        if(catalogo!=null&&catalogo.isEsPension())
+            throw new BusinessRuleException("PENSION_GENERADA_POR_PLAN","Las pensiones se generan mediante el plan anual de la matrícula.");
+        if(catalogo!=null&&catalogo.isRequiereAceptacion()&&!aceptado)
+            throw new BusinessRuleException("ACEPTACION_REQUERIDA","Este concepto se ofrece primero al apoderado para su aceptación.");
+        if(catalogo==null&&(limpiar(request.concepto())==null||request.numeroCuota()==null))
+            throw new BusinessRuleException("CONCEPTO_CUOTA_REQUERIDOS","Los compromisos anteriores requieren concepto y cuota; para un cobro único selecciona un concepto del catálogo.");
+        if(catalogo!=null&&request.numeroCuota()!=null)throw new BusinessRuleException("COBRO_UNICO_SIN_CUOTA","Los cobros únicos no llevan número de cuota.");
+        String concepto = catalogo==null||aceptado?request.concepto().trim().replaceAll("\\s+", " "):catalogo.getNombre();
+        String referencia=normalizarReferenciaCobro(request.referenciaCobro());
+        if(catalogo!=null&&referencia==null)throw new BusinessRuleException("REFERENCIA_COBRO_REQUERIDA","Indica una referencia para identificar este cobro y evitar duplicados.");
+        String clave = catalogo==null?claveObligacion(matricula, concepto, request.numeroCuota()):claveIdentidad("UNICO|"+matricula.getAlumno().getId()+"|"+matricula.getAnioAcademico()+"|"+catalogo.getId()+"|"+referencia);
+        if ((catalogo==null&&compromisos.existeObligacionCoincidente(matricula.getAlumno().getId(),
+                matricula.getAnioAcademico(), concepto.toLowerCase(Locale.ROOT), request.numeroCuota()))
+                ||compromisos.findByClaveObligacion(clave).isPresent()) {
             throw new ConflictException("COMPROMISO_DUPLICADO",
                     "El estudiante ya tiene un compromiso activo para ese año, concepto y cuota.");
         }
@@ -110,17 +145,41 @@ public class CompromisoPagoService {
         compromiso.setCodigoCompromiso(codigo);
         compromiso.setConcepto(concepto);
         compromiso.setNumeroCuota(request.numeroCuota());
+        compromiso.setConceptoCobro(catalogo);
+        compromiso.setReferenciaCobro(referencia);
         compromiso.setClaveObligacion(clave);
         compromiso.setDescripcion(limpiar(request.descripcion()));
         compromiso.setMontoTotal(request.montoTotal().setScale(2));
         compromiso.setMontoPagado(BigDecimal.ZERO.setScale(2));
         compromiso.setMoneda("PEN");
         compromiso.setFechaVencimiento(request.fechaVencimiento());
-        compromiso.setEstado(estadoFinanciero(compromiso));
+        var calculado=catalogo==null||request.fechaVencimiento().getYear()!=matricula.getAnioAcademico()
+                ?new BeneficioCalculoService.CalculoBeneficio(request.montoTotal().setScale(2),new BigDecimal("0.00"),request.montoTotal().setScale(2),null,null,null)
+                :beneficios.calcular(matricula.getAlumno().getId(),matricula.getAnioAcademico(),catalogo.getId(),request.fechaVencimiento().getMonthValue(),request.montoTotal());
+        ConfiguracionPagosService.aplicarCalculo(compromiso,calculado);
         compromisos.saveAndFlush(compromiso);
         registrar("EMITIR_COMPROMISO", compromiso, "Emisión manual del compromiso de pago", null);
         return respuesta(compromiso);
     }
+
+    @Transactional
+    public CompromisoPago emitirPension(Matricula matricula,ConceptoCobro concepto,TarifaPension tarifa,int mes,
+            BeneficioCalculoService.CalculoBeneficio calculado){
+        String clave=clavePension(matricula.getAlumno().getId(),matricula.getAnioAcademico(),concepto.getId(),mes);
+        var existente=compromisos.findByClaveObligacion(clave);if(existente.isPresent())return existente.get();
+        var c=new CompromisoPago();c.setMatricula(matricula);c.setCodigoCompromiso(resolverCodigo(null));
+        c.setConceptoCobro(concepto);c.setMes(mes);c.setNumeroCuota(mes-2);c.setClaveObligacion(clave);
+        c.setConcepto(concepto.getNombre()+" de "+java.time.Month.of(mes).getDisplayName(java.time.format.TextStyle.FULL,Locale.forLanguageTag("es-PE"))+" de "+matricula.getAnioAcademico());
+        c.setMoneda("PEN");c.setMontoPagado(new BigDecimal("0.00"));c.setFechaVencimiento(java.time.YearMonth.of(matricula.getAnioAcademico(),mes).atEndOfMonth());
+        c.setIdTarifa(tarifa.getId());c.setTarifaVersion(tarifa.getVersion());ConfiguracionPagosService.aplicarCalculo(c,calculado);
+        compromisos.saveAndFlush(c);registrar("EMITIR_PENSION",c,"Generación del plan anual",null);return c;
+    }
+    public static String clavePension(Long alumno,int anio,Long concepto,int mes){return claveIdentidad("PENSION|"+alumno+"|"+anio+"|"+concepto+"|"+mes);}
+    public static String normalizarReferenciaCobro(String valor){if(valor==null||valor.isBlank())return null;
+        String normal=java.text.Normalizer.normalize(valor,java.text.Normalizer.Form.NFD).replaceAll("\\p{M}","").toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+","-").replaceAll("^-|-$","");
+        return normal.isBlank()?null:normal;
+    }
+    public static String claveIdentidad(String valor){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(valor.getBytes(StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
 
     /** El contador y el compromiso se confirman o revierten en la misma transacción. */
     private String resolverCodigo(String solicitado) {
@@ -173,6 +232,10 @@ public class CompromisoPagoService {
                     "Este compromiso histórico está en otra moneda y requiere revisión antes de modificarlo.");
         }
         String anterior = describir(compromiso);
+        if(compromiso.getMes()!=null&&compromiso.getConceptoCobro()!=null&&compromiso.getConceptoCobro().isEsPension())
+            throw new BusinessRuleException("PENSION_GESTIONADA_POR_PLAN","La pensión conserva el cálculo del plan anual. Utiliza becas y sus ajustes para modificar el importe pendiente.");
+        if(compromiso.getIdBeneficio()!=null)throw new BusinessRuleException("AJUSTE_CON_BENEFICIO","Este compromiso tiene un beneficio. Utiliza el ajuste de becas para conservar su cálculo.");
+        compromiso.setMontoBase(request.montoTotal().setScale(2));compromiso.setMontoDescuento(new BigDecimal("0.00"));
         compromiso.setMontoTotal(request.montoTotal().setScale(2));
         compromiso.setFechaVencimiento(request.fechaVencimiento());
         compromiso.setEstado(estadoFinanciero(compromiso));
@@ -214,6 +277,7 @@ public class CompromisoPagoService {
             throw new BusinessRuleException("COMPROMISO_CON_PAGOS",
                     "El compromiso tiene pagos aprobados y no puede modificarse ni anularse.");
         }
+        if(ordenes.existePagoVigente(java.util.List.of(id),Instant.now()))throw new ConflictException("PAGO_EN_CURSO","Hay un pago en curso para este compromiso. Espera su resultado o vencimiento antes de cambiarlo.");
         return compromiso;
     }
 
@@ -246,6 +310,7 @@ public class CompromisoPagoService {
     }
 
     private EstadoCompromisoPago estadoFinanciero(CompromisoPago compromiso) {
+        if(compromiso.getMontoTotal().signum()==0)return EstadoCompromisoPago.EXONERADO;
         if (compromiso.getMontoPagado().compareTo(compromiso.getMontoTotal()) >= 0) {
             return EstadoCompromisoPago.PAGADO;
         }
@@ -257,21 +322,33 @@ public class CompromisoPagoService {
     }
 
     private PagoDto.CompromisoResponse respuesta(CompromisoPago compromiso) {
+        return respuesta(compromiso,null);
+    }
+
+    public PagoDto.CompromisoResponse previsualizar(CompromisoPago compromiso,BeneficioCalculoService.CalculoBeneficio calculo){return respuesta(compromiso,calculo);}
+
+    private PagoDto.CompromisoResponse respuesta(CompromisoPago compromiso,BeneficioCalculoService.CalculoBeneficio calculo) {
         Matricula matricula = compromiso.getMatricula();
         boolean anulado = compromiso.getEstadoAdministrativo() == EstadoAdministrativoCompromiso.ANULADO;
-        EstadoCompromisoPago financiero = estadoFinanciero(compromiso);
+        var monto=calculo==null?compromiso.getMontoTotal():calculo.montoTotal();
+        EstadoCompromisoPago financiero = calculo==null?estadoFinanciero(compromiso):monto.signum()==0?EstadoCompromisoPago.EXONERADO:
+            compromiso.getFechaVencimiento().isBefore(LocalDate.now(ZONA_NEGOCIO))?EstadoCompromisoPago.VENCIDO:EstadoCompromisoPago.PENDIENTE;
         return new PagoDto.CompromisoResponse(
                 compromiso.getId(), matricula.getId(), compromiso.getCodigoCompromiso(),
-                compromiso.getConcepto(), compromiso.getDescripcion(), compromiso.getMontoTotal(),
+                compromiso.getConcepto(), compromiso.getDescripcion(), monto,
                 compromiso.getMontoPagado(), anulado ? BigDecimal.ZERO.setScale(2)
-                        : compromiso.getMontoTotal().subtract(compromiso.getMontoPagado()).max(BigDecimal.ZERO),
+                        : monto.subtract(compromiso.getMontoPagado()).max(BigDecimal.ZERO),
                 compromiso.getMoneda(), compromiso.getFechaVencimiento(),
                 anulado ? EstadoCompromisoPago.ANULADO : financiero,
                 compromiso.getFechaCreacion(), compromiso.getFechaActualizacion(),
                 compromiso.getNumeroCuota(), compromiso.getEstadoAdministrativo(), financiero,
                 matricula.getAlumno().getId(), matricula.getAlumno().getPersona().nombreCompleto(),
                 matricula.getAlumno().getCodigoAlumno(), matricula.getAnioAcademico(), matricula.getCodigoMatricula(),
-                compromiso.getMotivoAnulacion(), compromiso.getFechaAnulacion(), compromiso.getVersion());
+                compromiso.getMotivoAnulacion(), compromiso.getFechaAnulacion(), compromiso.getVersion(),
+                compromiso.getConceptoCobro()==null?null:compromiso.getConceptoCobro().getId(),compromiso.getMes(),compromiso.getReferenciaCobro(),
+                calculo==null?(compromiso.getMontoBase()==null?compromiso.getMontoTotal():compromiso.getMontoBase()):calculo.montoBase(),
+                calculo==null?(compromiso.getMontoDescuento()==null?new BigDecimal("0.00"):compromiso.getMontoDescuento()):calculo.montoDescuento(),
+                calculo==null?compromiso.getBeneficioNombre():calculo.beneficioNombre(),calculo==null?compromiso.getIdBeneficio():calculo.idBeneficio(),compromiso.getIdTarifa(),compromiso.getTarifaVersion());
     }
 
     private void registrar(String accion, CompromisoPago compromiso, String motivo, String anterior) {

@@ -126,7 +126,11 @@ class CompromisoPagoHttpTest extends ApiIntegrationSupport {
             body.remove(campo);
         }
         JsonNode error = request("POST", PATH, body, 400);
-        assertThat(error.toString()).contains("concepto", "montoTotal", "numeroCuota", "fechaVencimiento");
+        assertThat(error.toString()).contains("concepto", "montoTotal", "fechaVencimiento");
+        var legadoSinCuota = emision();
+        legadoSinCuota.remove("numeroCuota");
+        assertThat(request("POST", PATH, legadoSinCuota, 422).path("code").asText())
+                .isEqualTo("CONCEPTO_CUOTA_REQUERIDOS");
         assertThat(em.createQuery("select count(c) from CompromisoPago c", Long.class).getSingleResult()).isZero();
     }
 
