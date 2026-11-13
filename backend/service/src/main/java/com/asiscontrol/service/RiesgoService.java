@@ -2,18 +2,14 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.RiesgoDto;
 import com.asiscontrol.entity.AlertaRiesgo;
-import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.CriterioRiesgo;
 import com.asiscontrol.entity.enums.EstadoAlerta;
 import com.asiscontrol.entity.enums.IndicadorRiesgo;
 import com.asiscontrol.entity.enums.NivelRiesgo;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
-import com.asiscontrol.entity.enums.OperadorComparacion;
 import com.asiscontrol.exception.BusinessRuleException;
-import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AlertaRiesgoRepository;
-import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.CriterioRiesgoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,11 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -39,19 +31,19 @@ public class RiesgoService {
 
     private final CriterioRiesgoRepository criterioRiesgoRepository;
     private final AlertaRiesgoRepository alertaRiesgoRepository;
-    private final AlumnoRepository alumnoRepository;
     private final AuditoriaService auditoria;
+    private final EvidenciaRiesgoService evidencia;
 
     public RiesgoService(
             CriterioRiesgoRepository criterioRiesgoRepository,
             AlertaRiesgoRepository alertaRiesgoRepository,
-            AlumnoRepository alumnoRepository,
-            AuditoriaService auditoria
+            AuditoriaService auditoria,
+            EvidenciaRiesgoService evidencia
     ) {
         this.criterioRiesgoRepository = criterioRiesgoRepository;
         this.alertaRiesgoRepository = alertaRiesgoRepository;
-        this.alumnoRepository = alumnoRepository;
         this.auditoria = auditoria;
+        this.evidencia = evidencia;
     }
 
     @Transactional(readOnly = true)
@@ -70,6 +62,7 @@ public class RiesgoService {
         CriterioRiesgo criterio = new CriterioRiesgo();
         aplicarCriterio(criterio, request);
         CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
+        evidencia.configurarMinimo(saved.getId(), request.minimoDatos());
         auditoria.registrar("CREAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return toCriterioResponse(saved);
@@ -84,6 +77,7 @@ public class RiesgoService {
         String anterior = describir(criterio);
         aplicarCriterio(criterio, request);
         CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
+        evidencia.configurarMinimo(saved.getId(), request.minimoDatos());
         auditoria.registrar("ACTUALIZAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         return toCriterioResponse(saved);
@@ -127,71 +121,6 @@ public class RiesgoService {
     }
 
     @Transactional
-    public List<RiesgoDto.AlertaResponse> evaluar(RiesgoDto.EvaluacionRequest request) {
-        Alumno alumno = alumnoRepository.findByIdAndActivoTrue(request.idAlumno())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "ALUMNO_NO_ENCONTRADO",
-                        "No se encontro el alumno con id " + request.idAlumno()
-                ));
-        Map<IndicadorRiesgo, BigDecimal> valores = construirMapaIndicadores(request.indicadores());
-        List<AlertaRiesgo> afectadas = new ArrayList<>();
-
-        for (CriterioRiesgo criterio : criterioRiesgoRepository.findAllByActivoTrue()) {
-            BigDecimal valor = valores.get(criterio.getIndicador());
-            if (valor == null) {
-                continue;
-            }
-            AlertaRiesgo alertaAbierta = alertaRiesgoRepository
-                    .findFirstByAlumnoIdAndCriterioIdAndEstadoInAndActivoTrue(
-                            alumno.getId(),
-                            criterio.getId(),
-                            ESTADOS_ABIERTOS
-                    )
-                    .orElse(null);
-
-            if (cumple(criterio.getOperador(), valor, criterio.getUmbral())) {
-                AlertaRiesgo alerta = alertaAbierta == null ? new AlertaRiesgo() : alertaAbierta;
-                if (alertaAbierta == null) {
-                    alerta.setAlumno(alumno);
-                    alerta.setCriterio(criterio);
-                    alerta.setEstado(EstadoAlerta.ACTIVA);
-                    alerta.setFechaDeteccion(Instant.now());
-                }
-                alerta.setValorDetectado(valor);
-                alerta.setNivelRiesgo(criterio.getNivelRiesgo());
-                alerta.setMensaje(construirMensaje(criterio, valor));
-                alerta.setFechaAtencion(null);
-                AlertaRiesgo guardada = alertaRiesgoRepository.save(alerta);
-                auditoria.registrar(
-                        alertaAbierta == null ? "GENERAR_ALERTA_RIESGO" : "ACTUALIZAR_ALERTA_RIESGO",
-                        ModuloAuditoria.RIESGO, "AlertaRiesgo", guardada.getId().toString(),
-                        ResultadoAuditoria.EXITOSO, "Evaluacion de indicadores", null,
-                        "alumnoId=" + alumno.getId() + ",criterioId=" + criterio.getId()
-                                + ",valor=" + valor + ",nivel=" + guardada.getNivelRiesgo()
-                                + ",estado=" + guardada.getEstado());
-                afectadas.add(guardada);
-            } else if (alertaAbierta != null) {
-                EstadoAlerta estadoPrevio = alertaAbierta.getEstado();
-                alertaAbierta.setValorDetectado(valor);
-                alertaAbierta.setEstado(EstadoAlerta.RESUELTA);
-                alertaAbierta.setFechaAtencion(Instant.now());
-                alertaAbierta.setObservacion(
-                        "Resuelta automaticamente: el indicador dejo de cumplir el criterio"
-                );
-                AlertaRiesgo guardada = alertaRiesgoRepository.save(alertaAbierta);
-                auditoria.registrar("RESOLVER_ALERTA_RIESGO_AUTOMATICA", ModuloAuditoria.RIESGO, "AlertaRiesgo",
-                        guardada.getId().toString(), ResultadoAuditoria.EXITOSO,
-                        "El indicador dejo de cumplir el criterio",
-                        "estado=" + estadoPrevio,
-                        "estado=" + guardada.getEstado() + ",valor=" + valor);
-                afectadas.add(guardada);
-            }
-        }
-
-        return afectadas.stream().map(this::toAlertaResponse).toList();
-    }
-
-    @Transactional
     public RiesgoDto.AlertaResponse cambiarEstadoAlerta(
             Long id,
             RiesgoDto.EstadoAlertaRequest request
@@ -230,42 +159,19 @@ public class RiesgoService {
     }
 
     private void aplicarCriterio(CriterioRiesgo criterio, RiesgoDto.CriterioRequest request) {
+        BigDecimal umbral = request.umbral();
+        if (request.indicador() == IndicadorRiesgo.PROMEDIO_ACADEMICO) {
+            if (umbral.compareTo(BigDecimal.ONE) < 0 || umbral.compareTo(BigDecimal.valueOf(4)) > 0)
+                throw new BusinessRuleException("UMBRAL_INVALIDO", "El promedio usa la escala C=1, B=2, A=3, AD=4");
+        } else if (umbral.stripTrailingZeros().scale() > 0) {
+            throw new BusinessRuleException("UMBRAL_INVALIDO", "Los indicadores de cantidad requieren un umbral entero");
+        }
         criterio.setNombre(request.nombre().trim());
         criterio.setDescripcion(limpiar(request.descripcion()));
         criterio.setIndicador(request.indicador());
         criterio.setOperador(request.operador());
         criterio.setUmbral(request.umbral());
         criterio.setNivelRiesgo(request.nivelRiesgo());
-    }
-
-    private Map<IndicadorRiesgo, BigDecimal> construirMapaIndicadores(
-            List<RiesgoDto.IndicadorValor> indicadores
-    ) {
-        Map<IndicadorRiesgo, BigDecimal> valores = new EnumMap<>(IndicadorRiesgo.class);
-        for (RiesgoDto.IndicadorValor indicador : indicadores) {
-            if (valores.putIfAbsent(indicador.indicador(), indicador.valor()) != null) {
-                throw new ConflictException(
-                        "INDICADOR_DUPLICADO",
-                        "El indicador " + indicador.indicador() + " aparece mas de una vez"
-                );
-            }
-        }
-        return valores;
-    }
-
-    private boolean cumple(
-            OperadorComparacion operador,
-            BigDecimal valor,
-            BigDecimal umbral
-    ) {
-        int comparacion = valor.compareTo(umbral);
-        return switch (operador) {
-            case MENOR_QUE -> comparacion < 0;
-            case MENOR_IGUAL -> comparacion <= 0;
-            case MAYOR_QUE -> comparacion > 0;
-            case MAYOR_IGUAL -> comparacion >= 0;
-            case IGUAL -> comparacion == 0;
-        };
     }
 
     private void validarTransicion(EstadoAlerta actual, EstadoAlerta destino) {
@@ -280,13 +186,6 @@ public class RiesgoService {
                     "No se puede cambiar una alerta de " + actual + " a " + destino
             );
         }
-    }
-
-    private String construirMensaje(CriterioRiesgo criterio, BigDecimal valor) {
-        return "El indicador " + criterio.getIndicador()
-                + " presenta el valor " + valor.stripTrailingZeros().toPlainString()
-                + " y cumple " + criterio.getOperador()
-                + " " + criterio.getUmbral().stripTrailingZeros().toPlainString();
     }
 
     private CriterioRiesgo buscarCriterioActivo(Long id) {
@@ -315,26 +214,34 @@ public class RiesgoService {
                 criterio.getUmbral(),
                 criterio.getNivelRiesgo(),
                 criterio.getFechaCreacion(),
-                criterio.getFechaActualizacion()
+                criterio.getFechaActualizacion(),
+                evidencia.minimoDatos(criterio.getId())
         );
     }
 
     private RiesgoDto.AlertaResponse toAlertaResponse(AlertaRiesgo alerta) {
+        var ultima = evidencia.ultima(alerta.getId());
+        var deteccion = evidencia.ultimaDeteccion(alerta.getId());
+        var regla = deteccion == null ? null : deteccion.evaluacion();
         return new RiesgoDto.AlertaResponse(
                 alerta.getId(),
                 alerta.getAlumno().getId(),
                 alerta.getCriterio().getId(),
-                alerta.getCriterio().getNombre(),
-                alerta.getCriterio().getIndicador(),
+                regla == null ? alerta.getCriterio().getNombre() : regla.nombreCriterio(),
+                regla == null ? alerta.getCriterio().getIndicador() : regla.indicador(),
                 alerta.getValorDetectado(),
-                alerta.getCriterio().getUmbral(),
+                regla == null ? null : regla.umbral(),
                 alerta.getNivelRiesgo(),
                 alerta.getEstado(),
                 alerta.getMensaje(),
                 alerta.getObservacion(),
                 alerta.getFechaDeteccion(),
                 alerta.getFechaAtencion(),
-                alerta.getFechaActualizacion()
+                alerta.getFechaActualizacion(),
+                ultima == null ? null : ultima.idPeriodo(),
+                ultima == null ? null : ultima.periodo(),
+                regla == null ? null : regla.operador(),
+                ultima != null && ultima.evaluacion().resultado() != RiesgoDto.Resultado.DATOS_INSUFICIENTES
         );
     }
 

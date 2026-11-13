@@ -202,6 +202,10 @@ No edite una migración que ya haya sido aplicada. Flyway valida sus checksums y
 
 Todos los listados grandes admiten paginación y filtros. Las entidades JPA nunca se exponen directamente: cada endpoint utiliza DTO de solicitud y respuesta.
 
+El contrato de recálculo por alumno y período, las fuentes de los indicadores,
+el historial y el resumen institucional se describen en
+[Evaluación de riesgo por período](docs/riesgo-criterios.md).
+
 ## Formato uniforme de errores
 
 ```json
