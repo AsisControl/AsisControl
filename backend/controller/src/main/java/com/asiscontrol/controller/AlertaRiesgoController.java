@@ -26,13 +26,28 @@ public class AlertaRiesgoController {
 
     private final RiesgoService riesgoService;
     private final ModuloAccessGuard accessGuard;
+    private final com.asiscontrol.service.CalculoRiesgoService calculo;
 
     public AlertaRiesgoController(
             RiesgoService riesgoService,
-            ModuloAccessGuard accessGuard
+            ModuloAccessGuard accessGuard,
+            com.asiscontrol.service.CalculoRiesgoService calculo
     ) {
         this.riesgoService = riesgoService;
         this.accessGuard = accessGuard;
+        this.calculo = calculo;
+    }
+
+    @GetMapping("/resumen")
+    public java.util.List<RiesgoDto.ResumenResponse> resumen(@RequestParam Long idPeriodo) {
+        return calculo.resumen(idPeriodo, accessGuard.restriccionDocentePersonaId());
+    }
+
+    @GetMapping("/{id}/historial")
+    @PreAuthorize("hasAuthority('RIESGOS_LEER') and @moduloAccessGuard.puedeAccederAlertaRiesgo(#id)")
+    public java.util.List<RiesgoDto.HistorialResponse> historial(@PathVariable Long id) {
+        riesgoService.obtenerAlerta(id);
+        return calculo.historial(id);
     }
 
     @GetMapping
@@ -52,7 +67,7 @@ public class AlertaRiesgoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@moduloAccessGuard.puedeAccederAlertaRiesgo(#id)")
+    @PreAuthorize("hasAuthority('RIESGOS_LEER') and @moduloAccessGuard.puedeAccederAlertaRiesgo(#id)")
     public RiesgoDto.AlertaResponse obtener(@PathVariable Long id) {
         return riesgoService.obtenerAlerta(id);
     }

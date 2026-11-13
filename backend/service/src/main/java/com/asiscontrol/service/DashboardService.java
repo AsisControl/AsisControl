@@ -115,7 +115,13 @@ public class DashboardService {
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas de riesgo activas",
                 contar("""
                         SELECT COUNT(a) FROM AlertaRiesgo a
-                        WHERE a.activo = true AND a.estado IN :estados
+                        WHERE a.activo = true AND not exists (select r.id from RegistroAuditoria r
+                            where r.entidad = 'AlertaRiesgo' and r.registroId = cast(a.id as string)
+                            and r.modulo = 'RIESGO' and r.accion = 'EVALUAR_CRITERIO_RIESGO'
+                            and r.motivo = 'DATOS_INSUFICIENTES'
+                            and r.id = (select max(u.id) from RegistroAuditoria u
+                                where u.entidad = r.entidad and u.registroId = r.registroId
+                                and u.modulo = r.modulo and u.accion = r.accion)) AND a.estado IN :estados
                         """, Map.of("estados", EnumSet.of(EstadoAlerta.ACTIVA, EstadoAlerta.EN_SEGUIMIENTO))),
                 TONO_PELIGRO, "/alertas-riesgo"));
         return result;
@@ -271,7 +277,13 @@ public class DashboardService {
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas activas",
                 contar("""
                         SELECT COUNT(a) FROM AlertaRiesgo a
-                        WHERE a.activo = true
+                        WHERE a.activo = true AND not exists (select r.id from RegistroAuditoria r
+                            where r.entidad = 'AlertaRiesgo' and r.registroId = cast(a.id as string)
+                            and r.modulo = 'RIESGO' and r.accion = 'EVALUAR_CRITERIO_RIESGO'
+                            and r.motivo = 'DATOS_INSUFICIENTES'
+                            and r.id = (select max(u.id) from RegistroAuditoria u
+                                where u.entidad = r.entidad and u.registroId = r.registroId
+                                and u.modulo = r.modulo and u.accion = r.accion))
                           AND a.alumno.persona.id = :personaId
                           AND a.estado IN :estados
                         """, parametros(persona, "estados", EnumSet.of(
@@ -326,7 +338,13 @@ public class DashboardService {
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas activas",
                 contar("""
                         SELECT COUNT(a) FROM AlertaRiesgo a, AlumnoApoderado v
-                        WHERE v.activo = true
+                        WHERE v.activo = true AND not exists (select r.id from RegistroAuditoria r
+                            where r.entidad = 'AlertaRiesgo' and r.registroId = cast(a.id as string)
+                            and r.modulo = 'RIESGO' and r.accion = 'EVALUAR_CRITERIO_RIESGO'
+                            and r.motivo = 'DATOS_INSUFICIENTES'
+                            and r.id = (select max(u.id) from RegistroAuditoria u
+                                where u.entidad = r.entidad and u.registroId = r.registroId
+                                and u.modulo = r.modulo and u.accion = r.accion))
                           AND v.apoderado.persona.id = :personaId
                           AND a.activo = true
                           AND a.alumno.id = v.alumno.id

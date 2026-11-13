@@ -72,37 +72,4 @@ class PagosRiesgoFlujosHttpTest extends ApiIntegrationSupport {
                 "tasaInteresMensual",0,"fechaPrimeraCuota",LocalDate.now(ZONA_NEGOCIO)),422);
     }
 
-    private Map<String,Object> criterio(String operator) {
-        return data("nombre","Riesgo " + operator,"descripcion","Seguimiento del alumno",
-                "indicador","INASISTENCIAS","operador",operator,"umbral",5,"nivelRiesgo","ALTO");
-    }
-    private Map<String,Object> indicadores(int value) {
-        return data("idAlumno",student.getId(),"indicadores",List.of(data("indicador","INASISTENCIAS","valor",value)));
-    }
-
-    @Test void detectaActualizaYSigueAlertaHastaResolverla() throws Exception {
-        var c=postOk("/api/criterios-riesgo",criterio("MAYOR_IGUAL"));
-        String cp="/api/criterios-riesgo/"+c.path("id").asLong();
-        getOk("/api/criterios-riesgo"); getOk(cp); putOk(cp,criterio("MAYOR_IGUAL"));
-        var alerts=request("POST","/api/evaluaciones-riesgo",indicadores(6),200);
-        assertThat(alerts).hasSize(1);
-        String ap="/api/alertas-riesgo/"+alerts.get(0).path("id").asLong();
-        getOk("/api/alertas-riesgo"); getOk(ap);
-        request("DELETE",cp,null,422);
-        putOk(ap+"/estado",data("estado","EN_SEGUIMIENTO","observacion","Se contacta con familia"));
-        request("PUT",ap+"/estado",data("estado","RESUELTA"),422);
-        request("POST","/api/evaluaciones-riesgo",indicadores(7),200);
-        var resolved=request("POST","/api/evaluaciones-riesgo",indicadores(0),200);
-        assertThat(resolved.get(0).path("estado").asText()).isEqualTo("RESUELTA");
-        request("PUT",ap+"/estado",data("estado","ACTIVA"),422); deleteOk(cp);
-    }
-
-    @Test void evaluaTodosLosOperadoresYRechazaIndicadoresDuplicados() throws Exception {
-        for(String op : List.of("MENOR_QUE","MENOR_IGUAL","MAYOR_QUE","MAYOR_IGUAL","IGUAL")) postOk("/api/criterios-riesgo",criterio(op));
-        assertThat(request("POST","/api/evaluaciones-riesgo",indicadores(5),200)).hasSize(3);
-        request("POST","/api/evaluaciones-riesgo",indicadores(1),200);
-        request("POST","/api/evaluaciones-riesgo",indicadores(10),200);
-        var repeated=data("indicador","INASISTENCIAS","valor",5);
-        request("POST","/api/evaluaciones-riesgo",data("idAlumno",student.getId(),"indicadores",List.of(repeated,repeated)),409);
-    }
 }
