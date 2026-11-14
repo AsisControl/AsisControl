@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { Dialog, Feedback, StatusPill } from "@/shared/ui";
 import { dateLabel } from "@/shared/lib/formatters";
-import { dueDateLabel, financialLabel, moneyLabel } from "./commitment-format";
+import { dueDateLabel, financialLabel, financialStatus, financialTone, moneyLabel } from "./commitment-format";
 import { getCommitment } from "./services/commitment-service";
 import type { PaymentCommitment } from "./types";
 import styles from "./finance.module.css";
@@ -42,7 +42,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
     >
       <Feedback error={error} />
       {error && (
-        <button onClick={() => {
+        <button type="button" className="secondary-action" onClick={() => {
           setError("");
           setTick((value) => value + 1);
         }}>
@@ -65,10 +65,15 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
               <dt>Concepto</dt>
               <dd>{record.concepto}</dd>
             </div>
-            <div>
+            {(record.numeroCuota != null || !record.idConcepto) && <div>
               <dt>Número de cuota</dt>
               <dd>{record.numeroCuota ?? "Sin cuota registrada"}</dd>
-            </div>
+            </div>}
+            {record.referenciaCobro && <div><dt>Referencia del cobro</dt><dd>{record.referenciaCobro}</dd></div>}
+            {(record.montoDescuento ?? 0) > 0 && <>
+              <div><dt>Importe regular</dt><dd>{moneyLabel(record.montoBase ?? record.montoTotal, record.moneda)}</dd></div>
+              <div><dt>Beneficio aplicado</dt><dd>{record.beneficioNombre ?? "Beca o descuento"}<small>−{moneyLabel(record.montoDescuento ?? 0, record.moneda)}</small></dd></div>
+            </>}
             <div>
               <dt>Monto del compromiso</dt>
               <dd className={styles.money}>
@@ -79,30 +84,29 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
               <dt>Vencimiento</dt>
               <dd>{dueDateLabel(record.fechaVencimiento)}</dd>
             </div>
+            {record.estadoAdministrativo !== "ANULADO" && record.montoPagado > 0 && record.saldo > 0 && <>
             <div>
-              <dt>Pagado</dt>
+              <dt>Importe abonado</dt>
               <dd className={styles.money}>
                 {moneyLabel(record.montoPagado, record.moneda)}
               </dd>
             </div>
             <div>
-              <dt>Saldo</dt>
+              <dt>Importe pendiente</dt>
               <dd className={styles.money}>
                 {moneyLabel(record.saldo, record.moneda)}
               </dd>
             </div>
+            </>}
             <div>
               <dt>Estado del compromiso</dt>
               <dd>
                 <StatusPill
-                  state={record.estadoAdministrativo}
-                  tone={record.estadoAdministrativo === "ACTIVO" ? "success" : "neutral"}
+                  state={financialStatus(record)}
+                  label={financialLabel(record)}
+                  tone={financialTone(record)}
                 />
               </dd>
-            </div>
-            <div>
-              <dt>Situación de pago</dt>
-              <dd>{financialLabel(record)}</dd>
             </div>
             <div>
               <dt>Emisión</dt>
@@ -116,6 +120,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
           {record.descripcion && (
             <p><strong>Descripción:</strong> {record.descripcion}</p>
           )}
+          {record.estadoFinanciero === "EXONERADO" && <p className={styles.notice}>Esta obligación está exonerada por el beneficio aplicado. No requiere un pago ni genera un comprobante de dinero recibido.</p>}
           {record.moneda !== "PEN" && (
             <p className={styles.notice}>
               Este compromiso se conserva en su moneda original.
@@ -136,17 +141,17 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
           <div className={styles.detailActions}>
             {canWrite && eligible && (
               <>
-                {record.moneda === "PEN" && (
-                  <button onClick={() => onAction("edit", record)}>
+                {record.moneda === "PEN" && !(record.idConcepto && record.mes) && record.estadoFinanciero !== "EXONERADO" && !record.idBeneficio && (
+                  <button type="button" className="secondary-action" onClick={() => onAction("edit", record)}>
                     Modificar monto o vencimiento
                   </button>
                 )}
-                <button onClick={() => onAction("annul", record)}>
+                <button type="button" className="secondary-action danger-action" onClick={() => onAction("annul", record)}>
                   Anular compromiso
                 </button>
               </>
             )}
-            <button onClick={onClose}>Cerrar</button>
+            <button type="button" className={`secondary-action ${styles.closeButton}`} onClick={onClose}>Cerrar</button>
           </div>
         </>
       )}

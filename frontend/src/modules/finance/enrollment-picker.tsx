@@ -14,7 +14,7 @@ export function EnrollmentPicker({ selected, disabled, onSelect }: {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const list = usePaged<EligibleEnrollment>(
-    ELIGIBLE_ENROLLMENTS_PATH, "", `busqueda=${encodeURIComponent(query)}`,
+    ELIGIBLE_ENROLLMENTS_PATH, "", `busqueda=${encodeURIComponent(query)}`, 5,
   );
 
   function searchEnrollments() {
@@ -36,6 +36,7 @@ export function EnrollmentPicker({ selected, disabled, onSelect }: {
           </p>
           <button
             type="button"
+            className="secondary-action"
             disabled={disabled}
             data-enrollment-control
             onClick={() => onSelect(null)}
@@ -64,7 +65,7 @@ export function EnrollmentPicker({ selected, disabled, onSelect }: {
             </label>
             <button
               type="button"
-              className={styles.searchButton}
+              className="secondary-action"
               disabled={disabled}
               onClick={searchEnrollments}
             >
@@ -75,7 +76,7 @@ export function EnrollmentPicker({ selected, disabled, onSelect }: {
           {list.loading ? (
             <p role="status">Buscando matrículas…</p>
           ) : list.error ? (
-            <button type="button" disabled={disabled} onClick={list.refresh}>
+            <button type="button" className="secondary-action" disabled={disabled} onClick={list.refresh}>
               Reintentar búsqueda
             </button>
           ) : list.data?.content.length ? (
@@ -90,6 +91,7 @@ export function EnrollmentPicker({ selected, disabled, onSelect }: {
                   </span>
                   <button
                     type="button"
+                    className="secondary-action"
                     disabled={disabled}
                     onClick={() => onSelect(enrollment)}
                     aria-label={`Elegir matrícula de ${enrollment.alumno}`}

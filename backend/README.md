@@ -222,6 +222,36 @@ el historial y el resumen institucional se describen en
 
 La API nunca devuelve stack traces, nombres de excepciones internas ni mensajes SQL.
 
+## Referencia de los compromisos de pago
+
+Las emisiones sin código explícito reciben una referencia corta `CP-000001`,
+`CP-000002`, etc. El correlativo es global, se guarda en `ContadorCodigoCompromiso`
+y no se reinicia al cambiar de año, reiniciar el backend o anular un compromiso.
+La referencia es independiente del número de cuota, la matrícula y el identificador
+interno del registro. Los seis dígitos son un ancho mínimo: la secuencia puede crecer.
+
+La migración Flyway `V10__correlativo_codigo_compromiso.sql` agrega únicamente el
+contador. No renumera compromisos existentes ni modifica sus transacciones o
+auditoría. La primera emisión recupera el mayor sufijo numérico legado bajo bloqueo;
+si solo existen UUID o referencias externas, la nueva serie comienza en uno.
+
+El contador se bloquea en base de datos dentro de la misma transacción de emisión,
+para que dos administradores reciban referencias diferentes. Las anulaciones
+conservan su código y no liberan números. Una emisión revertida tampoco confirma el
+avance del contador. No se utiliza un contador en memoria ni `MAX + 1` sin bloqueo.
+
+Por compatibilidad con integraciones anteriores, el campo opcional
+`codigoCompromiso` sigue admitiendo códigos externos únicos. Estas emisiones también
+toman el bloqueo; si proporcionan un código numérico `CP-000100`, la siguiente
+referencia automática continuará en `CP-000101`. Por ello pueden existir saltos por
+referencias externas o históricas. Los identificadores numéricos legados que exceden
+el rango de un entero de 64 bits se conservan como referencias opacas. La interfaz
+web omite este campo y siempre obtiene la referencia automática del backend.
+
+Para producción se debe desplegar el nuevo backend y permitir que Flyway ejecute
+V10 sobre la base existente. En el perfil local con `ddl-auto=update`, JPA crea la
+tabla y su fila se inicializa al emitir; los datos persistidos se conservan.
+
 ## Verificación
 
 ```powershell

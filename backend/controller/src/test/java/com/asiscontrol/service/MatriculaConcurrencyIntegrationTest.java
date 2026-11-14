@@ -26,8 +26,9 @@ import java.util.concurrent.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class MatriculaConcurrencyIntegrationTest {
+    @Autowired jakarta.persistence.EntityManager em;
     @Autowired ConfiguracionAcademicaService configuracion;
     @Autowired SeccionService secciones;
     @Autowired PersonaService personas;
@@ -36,6 +37,64 @@ class MatriculaConcurrencyIntegrationTest {
     @Autowired RegistroAuditoriaRepository auditoria;
     @Autowired AnioAcademicoRepository anios;
     @Autowired PlatformTransactionManager transactions;
+    @Autowired PlanPensionService planes;
+    @Autowired ConfiguracionPagosService pagos;
+
+    @Test
+    void unaTarifaFaltanteRevierteLaMatriculaYSuSolicitudSinDejarPensiones() {
+        long seccion = prepararOfertaFinanciera(2083, false);
+        var solicitud = solicitud(seccion);
+        assertThatThrownBy(() -> matriculas.crear(new CrearMatriculaRequest(solicitud.id(), solicitud.version())))
+                .isInstanceOfSatisfying(BusinessRuleException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("PLAN_PENSION_NO_CONFIGURADO"));
+        verificarFinalizacionRevertida(solicitud);
+    }
+
+    @Test
+    void unPlanCambiadoRevierteLaFinalizacionYExigeRevisarLaNuevaTarifa() {
+        long seccion = prepararOfertaFinanciera(2084, true);
+        var solicitud = solicitud(seccion);
+        String firmaAnterior = planes.previewSolicitud(solicitud.id()).firmaPlan();
+        var tarifa = pagos.tarifas(2084).getFirst();
+        pagos.guardarTarifa(tarifa.id(), new com.asiscontrol.dto.ConfiguracionPagosDto.TarifaRequest(
+                tarifa.idConcepto(), 2084, 1, new java.math.BigDecimal("450.00"), tarifa.version()));
+        assertThatThrownBy(() -> matriculas.crear(new CrearMatriculaRequest(solicitud.id(), solicitud.version(), firmaAnterior)))
+                .isInstanceOfSatisfying(com.asiscontrol.exception.ConflictException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("PLAN_ACTUALIZADO"));
+        verificarFinalizacionRevertida(solicitud);
+        String firmaActual = planes.previewSolicitud(solicitud.id()).firmaPlan();
+        assertThat(firmaActual).isNotEqualTo(firmaAnterior);
+        var matricula = matriculas.crear(new CrearMatriculaRequest(solicitud.id(), solicitud.version(), firmaActual));
+        var plan = planes.previewMatricula(matricula.id());
+        assertThat(plan.items()).hasSize(10).allSatisfy(item -> {
+            assertThat(item.montoTotal()).isEqualByComparingTo("450.00");
+            assertThat(item.idCompromiso()).isNotNull();
+        });
+    }
+
+    private long prepararOfertaFinanciera(int anio, boolean tarifa) {
+        configuracion.crear(new CrearAnio(anio, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        configuracion.agregarPeriodo(anio, new CrearPeriodo("Periodo anual", 1, LocalDate.of(anio, 3, 1), LocalDate.of(anio, 12, 31)));
+        configuracion.agregarGrado(anio, new CrearGrado(1, 2));
+        long seccion = secciones.crear(new AcademicoDtos.CrearSeccionRequest("A", 1, anio, 2, null, null)).id();
+        var actual = configuracion.obtener(anio);
+        configuracion.estado(anio, new EstadoAnio(EstadoAnioAcademico.ACTIVO, actual.version(), "Apertura del año"));
+        if (tarifa) new TransactionTemplate(transactions).executeWithoutResult(status ->
+                com.asiscontrol.support.TarifasTestSupport.configurar(em, anio, 1));
+        return seccion;
+    }
+
+    private void verificarFinalizacionRevertida(SolicitudMatriculaResponse solicitud) {
+        var actual = solicitudes.obtener(solicitud.id());
+        assertThat(actual.estado()).isEqualTo(EstadoSolicitudMatricula.EN_REVISION);
+        assertThat(actual.version()).isEqualTo(solicitud.version());
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            assertThat(em.createQuery("select count(m) from Matricula m where m.solicitudMatricula.id=:id", Long.class)
+                    .setParameter("id", solicitud.id()).getSingleResult()).isZero();
+            assertThat(em.createQuery("select count(c) from CompromisoPago c where c.matricula.solicitudMatricula.id=:id", Long.class)
+                    .setParameter("id", solicitud.id()).getSingleResult()).isZero();
+        });
+    }
 
     @Test
     void dosTransaccionesCompitenPorLaUltimaVacante() throws Exception {
@@ -53,6 +112,8 @@ class MatriculaConcurrencyIntegrationTest {
         var year = configuracion.obtener(2080);
         configuracion.estado(
                 2080, new EstadoAnio(EstadoAnioAcademico.ACTIVO, year.version(), "Inicio"));
+        new TransactionTemplate(transactions).executeWithoutResult(status ->
+                com.asiscontrol.support.TarifasTestSupport.configurar(em, 2080, 1));
         var first = solicitud(section);
         var second = solicitud(section);
         CountDownLatch ready = new CountDownLatch(2), start = new CountDownLatch(1);
