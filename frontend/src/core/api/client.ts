@@ -86,7 +86,7 @@ async function request(
       return request(path, { timeoutMs, ...options }, authenticated, accept, true);
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      if (response.status === 401 && path !== "/api/auth/login") clearSession();
+      if (response.status === 401 && authenticated && path !== "/api/auth/login") clearSession();
       throw new ApiError(
         body?.message ||
           (response.status === 403

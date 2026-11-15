@@ -77,6 +77,10 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/pagos/qr/{token}")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/api/pagos/qr/{token}/confirmar")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated())
                 .oauth2ResourceServer(

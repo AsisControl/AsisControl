@@ -1,5 +1,5 @@
 export type AdministrativeStatus = "ACTIVO" | "ANULADO";
-export type FinancialStatus = "PENDIENTE" | "PARCIAL" | "PAGADO" | "VENCIDO" | "ANULADO";
+export type FinancialStatus = "PENDIENTE" | "PARCIAL" | "PAGADO" | "VENCIDO" | "ANULADO" | "EXONERADO";
 
 export type PaymentCommitment = {
   id: number;
@@ -26,6 +26,15 @@ export type PaymentCommitment = {
   motivoAnulacion: string | null;
   fechaAnulacion: string | null;
   version: number;
+  idConcepto?: number | null;
+  mes?: number | null;
+  referenciaCobro?: string | null;
+  montoBase?: number | null;
+  montoDescuento?: number | null;
+  beneficioNombre?: string | null;
+  idBeneficio?: number | null;
+  idTarifa?: number | null;
+  tarifaVersion?: number | null;
 };
 
 export type EligibleEnrollment = {
@@ -43,11 +52,13 @@ export type EligibleEnrollment = {
 export type CommitmentInput = {
   idMatricula: number;
   concepto: string;
-  numeroCuota: number;
+  numeroCuota: number | null;
   montoTotal: number;
   moneda: "PEN";
   fechaVencimiento: string;
   descripcion: string | null;
+  idConcepto?: number;
+  referenciaCobro?: string;
 };
 
 export type CommitmentChange = {

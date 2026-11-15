@@ -10,6 +10,7 @@ const requiredPermissions: Record<string, string> = {
   Horarios: "ACADEMICO_LEER",
   Horario: "ACADEMICO_LEER",
   Finanzas: "PAGOS_LEER",
+  Pagos: "PAGOS_LEER",
   Administración: "USUARIOS_LEER",
 };
 const USERS_WRITE_PERMISSION = "USUARIOS_ESCRIBIR";

@@ -7,5 +7,7 @@ public enum MedioPago {
     TARJETA_CREDITO,
     YAPE,
     PLIN,
-    POS
+    POS,
+    TARJETA_SIMULADA,
+    QR_SIMULADO
 }

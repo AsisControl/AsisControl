@@ -34,6 +34,7 @@ public class MatriculaService {
     private final ConfiguracionAcademicaService configuracion;
     private final com.asiscontrol.repository.PersonaRepository personas;
     private final AuditoriaService auditoria;
+    private final PlanPensionService planes;
 
     public MatriculaService(
             MatriculaRepository matriculaRepository,
@@ -41,13 +42,14 @@ public class MatriculaService {
             SeccionRepository seccionRepository,
             ConfiguracionAcademicaService configuracion,
             com.asiscontrol.repository.PersonaRepository personas,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,PlanPensionService planes) {
         this.matriculaRepository = matriculaRepository;
         this.solicitudRepository = solicitudRepository;
         this.seccionRepository = seccionRepository;
         this.configuracion = configuracion;
         this.personas = personas;
         this.auditoria = auditoria;
+        this.planes=planes;
     }
 
     // El bloqueo serializa la última vacante; READ_COMMITTED evita contar una instantánea anterior
@@ -134,6 +136,7 @@ public class MatriculaService {
         solicitud.setFechaRevision(ahora);
         solicitudRepository.saveAndFlush(solicitud);
         matriculaRepository.saveAndFlush(matricula);
+        planes.generar(matricula,request.firmaPlan());
         auditoria.registrar(
                 "FINALIZAR_SOLICITUD",
                 ModuloAuditoria.MATRICULA,

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api, message } from "@/core/api/client";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
-export function usePaged<T>(path: string, query = "", filters = "") {
+export function usePaged<T>(path: string, query = "", filters = "", pageSize = 20) {
   const [page, setPage] = useState(0);
   const [tick, setTick] = useState(0);
   const [data, setData] = useState<Page<T> | null>(null);
@@ -17,7 +17,7 @@ export function usePaged<T>(path: string, query = "", filters = "") {
       setLoading(true);
       setError("");
       api<Page<T>>(
-        `${path}${path.includes("?") ? "&" : "?"}page=${page}&size=20${query ? `&search=${encodeURIComponent(query)}` : ""}${filters ? `&${filters}` : ""}`,
+        `${path}${path.includes("?") ? "&" : "?"}page=${page}&size=${pageSize}${query ? `&search=${encodeURIComponent(query)}` : ""}${filters ? `&${filters}` : ""}`,
       )
         .then((d) => {
           if (!active) return;
@@ -35,7 +35,7 @@ export function usePaged<T>(path: string, query = "", filters = "") {
       active = false;
       clearTimeout(timer);
     };
-  }, [path, query, filters, page, tick]);
+  }, [path, query, filters, page, pageSize, tick]);
   return {
     data,
     error,
