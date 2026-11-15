@@ -27,6 +27,7 @@ import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,7 +62,8 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     void correccionPropiaActualizaNotaHistorialAuditoriaYConsolidado(NivelLogro nivel) throws Exception {
         String anterior = nivel == NivelLogro.C ? "AD" : "C";
         JsonNode nota = publicada(assignment, anterior);
-        Instant antes = Instant.now();
+        // La base guarda microsegundos y puede redondear: se deja 1 ms de margen en cada extremo.
+        Instant antes = Instant.now().minus(1, ChronoUnit.MILLIS);
 
         JsonNode resultado = enviar(post(CORRECCIONES),
                 correccion(nota, nivel.name(), "  Revisión de la evidencia de aprendizaje  "),
@@ -85,7 +87,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
         assertThat(cambio.path("motivo").asText()).isEqualTo("Revisión de la evidencia de aprendizaje");
         assertThat(cambio.path("autor").asText()).isEqualTo(teacher.getPersona().nombreCompleto());
         Instant fecha = Instant.parse(cambio.path("fecha").asText());
-        assertThat(fecha).isBetween(antes, Instant.now());
+        assertThat(fecha).isBetween(antes, Instant.now().plus(1, ChronoUnit.MILLIS));
 
         List<RegistroAuditoria> eventos = correccionesExitosas(nota);
         assertThat(eventos).hasSize(1);
@@ -95,7 +97,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
         assertThat(evento.getMotivo()).isEqualTo(cambio.path("motivo").asText());
         assertThat(evento.getValorAnterior()).isEqualTo("nivelLogro=" + anterior);
         assertThat(evento.getNuevoValor()).contains("nivelLogro=" + nivel.name(), "version=1");
-        assertThat(evento.getFechaHora()).isBetween(antes, Instant.now());
+        assertThat(evento.getFechaHora()).isBetween(antes, Instant.now().plus(1, ChronoUnit.MILLIS));
         JsonNode consolidado = enviar(get(CALIFICACIONES + "/consolidados?idAlumno=" + student.getId()),
                 null, comoDocente(), 200);
         assertThat(consolidado.get(0).path("nivelConsolidado").asText()).isEqualTo(nivel.name());
