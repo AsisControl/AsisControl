@@ -31,7 +31,7 @@ class EvidenciaPedagogicaMigracionTest {
             sql.execute("INSERT INTO Evaluacion VALUES (1)");
 
             ScriptUtils.executeSqlScript(conexion,
-                    new ClassPathResource("db/migration/V10__evidencias_pedagogicas.sql"));
+                    new ClassPathResource("db/migration/V15__evidencias_pedagogicas.sql"));
             sql.executeUpdate("""
                     INSERT INTO EvidenciaPedagogica (id_evidencia_pedagogica, id_asignacion_curso,
                         id_alumno, id_competencia, id_periodo_academico, id_persona_autor,

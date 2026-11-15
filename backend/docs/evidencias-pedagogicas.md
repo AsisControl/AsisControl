@@ -43,6 +43,6 @@ registra al docente autenticado como autor. Se requiere una descripción de hast
    inactivar o reemplazar la evidencia devuelve 409. La eliminación directa del
    archivo también devuelve 409 mientras pertenezca a una evidencia activa.
 
-La migración `V10__evidencias_pedagogicas.sql` agrega la evidencia y su relación
+La migración `V15__evidencias_pedagogicas.sql` agrega la evidencia y su relación
 con las evaluaciones. Los eventos de auditoría registran actor, fecha y referencia
 sin almacenar el contenido ni la descripción.
