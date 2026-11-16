@@ -50,7 +50,9 @@ public final class MatriculaDtos {
             long version) {}
 
     public record CrearMatriculaRequest(
-            @NotNull Long solicitudMatriculaId, @NotNull Long versionSolicitud) {}
+            @NotNull Long solicitudMatriculaId, @NotNull Long versionSolicitud,@jakarta.validation.constraints.NotBlank @Size(max=64)String firmaPlan) {
+        public CrearMatriculaRequest(Long solicitudMatriculaId,Long versionSolicitud){this(solicitudMatriculaId,versionSolicitud,null);}
+    }
 
     public record ActualizarMatriculaRequest(
             @NotNull EstadoMatricula estado,

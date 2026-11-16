@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
             com.asiscontrol.entity.enums.ResultadoAuditoria resultado,
             String codigo,
             String mensaje) {
-        String uri = request.getRequestURI();
+        String uri = rutaSinCapacidadQr(request);
         if (!METODOS_ESCRITURA.contains(request.getMethod()) || uri.startsWith("/api/auth")) {
             return;
         }
@@ -122,7 +122,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
         org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
-        org.springframework.http.converter.HttpMessageNotReadableException.class
+        org.springframework.http.converter.HttpMessageNotReadableException.class,
+        org.springframework.web.bind.MissingRequestHeaderException.class,
+        org.springframework.web.bind.MissingServletRequestParameterException.class
     })
     public ResponseEntity<ApiError> handleInvalidFormat(
             Exception exception, HttpServletRequest request) {
@@ -542,10 +544,15 @@ public class GlobalExceptionHandler {
                         status.value(),
                         code,
                         message,
-                        request.getRequestURI(),
+                        rutaSinCapacidadQr(request),
                         MDC.get("correlationId"),
                         fieldErrors,
                         details);
         return ResponseEntity.status(status).body(error);
+    }
+
+    /** Las capacidades QR no deben quedar copiadas en auditoría ni cuerpos de error. */
+    private static String rutaSinCapacidadQr(HttpServletRequest request) {
+        return com.asiscontrol.security.SafeRequestPath.redact(request.getRequestURI());
     }
 }

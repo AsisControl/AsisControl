@@ -10,6 +10,7 @@ import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
 import { Evaluations, ProgressReports } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { StudentTasks } from "@/modules/student-tasks";
 import { TasksModule } from "@/modules/tasks";
@@ -88,7 +89,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
-    Progreso: () => <ProgressReports />,
+    Pagos: () => <GuardianPayments />,
     Matrícula: () => <GuardianEnrollment />,
     Asistencia: () => <GuardianAttendance />,
   },

@@ -54,6 +54,17 @@ public class CompromisoPago extends AuditableEntity {
     @Column(name = "numero_cuota")
     private Integer numeroCuota;
 
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="id_concepto_cobro")
+    private ConceptoCobro conceptoCobro;
+    @Column(name="mes_pension") private Integer mes;
+    @Column(name="referencia_cobro",length=100) private String referenciaCobro;
+    @Column(name="monto_base",precision=12,scale=2) private BigDecimal montoBase;
+    @Column(name="monto_descuento",precision=12,scale=2) private BigDecimal montoDescuento;
+    @Column(name="beneficio_nombre",length=160) private String beneficioNombre;
+    @Column(name="id_beneficio") private Long idBeneficio;
+    @Column(name="id_tarifa") private Long idTarifa;
+    @Column(name="tarifa_version") private Long tarifaVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_administrativo", nullable = false, length = 20)
     private EstadoAdministrativoCompromiso estadoAdministrativo = EstadoAdministrativoCompromiso.ACTIVO;
@@ -83,6 +94,7 @@ public class CompromisoPago extends AuditableEntity {
     private LocalDate fechaVencimiento;
 
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
     @Column(name = "estado_compromiso", nullable = false, length = 20)
     private EstadoCompromisoPago estado = EstadoCompromisoPago.PENDIENTE;
 

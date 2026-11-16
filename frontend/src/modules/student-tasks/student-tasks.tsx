@@ -51,7 +51,7 @@ export function StudentTasks() {
           </select>
         </div>
         {loading && <p role="status">Cargando tareas...</p>}
-        {error && <div role="alert"><p>{error}</p><button onClick={() => changeQuery({ revision: query.revision + 1 })}>Reintentar</button></div>}
+        {error && <div role="alert"><p>{error}</p><button type="button" className="secondary-action" onClick={() => changeQuery({ revision: query.revision + 1 })}>Reintentar</button></div>}
         {!loading && !error && <>
           <div className={styles.tableWrap}>
             <table className={`user-table ${styles.table}`} aria-label="Tareas asignadas">

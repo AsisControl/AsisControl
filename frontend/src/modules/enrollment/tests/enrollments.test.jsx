@@ -5,6 +5,7 @@ import { fakeBackend, page, reply, signIn } from "../../../../tests/support/back
 import { usePathname } from "next/navigation";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
 import { Enrollments } from "@/modules/enrollment";
+import { paymentPlan } from "./payment-plan-fixture";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
@@ -118,6 +119,7 @@ function backend(routes = {}) {
     "GET /api/alumnos": page([lucia, inactiveStudent]),
     "GET /api/alumnos/:id": lucia,
     "GET /api/apoderados": page(guardians),
+    "GET /api/configuracion-pagos/planes/solicitudes/:id/preview": paymentPlan(),
     ...routes,
   });
 }
@@ -345,14 +347,57 @@ test("Finaliza la matrícula de una solicitud en revisión", async () => {
   render(<EnrollmentsScreen />);
   const dialog = await openRequest(user);
   await user.click(within(dialog).getByText("Finalizar matrícula", { selector: ".primary-action" }));
-  expect(within(dialog).getByText(/Se creará la matrícula y finalizará la solicitud/)).toBeTruthy();
+  expect(await within(dialog).findByRole("table", { name: "Pensiones que se asignarán" })).toBeTruthy();
   await user.click(within(dialog).getByText("Confirmar"));
   expect(await within(dialog).findByText(/Matrícula MAT-2026-0001 creada/)).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toEqual({
     solicitudMatriculaId: 100,
     versionSolicitud: 3,
+    firmaPlan: "plan-v2",
   });
   expect(within(dialog).getByText("Matricula finalizada")).toBeTruthy();
+});
+
+test("No finaliza sin una tarifa configurada y permite actualizar el plan antes de confirmar", async () => {
+  let configured = false;
+  const calls = backend({
+    "GET /api/solicitudes-matricula": page([request({ estado: "EN_REVISION" })]),
+    "GET /api/configuracion-pagos/planes/solicitudes/:id/preview": () => configured ? paymentPlan() : reply(422, { message: "Configura la tarifa del año y grado." }),
+  });
+  const user = userEvent.setup(); render(<EnrollmentsScreen />);
+  const dialog = await openRequest(user);
+  await user.click(within(dialog).getByText("Finalizar matrícula", { selector: ".primary-action" }));
+  expect(await within(dialog).findByText("Configura la tarifa del año y grado.")).toBeTruthy();
+  expect(within(dialog).getByRole("button", { name: "Confirmar", exact: true }).disabled).toBe(true);
+  expect(calls.some((call) => call.method === "POST")).toBe(false);
+  configured = true;
+  await user.click(within(dialog).getByRole("button", { name: "Actualizar plan de pensiones" }));
+  await within(dialog).findByRole("table", { name: "Pensiones que se asignarán" });
+  expect(within(dialog).getByRole("button", { name: "Confirmar", exact: true }).disabled).toBe(false);
+});
+
+test("Una tarifa cambiada exige revisar el plan actualizado y confirmar su nueva firma", async () => {
+  let changed = false;
+  const calls = backend({
+    "GET /api/solicitudes-matricula": page([request({ estado: "EN_REVISION" })]),
+    "GET /api/configuracion-pagos/planes/solicitudes/:id/preview": () => paymentPlan({ firmaPlan: changed ? "plan-v3" : "plan-v2" }),
+    "POST /api/matriculas": () => {
+      if (!changed) { changed = true; return reply(409, { code: "PLAN_ACTUALIZADO", message: "El plan cambió. Revisa las pensiones antes de confirmar." }); }
+      return enrollment();
+    },
+    "GET /api/solicitudes-matricula/:id": request({ estado: "MATRICULA_FINALIZADA" }),
+  });
+  const user = userEvent.setup(); render(<EnrollmentsScreen />);
+  const dialog = await openRequest(user);
+  await user.click(within(dialog).getByText("Finalizar matrícula", { selector: ".primary-action" }));
+  await within(dialog).findByRole("table", { name: "Pensiones que se asignarán" });
+  await user.click(within(dialog).getByRole("button", { name: "Confirmar", exact: true }));
+  expect(await within(dialog).findByText("El plan cambió. Revisa las pensiones antes de confirmar.")).toBeTruthy();
+  await waitFor(() => expect(calls.filter((call) => call.path.endsWith("/preview"))).toHaveLength(2));
+  await within(dialog).findByRole("table", { name: "Pensiones que se asignarán" });
+  await user.click(within(dialog).getByRole("button", { name: "Confirmar", exact: true }));
+  expect(await within(dialog).findByText(/Matrícula MAT-2026-0001 creada/)).toBeTruthy();
+  expect(calls.filter((call) => call.method === "POST").map((call) => call.body.firmaPlan)).toEqual(["plan-v2", "plan-v3"]);
 });
 
 test("Retira una matrícula activa con motivo", async () => {

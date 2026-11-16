@@ -5,5 +5,6 @@ public enum EstadoCompromisoPago {
     PARCIAL,
     PAGADO,
     VENCIDO,
-    ANULADO
+    ANULADO,
+    EXONERADO
 }
