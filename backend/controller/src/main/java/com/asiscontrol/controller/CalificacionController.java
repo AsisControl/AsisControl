@@ -3,6 +3,11 @@ package com.asiscontrol.controller;
 import com.asiscontrol.dto.CalificacionDto;
 import com.asiscontrol.service.CalificacionService;
 import com.asiscontrol.service.ModuloAccessGuard;
+import com.asiscontrol.service.ReporteAvanceService;
+import com.asiscontrol.service.GeneradorReporteAvance;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.http.CacheControl;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,13 +35,35 @@ public class CalificacionController {
 
     private final CalificacionService calificacionService;
     private final ModuloAccessGuard accessGuard;
+    private final ReporteAvanceService reporteAvanceService;
+    private final GeneradorReporteAvance generadorReporteAvance;
 
     public CalificacionController(
             CalificacionService calificacionService,
-            ModuloAccessGuard accessGuard
+            ModuloAccessGuard accessGuard,
+            ReporteAvanceService reporteAvanceService,
+            GeneradorReporteAvance generadorReporteAvance
     ) {
         this.calificacionService = calificacionService;
         this.accessGuard = accessGuard;
+        this.reporteAvanceService = reporteAvanceService;
+        this.generadorReporteAvance = generadorReporteAvance;
+    }
+
+    /** Primera etapa US-20: descarga docente, sin persistir informes. */
+    @GetMapping(value = "/reporte-avance", produces = "application/pdf")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE')")
+    public ResponseEntity<byte[]> descargarReporteAvance(
+            @RequestParam Long idAlumno,
+            @RequestParam Long idAsignacionCurso,
+            @RequestParam Long idPeriodoAcademico) {
+        var datos = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        byte[] pdf = generadorReporteAvance.generar(datos);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "attachment; filename=\"avance-" + idAlumno + "-" + idAsignacionCurso + "-" + idPeriodoAcademico + ".pdf\"")
+                .cacheControl(CacheControl.noStore())
+                .body(pdf);
     }
 
     @GetMapping

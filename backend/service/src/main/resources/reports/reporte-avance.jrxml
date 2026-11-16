@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport name="ReporteAvance" language="java" pageWidth="595" pageHeight="842" columnWidth="515" leftMargin="40" rightMargin="40" topMargin="35" bottomMargin="35">
+<style name="Base" default="true" fontName="DejaVu Sans" fontSize="9"/>
+<parameter name="alumno" class="java.lang.String"/>
+<parameter name="curso" class="java.lang.String"/>
+<parameter name="docente" class="java.lang.String"/>
+<parameter name="periodo" class="java.lang.String"/>
+<parameter name="generado" class="java.lang.String"/>
+<field name="competencia" class="java.lang.String"/>
+<field name="evaluacion" class="java.lang.String"/>
+<field name="fecha" class="java.lang.String"/>
+<field name="resultado" class="java.lang.String"/>
+<field name="ponderacion" class="java.lang.String"/>
+<field name="observacion" class="java.lang.String"/>
+<pageHeader height="165">
+<element kind="staticText" x="0" y="0" width="515" height="16" forecolor="#526580" fontSize="10" bold="true"><text><![CDATA[ASISCONTROL]]></text></element>
+<element kind="staticText" x="0" y="23" width="515" height="28" forecolor="#163653" fontSize="18" bold="true"><text><![CDATA[Informe de progreso por competencias]]></text></element>
+<element kind="textField" x="0" y="58" width="515" height="28" ><expression><![CDATA[$P{alumno}]]></expression></element>
+<element kind="textField" x="0" y="89" width="515" height="23" ><expression><![CDATA[$P{curso}]]></expression></element>
+<element kind="textField" x="0" y="115" width="515" height="23" ><expression><![CDATA[$P{docente}]]></expression></element>
+<element kind="textField" x="0" y="141" width="515" height="24" ><expression><![CDATA[$P{periodo}]]></expression></element>
+</pageHeader>
+<columnHeader height="29">
+<element kind="staticText" x="0" y="0" width="130" height="24" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Competencia]]></text></element>
+<element kind="staticText" x="130" y="0" width="115" height="24" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Evaluación / fecha]]></text></element>
+<element kind="staticText" x="245" y="0" width="48" height="24" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Nivel]]></text></element>
+<element kind="staticText" x="293" y="0" width="62" height="24" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Peso]]></text></element>
+<element kind="staticText" x="355" y="0" width="160" height="24" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Observación]]></text></element>
+</columnHeader>
+<detail><band height="52" splitType="Stretch">
+<element kind="textField" x="0" y="3" width="125" height="44" textAdjust="StretchHeight"><expression><![CDATA[$F{competencia}]]></expression></element>
+<element kind="textField" x="130" y="3" width="110" height="44" textAdjust="StretchHeight"><expression><![CDATA[$F{evaluacion}]]></expression></element>
+<element kind="textField" x="245" y="3" width="43" height="44" textAdjust="StretchHeight"><expression><![CDATA[$F{resultado}]]></expression></element>
+<element kind="textField" x="293" y="3" width="57" height="44" textAdjust="StretchHeight"><expression><![CDATA[$F{ponderacion}]]></expression></element>
+<element kind="textField" x="355" y="3" width="160" height="44" textAdjust="StretchHeight"><expression><![CDATA[$F{observacion}]]></expression></element>
+</band></detail>
+<pageFooter height="42">
+<element kind="staticText" x="0" y="0" width="515" height="15" fontSize="7" forecolor="#526580"><text><![CDATA[Resultados de evaluaciones publicadas o cerradas. Ponderación registrada por evaluación.]]></text></element>
+<element kind="textField" x="0" y="21" width="420" height="16" fontSize="8"><expression><![CDATA[$P{generado}]]></expression></element>
+<element kind="staticText" x="435" y="21" width="40" height="16" fontSize="8"><text><![CDATA[Página]]></text></element>
+<element kind="textField" x="475" y="21" width="40" height="16" fontSize="8"><expression><![CDATA[$V{PAGE_NUMBER}]]></expression></element>
+</pageFooter>
+</jasperReport>
