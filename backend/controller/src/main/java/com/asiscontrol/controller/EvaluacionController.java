@@ -62,6 +62,20 @@ public class EvaluacionController {
                 pageable);
     }
 
+    /** Periodos del curso que el docente puede publicar. */
+    @GetMapping("/periodos-informe")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public java.util.List<EvaluacionDto.PeriodoInforme> periodosInforme(@RequestParam Long idAsignacionCurso) {
+        return evaluacionService.periodosPublicables(idAsignacionCurso);
+    }
+
+
+    @PostMapping("/publicar-periodo")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public EvaluacionDto.PublicacionResponse publicarPeriodo(@Valid @RequestBody EvaluacionDto.PublicarPeriodoRequest request) {
+        return new EvaluacionDto.PublicacionResponse(evaluacionService.publicarPeriodo(request.idAsignacionCurso(), request.idPeriodoAcademico()));
+    }
+
     /** US-18: alumnos de la seccion y sus niveles; nunca para alumnos ni apoderados. */
     @GetMapping("/{id}/planilla")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and @moduloAccessGuard.puedeGestionarEvaluacion(#id)")

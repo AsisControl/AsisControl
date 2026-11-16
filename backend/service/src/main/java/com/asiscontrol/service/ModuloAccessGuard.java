@@ -45,6 +45,16 @@ public class ModuloAccessGuard {
         }
     }
 
+    public void verificarConsultaInforme(AsignacionCurso asignacion, Long alumnoId) {
+        if (tieneAlgunRol("ALUMNO", "APODERADO")) {
+            if (!puedeAccederAlumno(alumnoId)) {
+                throw new AccessDeniedException("No puede consultar las notas de este alumno");
+            }
+            return;
+        }
+        verificarAsignacionDocente(asignacion);
+    }
+
     // asistencia alumnos: solo el docente asignado registra o corrige (R01); el administrador no
     public void verificarDocenteTitular(AsignacionCurso asignacion) {
         if (!tieneRol("DOCENTE")
