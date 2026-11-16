@@ -50,9 +50,22 @@ public class CalificacionController {
         this.generadorReporteAvance = generadorReporteAvance;
     }
 
-    /** Primera etapa US-20: descarga docente, sin persistir informes. */
+    @GetMapping("/informes-disponibles")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
+    public List<com.asiscontrol.dto.InformeDisponibleDto> informesDisponibles() {
+        return reporteAvanceService.disponibles();
+    }
+
+    @GetMapping("/avance")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
+    public com.asiscontrol.dto.ReporteAvanceDto consultarAvance(@RequestParam Long idAlumno,
+            @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico) {
+        return reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+    }
+
+    /** US-20: consulta y descarga de notas publicadas, sin persistir informes. */
     @GetMapping(value = "/reporte-avance", produces = "application/pdf")
-    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE')")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
     public ResponseEntity<byte[]> descargarReporteAvance(
             @RequestParam Long idAlumno,
             @RequestParam Long idAsignacionCurso,

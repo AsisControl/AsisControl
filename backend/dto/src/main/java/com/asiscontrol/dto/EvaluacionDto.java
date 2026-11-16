@@ -20,6 +20,10 @@ import java.util.List;
 import java.util.Set;
 
 public final class EvaluacionDto {
+    public record PeriodoInforme(Long id, String nombre) { }
+    public record PublicarPeriodoRequest(@jakarta.validation.constraints.NotNull Long idAsignacionCurso,
+            @jakarta.validation.constraints.NotNull Long idPeriodoAcademico) { }
+    public record PublicacionResponse(int evaluacionesPublicadas) { }
 
     private EvaluacionDto() {
     }

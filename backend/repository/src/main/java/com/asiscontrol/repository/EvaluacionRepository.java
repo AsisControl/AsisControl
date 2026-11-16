@@ -12,6 +12,47 @@ import java.util.Optional;
 
 public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
 
+    @Query("""
+            SELECT DISTINCT e FROM Evaluacion e LEFT JOIN FETCH e.competencias
+            WHERE e.activo = true AND e.asignacionCurso.id = :asignacion
+            AND e.fechaEvaluacion BETWEEN :inicio AND :fin
+            AND e.estado IN (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                            com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
+            ORDER BY e.fechaEvaluacion, e.id
+            """)
+    java.util.List<Evaluacion> publicadasParaInforme(@Param("asignacion") Long asignacion,
+            @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin);
+
+    @Query("""
+            SELECT DISTINCT alumno, e FROM Matricula m JOIN m.alumno alumno, Evaluacion e
+            JOIN e.asignacionCurso a
+            WHERE m.activo = true AND alumno.activo = true AND e.activo = true AND a.activo = true
+            AND m.seccion = a.seccion
+            AND m.estado IN (com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
+                             com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA)
+            AND e.estado IN (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                            com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
+            AND (:docente IS NULL OR a.docente.persona.id = :docente)
+            AND (:estudiante IS NULL OR alumno.persona.id = :estudiante)
+            AND (:apoderado IS NULL OR EXISTS (SELECT v.id FROM AlumnoApoderado v
+                WHERE v.activo = true AND v.apoderado.activo = true AND v.alumno = alumno
+                AND v.apoderado.persona.id = :apoderado))
+            ORDER BY alumno.id, e.id
+            """)
+    java.util.List<Object[]> informesPermitidos(@Param("docente") Long docente,
+            @Param("estudiante") Long estudiante, @Param("apoderado") Long apoderado);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT e FROM Evaluacion e WHERE e.activo = true
+            AND e.asignacionCurso.id = :asignacion
+            AND e.fechaEvaluacion BETWEEN :inicio AND :fin
+            AND e.estado = com.asiscontrol.entity.enums.EstadoEvaluacion.BORRADOR
+            ORDER BY e.id
+            """)
+    java.util.List<Evaluacion> borradoresParaPublicar(@Param("asignacion") Long asignacion,
+            @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin);
+
     Optional<Evaluacion> findByIdAndActivoTrue(Long id);
 
     @Query("""

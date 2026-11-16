@@ -48,6 +48,7 @@ public class EvaluacionService {
     private final MatriculaRepository matriculaRepository;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
+    private final com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository periodos;
 
     public EvaluacionService(
             EvaluacionRepository evaluacionRepository,
@@ -58,7 +59,8 @@ public class EvaluacionService {
             CorreccionCalificacionRepository correccionRepository,
             MatriculaRepository matriculaRepository,
             ModuloAccessGuard accessGuard,
-            AuditoriaService auditoria
+            AuditoriaService auditoria,
+            com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository periodos
     ) {
         this.calificacionRepository = calificacionRepository;
         this.correccionRepository = correccionRepository;
@@ -69,6 +71,38 @@ public class EvaluacionService {
         this.cursoCompetenciaRepository = cursoCompetenciaRepository;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
+        this.periodos = periodos;
+    }
+
+
+
+    @Transactional(readOnly = true)
+    public List<EvaluacionDto.PeriodoInforme> periodosPublicables(Long idAsignacionCurso) {
+        var asignacion = asignacionCursoRepository.findByIdAndActivoTrue(idAsignacionCurso)
+                .orElseThrow(() -> new ResourceNotFoundException("CURSO_NO_ENCONTRADO", "Curso no encontrado"));
+        accessGuard.verificarAsignacionDocente(asignacion);
+        return periodos.findByAnioAcademicoAnioOrderByOrden(asignacion.getSeccion().getAnioAcademico()).stream()
+                .filter(p -> p.isActivo() && p.getAnioAcademico().isActivo())
+                .map(p -> new EvaluacionDto.PeriodoInforme(p.getId(), p.getNombre())).toList();
+    }
+
+    /** Publica el periodo en una transaccion: las restricciones se validan antes de cambiar estados. */
+    @Transactional
+    public int publicarPeriodo(Long idAsignacionCurso, Long idPeriodoAcademico) {
+        var asignacion = asignacionCursoRepository.findByIdAndActivoTrue(idAsignacionCurso)
+                .orElseThrow(() -> new ResourceNotFoundException("CURSO_NO_ENCONTRADO", "Curso no encontrado"));
+        accessGuard.verificarAsignacionDocente(asignacion);
+        var periodo = periodos.findById(idPeriodoAcademico)
+                .filter(p -> p.isActivo() && p.getAnioAcademico().isActivo())
+                .orElseThrow(() -> new ResourceNotFoundException("PERIODO_NO_ENCONTRADO", "Periodo no encontrado"));
+        if (periodo.getAnioAcademico().getAnio() != asignacion.getSeccion().getAnioAcademico()) {
+            throw new BusinessRuleException("PERIODO_CURSO_INVALIDO", "El periodo no pertenece al año del curso");
+        }
+        var borradores = evaluacionRepository.borradoresParaPublicar(idAsignacionCurso,
+                periodo.getFechaInicio(), periodo.getFechaFin());
+        for (var evaluacion : borradores) validarTransicion(evaluacion, EstadoEvaluacion.PUBLICADA);
+        for (var evaluacion : borradores) cambiarEstado(evaluacion.getId(), EstadoEvaluacion.PUBLICADA);
+        return borradores.size();
     }
 
     @Transactional(readOnly = true)

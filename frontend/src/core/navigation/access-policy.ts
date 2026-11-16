@@ -5,6 +5,7 @@ const requiredPermissions: Record<string, string> = {
   Tareas: "TAREAS_LEER",
   "Mis cursos": "ASISTENCIA_LEER",
   Evaluaciones: "CALIFICACIONES_LEER",
+  Progreso: "CALIFICACIONES_LEER",
   Matrícula: "MATRICULA_LEER",
   Académico: "ACADEMICO_LEER",
   Horarios: "ACADEMICO_LEER",

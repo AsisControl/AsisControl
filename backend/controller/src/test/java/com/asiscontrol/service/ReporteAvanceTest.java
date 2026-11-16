@@ -20,8 +20,9 @@ class ReporteAvanceTest {
     final PeriodoAcademicoRepository periodos = mock(PeriodoAcademicoRepository.class);
     final MatriculaRepository matriculas = mock(MatriculaRepository.class);
     final CalificacionRepository calificaciones = mock(CalificacionRepository.class);
+    final EvaluacionRepository evaluaciones = mock(EvaluacionRepository.class);
     final ModuloAccessGuard acceso = mock(ModuloAccessGuard.class);
-    final ReporteAvanceService servicio = new ReporteAvanceService(alumnos, asignaciones, periodos, matriculas, calificaciones, acceso);
+    final ReporteAvanceService servicio = new ReporteAvanceService(alumnos, asignaciones, periodos, matriculas, calificaciones, acceso, evaluaciones);
 
     PeriodoAcademico preparar() {
         Persona persona = new Persona(); persona.setNombres("Ana María"); persona.setApellidoPaterno("Pérez");
@@ -41,8 +42,8 @@ class ReporteAvanceTest {
     }
 
     Calificacion nota(long id, LocalDate fecha) {
-        Competencia competencia = new Competencia(); competencia.setNombre("Resuelve problemas de cantidad");
-        Evaluacion evaluacion = new Evaluacion(); evaluacion.setTitulo("Práctica " + id); evaluacion.setFechaEvaluacion(fecha);
+        Competencia competencia = new Competencia(); competencia.setId(1L); competencia.setNombre("Resuelve problemas de cantidad");
+        Evaluacion evaluacion = new Evaluacion(); evaluacion.setId(id); evaluacion.setCompetencias(Set.of(competencia)); evaluacion.setTitulo("Práctica " + id); evaluacion.setFechaEvaluacion(fecha);
         evaluacion.setPonderacionPorcentaje(new BigDecimal("30.00"));
         Calificacion nota = new Calificacion(); nota.setId(id); nota.setCompetencia(competencia); nota.setEvaluacion(evaluacion); nota.setNivelLogro(NivelLogro.A);
         return nota;
@@ -53,12 +54,14 @@ class ReporteAvanceTest {
         when(calificaciones.buscarParaConsolidado(1L,2L)).thenReturn(List.of(
                 nota(1,p.getFechaInicio().minusDays(1)), nota(2,p.getFechaInicio()),
                 nota(3,p.getFechaFin()), nota(4,p.getFechaFin().plusDays(1))));
+        when(evaluaciones.publicadasParaInforme(2L,p.getFechaInicio(),p.getFechaFin()))
+                .thenReturn(List.of(nota(2,p.getFechaInicio()).getEvaluacion(), nota(3,p.getFechaFin()).getEvaluacion()));
         var dto = servicio.preparar(1L,2L,3L);
         assertThat(dto.filas()).hasSize(2);
         assertThat(dto.filas().getFirst().resultado()).isEqualTo("A");
         assertThat(dto.filas().getFirst().ponderacion()).isEqualTo("30 %");
         assertThat(dto.filas().getFirst().observacion()).isEqualTo("Sin observaciones");
-        verify(acceso).verificarAsignacionDocente(any());
+        verify(acceso).verificarConsultaInforme(any(), eq(1L));
     }
 
     @Test void rechazaAnioDistinto() {
@@ -76,12 +79,20 @@ class ReporteAvanceTest {
 
     @Test void rechazaPeriodoSinNotas() {
         preparar(); when(calificaciones.buscarParaConsolidado(1L,2L)).thenReturn(List.of());
-        assertThatThrownBy(() -> servicio.preparar(1L,2L,3L)).hasMessageContaining("No hay calificaciones");
+        assertThatThrownBy(() -> servicio.preparar(1L,2L,3L)).hasMessageContaining("No hay evaluaciones");
+    }
+
+    @Test void sinNingunaNotaMuestraSinRegistrarSinInventarCalificaciones() {
+        var p=preparar();
+        when(evaluaciones.publicadasParaInforme(2L,p.getFechaInicio(),p.getFechaFin()))
+                .thenReturn(List.of(nota(2,p.getFechaInicio()).getEvaluacion()));
+        assertThat(servicio.preparar(1L,2L,3L).filas().getFirst().resultado()).isEqualTo("Sin registrar");
+        verify(calificaciones, never()).save(any());
     }
 
     @Test void rechazaDocenteAjenoAntesDeConsultarNotas() {
         preparar(); doThrow(new org.springframework.security.access.AccessDeniedException("Curso ajeno"))
-                .when(acceso).verificarAsignacionDocente(any());
+                .when(acceso).verificarConsultaInforme(any(), eq(1L));
         assertThatThrownBy(() -> servicio.preparar(1L,2L,3L)).hasMessageContaining("Curso ajeno");
         verifyNoInteractions(calificaciones);
     }
