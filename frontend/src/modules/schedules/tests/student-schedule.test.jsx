@@ -63,3 +63,15 @@ test("Actualizar vuelve a consultar los bloques del estudiante", async () => {
   await userEvent.setup().click(screen.getByRole("button", { name: "Actualizar" }));
   expect(calls.filter((call) => call.path === "/api/horarios/mio").length).toBe(2);
 });
+
+test("Sección sin clases programadas: muestra «Sin horarios asignados» sin bloques inventados", async () => {
+  fakeBackend({
+    "GET /api/matriculas": page([enrollment]),
+    "GET /api/horarios/mio": [],
+  });
+  render(<StudentSchedule />);
+  const table = await screen.findByRole("table", { name: "Mi horario semanal" });
+  expect(within(table).getByText(`Sin horarios asignados: tu sección aún no tiene clases programadas en ${year}.`)).toBeTruthy();
+  expect(within(table).queryAllByRole("button", { name: /Ver detalle/ })).toHaveLength(0);
+  expect(screen.getByText("0 bloques de clase · 0 cursos")).toBeTruthy();
+});

@@ -155,6 +155,19 @@ test("La recuperación pública no envía el token de una sesión existente", as
   );
   assert.equal(headers.has("Authorization"), false);
 });
+test("Una capacidad QR pública rechazada no cierra la sesión del apoderado", async () => {
+  const load = harness(async () => response(401, { message: "Código QR no válido" }));
+  const storage = await load("src/core/auth/session-storage.ts");
+  storage.saveSession({ accessToken: "sesion-apoderado" });
+  await assert.rejects((await load("src/core/api/client.ts")).api("/api/pagos/qr/invalido", {}, false));
+  assert.equal(storage.readSession().accessToken, "sesion-apoderado");
+});
+test("Pagos del apoderado exige permiso financiero y no admite otros roles", async () => {
+  const { canAccess } = await harness()("src/core/navigation/access-policy.ts");
+  assert.equal(canAccess({ role: "APODERADO", permissions: ["PAGOS_LEER"] }, "Pagos"), true);
+  assert.equal(canAccess({ role: "APODERADO", permissions: [] }, "Pagos"), false);
+  assert.equal(canAccess({ role: "ESTUDIANTE", permissions: ["PAGOS_LEER"] }, "Pagos"), false);
+});
 test("La política admite ocho caracteres y rechaza usuario, espacios y exceso de bytes", async () => {
   const policy = (await harness()("src/core/auth/password-policy.ts")).passwordError;
   assert.equal(policy("Abcdefg1", "usuario"), "");

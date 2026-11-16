@@ -34,8 +34,14 @@ public final class PagoDto {
             @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal montoTotal,
             @NotBlank @Pattern(regexp = "PEN", message = "Los compromisos se emiten en soles (PEN)") String moneda,
             @NotNull LocalDate fechaVencimiento,
-            @NotNull @Min(1) Integer numeroCuota
+            @Min(1) Integer numeroCuota,
+            Long idConcepto,
+            @Size(max=100) String referenciaCobro
     ) {
+        public CompromisoRequest(Long idMatricula,String codigoCompromiso,String concepto,String descripcion,
+                BigDecimal montoTotal,String moneda,LocalDate fechaVencimiento,Integer numeroCuota) {
+            this(idMatricula,codigoCompromiso,concepto,descripcion,montoTotal,moneda,fechaVencimiento,numeroCuota,null,null);
+        }
     }
 
     public record CompromisoActualizacionRequest(
@@ -89,7 +95,9 @@ public final class PagoDto {
             String codigoMatricula,
             String motivoAnulacion,
             Instant fechaAnulacion,
-            long version
+            long version,
+            Long idConcepto,Integer mes,String referenciaCobro,BigDecimal montoBase,BigDecimal montoDescuento,
+            String beneficioNombre,Long idBeneficio,Long idTarifa,Long tarifaVersion
     ) {
     }
 

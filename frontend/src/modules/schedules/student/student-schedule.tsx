@@ -104,7 +104,7 @@ export function StudentSchedule() {
               <TimetableGrid
                 blocks={blocks}
                 label="Mi horario semanal"
-                emptyMessage={`Aún no hay bloques de horario para tu sección en ${year}.`}
+                emptyMessage={`Sin horarios asignados: tu sección aún no tiene clases programadas en ${year}.`}
                 sectionOf={sectionOf}
                 onOpen={setDetail}
               />

@@ -7,9 +7,14 @@ import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
-import { Evaluations, ProgressPreview } from "@/modules/evaluations";
+import {
+  Evaluations,
+  ProgressPreview,
+  ProgressReports,
+} from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { StudentTasks } from "@/modules/student-tasks";
 import { TasksModule } from "@/modules/tasks";
@@ -31,6 +36,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
+    Progreso: () => <ProgressReports />,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
   },
@@ -88,6 +94,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
+    Pagos: () => <GuardianPayments />,
     Matrícula: () => <GuardianEnrollment />,
     Asistencia: () => <GuardianAttendance />,
   },

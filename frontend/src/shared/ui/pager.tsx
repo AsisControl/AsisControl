@@ -17,12 +17,16 @@ export function Pager({
       </span>
       <div>
         <button
+          type="button"
+          className="secondary-action"
           disabled={loading || data.first}
           onClick={() => setPage(data.page - 1)}
         >
           Anterior
         </button>
         <button
+          type="button"
+          className="secondary-action"
           disabled={loading || data.last}
           onClick={() => setPage(data.page + 1)}
         >

@@ -43,6 +43,7 @@ public final class ModuloAuditoria {
             Map.entry("aulas", ACADEMICO),
             Map.entry("evaluaciones", ACADEMICO),
             Map.entry("calificaciones", ACADEMICO),
+            Map.entry("evidencias-pedagogicas", ACADEMICO),
             Map.entry("asistencias", ASISTENCIA),
             Map.entry("justificaciones-asistencia", ASISTENCIA),
             Map.entry("horarios", HORARIOS),
