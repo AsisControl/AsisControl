@@ -24,6 +24,8 @@ export function canAccess(
 ): boolean {
   if (!roleDetails[user.role].nav.includes(nav)) return false;
   const permissions = user.permissions ?? [];
+  if (nav === "Progreso" && user.role === "DOCENTE")
+    return ["CALIFICACIONES_LEER", "ACADEMICO_LEER"].every((permission) => permissions.includes(permission));
   const required = requiredPermissions[nav];
   if (required && !permissions.includes(required)) return false;
   const [tab, view] = subpath;

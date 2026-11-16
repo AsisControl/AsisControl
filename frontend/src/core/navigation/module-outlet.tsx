@@ -7,7 +7,7 @@ import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
-import { Evaluations } from "@/modules/evaluations";
+import { Evaluations, ProgressPreview } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
@@ -35,6 +35,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     Horario: () => <StudentSchedule />,
   },
   DOCENTE: {
+    Progreso: () => <ProgressPreview />,
     Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
     Asistencia: ({ user, subpath: [tab] }) => (
