@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProgressReports, PublishPeriod } from "../progress-reports";
 import { fakeBackend } from "../../../../tests/support/backend.js";
+import { progressReport } from "./report-fixture";
 
 test("publicar requiere confirmar y envia curso y periodo", async () => {
   const calls = fakeBackend({
@@ -24,7 +25,7 @@ test("publicar requiere confirmar y envia curso y periodo", async () => {
 test("progreso muestra notas y descarga el informe elegido", async () => {
   const calls = fakeBackend({
     "GET /api/calificaciones/informes-disponibles": [{idAlumno:8,alumno:"Ana",idAsignacionCurso:3,curso:"Matematica",anio:2026,idPeriodoAcademico:4,periodo:"Bimestre 1"}],
-    "GET /api/calificaciones/avance": {filas:[{competencia:"Cantidad",evaluacion:"Practica",fecha:"01/03/2026",resultado:"A",ponderacion:"30 %",observacion:"Buen avance"},{competencia:"Forma",evaluacion:"Practica",fecha:"01/03/2026",resultado:"Sin registrar",ponderacion:"30 %",observacion:"Sin observaciones"}]},
+    "GET /api/calificaciones/avance": {...progressReport,alumno:"Ana",curso:"Matematica",filas:[{competencia:"Cantidad",evaluacion:"Practica",fecha:"01/03/2026",resultado:"A",ponderacion:"30 %",observacion:"Buen avance"},{competencia:"Forma",evaluacion:"Practica",fecha:"01/03/2026",resultado:"Sin registrar",ponderacion:"30 %",observacion:"Sin observaciones"}]},
     "GET /api/calificaciones/reporte-avance": {},
   });
   URL.createObjectURL = vi.fn(() => "blob:pdf"); URL.revokeObjectURL = vi.fn();

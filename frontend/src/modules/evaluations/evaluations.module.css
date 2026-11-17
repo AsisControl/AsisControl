@@ -5,6 +5,11 @@
   margin-top: 16px;
   padding: 16px;
 }
+.reportObservation {
+  min-width: 200px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .filtersFive {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }

@@ -1,27 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, apiBlob, message } from "@/core/api/client";
+import { api, message } from "@/core/api/client";
 import { Feedback, PageHeader } from "@/shared/ui";
 import type { OwnAssignment } from "./types";
+import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-types";
+import { getProgressReport, getProgressReportPdf, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
+import { ReportContent } from "./report-content";
 
-type Option = { idAlumno: number; alumno: string; idAsignacionCurso: number; curso: string;
-  anio: number; idPeriodoAcademico: number; periodo: string };
-type Detail = { filas: { competencia: string; evaluacion: string; fecha: string;
-  resultado: string; ponderacion: string; observacion: string }[] };
-const query = (item: Option) => new URLSearchParams({ idAlumno: String(item.idAlumno),
-  idAsignacionCurso: String(item.idAsignacionCurso), idPeriodoAcademico: String(item.idPeriodoAcademico) });
 
 /** Opciones calculadas por el servidor a partir de la identidad y las notas publicadas. */
 export function ProgressReports() {
-  const [items, setItems] = useState<Option[] | null>(null);
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const [items, setItems] = useState<AvailableReport[] | null>(null);
+  const [detail, setDetail] = useState<ProgressReport | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    api<Option[]>("/api/calificaciones/informes-disponibles")
+    listAvailableReports()
       .then(data => { if (active) setItems(data); })
       .catch(e => { if (active) setError(message(e)); });
     return () => { active = false; };
@@ -32,13 +29,9 @@ export function ProgressReports() {
     setBusy(true); setError("");
     try {
       if (download) {
-        const blob = await apiBlob(`/api/calificaciones/reporte-avance?${query(option)}`, { timeoutMs: 60000 });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a"); anchor.href = url;
-        anchor.download = `avance-${option.idAlumno}-${option.idAsignacionCurso}-${option.idPeriodoAcademico}.pdf`;
-        document.body.appendChild(anchor); anchor.click(); anchor.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } else setDetail(await api<Detail>(`/api/calificaciones/avance?${query(option)}`));
+        const blob = await getProgressReportPdf(option);
+        saveProgressReportPdf(blob, option);
+      } else setDetail(await getProgressReport(option));
     } catch (e) { setError(message(e)); }
     finally { setBusy(false); }
   }
@@ -59,20 +52,14 @@ export function ProgressReports() {
       <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>Ver notas</button>{" "}
       <button className="primary-action" disabled={!option || busy} onClick={() => open(true)}>Descargar PDF</button>
       {busy && <p role="status">Preparando informe.</p>}
-      {detail && <div className="user-table-wrap" style={{ marginTop: 24 }}><table className="user-table">
-        <thead><tr>{["Competencia", "Evaluación", "Fecha", "Nivel", "Peso", "Observación"].map(t => <th key={t}>{t}</th>)}</tr></thead>
-        <tbody>{detail.filas.map((row, i) => <tr key={i}>
-          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha}</td>
-          <td>{row.resultado}</td><td>{row.ponderacion}</td><td>{row.observacion}</td>
-        </tr>)}</tbody>
-      </table></div>}
+      {detail && <ReportContent report={detail} />}
     </>}
   </section>;
 }
 
 export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssignment[]; canWrite: boolean }) {
   const [assignment, setAssignment] = useState("");
-  const [periods, setPeriods] = useState<{ id: number; nombre: string }[]>([]);
+  const [periods, setPeriods] = useState<ReportPeriod[]>([]);
   const [period, setPeriod] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -81,7 +68,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
   useEffect(() => {
     if (!assignment) return;
     let active = true;
-    api<{ id: number; nombre: string }[]>(`/api/evaluaciones/periodos-informe?idAsignacionCurso=${assignment}`)
+    listReportPeriods(Number(assignment))
       .then(data => { if (active) setPeriods(data); }).catch(e => { if (active) setError(message(e)); });
     return () => { active = false; };
   }, [assignment]);
