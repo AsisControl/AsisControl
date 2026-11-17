@@ -2,8 +2,8 @@ import type { UserRole } from "@/core/auth/types";
 import { roleSpaces } from "./role-space";
 import styles from "./role-context.module.css";
 
-function SpaceIcon({ icon }: { icon: (typeof roleSpaces)[UserRole]["icon"] }) {
-  return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+export function SpaceIcon({ icon, size = 14 }: { icon: (typeof roleSpaces)[UserRole]["icon"]; size?: number }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {icon === "panel" && <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>}
     {icon === "book" && <><path d="M12 6v15M3 3h4a5 5 0 0 1 5 3 5 5 0 0 1 5-3h4v15h-4a5 5 0 0 0-5 3 5 5 0 0 0-5-3H3z" /></>}
     {icon === "graduation" && <><path d="m2 9 10-5 10 5-10 5zM6 11v6c4 3 8 3 12 0v-6M22 9v7" /></>}

@@ -26,11 +26,13 @@
 .navBar .navItem[aria-current="page"] {
   background: #ffffff26;
   border-color: #ffffff33;
-  box-shadow: inset 0 -2px 0 var(--role-accent-on-brand);
+  /* Guía GUI: el ítem activo del encabezado se resalta con el color de acento. */
+  box-shadow: inset 0 -3px 0 var(--sky);
   color: #fff;
 }
+/* Avatar con el color del rol, como antes; el tono oscuro mantiene contraste AA con las iniciales. */
 .header .accountAvatar {
-  background: #ffffff14;
+  background: var(--role-brand, var(--role-accent));
   border: 2px solid var(--role-accent-on-brand);
   color: #fff;
 }
