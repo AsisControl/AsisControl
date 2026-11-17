@@ -29,7 +29,7 @@ function renderShell(role = "DOCENTE", granted = permissions) {
 
 test.each([
   ["ADMINISTRADOR", "Panel de administración", ["Matrícula", "Académico", "Administración"]],
-  ["DOCENTE", "Aula docente", ["Mis cursos", "Evaluaciones", "Progreso"]],
+  ["DOCENTE", "Aula docente", ["Mis cursos", "Evaluaciones", "Tareas", "Horario"]],
   ["ESTUDIANTE", "Portal del estudiante", ["Tareas", "Progreso", "Horario"]],
   ["APODERADO", "Portal del apoderado", ["Matrícula", "Pagos", "Asistencia"]],
 ])("%s integra identidad en un solo header y acciones dentro de Inicio", async (role, title, shortcuts) => {
@@ -77,7 +77,8 @@ test("Una ruta distinta de Inicio nunca muestra acciones rápidas", async () => 
 
 test.each([
   ["DOCENTE", ["CALIFICACIONES_LEER"], ["/evaluaciones"]],
-  ["DOCENTE", ["ACADEMICO_LEER"], []],
+  ["DOCENTE", ["ACADEMICO_LEER"], ["/horario"]],
+  ["DOCENTE", [], []],
   ["APODERADO", ["PAGOS_LEER"], ["/pagos", "/asistencia"]],
   ["ADMINISTRADOR", ["MATRICULA_LEER"], ["/matricula"]],
 ])("Las acciones de %s respetan los permisos existentes (%j)", (role, granted, expected) => {
@@ -101,7 +102,7 @@ test("El teclado activa acciones y los clics modificados conservan el enlace nat
   const interaction = userEvent.setup();
   await interaction.tab();
   expect(document.activeElement).toBe(screen.getByRole("link", { name: "Mis cursos" }));
-  const link = screen.getByRole("link", { name: "Progreso" });
+  const link = screen.getByRole("link", { name: "Tareas" });
   link.addEventListener("click", (event) => event.preventDefault(), { once: true });
   fireEvent.click(link, { ctrlKey: true });
   expect(currentUrl()).toBe("/");

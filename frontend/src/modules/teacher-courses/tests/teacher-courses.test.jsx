@@ -7,7 +7,6 @@ import { ModuleOutlet } from "@/core/navigation/module-outlet";
 import { SessionUserProvider } from "@/core/layout/session-user";
 import { canAccess } from "@/core/navigation/access-policy";
 import { TeacherCoursesModule } from "@/modules/teacher-courses";
-import { TeacherHome } from "@/modules/teacher-home";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
@@ -65,13 +64,6 @@ test("Redirige enlaces anteriores de evaluaciones y valida direcciones incorrect
 test("Mis cursos exige permiso de asistencia", () => {
   expect(canAccess({ role: "DOCENTE", permissions: ["ASISTENCIA_LEER"] }, "Mis cursos")).toBe(true);
   expect(canAccess({ role: "DOCENTE", permissions: [] }, "Mis cursos")).toBe(false);
-});
-
-test("Inicio del docente aclara que usa datos de ejemplo", () => {
-  render(<TeacherHome fullName="Ana Pérez" />);
-  expect(screen.getByRole("heading", { name: "Bienvenido/a, Ana Pérez" })).toBeTruthy();
-  expect(screen.getByRole("note").textContent).toContain("Datos de ejemplo");
-  expect(screen.getByRole("link", { name: "Nueva tarea" }).getAttribute("href")).toBe("/tareas");
 });
 
 test("El menú del docente abre sus pantallas", async () => {
