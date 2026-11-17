@@ -52,7 +52,7 @@ const IMPORT_SLOTS: ImportSlot[] = [
     id: "apoderados",
     title: "Apoderados",
     description:
-      "Una fila por apoderado, aunque tenga varios hijos. Si su documento ya está registrado, por ejemplo como docente, se reutiliza.",
+      "Solo apoderados nuevos: una fila por apoderado, aunque tenga varios hijos. Si ya tiene perfil de apoderado, omite este archivo y usa su documento en parentescos.",
     template: {
       fileName: "plantilla_apoderados.xlsx",
       download: downloadGuardianTemplate,
@@ -72,8 +72,8 @@ const IMPORT_SLOTS: ImportSlot[] = [
 type PerSlot<T> = Partial<Record<ImportSlotId, T>>;
 
 /**
- * Carga masiva de estudiantes y familias, todo o nada. Primero se descargan las tres
- * plantillas; luego se eligen los archivos en orden, se validan juntos sin guardar nada y,
+ * Carga masiva de estudiantes y familias, todo o nada. Se eligen los archivos necesarios,
+ * se validan juntos sin guardar nada y,
  * solo si ninguno tiene errores, se importan en una sola operación.
  */
 export function FamilyImportDialog({
@@ -106,22 +106,10 @@ export function FamilyImportDialog({
       setDownloading(null);
     }
   }
-  /** Un paso se habilita cuando el anterior tiene un archivo válido. */
-  const isReady = (slot: ImportSlotId) => {
-    const file = files[slot];
-    return Boolean(file) && !validateImportFile(file ?? null);
-  };
-  const isUnlocked = (index: number) =>
-    index === 0 || isReady(IMPORT_SLOTS[index - 1].id);
   function choose(slot: ImportSlotId, file: File | null) {
-    const index = IMPORT_SLOTS.findIndex(({ id }) => id === slot);
     const invalid = file ? validateImportFile(file) : "";
-    // Sin un archivo válido, los pasos siguientes vuelven a bloquearse y se vacían.
-    const later =
-      !file || invalid ? IMPORT_SLOTS.slice(index + 1).map(({ id }) => id) : [];
-    const cleared = Object.fromEntries(later.map((id) => [id, undefined]));
-    setFiles((current) => ({ ...current, ...cleared, [slot]: file }));
-    setFileErrors((current) => ({ ...current, ...cleared, [slot]: invalid }));
+    setFiles((current) => ({ ...current, [slot]: file }));
+    setFileErrors((current) => ({ ...current, [slot]: invalid }));
     // Otro archivo invalida la validación anterior: hay que volver a validar.
     setReport(null);
     setError("");
@@ -134,7 +122,7 @@ export function FamilyImportDialog({
       ]),
     ) as PerSlot<File>;
   }
-  /** Valida los tres archivos juntos en el servidor sin guardar ninguna fila. */
+  /** Valida los archivos elegidos juntos en el servidor sin guardar ninguna fila. */
   async function validate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const chosen = IMPORT_SLOTS.filter((slot) => files[slot.id]);
@@ -189,7 +177,7 @@ export function FamilyImportDialog({
                 1. Prepara las plantillas
               </h4>
               <p className={styles.slotText}>
-                Descarga las tres y complétalas juntas. En parentescos usa el
+                Descarga solo las plantillas que necesites. En parentescos usa el
                 mismo código del estudiante y el mismo documento del apoderado.
               </p>
               <div className={styles.templateList}>
@@ -214,43 +202,35 @@ export function FamilyImportDialog({
               </div>
             </section>
             <h4 className={styles.sectionTitle}>
-              2. Sube los archivos en orden
+              2. Sube los archivos necesarios
             </h4>
             <p className={styles.slotText}>
-              Cada paso se habilita al elegir el archivo del anterior: primero
-              estudiantes, luego apoderados y al final parentescos. Antes de
-              importar se validan los tres juntos; si alguno tiene errores no se
-              guarda ninguna fila.
+              Familia nueva: dos hijos requieren dos filas de estudiantes, una sola
+              fila de apoderado y dos filas de parentescos. Para agregar otro hijo a
+              un apoderado ya existente, carga estudiantes y parentescos sin archivo
+              de apoderados. Si el estudiante también existe, carga solo parentescos.
+              Los archivos son opcionales, pero debes elegir al menos uno. Si alguno
+              tiene errores, no se guarda ninguna fila.
             </p>
           </>
         )}
         <ol className={styles.slots}>
-          {IMPORT_SLOTS.map((slot, index) => {
+          {IMPORT_SLOTS.map((slot) => {
             const fileReport = report?.files[slot.id];
-            const unlocked = isUnlocked(index);
             return (
               <li
                 key={slot.id}
-                className={
-                  unlocked ? styles.slot : `${styles.slot} ${styles.slotLocked}`
-                }
-                aria-disabled={!unlocked || undefined}
+                className={styles.slot}
               >
                 <h5 className={styles.slotTitle}>{slot.title}</h5>
                 <p className={styles.slotText}>{slot.description}</p>
                 <div className={styles.slotBody}>
-                  {!unlocked && (
-                    <p className={styles.lockedHint}>
-                      Primero elige el archivo de{" "}
-                      {IMPORT_SLOTS[index - 1].title.toLowerCase()}.
-                    </p>
-                  )}
                   <ExcelFilePicker
                     label={`Archivo Excel de ${slot.title.toLowerCase()}`}
                     file={files[slot.id] ?? null}
                     error={fileErrors[slot.id] ?? ""}
                     focusRequest={focusRequest}
-                    disabled={busy || saved || !unlocked}
+                    disabled={busy || saved}
                     onChange={(file) => choose(slot.id, file)}
                   />
                   {fileReport?.error && (

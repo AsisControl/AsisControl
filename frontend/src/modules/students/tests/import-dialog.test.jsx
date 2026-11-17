@@ -42,7 +42,7 @@ test("El tamaño del archivo se muestra en B, KB o MB", () => {
   expect(fileSizeLabel(1.25 * 1024 * 1024)).toBe("1.3 MB");
 });
 
-test("Las tres plantillas se descargan y solo el primer paso empieza habilitado", () => {
+test("Las tres plantillas se descargan y cada archivo es independiente y opcional", () => {
   renderDialog();
   const templates = screen.getByRole("region", { name: "1. Prepara las plantillas" });
   for (const name of ["estudiantes", "apoderados", "parentescos"])
@@ -53,10 +53,10 @@ test("Las tres plantillas se descargan y solo el primer paso empieza habilitado"
   expect(screen.queryByText("Próximamente")).toBeNull();
   expect(within(slot("Estudiantes")).getByRole("button", { name: "Seleccionar archivo Excel" }).disabled).toBe(false);
   for (const title of ["Apoderados", "Parentescos"]) {
-    expect(within(slot(title)).getByRole("button", { name: "Seleccionar archivo Excel" }).disabled).toBe(true);
-    expect(slot(title).getAttribute("aria-disabled")).toBe("true");
+    expect(within(slot(title)).getByRole("button", { name: "Seleccionar archivo Excel" }).disabled).toBe(false);
+    expect(slot(title).getAttribute("aria-disabled")).toBeNull();
   }
-  expect(within(slot("Apoderados")).getByText("Primero elige el archivo de estudiantes.")).toBeTruthy();
+  expect(screen.getByText(/Para agregar otro hijo/)).toBeTruthy();
   expect(studentsInput().accept).toContain(".xlsx");
   expect(within(slot("Estudiantes")).getByText("Solo Excel (.xlsx), máximo 5 MB")).toBeTruthy();
 });
@@ -178,22 +178,56 @@ test("Valida los tres archivos juntos y señala el error de cada uno", async () 
   expect(imported).not.toHaveBeenCalled();
 });
 
-test("Quitar o invalidar un archivo vuelve a bloquear y vaciar los pasos siguientes", async () => {
+test("Invalidar un archivo conserva los otros y exige corregirlo antes de validar", async () => {
   const user = userEvent.setup();
   renderDialog();
   const pick = (title) => within(slot(title)).getByRole("button", { name: "Seleccionar archivo Excel" });
   await user.upload(studentsInput(), excel("alumnos.xlsx"));
   expect(pick("Apoderados").disabled).toBe(false);
-  expect(pick("Parentescos").disabled).toBe(true);
+  expect(pick("Parentescos").disabled).toBe(false);
   await user.upload(screen.getByLabelText("Archivo Excel de apoderados"), excel("apoderados.xlsx"));
   expect(pick("Parentescos").disabled).toBe(false);
   await user.upload(studentsInput(), excel("alumnos.csv"));
-  expect(within(slot("Apoderados")).queryByText("apoderados.xlsx")).toBeNull();
-  expect(slot("Apoderados").getAttribute("aria-disabled")).toBe("true");
-  expect(slot("Parentescos").getAttribute("aria-disabled")).toBe("true");
+  expect(within(slot("Apoderados")).getByText("apoderados.xlsx")).toBeTruthy();
+  expect(slot("Apoderados").getAttribute("aria-disabled")).toBeNull();
+  expect(slot("Parentescos").getAttribute("aria-disabled")).toBeNull();
   await user.upload(studentsInput(), excel("alumnos.xlsx"));
-  expect(pick("Apoderados").disabled).toBe(false);
-  expect(pick("Parentescos").disabled).toBe(true);
+  expect(screen.getByLabelText("Archivo Excel de apoderados").files[0].name).toBe("apoderados.xlsx");
+  expect(pick("Parentescos").disabled).toBe(false);
+});
+
+test.each([false, true])("Vincula con apoderado existente sin reimportarlo (estudiante nuevo: %s)", async (newStudent) => {
+  const result = bulk({ ...(newStudent ? { estudiantes: ok(1) } : {}), parentescos: ok(1) });
+  const fetcher = vi.fn().mockResolvedValueOnce(reply(result))
+    .mockResolvedValueOnce(reply({ ...result, saved: true }));
+  vi.stubGlobal("fetch", fetcher);
+  const user = userEvent.setup(); renderDialog();
+  if (newStudent) await user.upload(studentsInput(), excel());
+  await user.upload(screen.getByLabelText("Archivo Excel de parentescos"), excel("parentescos.xlsx"));
+  await user.click(screen.getByRole("button", { name: "Validar archivos" }));
+  await screen.findByText(/no tienen errores/);
+  await user.click(screen.getByRole("button", { name: "Importar" }));
+  await screen.findByRole("heading", { name: "¡Carga completada!" });
+  for (const [, options] of fetcher.mock.calls) {
+    expect(options.body.has("apoderados")).toBe(false);
+    expect(options.body.has("estudiantes")).toBe(newStudent);
+    expect(options.body.get("parentescos").name).toBe("parentescos.xlsx");
+  }
+});
+
+test("Familia nueva envía dos estudiantes, un apoderado y dos vínculos en una sola carga", async () => {
+  const result = bulk({ estudiantes: ok(2), apoderados: ok(1), parentescos: ok(2) });
+  const fetcher = vi.fn().mockResolvedValueOnce(reply(result))
+    .mockResolvedValueOnce(reply({ ...result, saved: true }));
+  vi.stubGlobal("fetch", fetcher);
+  const user = userEvent.setup(); renderDialog();
+  for (const name of ["estudiantes", "apoderados", "parentescos"])
+    await user.upload(screen.getByLabelText(`Archivo Excel de ${name}`), excel(`${name}.xlsx`));
+  await user.click(screen.getByRole("button", { name: "Validar archivos" }));
+  await screen.findByText(/no tienen errores/);
+  await user.click(screen.getByRole("button", { name: "Importar" }));
+  await screen.findByText("Se registraron 2 estudiantes, 1 apoderado y 2 parentescos. Ya puedes verlos en Fichas académicas.");
+  expect([...fetcher.mock.calls.at(-1)[1].body.keys()]).toEqual(["estudiantes", "apoderados", "parentescos"]);
 });
 
 test("Descarga las plantillas de apoderados y parentescos con su nombre", async () => {
