@@ -1,29 +1,56 @@
-/* Solo el shell autenticado recibe identidad. El azul corporativo sigue siendo común. */
+/*
+ * Paleta por rol: los colores originales de la app (azul, esmeralda, violeta y ámbar).
+ * - --role-brand: tono oscuro del rol, con contraste AA (≥ 4,5:1) para texto blanco encima
+ *   y para texto de ese color sobre blanco. El administrador no lo define y usa el azul.
+ * - --role-accent: color del rol para detalles (barra del título, iconos, bordes).
+ * - --role-accent-on-brand: versión clara para usar sobre fondos oscuros.
+ * La paleta se aplica en el espacio autenticado (.role-home[data-role]) y en muestras sueltas
+ * (data-role-palette), como las tarjetas del login, sin activar la identidad de un rol.
+ */
+.role-home[data-role],
+[data-role-palette] {
+  --role-accent: #1e3a8a;
+  --role-surface: #eff6ff;
+  --role-border: #bfdbfe;
+  --role-accent-on-brand: #38bdf8;
+}
+.role-home[data-role="DOCENTE"],
+[data-role-palette="DOCENTE"] {
+  --role-brand: #047857;
+  --role-accent: #059669;
+  --role-surface: #ecfdf5;
+  --role-border: #a7f3d0;
+  --role-accent-on-brand: #6ee7b7;
+}
+.role-home[data-role="ESTUDIANTE"],
+[data-role-palette="ESTUDIANTE"] {
+  --role-brand: #5b21b6;
+  --role-accent: #7c3aed;
+  --role-surface: #f5f3ff;
+  --role-border: #ddd6fe;
+  --role-accent-on-brand: #c4b5fd;
+}
+.role-home[data-role="APODERADO"],
+[data-role-palette="APODERADO"] {
+  --role-brand: #b45309;
+  --role-accent: #d97706;
+  --role-surface: #fffbeb;
+  --role-border: #fde68a;
+  --role-accent-on-brand: #fcd34d;
+}
+/*
+ * Identidad del espacio autenticado: --blue toma el color del rol, así los botones
+ * principales, pestañas activas, enlaces y foco lo siguen sin tocar cada módulo.
+ */
 .role-home[data-role] {
-  --role-accent: #526787;
-  --role-surface: #f3f5f8;
-  --role-border: #d8e0eb;
-  --role-accent-on-brand: #c2cfe2;
-  --role-title-width: 3px;
+  --blue: var(--role-brand, #1e3a8a);
+  --role-title-width: 4px;
   --role-title-indent: 12px;
 }
-.role-home[data-role="DOCENTE"] {
-  --role-accent: #4d747a;
-  --role-surface: #f2f6f6;
-  --role-border: #d4e1e2;
-  --role-accent-on-brand: #bfd8db;
-}
-.role-home[data-role="ESTUDIANTE"] {
-  --role-accent: #60769a;
-  --role-surface: #f3f5f9;
-  --role-border: #d9e1ed;
-  --role-accent-on-brand: #c8d4e9;
-}
-.role-home[data-role="APODERADO"] {
-  --role-accent: #747088;
-  --role-surface: #f5f4f7;
-  --role-border: #dfdce7;
-  --role-accent-on-brand: #d4cfe3;
+/* Encabezado con el color del rol y una franja inferior más clara. */
+.role-home[data-role] > .top-nav {
+  background: var(--role-brand, var(--blue-2));
+  box-shadow: inset 0 -3px 0 var(--role-accent-on-brand), 0 2px 4px #0002;
 }
 /* Compatibilidad con pantallas que aún usan el encabezado global. */
 .role-home[data-role] .page-title h1 {

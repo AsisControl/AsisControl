@@ -1,9 +1,9 @@
 .identity {
   align-items: center;
-  color: #dbe4f0;
+  color: var(--role-accent-on-brand, #dbe4f0);
   display: flex;
   font-size: 11px;
-  font-weight: 400;
+  font-weight: 600;
   gap: 5px;
   line-height: 16px;
   min-width: 0;
