@@ -1,0 +1,56 @@
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000d;
+  margin-top: 20px;
+  padding: 20px;
+}
+.embedded {
+  margin-top: 0;
+}
+.card h3 {
+  color: var(--ink);
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0 0 12px;
+}
+.actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+.actions a {
+  align-items: center;
+  border: 1px solid var(--role-border, var(--border));
+  border-radius: 8px;
+  color: var(--blue);
+  display: flex;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+.actions a svg {
+  color: var(--role-accent, var(--blue));
+  flex: none;
+}
+.actions a:hover {
+  background: var(--role-surface, var(--surface));
+  border-color: var(--role-accent, var(--blue));
+}
+.arrow {
+  margin-inline-start: auto;
+}
+@media (max-width: 600px) {
+  .card {
+    padding: 16px;
+  }
+}

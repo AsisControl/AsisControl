@@ -1,0 +1,32 @@
+/* Solo el shell autenticado recibe identidad. El azul corporativo sigue siendo común. */
+.role-home[data-role] {
+  --role-accent: #526787;
+  --role-surface: #f3f5f8;
+  --role-border: #d8e0eb;
+  --role-accent-on-brand: #c2cfe2;
+  --role-title-width: 3px;
+  --role-title-indent: 12px;
+}
+.role-home[data-role="DOCENTE"] {
+  --role-accent: #4d747a;
+  --role-surface: #f2f6f6;
+  --role-border: #d4e1e2;
+  --role-accent-on-brand: #bfd8db;
+}
+.role-home[data-role="ESTUDIANTE"] {
+  --role-accent: #60769a;
+  --role-surface: #f3f5f9;
+  --role-border: #d9e1ed;
+  --role-accent-on-brand: #c8d4e9;
+}
+.role-home[data-role="APODERADO"] {
+  --role-accent: #747088;
+  --role-surface: #f5f4f7;
+  --role-border: #dfdce7;
+  --role-accent-on-brand: #d4cfe3;
+}
+/* Compatibilidad con pantallas que aún usan el encabezado global. */
+.role-home[data-role] .page-title h1 {
+  border-inline-start: var(--role-title-width) solid var(--role-accent);
+  padding-inline-start: var(--role-title-indent);
+}

@@ -25,8 +25,17 @@
 }
 .navBar .navItem[aria-current="page"] {
   background: #ffffff26;
-  border: 1px solid #8ec5ff80;
-  color: var(--sky);
+  border-color: #ffffff33;
+  box-shadow: inset 0 -2px 0 var(--role-accent-on-brand);
+  color: #fff;
+}
+.header .accountAvatar {
+  background: #ffffff14;
+  border: 2px solid var(--role-accent-on-brand);
+  color: #fff;
+}
+.header :global(.brand) > span:last-child {
+  min-width: 0;
 }
 /* Entre 1000 y 1280 px el menú con iconos no cabe en una fila: pasa debajo,
    igual que hace globals.css por debajo de 1000 px. */
@@ -74,7 +83,11 @@
     font-size: 14px;
     overflow-wrap: anywhere;
   }
-  .header :global(.brand small),
+  .header :global(.brand small) {
+    display: block;
+    font-size: 10px;
+    line-height: 14px;
+  }
   .header :global(.account-name) {
     display: none;
   }

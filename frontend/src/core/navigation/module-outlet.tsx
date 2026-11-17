@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
+import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
@@ -42,7 +43,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   DOCENTE: {
     Progreso: () => <ProgressPreview />,
-    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
+    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} quickActions={<HomeQuickActions user={user} embedded />} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
     Asistencia: ({ user, subpath: [tab] }) => (
       <TeacherAttendance
@@ -155,6 +156,7 @@ function PendingModule({ nav }: { nav: string }) {
           </p>
         </div>
       </article>
+      {nav === HOME_NAV && <HomeQuickActions user={user} />}
     </>
   );
 }

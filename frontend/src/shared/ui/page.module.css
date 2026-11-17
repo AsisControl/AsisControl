@@ -8,6 +8,8 @@
   margin-bottom: 20px;
 }
 .pageHeader h2 {
+  border-inline-start: var(--role-title-width, 0) solid var(--role-accent, transparent);
+  padding-inline-start: var(--role-title-indent, 0);
   color: var(--ink);
   font-size: 28px;
   font-weight: 700;

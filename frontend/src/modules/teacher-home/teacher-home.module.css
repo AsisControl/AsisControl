@@ -128,21 +128,3 @@
   color: var(--muted);
   font-size: 11px;
 }
-.accesos {
-  display: grid;
-  gap: 4px;
-}
-.accesos a {
-  border-radius: 8px;
-  color: var(--ink);
-  display: flex;
-  font-size: 14px;
-  font-weight: 500;
-  justify-content: space-between;
-  padding: 12px 8px;
-  text-decoration: none;
-}
-.accesos a:hover {
-  background: var(--surface);
-  color: var(--blue);
-}
