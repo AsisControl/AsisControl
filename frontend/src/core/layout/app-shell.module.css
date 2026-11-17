@@ -26,12 +26,13 @@
 .navBar .navItem[aria-current="page"] {
   background: #ffffff26;
   border-color: #ffffff33;
-  box-shadow: inset 0 -3px 0 var(--role-accent-on-brand);
+  /* Guía GUI: el ítem activo del encabezado se resalta con el color de acento. */
+  box-shadow: inset 0 -3px 0 var(--sky);
   color: #fff;
 }
-/* Vuelve al avatar con el color del rol, como antes, con un borde claro del mismo tono. */
+/* Avatar con el color del rol, como antes; el tono oscuro mantiene contraste AA con las iniciales. */
 .header .accountAvatar {
-  background: var(--role-accent);
+  background: var(--role-brand, var(--role-accent));
   border: 2px solid var(--role-accent-on-brand);
   color: #fff;
 }
@@ -118,7 +119,7 @@
     outline-offset: 2px;
   }
   .header:global(.top-nav) .navBar {
-    background: var(--role-brand, #1e3a8a);
+    background: #1e3a8a;
     border: 1px solid #ffffff33;
     border-radius: 8px;
     box-shadow: 0 4px 12px #0000001a;

@@ -1,7 +1,11 @@
 /*
- * Paleta por rol: los colores originales de la app (azul, esmeralda, violeta y ámbar).
- * - --role-brand: tono oscuro del rol, con contraste AA (≥ 4,5:1) para texto blanco encima
- *   y para texto de ese color sobre blanco. El administrador no lo define y usa el azul.
+ * Paleta por rol: colores de identidad de cada rol (los mismos que usaban los avatares).
+ * Según la guía GUI, el encabezado y las acciones primarias conservan el azul de marca
+ * (#1E3A8A) y el verde y el ámbar mantienen su significado de éxito y advertencia; por eso
+ * el color del rol solo se usa en marcas pequeñas de identidad: avatar, nombre del espacio,
+ * franja del encabezado, barra del título, acciones rápidas y tarjetas del login.
+ * - --role-brand: tono oscuro del rol, con contraste AA para texto blanco encima (avatar y
+ *   tarjetas del login). El administrador no lo define y usa el azul.
  * - --role-accent: color del rol para detalles (barra del título, iconos, bordes).
  * - --role-accent-on-brand: versión clara para usar sobre fondos oscuros.
  * La paleta se aplica en el espacio autenticado (.role-home[data-role]) y en muestras sueltas
@@ -38,18 +42,12 @@
   --role-border: #fde68a;
   --role-accent-on-brand: #fcd34d;
 }
-/*
- * Identidad del espacio autenticado: --blue toma el color del rol, así los botones
- * principales, pestañas activas, enlaces y foco lo siguen sin tocar cada módulo.
- */
 .role-home[data-role] {
-  --blue: var(--role-brand, #1e3a8a);
   --role-title-width: 4px;
   --role-title-indent: 12px;
 }
-/* Encabezado con el color del rol y una franja inferior más clara. */
+/* El encabezado sigue en el azul de marca; solo una franja inferior fina lleva el color del rol. */
 .role-home[data-role] > .top-nav {
-  background: var(--role-brand, var(--blue-2));
   box-shadow: inset 0 -3px 0 var(--role-accent-on-brand), 0 2px 4px #0002;
 }
 /* Compatibilidad con pantallas que aún usan el encabezado global. */
