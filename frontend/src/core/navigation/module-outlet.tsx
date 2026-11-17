@@ -3,11 +3,16 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
+import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
 import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
-import { Evaluations, ProgressReports } from "@/modules/evaluations";
+import {
+  Evaluations,
+  ProgressPreview,
+  ProgressReports,
+} from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
 import { GuardianPayments } from "@/modules/guardian-payments";
@@ -37,7 +42,8 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     Horario: () => <StudentSchedule />,
   },
   DOCENTE: {
-    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
+    Progreso: () => <ProgressPreview />,
+    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} quickActions={<HomeQuickActions user={user} embedded />} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
     Asistencia: ({ user, subpath: [tab] }) => (
       <TeacherAttendance
@@ -150,6 +156,7 @@ function PendingModule({ nav }: { nav: string }) {
           </p>
         </div>
       </article>
+      {nav === HOME_NAV && <HomeQuickActions user={user} />}
     </>
   );
 }

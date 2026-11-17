@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PageHeader, StatusPill } from "@/shared/ui";
 import styles from "./teacher-home.module.css";
 
@@ -20,15 +21,8 @@ const PENDIENTES = [
   { titulo: "Revisar 12 entregas — Ejercicios Cap. 4", tipo: "Tarea", prioridad: "Media" },
   { titulo: "Publicar progreso — 3°A", tipo: "Progreso", prioridad: "Media" },
 ];
-const ACCIONES = [
-  { etiqueta: "Tomar asistencia", href: "/mis-cursos" },
-  { etiqueta: "Registrar evaluación", href: "/mis-cursos" },
-  { etiqueta: "Crear tarea", href: "/tareas" },
-  { etiqueta: "Ver horario", href: "/horario" },
-];
-
 /** Inicio del docente con datos de ejemplo: solo el nombre y la fecha son reales. */
-export function TeacherHome({ fullName }: { fullName: string }) {
+export function TeacherHome({ fullName, quickActions }: { fullName: string; quickActions?: ReactNode }) {
   const hoy = new Date().toLocaleDateString("es-PE", { timeZone: "America/Lima", dateStyle: "full" });
   return (
     <section>
@@ -95,16 +89,7 @@ export function TeacherHome({ fullName }: { fullName: string }) {
             ))}
           </ul>
         </article>
-        <article className={styles.tarjeta}>
-          <h3>Acciones rápidas</h3>
-          <nav className={styles.accesos} aria-label="Acciones rápidas">
-            {ACCIONES.map(({ etiqueta, href }) => (
-              <Link href={href} key={etiqueta}>
-                {etiqueta} <span aria-hidden="true">›</span>
-              </Link>
-            ))}
-          </nav>
-        </article>
+        {quickActions}
       </div>
     </section>
   );

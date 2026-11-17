@@ -19,6 +19,8 @@ import { NavIcon } from "@/core/navigation/nav-icons";
 import { Brand } from "./brand";
 import { LoginScreen } from "./login-screen";
 import { SessionUserProvider } from "./session-user";
+import { RoleContext } from "./role-context";
+import "./role-theme.css";
 import styles from "./app-shell.module.css";
 
 const MOBILE_BREAKPOINT_PX = 760;
@@ -82,7 +84,7 @@ function Dashboard({
     router.push(path);
   }
   return (
-    <main className="role-home">
+    <main className="role-home" data-role={user.role}>
       <header ref={header} className={`top-nav ${styles.header}`}>
         <button
           ref={menuButton}
@@ -116,7 +118,7 @@ function Dashboard({
             )}
           </svg>
         </button>
-        <Brand compact />
+        <Brand compact name="AsisControl" subtitle={<RoleContext role={user.role} />} />
         <nav
           id="main-navigation"
           className={`${styles.navBar} ${isMobileMenuOpen ? styles.open : ""}`}
@@ -148,7 +150,7 @@ function Dashboard({
               <strong>{user.fullName}</strong>
               <small>{roleLabel}</small>
             </span>
-            <span className={`avatar avatar-${user.role.toLowerCase()}`}>
+            <span className={`avatar ${styles.accountAvatar}`}>
               {user.fullName
                 .split(" ")
                 .filter(Boolean)
