@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
 import { NavIcon } from "@/core/navigation/nav-icons";
-import { Feedback, PageHeader, StatusPill, type StatusTone } from "@/shared/ui";
+import { Feedback, Loading, PageHeader, Skeleton, StatusPill, type StatusTone } from "@/shared/ui";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { obtenerInicioDocente } from "./services/inicio-docente-service";
 import type { ClaseHoy, InicioDocente, Pendiente } from "./types";
@@ -70,6 +70,62 @@ function describirPendiente(pendiente: Pendiente) {
   }
 }
 
+/** Espera de los cuatro indicadores, con las mismas tarjetas que los reales. */
+function IndicadoresSkeleton() {
+  return (
+    <div className={styles.indicadores}>
+      {["Clases", "Asistencias", "Revisar", "Bloques"].map((clave) => (
+        <article className={styles.indicador} key={clave}>
+          <Skeleton width={40} height={40} radius={8} />
+          <div className={styles.esqueletoTexto}>
+            <Skeleton width={36} height={24} />
+            <Skeleton width={120} height={12} />
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+/** Espera de «Clases de hoy» y «Pendientes académicos»; el lector ya oye «Cargando tu inicio…». */
+function TarjetasSkeleton() {
+  return (
+    <>
+      <article className={styles.tarjeta} aria-hidden="true">
+        <Skeleton width={120} height={18} />
+        {[0, 1, 2].map((clase) => (
+          <div className={styles.clase} key={clase}>
+            <div className={styles.claseFila}>
+              <div className={styles.esqueletoTexto}>
+                <Skeleton width={110} height={14} />
+                <Skeleton width={150} height={12} />
+              </div>
+              <div className={styles.claseHora}>
+                <Skeleton width={92} height={12} />
+                <Skeleton width={70} height={20} radius={999} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </article>
+      <article className={styles.tarjeta} aria-hidden="true">
+        <Skeleton width={170} height={18} />
+        <ul className={styles.pendientes}>
+          {["78%", "64%", "84%", "58%"].map((ancho) => (
+            <li key={ancho}>
+              <div className={styles.esqueletoTexto}>
+                <Skeleton width={ancho} height={12} />
+                <Skeleton width="40%" height={10} />
+              </div>
+              <Skeleton width={48} height={20} radius={999} />
+            </li>
+          ))}
+        </ul>
+      </article>
+    </>
+  );
+}
+
 /** Inicio del docente: clases de hoy, indicadores y pendientes académicos con datos reales. */
 export function TeacherHome({ fullName, quickActions }: { fullName: string; quickActions?: ReactNode }) {
   const [inicio, setInicio] = useState<InicioDocente | null>(null);
@@ -129,7 +185,7 @@ export function TeacherHome({ fullName, quickActions }: { fullName: string; quic
         }
       />
       <Feedback error={error} />
-      {!inicio && !error && <p role="status">Cargando tu inicio…</p>}
+      {!inicio && !error && <Loading skeleton={<IndicadoresSkeleton />}>Cargando tu inicio…</Loading>}
       {inicio && (
         <div className={styles.indicadores}>
           {indicadores.map(({ valor, etiqueta, icono, tono }) => (
@@ -147,6 +203,7 @@ export function TeacherHome({ fullName, quickActions }: { fullName: string; quic
       )}
       {/* Las acciones rápidas no dependen de los datos: siguen disponibles aunque el inicio falle. */}
       <div className={styles.columnas}>
+        {!inicio && !error && <TarjetasSkeleton />}
         {inicio && (
           <>
             <article className={styles.tarjeta}>

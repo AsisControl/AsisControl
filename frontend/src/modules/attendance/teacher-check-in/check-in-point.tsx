@@ -7,6 +7,7 @@ import type { DocenteOption } from "./types";
 import { useDynamicQr } from "./use-dynamic-qr";
 import styles from "./teacher-check-in.module.css";
 
+import { Loading } from "@/shared/ui";
 /**
  * Punto de marcación (administrador): muestra el QR dinámico que el docente
  * escanea desde su sesión. El código lo genera y valida el backend.
@@ -79,7 +80,7 @@ export function CheckInPoint({ canWrite }: { canWrite: boolean }) {
               />
             </label>
             {loading ? (
-              <p className={styles.muted}>Cargando docentes…</p>
+              <Loading variant="inline">Cargando docentes…</Loading>
             ) : loadError ? (
               <p role="alert" className={styles.error}>
                 {loadError}

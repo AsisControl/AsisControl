@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, PageHeader } from "@/shared/ui";
+import { Feedback, PageHeader, Loading } from "@/shared/ui";
 import { listarAsignacionesPropias, obtenerPlanilla } from "./services/evaluation-service";
 import { evaluationDate, LEVEL_SCALE, PERIODS, sectionOf } from "./lib/labels";
 import type { Evaluation, GradeSheetData, GradeSheetStudent, OwnAssignment } from "./types";
@@ -21,7 +21,7 @@ function ReadPanel<T>({ load, children }: { load: () => Promise<T>; children: (d
     );
     return () => { active = false; };
   }, [load, attempt]);
-  if (!result) return <p role="status">Cargando progreso…</p>;
+  if (!result) return <Loading>Cargando progreso…</Loading>;
   if ("error" in result) return <div className="panel">
     <Feedback error={result.error} />
     <button type="button" className="secondary-action" onClick={() => {

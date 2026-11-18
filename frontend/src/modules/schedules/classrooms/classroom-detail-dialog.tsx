@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, StatusPill } from "@/shared/ui";
+import { Dialog, StatusPill, Loading } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import {
   classroomTypeLabels,
@@ -81,7 +81,7 @@ export function ClassroomDetailDialog({
       </dl>
       <h4>Horarios en esta aula</h4>
       {schedules.state === "loading" ? (
-        <p role="status">Cargando horarios…</p>
+        <Loading skeleton="list" rows={3}>Cargando horarios…</Loading>
       ) : schedules.state === "error" ? (
         <p className="form-error" role="alert">
           {schedules.error}

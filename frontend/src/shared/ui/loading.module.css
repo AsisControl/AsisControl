@@ -1,0 +1,66 @@
+.loading {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 15px;
+  gap: 12px;
+  line-height: 22px;
+  margin: 0;
+}
+/* Contenedor del esqueleto: ocupa el lugar del contenido real, sin espacio extra. */
+.skeleton {
+  margin: 0;
+  position: relative;
+}
+/* Texto solo para lectores de pantalla. */
+.srOnly {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.inline {
+  font-size: 14px;
+  padding: 6px 0;
+}
+.screen {
+  flex-direction: column;
+  font-size: 16px;
+  gap: 16px;
+}
+/* Anillo gris con un tramo del color principal (sigue el azul de marca). */
+.spinner {
+  animation: giro 0.8s linear infinite;
+  border: 3px solid #dbe3ef;
+  border-radius: 50%;
+  border-top-color: var(--blue);
+  flex: none;
+  height: 28px;
+  width: 28px;
+}
+.inline .spinner {
+  border-width: 2.5px;
+  height: 18px;
+  width: 18px;
+}
+.screen .spinner {
+  border-width: 4px;
+  height: 48px;
+  width: 48px;
+}
+@keyframes giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Con movimiento reducido sigue indicando actividad, pero mucho más lento. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}

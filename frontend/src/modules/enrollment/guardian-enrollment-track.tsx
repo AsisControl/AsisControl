@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, message } from "@/core/api/client";
-import { StatusPill } from "@/shared/ui";
+import { StatusPill, Loading } from "@/shared/ui";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
 import { EnrollmentHistory } from "./enrollment-history";
@@ -124,7 +124,7 @@ export function GuardianEnrollmentTrack({ request }: { request: GuardianRequest 
       {error ? (
         <p className="hint">No se pudo cargar el historial: {error}</p>
       ) : !tracking ? (
-        <p role="status">Cargando historial…</p>
+        <Loading skeleton="list">Cargando historial…</Loading>
       ) : tracking.events.length ? (
         <EnrollmentHistory events={tracking.events} showActor={false} />
       ) : (

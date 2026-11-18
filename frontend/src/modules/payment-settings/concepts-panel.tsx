@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, Feedback, Field, PanelHeading, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, Field, PanelHeading, StatusPill, Loading } from "@/shared/ui";
 import { deactivateSettings, saveSettings, SETTINGS_PATH } from "./services/settings-service";
 import { SettingsReasonDialog } from "./reason-dialog";
 import { useSettingsList } from "./use-settings-list";
@@ -18,7 +18,7 @@ export function ConceptsPanel({ canWrite }: { canWrite: boolean }) {
   return <section className="panel"><PanelHeading title="Conceptos de cobro" summary="Organiza los conceptos que utiliza la institución y sus condiciones de emisión."
     actions={canWrite && <button type="button" className="primary-action" onClick={() => setEditing("new")}>Nuevo concepto</button>} />
     <Feedback error={list.error} success={success} />
-    {list.loading ? <p role="status">Cargando conceptos…</p> : list.error ? <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar conceptos</button> : !list.items.length ? <p className={styles.empty}>Todavía no hay conceptos registrados.</p> : <div className={styles.tableWrap}><table className={`user-table ${styles.table}`} aria-label="Conceptos de cobro"><thead><tr><th>Concepto</th><th>Frecuencia</th><th>Importe sugerido</th><th>Aceptación</th><th>Estado</th>{canWrite && <th>Acciones</th>}</tr></thead><tbody>{list.items.map((item) => <tr key={item.id}>
+    {list.loading ? <Loading>Cargando conceptos…</Loading> : list.error ? <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar conceptos</button> : !list.items.length ? <p className={styles.empty}>Todavía no hay conceptos registrados.</p> : <div className={styles.tableWrap}><table className={`user-table ${styles.table}`} aria-label="Conceptos de cobro"><thead><tr><th>Concepto</th><th>Frecuencia</th><th>Importe sugerido</th><th>Aceptación</th><th>Estado</th>{canWrite && <th>Acciones</th>}</tr></thead><tbody>{list.items.map((item) => <tr key={item.id}>
       <td><strong>{item.nombre}</strong><small>{item.codigo}</small>{item.descripcion && <small>{item.descripcion}</small>}</td>
       <td>{item.periodicidad === "MENSUAL" ? "Mensual" : "Pago único"}</td><td>{item.esPension ? "Según año y grado" : item.montoSugerido == null ? "Al emitir" : soles(item.montoSugerido)}</td>
       <td>{item.requiereAceptacion ? "Requiere aceptación familiar" : "Emisión autorizada"}</td><td><StatusPill state={item.activo ? "ACTIVO" : "INACTIVO"} tone={item.activo ? "success" : "neutral"} /></td>

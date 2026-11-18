@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { message } from "@/core/api/client";
-import { Eye, Feedback, Pager } from "@/shared/ui";
+import { Eye, Feedback, Pager, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { roleLabel } from "@/shared/lib/formatters";
 import type { Audit, Role } from "../types";
@@ -159,7 +159,7 @@ export function AuditLog() {
           )}
         </div>
         {list.loading ? (
-          <p role="status">Cargando auditoría…</p>
+          <Loading>Cargando auditoría…</Loading>
         ) : list.data?.content.length ? (
           <div className={styles.tableWrap}>
             <table className={`user-table ${styles.table}`}>

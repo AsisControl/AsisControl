@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { message } from "@/core/api/client";
 import type { Page } from "@/shared/types/api";
-import { Feedback, Pager, StatusPill } from "@/shared/ui";
+import { Feedback, Pager, StatusPill, Loading } from "@/shared/ui";
 import { JustifyDialog } from "./justify-dialog";
 import { detalleFila, etiquetaMes, fechaCorta, presentarEstado, puedeJustificar, resumir } from "./lib";
 import { listarAsistencias, listarEstudiantes } from "./services/asistencia-apoderado-service";
@@ -104,9 +104,9 @@ export function GuardianAttendance() {
         Puedes consultar la asistencia del estudiante seleccionado y solicitar la justificación de sus inasistencias.
       </p>
       <Feedback error={error} success={exito} />
-      {!error && !estudiantes && <p role="status">Cargando estudiantes…</p>}
+      {!error && !estudiantes && <Loading>Cargando estudiantes…</Loading>}
       {estudiantes?.length === 0 && <p className={styles.vacio}>No tienes estudiantes asociados.</p>}
-      {!error && alumnoId !== null && !asistencias && <p role="status">Cargando asistencia…</p>}
+      {!error && alumnoId !== null && !asistencias && <Loading>Cargando asistencia…</Loading>}
       {asistencias && (
         <>
           <div className={styles.filtros}>

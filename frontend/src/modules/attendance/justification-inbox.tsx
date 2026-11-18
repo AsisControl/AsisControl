@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import type { Page } from "@/shared/types/api";
-import { Feedback, Pager, StatusPill } from "@/shared/ui";
+import { Feedback, Pager, StatusPill, Loading } from "@/shared/ui";
 import { JustificationDialog } from "./justification-dialog";
 import { fechaHora, fechaSesion, indicadorJustificacion } from "./lib";
 import { listarJustificaciones } from "./services/asistencia-service";
@@ -74,7 +74,7 @@ export function JustificationInbox() {
         ))}
       </div>
       <Feedback error={error} success={exito} />
-      {!error && !datos && <p role="status">Cargando justificaciones…</p>}
+      {!error && !datos && <Loading skeleton="list">Cargando justificaciones…</Loading>}
       {datos && datos.content.length === 0 && <p className={styles.vacio}>{BANDEJAS[bandeja].vacio}</p>}
       {datos && datos.content.length > 0 && (
         <div className={styles.historial}>

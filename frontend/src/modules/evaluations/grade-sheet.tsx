@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ApiError, message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
+import { Feedback, Loading } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import { LEVEL_SCALE, LEVELS } from "./lib/labels";
 import { corregirNiveles, guardarNiveles, obtenerPlanilla } from "./services/evaluation-service";
@@ -54,7 +54,7 @@ export function GradeSheet({
     };
   }, [evaluationId, tick]);
   if (loadError) return <Feedback error={loadError} />;
-  if (!sheet) return <p role="status">Cargando planilla…</p>;
+  if (!sheet) return <Loading rows={6} columns={5}>Cargando planilla…</Loading>;
   const { evaluacion, alumnos } = sheet;
   const draft = evaluacion.estado === "BORRADOR";
   const correction = evaluacion.estado === "PUBLICADA";

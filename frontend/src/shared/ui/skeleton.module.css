@@ -1,0 +1,104 @@
+/* Hueso del esqueleto: gris de los bordes del sistema con un brillo que lo recorre. */
+.bone {
+  animation: brillo 1.6s ease-in-out infinite;
+  background: linear-gradient(90deg, #e8edf4 0%, #f3f6fa 45%, #e8edf4 90%);
+  background-size: 220% 100%;
+  border-radius: 4px;
+  display: block;
+  flex: none;
+  max-width: 100%;
+}
+@keyframes brillo {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+/* Sin movimiento: queda el bloque gris, que ya comunica que falta contenido. */
+@media (prefers-reduced-motion: reduce) {
+  .bone {
+    animation: none;
+    background: #e8edf4;
+  }
+}
+
+.table {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.tableRow {
+  align-items: center;
+  border-top: 1px solid #eef2f7;
+  display: grid;
+  gap: 16px;
+  min-height: 52px;
+  padding: 0 16px;
+}
+.tableHead {
+  background: var(--surface);
+  border-top: 0;
+  min-height: 40px;
+}
+
+.list {
+  display: grid;
+  gap: 4px;
+}
+.listItem {
+  border-bottom: 1px solid #eef2f7;
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.detail {
+  display: grid;
+  gap: 18px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  padding: 4px 0;
+}
+.detailField {
+  display: grid;
+  gap: 8px;
+}
+
+.cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.timetable {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 72px repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+}
+.timetableCell {
+  align-content: center;
+  border-right: 1px solid #eef2f7;
+  border-top: 1px solid #eef2f7;
+  display: grid;
+  min-height: 56px;
+  padding: 6px 8px;
+}
+.timetableCell:nth-child(6n) {
+  border-right: 0;
+}
+.timetableCell:nth-child(-n + 6) {
+  background: var(--surface);
+  border-top: 0;
+  min-height: 40px;
+}

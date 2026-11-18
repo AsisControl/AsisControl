@@ -9,6 +9,7 @@ import {
   PanelHeading,
   PersonCell,
   StatusPill,
+  Loading,
 } from "@/shared/ui";
 import { CommitmentDetail } from "./commitment-detail";
 import { CommitmentForm } from "./commitment-form";
@@ -103,7 +104,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
         <Feedback error={list.error} success={success} />
         <CommitmentFilters applied={filters} onApply={applyFilters} />
         {list.loading ? (
-          <p role="status">Cargando compromisos…</p>
+          <Loading>Cargando compromisos…</Loading>
         ) : list.error ? (
           <p className="empty">
             No pudimos cargar los compromisos. Intenta actualizar la lista.

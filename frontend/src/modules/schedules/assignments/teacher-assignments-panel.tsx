@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Feedback, PanelHeading, Pager, RowMenu, StatusPill } from "@/shared/ui";
+import { Feedback, PanelHeading, Pager, RowMenu, StatusPill, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import type { AssignmentState, TeacherAssignment } from "../types";
@@ -107,7 +107,7 @@ export function TeacherAssignmentsPanel({ canWrite }: { canWrite: boolean }) {
       </div>
       <Feedback error={assignments.error} success={success} />
       {assignments.loading ? (
-        <p role="status">Cargando asignaciones…</p>
+        <Loading>Cargando asignaciones…</Loading>
       ) : rows.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>

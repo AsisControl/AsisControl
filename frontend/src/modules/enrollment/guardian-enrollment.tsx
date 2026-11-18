@@ -9,6 +9,7 @@ import {
   PanelHeading,
   PersonCell,
   StatusPill,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, shortDateLabel, timeLabel } from "@/shared/lib/formatters";
@@ -184,7 +185,7 @@ export function GuardianEnrollment({ navigation }: { navigation?: ReactNode } = 
         />
         <Feedback error={error || list.error} success={success} />
         {!students && !error && (
-          <p role="status">Cargando estudiantes asociados…</p>
+          <Loading skeleton="cards" rows={2}>Cargando estudiantes asociados…</Loading>
         )}
         {students?.length === 0 && (
           <p className="hint">
@@ -218,7 +219,7 @@ export function GuardianEnrollment({ navigation }: { navigation?: ReactNode } = 
           </label>
         )}
         {list.loading ? (
-          <p role="status">Cargando solicitudes…</p>
+          <Loading skeleton="list" rows={3}>Cargando solicitudes…</Loading>
         ) : list.data?.content.length ? (
           <div className="user-table-wrap">
             <table className="user-table">
