@@ -71,7 +71,7 @@ class CargaMasivaFamiliasIntegrationTest {
     @Test
     void unArchivoIlegibleSeInformaYTampocoSeGuardaNada() {
         var familia = new Familia();
-        var sinCabeceras = excel("parentescos.xlsx", List.of("codigoAlumno"));
+        var sinCabeceras = excel("parentescos.xlsx", List.of("numeroDocumentoAlumno"));
 
         var resultado = carga.procesar(familia.estudiantes(), familia.apoderados(), sinCabeceras, true);
 
@@ -90,7 +90,12 @@ class CargaMasivaFamiliasIntegrationTest {
 
         assertThat(resultado.valid()).isTrue();
         assertThat(resultado.saved()).isTrue();
-        var alumno = alumnoRepository.findByCodigoAlumnoIgnoreCase(familia.codigo).orElseThrow();
+        var persona = personaRepository
+                .findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, familia.alumnoDni)
+                .orElseThrow();
+        var alumno = alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()).orElseThrow();
+        // La columna codigoAlumno de un archivo antiguo se ignora: el código lo genera el sistema.
+        assertThat(alumno.getCodigoAlumno()).startsWith("EST").isNotEqualTo(familia.codigo);
         assertThat(personas.getAlumno(alumno.getId()).apoderados())
                 .extracting(PersonaDtos.ApoderadoVinculadoResponse::nombreCompleto)
                 .containsExactly("Carmen Ramos Quispe");
@@ -115,7 +120,7 @@ class CargaMasivaFamiliasIntegrationTest {
 
         MockMultipartFile parentescos(String parentesco) {
             return excel("parentescos.xlsx", PlantillaFamiliaService.RELATIONSHIP_HEADERS,
-                    List.of(codigo, "DNI", madreDni, parentesco, "SI"));
+                    List.of("DNI", alumnoDni, "DNI", madreDni, parentesco, "SI"));
         }
 
         void noSeGuardo() {

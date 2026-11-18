@@ -69,7 +69,7 @@ class AdministracionMatriculaIntegrationTest {
                         null,
                         key + "@example.test",
                         null);
-        return personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(person, "EST" + key)).id();
+        return personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(person)).id();
     }
 
     private SolicitudMatriculaResponse enRevision() {

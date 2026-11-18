@@ -62,10 +62,10 @@ class PlantillasFamiliaHttpTest {
                 "plantilla_parentescos.xlsx")) {
             Sheet sheet = workbook.getSheet("Parentescos");
             assertThat(cells(sheet.getRow(0))).containsExactly(
-                    "codigoAlumno", "tipoDocumentoApoderado", "numeroDocumentoApoderado",
-                    "parentesco", "principal");
+                    "tipoDocumentoAlumno", "numeroDocumentoAlumno", "tipoDocumentoApoderado",
+                    "numeroDocumentoApoderado", "parentesco", "principal");
             assertThat(cells(sheet.getRow(1)))
-                    .containsExactly("EST-0001", "DNI", "40000001", "MADRE", "SI");
+                    .containsExactly("DNI", "70000001", "DNI", "40000001", "MADRE", "SI");
             assertThat(sheet.getDataValidations())
                     .extracting(validation -> List.of(
                             validation.getValidationConstraint().getExplicitListValues()))

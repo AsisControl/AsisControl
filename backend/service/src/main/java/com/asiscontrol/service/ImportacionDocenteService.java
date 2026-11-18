@@ -23,11 +23,11 @@ import java.util.Map;
 public class ImportacionDocenteService {
 
     private static final List<String> COLUMNAS = List.of(
-            "codigoDocente", "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
+            "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
             "apellidoMaterno", "sexo", "fechaNacimiento", "fechaIngreso", "especialidad",
             "telefono", "correo", "direccion");
     private static final List<String> EJEMPLO = List.of(
-            "DOC-0001", "DNI", "41000001", "Patricia", "Morales", "Rios", "FEMENINO", "1985-03-14",
+            "DNI", "41000001", "Patricia", "Morales", "Rios", "FEMENINO", "1985-03-14",
             "2020-03-01", "MATEMATICA", "999888777", "patricia.morales@ejemplo.com", "Lima");
     /**
      * Desde V5 la base admite personas sin segundo apellido, documento, sexo ni correo (fichas de
@@ -102,9 +102,9 @@ public class ImportacionDocenteService {
                 fila.opcional("telefono"),
                 fila.obligatorio("correo"),
                 fila.opcional("direccion"));
+        // El código del docente lo genera el sistema; una columna codigoDocente se ignora.
         return new PersonaDtos.DocenteCreateRequest(
                 persona,
-                fila.obligatorio("codigoDocente"),
                 fila.fecha("fechaIngreso"),
                 fila.enumerado(Especialidad.class, "especialidad", List.of(Especialidad.values())));
     }

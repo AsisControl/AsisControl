@@ -59,7 +59,7 @@ class ImportacionFamiliaIntegrationTest {
     void registraLasFilasValidasYReportaLasDemasPorFila() {
         String a = dni(), b = dni(), docente = dni();
         personas.createDocente(new PersonaDtos.DocenteCreateRequest(
-                persona(docente, "Rosa", "Pizarro"), "DOC" + docente, LocalDate.now(),
+                persona(docente, "Rosa", "Pizarro"), LocalDate.now(),
                 Especialidad.TUTORIA));
 
         var result = importacion.importGuardians(excel(GUARDIAN,
@@ -84,27 +84,27 @@ class ImportacionFamiliaIntegrationTest {
     }
 
     @Test
-    void vinculaPorCodigoYDocumentoConUnSoloPrincipalPorEstudiante() {
-        String codigo = "EST" + dni();
+    void vinculaPorDocumentosConUnSoloPrincipalPorEstudiante() {
+        String alumnoDni = dni();
         var alumno = personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(
-                persona(dni(), "Mateo", "Ramos", LocalDate.of(2014, 2, 3)), codigo));
+                persona(alumnoDni, "Mateo", "Ramos", LocalDate.of(2014, 2, 3))));
         String madre = dni(), padre = dni();
         importacion.importGuardians(excel(GUARDIAN,
                 guardian(madre, "Carmen", "Ramos", "FEMENINO", madre + "@familia.pe"),
                 guardian(padre, "Jorge", "Ramos", "MASCULINO", padre + "@familia.pe")));
 
         var result = importacion.importRelationships(excel(RELATIONSHIP,
-                List.of(codigo.toLowerCase(), "DNI", madre, "MADRE", "SI"),
-                List.of(codigo, "DNI", padre, "PADRE", "si"),
-                List.of(codigo, "DNI", padre, "PADRE", "NO"),
-                List.of("NO-EXISTE", "DNI", padre, "PADRE", "NO"),
-                List.of(codigo, "DNI", "99999999", "PADRE", "NO"),
-                List.of(codigo, "DNI", padre, "NO_DECLARADO", "NO")));
+                List.of("dni", alumnoDni, "DNI", madre, "MADRE", "SI"),
+                List.of("DNI", alumnoDni, "DNI", padre, "PADRE", "si"),
+                List.of("DNI", alumnoDni, "DNI", padre, "PADRE", "NO"),
+                List.of("DNI", "11111111", "DNI", padre, "PADRE", "NO"),
+                List.of("DNI", alumnoDni, "DNI", "99999999", "PADRE", "NO"),
+                List.of("DNI", alumnoDni, "DNI", padre, "NO_DECLARADO", "NO")));
 
         assertThat(result.importedRows()).isEqualTo(2);
         assertThat(result.issues()).extracting(PersonaDtos.ImportIssue::row).containsExactly(3, 5, 6, 7);
         assertThat(result.issues().get(0).message()).contains("ya tiene un apoderado principal en la fila 2");
-        assertThat(result.issues().get(1).message()).isEqualTo("No hay un estudiante habilitado con el codigo NO-EXISTE");
+        assertThat(result.issues().get(1).message()).isEqualTo("No hay un estudiante habilitado con el documento DNI 11111111");
         assertThat(result.issues().get(2).message()).contains("Importalo primero");
         assertThat(result.issues().get(3).message()).isEqualTo("El valor de parentesco no esta permitido");
         assertThat(personas.getAlumno(alumno.id()).apoderados())

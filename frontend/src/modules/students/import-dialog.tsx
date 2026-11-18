@@ -42,7 +42,7 @@ const IMPORT_SLOTS: ImportSlot[] = [
   {
     id: "estudiantes",
     title: "Estudiantes",
-    description: "Una fila por estudiante, con su código.",
+    description: "Una fila por estudiante, con su documento. El código lo genera el sistema.",
     template: {
       fileName: "plantilla_alumnos.xlsx",
       download: downloadStudentTemplate,
@@ -62,7 +62,7 @@ const IMPORT_SLOTS: ImportSlot[] = [
     id: "parentescos",
     title: "Parentescos",
     description:
-      "Une a cada estudiante con su apoderado: código del estudiante, documento del apoderado, parentesco (padre, madre, tutor legal u otro familiar) y si es el principal.",
+      "Une a cada estudiante con su apoderado: documento del estudiante, documento del apoderado, parentesco (padre, madre, tutor legal u otro familiar) y si es el principal.",
     template: {
       fileName: "plantilla_parentescos.xlsx",
       download: downloadRelationshipTemplate,
@@ -190,7 +190,7 @@ export function FamilyImportDialog({
               </h4>
               <p className={styles.slotText}>
                 Descarga las tres y complétalas juntas. En parentescos usa el
-                mismo código del estudiante y el mismo documento del apoderado.
+                mismo documento del estudiante y el mismo documento del apoderado.
               </p>
               <div className={styles.templateList}>
                 {IMPORT_SLOTS.map((slot) => (

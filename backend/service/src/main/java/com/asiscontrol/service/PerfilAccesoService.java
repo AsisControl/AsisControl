@@ -26,14 +26,17 @@ public class PerfilAccesoService {
     private final AccesoUsuarioRepository accesos;
     private final PersonaService personaService;
     private final AuditoriaService auditoria;
+    private final CodigoInstitucionalService codigos;
 
     public PerfilAccesoService(PersonaRepository personas, AdministradorRepository administradores,
         AlumnoRepository alumnos, DocenteRepository docentes, ApoderadoRepository apoderados,
         AlumnoApoderadoRepository vinculos, AccesoUsuarioRepository accesos,
-        PersonaService personaService, AuditoriaService auditoria) {
+        PersonaService personaService, AuditoriaService auditoria,
+        CodigoInstitucionalService codigos) {
         this.personas = personas; this.administradores = administradores; this.alumnos = alumnos;
         this.docentes = docentes; this.apoderados = apoderados; this.vinculos = vinculos;
         this.accesos = accesos; this.personaService = personaService; this.auditoria = auditoria;
+        this.codigos = codigos;
     }
 
     @Transactional(readOnly = true)
@@ -74,26 +77,29 @@ public class PerfilAccesoService {
             switch (role) {
                 case "ADMINISTRADOR" -> {
                     if (administradores.existsByPersonaId(p.getId())) inactive();
-                    Administrador a = new Administrador(); a.setPersona(p); administradores.save(a);
+                    Administrador a = new Administrador(); a.setPersona(p);
+                    a.setCodigoAdministrador(codigos.siguiente(CodigoInstitucionalService.Prefijo.ADM));
+                    administradores.save(a);
                 }
                 case "ALUMNO", "ESTUDIANTE" -> {
                     if (alumnos.existsByPersonaId(p.getId())) inactive();
-                    String code = code(r.codigoAlumno());
-                    if (alumnos.findByCodigoAlumnoIgnoreCase(code).isPresent()) duplicate();
-                    Alumno a = new Alumno(); a.setPersona(p); a.setCodigoAlumno(code); alumnos.save(a);
+                    Alumno a = new Alumno(); a.setPersona(p);
+                    a.setCodigoAlumno(codigos.siguiente(CodigoInstitucionalService.Prefijo.EST));
+                    alumnos.save(a);
                 }
                 case "DOCENTE" -> {
                     if (docentes.existsByPersonaId(p.getId())) inactive();
-                    String code = code(r.codigoDocente());
                     if (r.fechaIngreso() == null || r.fechaIngreso().isAfter(LocalDate.now()) || r.especialidad() == null)
                         invalid("Indique una fecha de ingreso no futura y una especialidad");
-                    if (docentes.findByCodigoDocenteIgnoreCase(code).isPresent()) duplicate();
-                    Docente d = new Docente(); d.setPersona(p); d.setCodigoDocente(code);
+                    Docente d = new Docente(); d.setPersona(p);
+                    d.setCodigoDocente(codigos.siguiente(CodigoInstitucionalService.Prefijo.DOC));
                     d.setFechaIngreso(r.fechaIngreso()); d.setEspecialidad(r.especialidad()); docentes.save(d);
                 }
                 case "APODERADO" -> {
                     if (apoderados.existsByPersonaId(p.getId())) inactive();
-                    Apoderado a = new Apoderado(); a.setPersona(p); apoderados.save(a);
+                    Apoderado a = new Apoderado(); a.setPersona(p);
+                    a.setCodigoApoderado(codigos.siguiente(CodigoInstitucionalService.Prefijo.APO));
+                    apoderados.save(a);
                 }
                 default -> invalid("El rol no pertenece a los cuatro perfiles institucionales");
             }
@@ -114,11 +120,28 @@ public class PerfilAccesoService {
             }
         }
     }
-    private String code(String code) {
-        if (code == null || code.isBlank() || code.trim().length() > 30) invalid("El codigo del perfil es obligatorio y admite hasta 30 caracteres");
-        return code.trim().toUpperCase(java.util.Locale.ROOT);
+    /**
+     * Código institucional del perfil habilitado para el rol, o null si no tiene. Con
+     * asignarSiFalta, un apoderado o administrador sin código (registrado fuera de las altas del
+     * sistema) recibe uno; requiere una transacción de escritura.
+     */
+    public String codigoPerfil(Long personaId, String role, boolean asignarSiFalta) {
+        return switch (role) {
+            case "ADMINISTRADOR" -> administradores.findByPersonaIdAndActivoTrue(personaId).map(a -> {
+                if (asignarSiFalta && a.getCodigoAdministrador() == null)
+                    a.setCodigoAdministrador(codigos.siguiente(CodigoInstitucionalService.Prefijo.ADM));
+                return a.getCodigoAdministrador();
+            }).orElse(null);
+            case "DOCENTE" -> docentes.findByPersonaIdAndActivoTrue(personaId).map(Docente::getCodigoDocente).orElse(null);
+            case "ALUMNO", "ESTUDIANTE" -> alumnos.findByPersonaIdAndActivoTrue(personaId).map(Alumno::getCodigoAlumno).orElse(null);
+            case "APODERADO" -> apoderados.findByPersonaIdAndActivoTrue(personaId).map(a -> {
+                if (asignarSiFalta && a.getCodigoApoderado() == null)
+                    a.setCodigoApoderado(codigos.siguiente(CodigoInstitucionalService.Prefijo.APO));
+                return a.getCodigoApoderado();
+            }).orElse(null);
+            default -> null;
+        };
     }
     private void invalid(String message) { throw new BusinessRuleException("DATOS_ACCESO_INVALIDOS", message); }
     private void inactive() { throw new ConflictException("PERFIL_INACTIVO", "La persona ya tiene un perfil inactivo; revise su estado"); }
-    private void duplicate() { throw new ConflictException("CODIGO_DUPLICADO", "El codigo del perfil ya existe"); }
 }
