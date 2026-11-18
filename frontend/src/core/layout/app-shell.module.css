@@ -35,6 +35,31 @@
   background: var(--role-brand, var(--role-accent));
   border: 2px solid var(--role-accent-on-brand);
   color: #fff;
+  flex: none;
+}
+.accountIdentity {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.accountIdentity strong {
+  font-size: 12px;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roleBadge {
+  background: #ffffff0d;
+  border: 1px solid color-mix(in srgb, var(--role-accent-on-brand) 50%, transparent);
+  border-radius: 999px;
+  color: var(--role-accent-on-brand);
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  padding: 1px 6px;
 }
 .header :global(.brand) > span:last-child {
   min-width: 0;
@@ -68,7 +93,7 @@
     position: relative;
     flex-wrap: nowrap;
     gap: 8px;
-    height: 60px;
+    height: auto;
     min-height: 60px;
     padding: 8px 16px;
   }
@@ -90,16 +115,27 @@
     font-size: 10px;
     line-height: 14px;
   }
-  .header :global(.account-name) {
+  .header :global(.account-trigger) {
+    gap: 6px;
+  }
+  .accountIdentity strong {
     display: none;
+  }
+  .header .accountAvatar {
+    font-size: 10px;
+    height: 24px;
+    width: 24px;
   }
   .header :global(.account) {
     flex: none;
     margin-left: 0;
+    min-width: 0;
   }
   .header :global(.account-menu) {
     max-width: calc(100vw - 32px);
+    overflow-wrap: anywhere;
     right: 0;
+    top: calc(100% + 8px);
   }
   .header .menuButton {
     align-items: center;
@@ -127,7 +163,7 @@
     flex-direction: column;
     gap: 0;
     left: 16px;
-    max-height: min(360px, calc(100dvh - 76px));
+    max-height: min(360px, 50dvh);
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -146,6 +182,14 @@
     padding: 6px 12px;
     white-space: normal;
     width: 100%;
+  }
+}
+@media (max-width: 420px) {
+  .header:global(.top-nav) {
+    padding-inline: 12px;
+  }
+  .header :global(.brand-icon) {
+    display: none;
   }
 }
 /* Aviso no bloqueante: la pantalla actual se conserva mientras se reintenta. */

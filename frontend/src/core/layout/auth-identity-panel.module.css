@@ -6,12 +6,16 @@
   min-height: 100svh;
 }
 .screen > :global(.login-form-panel) {
+  background: #fff;
   min-height: 0;
   min-width: 0;
 }
 .screen > :global(.login-form-panel) > :global(.login-form) {
   max-width: 100%;
   min-width: 0;
+}
+.compactScreen {
+  min-height: 100dvh;
 }
 .panel {
   background: #1e3a8a;
@@ -192,5 +196,19 @@
   .circleTop {
     height: 220px;
     width: 220px;
+  }
+}
+@media (min-width: 761px) {
+  .compactScreen > section {
+    padding-block: 32px;
+  }
+  .compactScreen .identityContent {
+    margin-top: 32px;
+  }
+  .compactScreen .identityContent h2 {
+    line-height: 1.1;
+  }
+  .compactScreen .identityContent p {
+    margin-block: 12px 24px;
   }
 }

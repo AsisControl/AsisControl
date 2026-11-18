@@ -8,7 +8,7 @@ import { Brand } from "../layout/brand";
 import { HomeQuickActions } from "../layout/home-quick-actions";
 import { RoleContext } from "../layout/role-context";
 import { ModuleOutlet } from "../navigation/module-outlet";
-import { roleDetails } from "../navigation/navigation";
+import { roleDetails, roleLabels } from "../navigation/navigation";
 
 vi.mock("next/navigation", () => import("../../../tests/support/navigation.js"));
 vi.mock("next/link", () => import("../../../tests/support/next-link.jsx"));
@@ -42,6 +42,12 @@ test.each([
   expect(within(context).getByText(title)).toBeTruthy();
   expect(context.querySelector("svg[aria-hidden='true']")).toBeTruthy();
   expect(within(header).getByText("AsisControl")).toBeTruthy();
+  const account = within(header).getByRole("button", { name: "Abrir menú de usuario" });
+  const name = within(account).getByText("Ana Ramos");
+  const badge = within(account).getByText(role);
+  expect(badge.nextElementSibling).toBe(name);
+  expect(within(account).getByText("AR")).toBeTruthy();
+  expect(within(account).queryByText(roleLabels[role])).toBeNull();
   expect(within(header).queryByText("Colegio PUCP")).toBeNull();
   expect(within(header).queryByRole("link")).toBeNull();
   expect(screen.queryByRole("complementary", { name: "Espacio del usuario" })).toBeNull();

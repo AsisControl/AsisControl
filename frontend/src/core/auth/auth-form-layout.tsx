@@ -8,17 +8,19 @@ export type AuthFormIcon = "shield" | "lock" | "check";
 export function AuthFormLayout({
   label,
   icon,
+  compact = false,
   backLink,
   children,
 }: {
   label: string;
   icon: AuthFormIcon;
+  compact?: boolean;
   backLink?: ReactNode;
   children: ReactNode;
 }) {
   const isSuccess = icon === "check";
   return (
-    <main className={identityStyles.screen}>
+    <main className={compact ? `${identityStyles.screen} ${identityStyles.compactScreen}` : identityStyles.screen}>
       <AuthIdentityPanel />
       <section
         className={`${styles.content} ${isSuccess ? styles.successContent : ""}`}
