@@ -46,7 +46,9 @@ public class PagosFamiliaService {
     private final TokenQrPagoService tokens;
     private final AuditoriaService auditoria;
     private final EntityManager em;
+    private final SaldoCompromisoService saldos;
     private final boolean habilitado;
+    private final boolean escenariosClienteHabilitados;
     private final String frontendUrl;
     private final String institucion;
 
@@ -54,7 +56,9 @@ public class PagosFamiliaService {
             CompromisoPagoRepository compromisos, TransaccionPagoRepository transacciones,
             ComprobanteRepository comprobantes, ConsultaObligacionesService acceso,
             TokenQrPagoService tokens, AuditoriaService auditoria, EntityManager em,
+            SaldoCompromisoService saldos,
             @Value("${app.pagos.simulador.enabled:true}") boolean habilitado,
+            @Value("${app.pagos.simulador.escenarios-cliente:false}") boolean escenariosClienteHabilitados,
             @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl,
             @Value("${app.pagos.institucion:Colegio PUCP}") String institucion) {
         this.ordenes = ordenes;
@@ -66,7 +70,9 @@ public class PagosFamiliaService {
         this.tokens = tokens;
         this.auditoria = auditoria;
         this.em = em;
+        this.saldos = saldos;
         this.habilitado = habilitado;
+        this.escenariosClienteHabilitados = escenariosClienteHabilitados;
         URI url = URI.create(frontendUrl.trim());
         if (!("http".equalsIgnoreCase(url.getScheme()) || "https".equalsIgnoreCase(url.getScheme()))
                 || url.getHost() == null || url.getUserInfo() != null || url.getQuery() != null || url.getFragment() != null) {
@@ -184,37 +190,46 @@ public class PagosFamiliaService {
         return respuesta(orden, false);
     }
 
+    @Transactional(noRollbackFor = TransicionPagoInvalida.class)
     public PagosFamiliaDto.OrdenResponse confirmarTarjeta(Long id, PagosFamiliaDto.TarjetaRequest request) {
         verificarHabilitado();
         OrdenPago orden = propia(id);
         if (orden.getMetodo() != MetodoPagoSimulado.TARJETA) {
             throw new BusinessRuleException("METODO_PAGO_INCORRECTO", "La orden no corresponde a un pago con tarjeta.");
         }
+        var escenario = request == null || request.escenario() == null
+                ? PagosFamiliaDto.EscenarioTarjeta.APROBADO : request.escenario();
+        if (escenario != PagosFamiliaDto.EscenarioTarjeta.APROBADO) verificarEscenariosCliente();
         expirar(orden);
-        if (terminal(orden) || orden.getEstado() == EstadoOrdenPago.REQUIERE_AUTENTICACION) {
-            return respuesta(orden, false);
-        }
-        switch (request.escenario()) {
+        var destino = switch (escenario) {
+            case APROBADO -> EstadoOrdenPago.COMPLETADO;
+            case FONDOS_INSUFICIENTES, RECHAZADO -> EstadoOrdenPago.RECHAZADO;
+            case REQUIERE_AUTENTICACION -> EstadoOrdenPago.REQUIERE_AUTENTICACION;
+        };
+        if (orden.getEstado() == destino) return respuesta(orden, false);
+        if (orden.getEstado() != EstadoOrdenPago.PENDIENTE) throw new TransicionPagoInvalida(orden.getEstado());
+        switch (escenario) {
             case APROBADO -> aprobar(orden);
             case FONDOS_INSUFICIENTES -> rechazar(orden, "Pago rechazado por fondos insuficientes.");
             case RECHAZADO -> rechazar(orden, "La tarjeta fue rechazada. Puedes iniciar otro intento.");
             case REQUIERE_AUTENTICACION -> {
-                var antes = orden.getEstado();
-                orden.setEstado(EstadoOrdenPago.REQUIERE_AUTENTICACION);
-                orden.setMensaje("Confirma la autenticación para continuar.");
-                auditar("AUTENTICACION_PAGO_REQUERIDA", orden, antes);
+                cambiarEstado(orden, EstadoOrdenPago.REQUIERE_AUTENTICACION,
+                        "Confirma la autenticación para continuar.", "AUTENTICACION_PAGO_REQUERIDA");
             }
         }
         return respuesta(orden, false);
     }
 
+    @Transactional(noRollbackFor = TransicionPagoInvalida.class)
     public PagosFamiliaDto.OrdenResponse autenticar(Long id, PagosFamiliaDto.AutenticacionRequest request) {
         verificarHabilitado();
         OrdenPago orden = propia(id);
-        expirar(orden);
-        if (terminal(orden)) return respuesta(orden, false);
-        if (orden.getMetodo() != MetodoPagoSimulado.TARJETA || orden.getEstado() != EstadoOrdenPago.REQUIERE_AUTENTICACION) {
+        if (orden.getMetodo() != MetodoPagoSimulado.TARJETA) {
             throw new BusinessRuleException("AUTENTICACION_NO_REQUERIDA", "Esta orden no tiene una autenticación pendiente.");
+        }
+        expirar(orden);
+        if (orden.getEstado() != EstadoOrdenPago.REQUIERE_AUTENTICACION) {
+            throw new TransicionPagoInvalida(orden.getEstado());
         }
         if (Boolean.TRUE.equals(request.aprobar())) aprobar(orden);
         else rechazar(orden, "La autenticación fue cancelada.");
@@ -228,14 +243,18 @@ public class PagosFamiliaService {
         return respuesta(orden, true);
     }
 
+    @Transactional(noRollbackFor = TransicionPagoInvalida.class)
     public PagosFamiliaDto.OrdenResponse confirmarQr(String token, PagosFamiliaDto.QrConfirmacionRequest request) {
         verificarHabilitado();
         OrdenPago orden = porQr(token);
+        boolean aprobar = request.accion() == PagosFamiliaDto.AccionQr.APROBAR;
+        if (!aprobar) verificarEscenariosCliente();
         expirar(orden);
-        if (!terminal(orden)) {
-            if (request.accion() == PagosFamiliaDto.AccionQr.APROBAR) aprobar(orden);
-            else rechazar(orden, "La billetera rechazó el pago por fondos insuficientes.");
-        }
+        var destino = aprobar ? EstadoOrdenPago.COMPLETADO : EstadoOrdenPago.RECHAZADO;
+        if (orden.getEstado() == destino) return respuesta(orden, true);
+        if (orden.getEstado() != EstadoOrdenPago.PENDIENTE) throw new TransicionPagoInvalida(orden.getEstado());
+        if (aprobar) aprobar(orden);
+        else rechazar(orden, "La billetera rechazó el pago por fondos insuficientes.");
         return respuesta(orden, true);
     }
 
@@ -318,6 +337,9 @@ public class PagosFamiliaService {
         // Orden estable para que selecciones superpuestas no entren en un interbloqueo.
         for (var fila : filas) {
             var compromiso = bloquearCompromiso(fila.getCompromiso().getId());
+            // La vigencia también se controla tras la espera por un bloqueo de base de datos.
+            expirar(orden);
+            exigirTransicion(orden, EstadoOrdenPago.COMPLETADO);
             if (compromiso == null || !acceso.asociado(compromiso.getMatricula().getAlumno().getId(), orden.getApoderado())
                     || compromiso.getEstadoAdministrativo() != EstadoAdministrativoCompromiso.ACTIVO
                     || !"PEN".equals(compromiso.getMoneda()) || saldo(compromiso).compareTo(fila.getMonto()) != 0
@@ -328,15 +350,17 @@ public class PagosFamiliaService {
             bloqueados.add(compromiso);
         }
         // No se modifica ninguna obligación hasta haber validado todo el lote.
+        expirar(orden);
+        exigirTransicion(orden, EstadoOrdenPago.COMPLETADO);
         Instant ahora = Instant.now();
         for (int indice = 0; indice < filas.size(); indice++) {
             var fila = filas.get(indice);
             var compromiso = bloqueados.get(indice);
-            compromiso.setMontoPagado(compromiso.getMontoPagado().add(fila.getMonto()).setScale(2));
-            compromiso.setEstado(EstadoCompromisoPago.PAGADO);
             var transaccion = fila.getTransaccion();
             transaccion.setEstado(EstadoTransaccionPago.APROBADA);
             transaccion.setFechaTransaccion(ahora);
+            // Al aprobarse la transacción, el saldo y el estado se recalculan desde los pagos aprobados.
+            saldos.recalcular(compromiso);
             Comprobante comprobante = new Comprobante();
             comprobante.setTransaccionPago(transaccion);
             comprobante.setTipoComprobante(TipoComprobante.CONSTANCIA_PAGO_DIGITAL);
@@ -348,35 +372,43 @@ public class PagosFamiliaService {
             comprobantes.saveAndFlush(comprobante);
             comprobante.setNumero(String.format(Locale.ROOT, "%06d", comprobante.getId()));
         }
-        var antes = orden.getEstado();
-        orden.setEstado(EstadoOrdenPago.COMPLETADO);
         orden.setPagadaEn(ahora);
-        orden.setMensaje("Pago aprobado. Tu constancia de pago está disponible.");
-        em.flush();
-        auditar("APROBAR_PAGO_SIMULADO", orden, antes);
+        cambiarEstado(orden, EstadoOrdenPago.COMPLETADO,
+                "Pago aprobado. Tu constancia de pago está disponible.", "APROBAR_PAGO_SIMULADO");
     }
 
     private void rechazar(OrdenPago orden, String mensaje) {
-        var antes = orden.getEstado();
-        orden.setEstado(EstadoOrdenPago.RECHAZADO);
-        orden.setMensaje(mensaje);
-        items(orden).forEach(item -> item.getTransaccion().setEstado(EstadoTransaccionPago.RECHAZADA));
-        auditar("RECHAZAR_PAGO_SIMULADO", orden, antes);
+        expirar(orden);
+        exigirTransicion(orden, EstadoOrdenPago.RECHAZADO);
+        actualizarTransacciones(orden, EstadoTransaccionPago.RECHAZADA, Instant.now());
+        cambiarEstado(orden, EstadoOrdenPago.RECHAZADO, mensaje, "RECHAZAR_PAGO_SIMULADO");
     }
 
     private void expirar(OrdenPago orden) {
-        if (!terminal(orden) && !orden.getExpiraEn().isAfter(Instant.now())) {
-            var antes = orden.getEstado();
-            orden.setEstado(EstadoOrdenPago.EXPIRADO);
-            orden.setMensaje("El tiempo para este pago terminó. Puedes iniciar uno nuevo.");
-            items(orden).forEach(item -> item.getTransaccion().setEstado(EstadoTransaccionPago.EXPIRADA));
-            auditar("EXPIRAR_PAGO_SIMULADO", orden, antes);
+        if (!orden.getEstado().esTerminal() && !orden.getExpiraEn().isAfter(Instant.now())) {
+            actualizarTransacciones(orden, EstadoTransaccionPago.EXPIRADA, orden.getExpiraEn());
+            cambiarEstado(orden, EstadoOrdenPago.EXPIRADO,
+                    "El tiempo para este pago terminó. Puedes iniciar uno nuevo.", "EXPIRAR_PAGO_SIMULADO");
         }
     }
 
-    private boolean terminal(OrdenPago orden) {
-        return orden.getEstado() == EstadoOrdenPago.COMPLETADO || orden.getEstado() == EstadoOrdenPago.RECHAZADO
-                || orden.getEstado() == EstadoOrdenPago.EXPIRADO;
+    private void actualizarTransacciones(OrdenPago orden, EstadoTransaccionPago estado, Instant fecha) {
+        for (var detalle : items(orden)) {
+            detalle.getTransaccion().setEstado(estado);
+            detalle.getTransaccion().setFechaTransaccion(fecha);
+        }
+    }
+
+    private void cambiarEstado(OrdenPago orden, EstadoOrdenPago destino, String mensaje, String accion) {
+        exigirTransicion(orden, destino);
+        var antes = orden.getEstado();
+        orden.setEstado(destino);
+        orden.setMensaje(mensaje);
+        auditar(accion, orden, antes);
+    }
+
+    private void exigirTransicion(OrdenPago orden, EstadoOrdenPago destino) {
+        if (!orden.getEstado().permiteTransicionA(destino)) throw new TransicionPagoInvalida(orden.getEstado());
     }
 
     private void validarPagable(CompromisoPago compromiso) {
@@ -387,7 +419,7 @@ public class PagosFamiliaService {
     }
 
     private BigDecimal saldo(CompromisoPago compromiso) {
-        return compromiso.getMontoTotal().subtract(compromiso.getMontoPagado()).max(CERO).setScale(2);
+        return EstadoFinancieroCompromiso.saldo(compromiso.getMontoTotal(), compromiso.getMontoPagado());
     }
 
     private PagosFamiliaDto.OrdenResponse respuesta(OrdenPago orden, boolean publico) {
@@ -396,7 +428,7 @@ public class PagosFamiliaService {
                 fila.getCompromiso().getId(), fila.getCodigoCompromiso(),
                 publico ? fila.getCompromiso().getMatricula().getAlumno().getPersona().getNombres() : fila.getAlumno(),
                 fila.getConcepto(), fila.getNumeroCuota(), fila.getMonto())).toList();
-        boolean qrDisponible = !publico && orden.getMetodo() == MetodoPagoSimulado.QR && !terminal(orden);
+        boolean qrDisponible = !publico && orden.getMetodo() == MetodoPagoSimulado.QR && !orden.getEstado().esTerminal();
         String qrReferencia = orden.getQrReferencia() == null ? orden.getCodigo() : orden.getQrReferencia();
         String qrUrl = qrDisponible ? frontendUrl + "/pagar-qr/" + tokens.generar(qrReferencia) : null;
         return new PagosFamiliaDto.OrdenResponse(orden.getId(), codigoOrden(orden.getId()), orden.getMetodo(), orden.getEstado(),
@@ -438,6 +470,25 @@ public class PagosFamiliaService {
 
     private void verificarHabilitado() {
         if (!habilitado) throw new BusinessRuleException("SIMULADOR_NO_DISPONIBLE", "El servicio de pagos no está disponible en este momento.");
+    }
+
+    private void verificarEscenariosCliente() {
+        if (!escenariosClienteHabilitados) {
+            throw new BusinessRuleException("ESCENARIO_PAGO_NO_DISPONIBLE", "Este resultado de prueba no está disponible.");
+        }
+    }
+
+    /** Conserva una expiración registrada al rechazar una confirmación tardía. */
+    private static final class TransicionPagoInvalida extends ConflictException {
+        private TransicionPagoInvalida(EstadoOrdenPago estado) {
+            super("TRANSICION_PAGO_INVALIDA", switch (estado) {
+                case PENDIENTE -> "Esta operación no está disponible mientras el pago espera confirmación.";
+                case REQUIERE_AUTENTICACION -> "La orden espera una confirmación adicional.";
+                case COMPLETADO -> "El pago ya fue aprobado y tiene una constancia disponible.";
+                case RECHAZADO -> "El pago fue rechazado. Puedes iniciar otro intento.";
+                case EXPIRADO -> "El tiempo para este pago terminó. Puedes iniciar uno nuevo.";
+            });
+        }
     }
 
     private String claveIdempotencia(String clave) {

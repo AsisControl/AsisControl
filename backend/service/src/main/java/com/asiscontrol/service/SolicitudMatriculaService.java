@@ -89,6 +89,7 @@ public class SolicitudMatriculaService {
                         () ->
                                 new BusinessRuleException(
                                         "ALUMNO_INACTIVO", "El estudiante no está habilitado"));
+        MatriculaService.exigirIngresoInicial(matriculaRepository, alumno.getId(), anio);
         if (familiar
                 && solicitudRepository.contarSolicitudesEnEstados(
                                 alumno.getId(),

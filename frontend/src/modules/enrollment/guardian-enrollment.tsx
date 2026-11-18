@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, message } from "@/core/api/client";
 import {
   Dialog,
@@ -17,7 +17,7 @@ import { GuardianEnrollmentTrack, type GuardianRequest } from "./guardian-enroll
 type Child = { id: number; codigoAlumno: string; nombreCompleto: string };
 type Offer = { anio: number; grados: number[] };
 type Request = GuardianRequest;
-export function GuardianEnrollment() {
+export function GuardianEnrollment({ navigation }: { navigation?: ReactNode } = {}) {
   const [studentFilter, setStudentFilter] = useState("");
   const list = usePaged<Request>(
     studentFilter
@@ -144,6 +144,7 @@ export function GuardianEnrollment() {
         title="Solicitudes de mis estudiantes"
         description="Solicita año y grado. La administración revisa la solicitud y asigna la sección. Enviar una solicitud no reserva una vacante."
       />
+      {navigation}
       <div className="panel">
         <PanelHeading
           title="Mis solicitudes de matrícula"

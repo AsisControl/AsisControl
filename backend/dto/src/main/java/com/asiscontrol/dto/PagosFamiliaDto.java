@@ -20,6 +20,7 @@ public final class PagosFamiliaDto {
 
     public enum EscenarioTarjeta { APROBADO, FONDOS_INSUFICIENTES, RECHAZADO, REQUIERE_AUTENTICACION }
     public enum AccionQr { APROBAR, RECHAZAR }
+    public enum TipoObligacion { PENSION, OTRO }
 
     public record InicioRequest(
             @NotEmpty @Size(max = 20) List<@NotNull @Positive Long> obligacionesIds,
@@ -30,7 +31,7 @@ public final class PagosFamiliaDto {
         }
     }
 
-    public record TarjetaRequest(@NotNull EscenarioTarjeta escenario) {}
+    public record TarjetaRequest(EscenarioTarjeta escenario) {}
     public record AutenticacionRequest(@NotNull Boolean aprobar) {}
     public record QrConfirmacionRequest(@NotNull AccionQr accion) {}
 

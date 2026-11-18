@@ -1,10 +1,9 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { PaymentSettings } from "@/modules/payment-settings";
 import {
   Feedback,
-  Field,
   PageHeader,
   Pager,
   PanelHeading,
@@ -16,12 +15,15 @@ import { CommitmentDetail } from "./commitment-detail";
 import { CommitmentForm } from "./commitment-form";
 import { PensionPlanManager } from "./pension-plan-manager";
 import { OptionalChargesAdmin } from "./optional-charges-admin";
+import { CommitmentFilters } from "./commitment-filters";
+import { DelinquencyIndicators } from "./delinquency-indicators";
+import { TransactionsPanel } from "./transactions-panel";
 import {
   dueDateLabel,
   financialLabel,
-  financialLabels,
   financialStatus,
   financialTone,
+  gradeSectionLabel,
   quotaLabel,
   moneyLabel,
 } from "./commitment-format";
@@ -42,18 +44,16 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
   const [selected, setSelected] = useState<SelectedCommitment | null>(null);
   const [success, setSuccess] = useState("");
   const [tab, setTab] = useState("compromisos");
+  const [summaryKey, setSummaryKey] = useState(0);
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const query = new URLSearchParams();
-    const names = ["busqueda", "anioAcademico", "estado"];
-    for (const name of names) {
-      const value = String(data.get(name) || "").trim();
-      if (value) query.set(name, value);
-    }
-    setFilters(query.toString());
+  function applyFilters(query: string) {
+    setFilters(query);
     list.setPage(0);
+  }
+
+  function refreshAll() {
+    list.refresh();
+    setSummaryKey((value) => value + 1);
   }
 
   function saved(record: PaymentCommitment) {
@@ -66,7 +66,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
     }
     setCreating(false);
     setSelected(null);
-    list.refresh();
+    refreshAll();
   }
 
   return (
@@ -87,46 +87,22 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
         )}
       />
       <nav className={styles.financeTabs} aria-label="Secciones de finanzas">
-        {[{ id: "compromisos", label: "Compromisos de pago" }, { id: "planes", label: "Plan anual de pensiones" }, { id: "configuracion", label: "Configuración de pagos" }, { id: "opcionales", label: "Cobros opcionales" }].map((item) => <button key={item.id} type="button" className={tab === item.id ? "primary-action" : "secondary-action"} aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}>{item.label}</button>)}
+        {[{ id: "compromisos", label: "Compromisos de pago" }, { id: "transacciones", label: "Transacciones" }, { id: "planes", label: "Plan anual de pensiones" }, { id: "configuracion", label: "Configuración de pagos" }, { id: "opcionales", label: "Cobros opcionales" }].map((item) => <button key={item.id} type="button" className={tab === item.id ? "primary-action" : "secondary-action"} aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}>{item.label}</button>)}
       </nav>
-      {tab === "configuracion" ? <PaymentSettings canWrite={canWrite} /> : tab === "planes" ? <PensionPlanManager canWrite={canWrite} /> : tab === "opcionales" ? <OptionalChargesAdmin canWrite={canWrite} /> : <>
+      {tab === "configuracion" ? <PaymentSettings canWrite={canWrite} /> : tab === "transacciones" ? <TransactionsPanel /> : tab === "planes" ? <PensionPlanManager canWrite={canWrite} /> : tab === "opcionales" ? <OptionalChargesAdmin canWrite={canWrite} /> : <>
+      <DelinquencyIndicators filters={filters} refreshKey={summaryKey} />
       <section className="panel">
         <PanelHeading
           title="Compromisos registrados"
           summary="Los compromisos anulados se conservan para su consulta."
           actions={
-            <button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>
+            <button type="button" className="secondary-action" disabled={list.loading} onClick={refreshAll}>
               Actualizar
             </button>
           }
         />
         <Feedback error={list.error} success={success} />
-        <form className={styles.filters} onSubmit={applyFilters}>
-          <Field
-            label="Buscar estudiante o compromiso"
-            name="busqueda"
-            placeholder="Nombre, código o concepto"
-          />
-          <Field
-            label="Año académico"
-            name="anioAcademico"
-            type="number"
-            min={1900}
-            max={9999}
-            placeholder="Ej. 2026"
-          />
-          <label className="field">
-            Estado del compromiso
-            <select name="estado" defaultValue="">
-              <option value="">Todos</option>
-              {Object.entries(financialLabels)
-                .map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-            </select>
-          </label>
-          <button type="submit" className="primary-action">Buscar</button>
-        </form>
+        <CommitmentFilters applied={filters} onApply={applyFilters} />
         {list.loading ? (
           <Loading>Cargando compromisos…</Loading>
         ) : list.error ? (
@@ -143,6 +119,8 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
                   <th>Estudiante</th>
                   <th>Concepto y cuota</th>
                   <th>Monto</th>
+                  <th>Pagado</th>
+                  <th>Saldo</th>
                   <th>Vencimiento</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -154,7 +132,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
                     <td>
                       <PersonCell
                         name={record.alumno}
-                        detail={`${record.codigoAlumno} · ${record.anioAcademico}`}
+                        detail={[record.codigoAlumno, record.anioAcademico, gradeSectionLabel(record)].filter(Boolean).join(" · ")}
                       />
                     </td>
                     <td>
@@ -165,6 +143,12 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
                     </td>
                     <td className={styles.money}>
                       {moneyLabel(record.montoTotal, record.moneda)}
+                    </td>
+                    <td className={styles.money}>
+                      {moneyLabel(record.montoPagado, record.moneda)}
+                    </td>
+                    <td className={styles.money}>
+                      {moneyLabel(record.saldo, record.moneda)}
                     </td>
                     <td>{dueDateLabel(record.fechaVencimiento)}</td>
                     <td>

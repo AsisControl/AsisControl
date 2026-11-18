@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { message } from "@/core/api/client";
+import { ApiError, message } from "@/core/api/client";
 import { Feedback, StatusPill } from "@/shared/ui";
 import { confirmQr, getQrOrder } from "./services/payment-service";
 import { countdownLabel, isPending, moneyLabel, orderLabels } from "./payment-format";
@@ -32,16 +32,23 @@ export function QrWallet({ token }: { token: string }) {
   const pollError = useOrderMonitor(hasDetails ? order : null, () => getQrOrder(token), update);
   const pending = !!order && hasDetails && isPending(order.estado);
   const remaining = useCountdown(order?.expiraEn ?? null, pending);
-  async function confirm(action: "APROBAR" | "RECHAZAR") {
+  async function confirm() {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true); setError("");
-    try { update(await confirmQr(token, action)); }
-    catch (caught) { if (!latest.current || isPending(latest.current.estado)) setError(message(caught)); }
+    try { update(await confirmQr(token)); }
+    catch (caught) {
+      if (!latest.current || isPending(latest.current.estado)) {
+        setError(message(caught));
+        if (caught instanceof ApiError && caught.code === "TRANSICION_PAGO_INVALIDA") {
+          try { update(await getQrOrder(token)); } catch { /* El sondeo volverá a consultar. */ }
+        }
+      }
+    }
     finally { inFlight.current = false; setBusy(false); }
   }
   return <main className={styles.wallet}>
     <div className={styles.walletCard}>
-      <header className={styles.walletHeader}><span className={styles.walletIcon} aria-hidden="true">S/</span><div><p>Billetera digital</p><h1>{order?.institucion || "AsisControl"}</h1></div></header>
+      <header className={styles.walletHeader}><span className={styles.walletIcon} aria-hidden="true">S/</span><div><p>Pago con código QR</p><h1>{order?.institucion || "AsisControl"}</h1></div></header>
       <Feedback error={error} />
       {!order && !error && <p role="status">Consultando el código QR…</p>}
       {error && <button type="button" className="secondary-action" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Volver a consultar QR</button>}
@@ -54,8 +61,7 @@ export function QrWallet({ token }: { token: string }) {
         {pending ? <>
           <p className={styles.timer}>Vigencia del QR: <strong>{countdownLabel(remaining)}</strong></p>
           <div className={styles.walletActions}>
-            <button type="button" className="primary-action" disabled={busy || remaining === 0} onClick={() => confirm("APROBAR")}>{busy ? "Confirmando…" : `Confirmar pago ${moneyLabel(order.montoTotal, "PEN")}`}</button>
-            <button type="button" className="secondary-action" disabled={busy || remaining === 0} onClick={() => confirm("RECHAZAR")}>Rechazar operación</button>
+            <button type="button" className="primary-action" disabled={busy || remaining === 0} onClick={confirm}>{busy ? "Confirmando…" : `Confirmar pago ${moneyLabel(order.montoTotal, "PEN")}`}</button>
           </div>
           {remaining === 0 && <p role="status">La vigencia terminó. Estamos comprobando el estado de la orden.</p>}
           {pollError && <p role="status" className={styles.notice}>No pudimos actualizar el estado. Se volverá a consultar automáticamente.</p>}
@@ -65,7 +71,7 @@ export function QrWallet({ token }: { token: string }) {
         </div>}
         </>}
       </>}
-      <footer className={styles.walletFooter}>AsisControl · Gestión de pagos</footer>
+      <footer className={styles.walletFooter}>AsisControl · Pago simulado sin cargo bancario</footer>
     </div>
   </main>;
 }

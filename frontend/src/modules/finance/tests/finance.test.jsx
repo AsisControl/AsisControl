@@ -75,7 +75,10 @@ test("un compromiso pagado muestra su monto y un único estado aunque siga vigen
   render(<Finance canWrite />);
   await screen.findByText("Lucía Flores");
   expect(screen.getByRole("columnheader", { name: "Monto", exact: true })).toBeTruthy();
-  expect(screen.queryByRole("columnheader", { name: "Saldo" })).toBeNull();
+  // US-44: el listado muestra montos, pagos y saldos.
+  expect(screen.getByRole("columnheader", { name: "Pagado" })).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Saldo" })).toBeTruthy();
+  expect(screen.getByText(/^S\/\s0\.00$/)).toBeTruthy();
   expect(screen.queryByText("Activo", { exact: true })).toBeNull();
   expect(screen.getByText("Pagado", { selector: ".status" })).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Ver compromiso CP-012" }));

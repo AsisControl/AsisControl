@@ -6,6 +6,8 @@ La actualización posterior de importes, estados, códigos, historial completo y
 constancias se detalla en [US13_US48_REFINAMIENTO.md](US13_US48_REFINAMIENTO.md).
 El plan automático de diez mensualidades, tarifas por año y grado, becas y cobros
 opcionales se documenta en [PLANES_PENSIONES_BECAS_IMPLEMENTACION.md](PLANES_PENSIONES_BECAS_IMPLEMENTACION.md).
+La experiencia de confirmación vigente, el diagrama de estados y la renovación
+se describen en [RENOVACION_Y_PAGO_SIMULADO.md](RENOVACION_Y_PAGO_SIMULADO.md).
 
 ## Decisiones sobre la propuesta
 

@@ -9,7 +9,8 @@ import type { ObligationDetail } from "./types";
 import styles from "./guardian-payments.module.css";
 
 const transactionLabels: Record<string, string> = {
-  PENDIENTE: "Pendiente de confirmación", APROBADA: "Pago aprobado", RECHAZADA: "Intento rechazado", EXPIRADA: "Intento vencido",
+  PENDIENTE: "Pendiente de confirmación", APROBADA: "Pago aprobado",
+  RECHAZADA: "Intento rechazado", EXPIRADA: "Intento vencido", ANULADA: "Transacción anulada",
 };
 export function ObligationDetailDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const [detail, setDetail] = useState<ObligationDetail | null>(null);

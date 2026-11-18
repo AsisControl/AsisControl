@@ -14,8 +14,18 @@ export function OrdersHistory({ onRefreshObligations }: { onRefreshObligations: 
   const list = usePaged<PaymentOrder>(ORDERS_PATH, "", "", 10);
   const [selected, setSelected] = useState<PaymentOrder | null>(null);
   function settled() { list.refresh(); onRefreshObligations(); }
+  const refreshPendingOrders = useEffectEvent(() => {
+    if (document.visibilityState === "visible" && !list.loading) list.refresh();
+  });
+  const hasPendingOrders = list.data?.content.some((order) => isPending(order.estado)) ?? false;
+  const monitoring = hasPendingOrders && !selected;
+  useEffect(() => {
+    if (!monitoring) return;
+    const timer = setInterval(() => refreshPendingOrders(), 5000);
+    return () => clearInterval(timer);
+  }, [monitoring]);
   return <section className="panel">
-    <PanelHeading title="Seguimiento de pagos" summary="Continúa un pago pendiente o consulta su resultado. Un pago puede incluir varias cuotas."
+    <PanelHeading title="Seguimiento de pagos" summary="Retoma las operaciones pendientes o consulta su resultado."
       actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar seguimiento</button>} />
     <Feedback error={list.error} />
     <p className={styles.hint}>Cerrar la ventana no cancela un pago pendiente. Puedes continuarlo durante sus cinco minutos de vigencia; después podrás iniciar uno nuevo.</p>
