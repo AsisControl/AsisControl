@@ -233,7 +233,9 @@ test("Cada rol ve su menú y su pantalla de inicio", async () => {
     sessionFor({ role, permissions: [] });
     const { unmount } = renderApp();
     expect(await screen.findByText(title)).toBeTruthy();
-    expect(screen.getByText(role === "DOCENTE" ? /Datos de ejemplo/ : /Has ingresado como/)).toBeTruthy();
+    // El docente tiene su propio inicio (con datos del backend); los demás, el aviso genérico.
+    if (role === "DOCENTE") expect(screen.getByRole("button", { name: "Actualizar" })).toBeTruthy();
+    else expect(screen.getByText(/Has ingresado como/)).toBeTruthy();
     unmount();
   }
 });

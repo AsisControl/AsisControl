@@ -21,8 +21,8 @@ const INSTITUTIONAL_ROLES = [
   "APODERADO",
 ];
 /** Valores del formulario que se muestran en el resumen mientras se escribe. */
-type Draft = { personName: string; username: string; email: string };
-const EMPTY_DRAFT: Draft = { personName: "", username: "", email: "" };
+type Draft = { personName: string };
+const EMPTY_DRAFT: Draft = { personName: "" };
 export function temporaryPassword(): string {
   const alphabet =
     "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -71,8 +71,8 @@ function NewUserForm({
   useEffect(() => {
     const input = formRef.current?.elements.namedItem("password");
     if (input instanceof HTMLInputElement)
-      input.setCustomValidity(passwordError(password, draft.username));
-  }, [password, draft.username]);
+      input.setCustomValidity(passwordError(password, ""));
+  }, [password]);
   useEffect(() => {
     let active = true;
     api<Role[]>("/api/roles")
@@ -96,8 +96,6 @@ function NewUserForm({
     mode === "existing" && !person && "persona",
     !role && "rol",
     roleTaken && "otro rol",
-    !draft.username && "usuario",
-    !draft.email && "correo",
     !password && "contraseña",
   ].filter((item): item is string => Boolean(item));
   function readDraft(form: HTMLFormElement) {
@@ -111,8 +109,6 @@ function NewUserForm({
       ]
         .filter(Boolean)
         .join(" "),
-      username: str("username"),
-      email: str("correo"),
     });
   }
   function changeMode(next: PersonMode) {
@@ -132,7 +128,7 @@ function NewUserForm({
     }
     const data = new FormData(e.currentTarget);
     const str = (key: string) => String(data.get(key) || "").trim();
-    const policy = passwordError(password, str("username"));
+    const policy = passwordError(password, "");
     if (policy) {
       const input = e.currentTarget.elements.namedItem("password");
       if (input instanceof HTMLInputElement) {
@@ -150,12 +146,7 @@ function NewUserForm({
           personaId: mode === "existing" ? person?.id : null,
           persona: mode === "new" ? personData(data) : null,
           rolId: Number(roleId),
-          username: str("username"),
-          correo: str("correo"),
-          correoVerificado: data.get("correoVerificado") === "on",
           password,
-          codigoAlumno: str("codigoAlumno") || null,
-          codigoDocente: str("codigoDocente") || null,
           fechaIngreso: str("fechaIngreso") || null,
           especialidad: str("especialidad") || null,
           alumnoIds: role === "APODERADO" ? [...selected.keys()] : [],
@@ -187,8 +178,8 @@ function NewUserForm({
       <div className={styles.heading}>
         <h2>Nuevo usuario</h2>
         <p>
-          Una cuenta por persona y rol. Cada acceso utiliza usuario y correo
-          únicos.
+          Una cuenta por persona y rol. El código, el usuario y el correo del
+          acceso se generan al guardar.
         </p>
       </div>
       <Feedback error={error} />
@@ -212,7 +203,7 @@ function NewUserForm({
               password={password}
               onPasswordChange={setPassword}
               onGeneratePassword={() => setPassword(temporaryPassword())}
-              done={Boolean(draft.username && draft.email && password)}
+              done={Boolean(password)}
             />
             {role === "APODERADO" && (
               <StudentsStep
@@ -231,8 +222,6 @@ function NewUserForm({
                   : "Se reutiliza el perfil existente"
                 : ""
             }
-            username={draft.username}
-            email={draft.email}
             studentCount={role === "APODERADO" ? selected.size : null}
             missing={missing}
             busy={busy}

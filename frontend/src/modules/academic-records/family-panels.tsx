@@ -34,6 +34,7 @@ export function GuardiansPanel() {
         noun={["apoderado", "apoderados"]}
         searchLabel="Buscar por nombre o documento"
         columns={[
+          "Código",
           "Apoderado",
           "Documento",
           "Estudiantes a cargo",
@@ -54,6 +55,7 @@ export function GuardiansPanel() {
         renderRows={(guardians) =>
           guardians.map((guardian) => (
             <tr key={guardian.id}>
+              <td data-label="Código">{guardian.codigoApoderado ?? "—"}</td>
               <td data-label="Apoderado">
                 <PersonCell
                   name={guardian.persona.nombreCompleto}

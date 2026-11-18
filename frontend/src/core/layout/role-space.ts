@@ -19,7 +19,8 @@ export const roleSpaces: Record<UserRole, RoleSpace> = {
     title: "Aula docente",
     description: "Tus cursos, evaluaciones y seguimiento académico.",
     icon: "book",
-    shortcuts: ["Mis cursos", "Evaluaciones", "Progreso"],
+    // Mismas acciones que el prototipo: tomar asistencia (Mis cursos), evaluar, crear tarea y ver horario.
+    shortcuts: ["Mis cursos", "Evaluaciones", "Tareas", "Horario"],
   },
   ESTUDIANTE: {
     title: "Portal del estudiante",

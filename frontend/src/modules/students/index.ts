@@ -3,4 +3,5 @@ export { Students } from "./students";
 export type { Student } from "./types";
 export { FamilyImportDialog, ImportSummary, validateImportFile } from "./import-dialog";
 export { DownloadIcon, ExcelFilePicker } from "./excel-file-picker";
-export type { ImportResult } from "./types";
+export type { AccessCredential, ImportResult } from "./types";
+export { AccessCredentials } from "./access-credentials";

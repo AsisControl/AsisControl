@@ -78,6 +78,12 @@ export function GuardianDetail({
             name={guardian.persona.nombreCompleto}
             active={guardian.activo}
           />
+          <RecordSection title="Datos del apoderado" />
+          <dl className="detail-grid">
+            <RecordItem label="Código">
+              {guardian.codigoApoderado ?? "Sin código"}
+            </RecordItem>
+          </dl>
           <PersonSections persona={guardian.persona} />
           <RecordSection title="Estudiantes a cargo" />
           {guardian.alumnos.length ? (

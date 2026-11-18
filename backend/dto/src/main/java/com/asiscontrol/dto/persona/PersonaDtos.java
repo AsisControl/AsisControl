@@ -89,8 +89,8 @@ public final class PersonaDtos {
                                     "El teléfono debe tener exactamente 9 dígitos y empezar con 9",
                             groups = FichaAlumno.class)
                     String telefono,
-            @NotBlank(message = "El correo es obligatorio")
-                    @Email(
+            // Opcional: nadie está obligado a registrar su correo de contacto.
+            @Email(
                             message = "Ingresa un correo válido, por ejemplo nombre@dominio.com",
                             groups = {Default.class, FichaAlumno.class})
                     @Size(
@@ -127,9 +127,7 @@ public final class PersonaDtos {
             @NotNull(message = "Completa los datos de identidad")
                     @Valid
                     @ConvertGroup(from = Default.class, to = FichaAlumno.class)
-                    PersonaRequest persona,
-            @Size(max = 30, message = "El código institucional admite hasta 30 caracteres")
-                    String codigoAlumno) {}
+                    PersonaRequest persona) {}
 
     public record AlumnoUpdateRequest(
             @NotNull(message = "Completa los datos de identidad")
@@ -151,17 +149,16 @@ public final class PersonaDtos {
             List<ApoderadoVinculadoResponse> apoderados,
             boolean activo) {}
 
+    /** El código del docente lo genera el sistema (DOC{AÑO}{####}). */
     public record DocenteCreateRequest(
             @NotNull @Valid PersonaRequest persona,
-            @NotBlank(message = "El codigo del docente es obligatorio") @Size(max = 30)
-                    String codigoDocente,
             @NotNull(message = "La fecha de ingreso es obligatoria") LocalDate fechaIngreso,
             @NotNull(message = "La especialidad es obligatoria") Especialidad especialidad) {}
 
+    /** El código es permanente: si se envía, debe ser el registrado. */
     public record DocenteUpdateRequest(
             @NotNull @Valid PersonaRequest persona,
-            @NotBlank(message = "El codigo del docente es obligatorio") @Size(max = 30)
-                    String codigoDocente,
+            @Size(max = 30) String codigoDocente,
             @NotNull(message = "La fecha de ingreso es obligatoria") LocalDate fechaIngreso,
             @NotNull(message = "La especialidad es obligatoria") Especialidad especialidad) {}
 
@@ -179,6 +176,7 @@ public final class PersonaDtos {
 
     public record ApoderadoResponse(
             Long id,
+            String codigoApoderado,
             PersonaResponse persona,
             List<AlumnoVinculadoResponse> alumnos,
             boolean activo) {}
@@ -205,8 +203,59 @@ public final class PersonaDtos {
 
     public record ImportIssue(int row, String field, String message) {}
 
+    /**
+     * Resultado de una importación. {@code credentials}: accesos de las filas registradas; la
+     * contraseña temporal solo viaja cuando la carga quedó guardada y no se vuelve a mostrar.
+     * {@code warnings}: observaciones de filas registradas que conviene revisar.
+     */
     public record ImportResult(
-            int totalRows, int importedRows, int rejectedRows, List<ImportIssue> issues) {}
+            int totalRows,
+            int importedRows,
+            int rejectedRows,
+            List<ImportIssue> issues,
+            List<CredencialAcceso> credentials,
+            List<ImportIssue> warnings) {
+        public ImportResult(
+                int totalRows, int importedRows, int rejectedRows, List<ImportIssue> issues) {
+            this(totalRows, importedRows, rejectedRows, issues, List.of(), List.of());
+        }
+
+        /** El mismo resultado sin contraseñas: para validaciones y cargas que no se guardaron. */
+        public ImportResult sinContrasenas() {
+            return new ImportResult(
+                    totalRows, importedRows, rejectedRows, issues,
+                    credentials.stream().map(CredencialAcceso::sinContrasena).toList(),
+                    warnings);
+        }
+    }
+
+    /**
+     * Acceso de una persona importada. {@code existing}: ya tenía acceso para ese rol y no se creó
+     * otro; entonces no hay contraseña temporal. La contraseña nunca se escribe en logs ni en la
+     * auditoría: {@link #toString()} la oculta.
+     */
+    public record CredencialAcceso(
+            int row,
+            String fullName,
+            String role,
+            String code,
+            String username,
+            String email,
+            String temporaryPassword,
+            Instant expiresAt,
+            boolean existing) {
+        public CredencialAcceso sinContrasena() {
+            return new CredencialAcceso(
+                    row, fullName, role, code, username, email, null, expiresAt, existing);
+        }
+
+        @Override
+        public String toString() {
+            return "CredencialAcceso[row=" + row + ", role=" + role + ", username=" + username
+                    + ", existing=" + existing + ", temporaryPassword="
+                    + (temporaryPassword == null ? "null" : "***") + "]";
+        }
+    }
 
     /**
      * Un archivo de la carga masiva de familias: {@code error} si no se pudo leer el archivo

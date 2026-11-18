@@ -300,3 +300,16 @@
     width: 100%;
   }
 }
+.credentials {
+  margin: 20px 0;
+}
+.credentialsWarning {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 6px solid #d97706;
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px 16px;
+}
