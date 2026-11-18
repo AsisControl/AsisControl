@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { Feedback, PageHeader, Pager, PanelHeading, PersonCell, StatusPill } from "@/shared/ui";
+import { Feedback, PageHeader, Pager, PanelHeading, PersonCell, StatusPill, Loading } from "@/shared/ui";
 import type { PaymentCommitment } from "@/modules/finance";
 import { getStudents, OBLIGATIONS_PATH } from "./services/payment-service";
 import { canPay, dueDateLabel, financialLabel, financialLabels, financialStatus, financialTone, moneyLabel, quotaLabel } from "./payment-format";
@@ -78,7 +78,7 @@ export function GuardianPayments() {
         <label className="field">Situación de pago<select name="estado" defaultValue=""><option value="">Todas</option>{Object.entries(financialLabels).map(([state, label]) => <option value={state} key={state}>{label}</option>)}</select></label>
         <button type="submit" className="primary-action" disabled={list.loading}>Buscar</button>
       </form>
-      {list.loading ? <p role="status">Cargando obligaciones…</p> : !list.error && !list.data?.content.length ? <p className="empty">No hay obligaciones que coincidan con la consulta.</p> : list.data && <div className={styles.tableWrap}>
+      {list.loading ? <Loading>Cargando obligaciones…</Loading> : !list.error && !list.data?.content.length ? <p className="empty">No hay obligaciones que coincidan con la consulta.</p> : list.data && <div className={styles.tableWrap}>
         <table className={`user-table ${styles.obligationsTable}`} aria-label="Obligaciones de mis estudiantes"><thead><tr>
           <th><input type="checkbox" aria-label="Seleccionar obligaciones de esta página" checked={allSelected} disabled={!payable.length} onChange={togglePage} /></th>
           <th>Estudiante</th><th>Concepto y cuota</th><th>Vencimiento</th><th>Monto</th><th>Situación</th><th>Acciones</th>

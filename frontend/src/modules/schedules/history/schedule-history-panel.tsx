@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, PanelHeading, Pager, StatusPill } from "@/shared/ui";
+import { Feedback, PanelHeading, Pager, StatusPill, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import {
   countLabel,
@@ -175,7 +175,7 @@ export function ScheduleHistoryPanel() {
       </div>
       <Feedback error={history.error || optionsError} />
       {history.loading ? (
-        <p role="status">Cargando historial…</p>
+        <Loading>Cargando historial…</Loading>
       ) : rows.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>

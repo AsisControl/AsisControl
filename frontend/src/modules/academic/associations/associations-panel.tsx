@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, RowMenu, PanelHeading } from "@/shared/ui";
+import { Feedback, FormDialog, RowMenu, PanelHeading, Loading } from "@/shared/ui";
 import type { CourseCompetency } from "../types";
 import styles from "../academic.module.css";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
@@ -149,7 +149,7 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
         </p>
       )}
       {loading && !associations ? (
-        <p role="status">Cargando asociaciones…</p>
+        <Loading>Cargando asociaciones…</Loading>
       ) : visible.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>

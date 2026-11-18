@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Dialog, Feedback, Pager, PanelHeading } from "@/shared/ui";
+import { Dialog, Feedback, Pager, PanelHeading, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { dateLabel } from "@/shared/lib/formatters";
 import { RECEIPTS_PATH } from "./services/payment-service";
@@ -17,7 +17,7 @@ export function ReceiptsHistory() {
       actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar historial</button>} />
     <p className={styles.hint}>Cada comprobante acredita un pago aplicado a una cuota. Un pago puede agrupar varias cuotas; consulta las solicitudes pendientes o rechazadas en Seguimiento de pagos.</p>
     <Feedback error={list.error} />
-    {list.loading ? <p role="status">Cargando historial…</p> : !list.error && !list.data?.content.length ? <p className="empty">Todavía no tienes pagos registrados.</p> : list.data && <div className={styles.tableWrap}>
+    {list.loading ? <Loading>Cargando historial…</Loading> : !list.error && !list.data?.content.length ? <p className="empty">Todavía no tienes pagos registrados.</p> : list.data && <div className={styles.tableWrap}>
       <table className={`user-table ${styles.historyTable}`} aria-label="Comprobantes de mis estudiantes"><thead><tr><th>Comprobante y fecha</th><th>Estudiante</th><th>Concepto y cuota</th><th>Medio</th><th>Monto pagado</th><th>Acciones</th></tr></thead><tbody>
         {list.data.content.map((receipt) => <tr key={receipt.id}>
           <td><strong>{receipt.codigo}</strong><small>{dateLabel(receipt.fechaEmision)}</small>{receipt.codigoOrden && <small>{receipt.codigoOrden}</small>}</td>

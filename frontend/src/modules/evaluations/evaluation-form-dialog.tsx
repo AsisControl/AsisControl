@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
-import { Field, FormDialog } from "@/shared/ui";
+import { Field, FormDialog, Loading } from "@/shared/ui";
 import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import {
   actualizarEvaluacion,
@@ -213,9 +213,7 @@ export function EvaluationFormDialog({
         {!cursoId ? (
           <p className="hint">Selecciona un curso para ver las competencias disponibles.</p>
         ) : !options ? (
-          <p className="hint" role="status">
-            Cargando competencias…
-          </p>
+          <Loading variant="inline">Cargando competencias…</Loading>
         ) : !options.length ? (
           <p className="hint">Este curso aún no tiene competencias asociadas.</p>
         ) : (

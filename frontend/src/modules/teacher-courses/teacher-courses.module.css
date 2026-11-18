@@ -92,3 +92,7 @@
   flex-wrap: wrap;
   gap: 12px;
 }
+/* Mismo espacio que la línea de sección de la tarjeta real. */
+.esqueletoSeccion {
+  margin: 8px 0 14px;
+}

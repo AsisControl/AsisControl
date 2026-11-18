@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
-import { Dialog, Feedback, Field, PanelHeading, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, Field, PanelHeading, StatusPill, Loading } from "@/shared/ui";
 import { applyBenefit, deactivateSettings, getBenefitPreview, saveSettings, SETTINGS_PATH } from "./services/settings-service";
 import { PaymentStudentPicker } from "./student-picker";
 import { SettingsReasonDialog } from "./reason-dialog";
@@ -24,7 +24,7 @@ export function BenefitsPanel({ canWrite }: { canWrite: boolean }) {
     {(concepts.error || years.error) && <button type="button" className="secondary-action" onClick={() => { concepts.refresh(); years.refresh(); }}>Reintentar configuración</button>}
     <p className={styles.notice}>Se aplica un beneficio por concepto y mes. Los pagos registrados se conservan; para actualizar cuotas ya emitidas, revisa primero la vista previa.</p>
     <button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar beneficios</button>
-    {list.loading ? <p role="status">Cargando beneficios…</p> : list.error ? <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar beneficios</button> : !list.items.length ? <p className={styles.empty}>Todavía no hay becas o descuentos asignados.</p> : <div className={styles.tableWrap}><table className={`user-table ${styles.table}`} aria-label="Becas y descuentos por estudiante"><thead><tr><th>Estudiante</th><th>Beneficio y concepto</th><th>Valor</th><th>Vigencia</th><th>Estado</th>{canWrite && <th>Acciones</th>}</tr></thead><tbody>{list.items.map((item) => <tr key={item.id}>
+    {list.loading ? <Loading>Cargando beneficios…</Loading> : list.error ? <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar beneficios</button> : !list.items.length ? <p className={styles.empty}>Todavía no hay becas o descuentos asignados.</p> : <div className={styles.tableWrap}><table className={`user-table ${styles.table}`} aria-label="Becas y descuentos por estudiante"><thead><tr><th>Estudiante</th><th>Beneficio y concepto</th><th>Valor</th><th>Vigencia</th><th>Estado</th>{canWrite && <th>Acciones</th>}</tr></thead><tbody>{list.items.map((item) => <tr key={item.id}>
       <td>{item.alumno}</td><td><strong>{item.nombre}</strong><small>{item.concepto}</small></td><td>{item.tipo === "PORCENTAJE" ? `${item.valor} %` : `${soles(item.valor)} por cobro`}</td><td>{monthName(item.mesInicio)}–{monthName(item.mesFin)}<small>{item.anioAcademico}</small></td>
       <td><StatusPill state={item.activo ? "ACTIVO" : "INACTIVO"} tone={item.activo ? "success" : "neutral"} /></td>
       {canWrite && <td><div className={styles.actions}><button type="button" className="secondary-action" aria-label={`${item.activo ? "Editar" : "Reactivar"} beneficio ${item.nombre} de ${item.alumno}`} onClick={() => setEditing(item)}>{item.activo ? "Editar" : "Reactivar"}</button>{item.activo && <><button type="button" className="secondary-action" aria-label={`Revisar aplicación de ${item.nombre} a ${item.alumno}`} onClick={() => setPreview(item)}>Revisar aplicación</button><button type="button" className="secondary-action" aria-label={`Desactivar beneficio ${item.nombre} de ${item.alumno}`} onClick={() => setDeactivating(item)}>Desactivar</button></>}</div></td>}

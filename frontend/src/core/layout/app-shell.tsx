@@ -16,6 +16,7 @@ import {
   roleLabels,
 } from "@/core/navigation/navigation";
 import { NavIcon } from "@/core/navigation/nav-icons";
+import { Loading } from "@/shared/ui";
 import { Brand } from "./brand";
 import { LoginScreen } from "./login-screen";
 import { SessionUserProvider } from "./session-user";
@@ -215,8 +216,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
   if (isRestoringSession || isEndingSession)
     return (
-      <main className="app-loading" aria-live="polite">
-        {isEndingSession ? "Cerrando sesión…" : "Cargando sesión…"}
+      <main className="app-loading">
+        <Loading variant="screen">
+          {isEndingSession ? "Cerrando sesión…" : "Cargando sesión…"}
+        </Loading>
       </main>
     );
   if (!session) return <LoginScreen onLogin={login} />;

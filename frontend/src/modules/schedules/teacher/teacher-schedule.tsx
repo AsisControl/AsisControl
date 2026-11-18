@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, PageHeader, PanelHeading } from "@/shared/ui";
+import { Feedback, PageHeader, PanelHeading, Loading } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import type { CourseAssignment, ScheduleBlock } from "../types";
 import styles from "../schedules.module.css";
@@ -82,7 +82,7 @@ export function TeacherSchedule() {
         />
         <Feedback error={setupError || loadError} />
         {assignments === null ? (
-          !setupError && <p role="status">Cargando tu horario…</p>
+          !setupError && <Loading skeleton="timetable">Cargando tu horario…</Loading>
         ) : !assignments.length ? (
           <p className="empty">Aún no tienes cursos asignados. Consulta con la coordinación académica.</p>
         ) : (
@@ -108,7 +108,7 @@ export function TeacherSchedule() {
               </div>
             )}
             {!blocks ? (
-              !loadError && <p role="status">Cargando tu horario…</p>
+              !loadError && <Loading skeleton="timetable">Cargando tu horario…</Loading>
             ) : (
               <TimetableGrid
                 blocks={blocks}

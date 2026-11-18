@@ -4,6 +4,7 @@ import { usePaged } from "@/shared/hooks/use-paged";
 import type { AcademicYear } from "@/modules/academic-config";
 import type { Course } from "../types";
 
+import { Loading } from "@/shared/ui";
 /** "1° Grado · 2027", como en Secciones; los cursos anteriores al cambio no lo tienen. */
 export const courseContextLabel = (course: Course) =>
   course.grado === null || course.anioAcademico === null
@@ -41,9 +42,7 @@ export function CourseContextFields({ course }: { course?: Course }) {
     .sort((a, b) => a.numero - b.numero);
   if (years.loading)
     return (
-      <p className="full-field hint" role="status">
-        Cargando años académicos…
-      </p>
+      <Loading variant="inline" className="full-field">Cargando años académicos…</Loading>
     );
   if (years.error)
     return (

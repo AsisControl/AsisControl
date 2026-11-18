@@ -10,6 +10,7 @@ import {
   PanelHeading,
   PersonCell,
   StatusPill,
+  Loading,
 } from "@/shared/ui";
 import { CommitmentDetail } from "./commitment-detail";
 import { CommitmentForm } from "./commitment-form";
@@ -127,7 +128,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
           <button type="submit" className="primary-action">Buscar</button>
         </form>
         {list.loading ? (
-          <p role="status">Cargando compromisos…</p>
+          <Loading>Cargando compromisos…</Loading>
         ) : list.error ? (
           <p className="empty">
             No pudimos cargar los compromisos. Intenta actualizar la lista.

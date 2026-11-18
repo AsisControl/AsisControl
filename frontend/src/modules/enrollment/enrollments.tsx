@@ -13,6 +13,7 @@ import {
   StatusPill,
   TabNav,
   type TabItem,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import {
@@ -154,7 +155,7 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
       />
       <Feedback error={list.error} success={success} />
       {list.loading ? (
-        <p role="status">Cargando registros…</p>
+        <Loading>Cargando registros…</Loading>
       ) : list.data?.content.length ? (
         <div className="user-table-wrap">
           <table className="user-table">
@@ -269,7 +270,7 @@ function StudentPicker({
         </p>
       )}
       {students.loading ? (
-        <p role="status">Cargando estudiantes…</p>
+        <Loading>Cargando estudiantes…</Loading>
       ) : (
         <ul className="choice-list">
           {students.data?.content.map((student) => (
@@ -782,7 +783,8 @@ function EnrollmentDetail({
           <p className="empty">Sin cambios registrados.</p>
         )
       ) : (
-        <p role="status">Cargando historial…</p>
+        // Si falló la carga, el error ya se muestra en el diálogo: no seguir «cargando».
+        !error && <Loading skeleton="list">Cargando historial…</Loading>
       )}
     </Dialog>
   );
@@ -846,7 +848,7 @@ function GuardianLinks({ studentId }: { studentId: number }) {
       </div>
       <Feedback error={error} />
       {!student ? (
-        <p role="status">Cargando vínculos…</p>
+        !error && <Loading skeleton="list" rows={2}>Cargando vínculos…</Loading>
       ) : student.apoderados.length ? (
         <ul className="choice-list">
           {student.apoderados.map((guardian) => (
@@ -885,7 +887,7 @@ function GuardianLinks({ studentId }: { studentId: number }) {
           </form>
           <Feedback error={guardians.error} />
           {guardians.loading ? (
-            <p role="status">Cargando apoderados…</p>
+            <Loading>Cargando apoderados…</Loading>
           ) : (
             <ul className="choice-list">
               {guardians.data?.content.map((guardian) => {

@@ -11,6 +11,7 @@ import { canSubmit, taskDate, taskStatus } from "./presentation";
 import { TaskDialog } from "./task-dialog";
 import styles from "./student-tasks.module.css";
 
+import { Loading } from "@/shared/ui";
 export function StudentTasks() {
   const [query, setQuery] = useState({ search: "", status: "", page: 0, revision: 0 });
   const [data, setData] = useState<Page<StudentTask> | null>(null);
@@ -50,7 +51,7 @@ export function StudentTasks() {
             <option value="submitted">Entregado</option>
           </select>
         </div>
-        {loading && <p role="status">Cargando tareas...</p>}
+        {loading && <Loading>Cargando tareas...</Loading>}
         {error && <div role="alert"><p>{error}</p><button type="button" className="secondary-action" onClick={() => changeQuery({ revision: query.revision + 1 })}>Reintentar</button></div>}
         {!loading && !error && <>
           <div className={styles.tableWrap}>

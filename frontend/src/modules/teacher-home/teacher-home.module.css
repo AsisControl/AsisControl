@@ -188,3 +188,10 @@
   font-size: 10px;
   line-height: 15px;
 }
+/* Texto de espera: líneas apiladas como en el contenido real. */
+.esqueletoTexto {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
