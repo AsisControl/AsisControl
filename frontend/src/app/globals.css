@@ -409,9 +409,6 @@ input {
   margin: 4px 0 0;
 }
 @media (max-width: 900px) {
-  .login-form-panel {
-    min-height: 100vh;
-  }
   .top-nav {
     gap: 16px;
     padding: 0 20px;
@@ -828,6 +825,7 @@ input::-ms-clear {
 .home-content {
   max-width: 1280px;
   padding: 32px;
+  width: 100%;
 }
 .top-nav {
   padding: 0 32px;
@@ -1040,7 +1038,7 @@ fieldset {
   }
   .form-grid,
   .detail-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
   .panel {
