@@ -4,14 +4,18 @@ Contrato de implementación sobre el modelo existente: CompromisoPago, Matricula
 AlumnoApoderado, TransaccionPago y Comprobante. Moneda PEN. No duplica personas,
 matrículas ni obligaciones. Pasarela SIMULADA, sin dinero real ni comprobantes SUNAT.
 Mora temporal: 0.00 mientras no exista política aprobada.
+El flujo de confirmación y las transiciones vigentes se explican en
+[Renovación anual y pagos simulados](RENOVACION_Y_PAGO_SIMULADO.md).
 
 ## API autenticada (APODERADO y PAGOS_LEER)
 
 - `GET /api/apoderado/obligaciones/estudiantes`: array `{id, codigoAlumno, nombreCompleto}`.
-- `GET /api/apoderado/obligaciones?page=0&size=10&idAlumno=&estado=`:
+- `GET /api/apoderado/obligaciones?page=0&size=10&idAlumno=&estado=&tipo=`:
   página Spring normalizable, content del tipo `PaymentCommitment` existente en
   frontend/modules/finance/types.ts. Estados PENDIENTE, VENCIDO, PARCIAL, PAGADO,
-  ANULADO o todos. Siempre limitado a asociaciones vigentes del usuario actual.
+  ANULADO, EXONERADO o todos. El filtro opcional `tipo` acepta `PENSION` u `OTRO`
+  según el concepto del catálogo. Omitirlo incluye compromisos sin clasificar.
+  Siempre limitado a asociaciones vigentes del usuario actual.
 - `GET /api/apoderado/obligaciones/{id}`:
   `{compromiso: PaymentCommitment, transacciones: Transaccion[], comprobantes: Comprobante[]}`.
   Tipos Transaccion/Comprobante compatibles con PagoDto existente.
@@ -36,8 +40,10 @@ Mora temporal: 0.00 mientras no exista política aprobada.
   firmada del QR es independiente e inmutable; V12 preserva las URLs anteriores.
 - `GET /api/pagos/ordenes/{id}`: `OrdenPago` propia; evalúa expiración.
 - `POST /api/pagos/ordenes/{id}/confirmar-tarjeta`:
-  `{escenario: "APROBADO"|"FONDOS_INSUFICIENTES"|"RECHAZADO"|"REQUIERE_AUTENTICACION"}`.
-  Devuelve OrdenPago. Solo simulador, sin PAN/CVV ni claves reales.
+  la interfaz envía `{}`. La confirmación aprueba una orden vigente si las
+  obligaciones conservan su importe y siguen siendo pagables. Solo el perfil de
+  pruebas o una configuración explícita permite escoger escenarios negativos o
+  solicitar autenticación. Una transición incompatible devuelve 409.
 - `POST /api/pagos/ordenes/{id}/autenticar`:
   `{aprobar: boolean}`. Completa o rechaza el desafío 3DS simulado.
 - `GET /api/pagos/ordenes/{id}/comprobante`: `ReciboOrden`, solo completadas.
@@ -48,7 +54,8 @@ Mora temporal: 0.00 mientras no exista política aprobada.
 
 - `GET /api/pagos/qr/{token}`: OrdenPago con los datos mínimos del pago para la
   billetera simulada. No devuelve IDs de personas, documentos, contactos ni otros pagos.
-- `POST /api/pagos/qr/{token}/confirmar`: `{accion:"APROBAR"|"RECHAZAR"}` -> OrdenPago.
+- `POST /api/pagos/qr/{token}/confirmar`: la billetera envía `{accion:"APROBAR"}`.
+  `RECHAZAR` se reserva a la configuración de escenarios de prueba.
 - Token firmado HMAC y acotado a una sola orden QR; vigencia 5 min. Sin endpoint
   público que pueda aprobar por ID de orden ni callback bancario sin autenticación.
 - URL `{FRONTEND_URL}/pagar-qr/{token}`. Token no va en auditoría ni se persiste

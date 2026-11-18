@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, PageHeader, Pager, PanelHeading, PersonCell, StatusPill } from "@/shared/ui";
@@ -27,6 +27,15 @@ export function GuardianPayments() {
   const [detail, setDetail] = useState<number | null>(null);
   const [checkout, setCheckout] = useState<PaymentCommitment[] | null>(null);
   const [success, setSuccess] = useState("");
+  const refreshOnFocus = useEffectEvent(() => {
+    if (document.visibilityState === "visible" && !list.loading) list.refresh();
+  });
+  useEffect(() => {
+    if (tab !== "obligaciones" || checkout) return;
+    const onFocus = () => refreshOnFocus();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [tab, checkout]);
   useEffect(() => {
     let active = true;
     getStudents().then((value) => { if (active) { setStudents(value); setStudentError(""); } })
@@ -36,7 +45,7 @@ export function GuardianPayments() {
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget), query = new URLSearchParams();
-    for (const name of ["idAlumno", "estado"]) {
+    for (const name of ["idAlumno", "tipo", "estado"]) {
       const value = String(form.get(name) || ""); if (value) query.set(name, value);
     }
     setFilters(query.toString()); list.setPage(0); setSelected([]); setSelectionError("");
@@ -63,9 +72,13 @@ export function GuardianPayments() {
   function followPayments() {
     setCheckout(null); setSelected([]); setSelectionError(""); setTab("operaciones");
   }
+  function selectTab(next: string) {
+    if (next === "obligaciones" && tab !== next) list.refresh();
+    setTab(next);
+  }
   return <section className={styles.payments}>
     <PageHeader title="Mis pagos" description="Consulta las obligaciones y los pagos de tus estudiantes en soles." />
-    <PaymentTabs label="Secciones de pagos" selected={tab} onSelect={setTab} items={[{ id: "obligaciones", label: "Obligaciones" }, { id: "historial", label: "Historial de pagos" }, { id: "operaciones", label: "Seguimiento de pagos" }, { id: "opcionales", label: "Actividades y servicios" }]}>
+    <PaymentTabs label="Secciones de pagos" selected={tab} onSelect={selectTab} items={[{ id: "obligaciones", label: "Obligaciones" }, { id: "historial", label: "Historial de pagos" }, { id: "operaciones", label: "Seguimiento de pagos" }, { id: "opcionales", label: "Actividades y servicios" }]}>
     {tab === "historial" ? <ReceiptsHistory /> : tab === "operaciones" ? <OrdersHistory onRefreshObligations={list.refresh} />
       : tab === "opcionales" ? <OptionalCharges onChanged={list.refresh} onObligation={setDetail} /> : <section className="panel">
       <PanelHeading title="Obligaciones de mis estudiantes" summary="Selecciona las obligaciones que deseas pagar."
@@ -75,6 +88,7 @@ export function GuardianPayments() {
       {students?.length === 0 && <p className={styles.notice}>No tienes estudiantes asociados. Consulta con la institución para revisar tu vínculo familiar.</p>}
       <form className={styles.filters} onSubmit={applyFilters}>
         <label className="field">Estudiante<select name="idAlumno" defaultValue="" disabled={!students?.length}><option value="">Todos mis estudiantes</option>{students?.map((student) => <option key={student.id} value={student.id}>{student.nombreCompleto}</option>)}</select></label>
+        <label className="field">Tipo de cobro<select name="tipo" defaultValue=""><option value="">Todos los conceptos</option><option value="PENSION">Pensiones</option><option value="OTRO">Actividades y servicios</option></select></label>
         <label className="field">Situación de pago<select name="estado" defaultValue=""><option value="">Todas</option>{Object.entries(financialLabels).map(([state, label]) => <option value={state} key={state}>{label}</option>)}</select></label>
         <button type="submit" className="primary-action" disabled={list.loading}>Buscar</button>
       </form>

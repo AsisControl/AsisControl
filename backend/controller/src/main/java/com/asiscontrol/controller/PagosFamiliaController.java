@@ -46,7 +46,7 @@ public class PagosFamiliaController {
 
     @PostMapping("/ordenes/{id}/confirmar-tarjeta")
     public PagosFamiliaDto.OrdenResponse confirmarTarjeta(@PathVariable Long id,
-            @Valid @RequestBody PagosFamiliaDto.TarjetaRequest request) {
+            @Valid @RequestBody(required = false) PagosFamiliaDto.TarjetaRequest request) {
         return service.confirmarTarjeta(id, request);
     }
 

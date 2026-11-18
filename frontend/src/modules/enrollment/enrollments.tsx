@@ -27,8 +27,9 @@ import { type Student } from "@/modules/students";
 import { AcademicRecords } from "@/modules/academic-records";
 import type { AcademicYear } from "@/modules/academic-config";
 import { EnrollmentHistory } from "./enrollment-history";
-import { EnrollmentPaymentPreview, type EnrollmentPaymentPlan } from "./enrollment-payment-preview";
-import type { History } from "./types";
+import { EnrollmentPaymentPreview } from "./enrollment-payment-preview";
+import { AdminRenewals } from "./renewals/renewal-navigation";
+import type { EnrollmentPaymentPlan, History } from "./types";
 type EnrollmentRecord = {
   id: number;
   alumnoId: number;
@@ -68,6 +69,7 @@ const actionLabels: Record<string, string> = {
 };
 const ENROLLMENT_TABS: TabItem[] = [
   { id: "solicitudes", label: "Solicitudes" },
+  { id: "renovaciones", label: "Renovación anual" },
   { id: "matriculas", label: "Matrículas" },
   { id: "fichas", label: "Fichas académicas" },
 ];
@@ -77,10 +79,12 @@ const DEFAULT_TAB = "solicitudes";
 export function Enrollments({
   tab = DEFAULT_TAB,
   view,
+  canManageRenewals = false,
 }: {
   tab?: string;
   /** Vista de Fichas académicas: estudiantes, apoderados, parentescos o docentes. */
   view?: string;
+  canManageRenewals?: boolean;
 }) {
   const router = useRouter();
   const current = ENROLLMENT_TABS.find((item) => item.id === tab);
@@ -102,6 +106,8 @@ export function Enrollments({
       />
       {current.id === "fichas" ? (
         <AcademicRecords basePath={`${ENROLLMENT_PATH}/fichas`} view={view} />
+      ) : current.id === "renovaciones" ? (
+        <AdminRenewals view={view} canWrite={canManageRenewals} />
       ) : (
         <EnrollmentList
           key={current.id}

@@ -56,6 +56,15 @@ public class MatriculaService {
     // en MySQL.
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public MatriculaResponse crear(CrearMatriculaRequest request) {
+        return crear(request, false);
+    }
+
+    // Solo el flujo de renovación llama a este método, dentro de su transacción de revisión.
+    MatriculaResponse crearDesdeRenovacion(CrearMatriculaRequest request) {
+        return crear(request, true);
+    }
+
+    private MatriculaResponse crear(CrearMatriculaRequest request, boolean renovacion) {
         SolicitudMatricula vista =
                 solicitudRepository
                         .findByIdAndActivoTrue(request.solicitudMatriculaId())
@@ -75,6 +84,9 @@ public class MatriculaService {
                         () ->
                                 new BusinessRuleException(
                                         "ALUMNO_INACTIVO", "El estudiante no está habilitado"));
+        if (!renovacion) {
+            exigirIngresoInicial(matriculaRepository, vista.getAlumno().getId(), vista.getAnioAcademico());
+        }
         SolicitudMatricula solicitud =
                 solicitudRepository
                         .buscarActivaParaActualizar(request.solicitudMatriculaId())
@@ -156,6 +168,14 @@ public class MatriculaService {
                 null,
                 "estado=ACTIVA,seccion=" + seccion.getId());
         return mapear(matricula);
+    }
+
+    static void exigirIngresoInicial(MatriculaRepository matriculas, Long alumno, int anio) {
+        if (matriculas.existsByAlumnoIdAndAnioAcademicoLessThanAndActivoTrueAndEstadoIn(
+                alumno, anio, java.util.List.of(EstadoMatricula.ACTIVA, EstadoMatricula.FINALIZADA))) {
+            throw new BusinessRuleException("RENOVACION_REQUERIDA", "El estudiante ya tiene historial de matrícula. "
+                    + "Usa Renovación anual para el año consecutivo o consulta con la institución para gestionar un reingreso.");
+        }
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)

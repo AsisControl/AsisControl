@@ -31,8 +31,9 @@ public class ObligacionesApoderadoController {
     @GetMapping
     public Page<PagoDto.CompromisoResponse> listar(@RequestParam(required = false) Long idAlumno,
             @RequestParam(required = false) EstadoCompromisoPago estado,
+            @RequestParam(required = false) PagosFamiliaDto.TipoObligacion tipo,
             @PageableDefault(size = 10, sort = "fechaVencimiento", direction = Sort.Direction.ASC) Pageable pageable) {
-        return service.listar(idAlumno, estado, pageable);
+        return service.listar(idAlumno, estado, tipo, pageable);
     }
 
     @GetMapping("/{id}")
