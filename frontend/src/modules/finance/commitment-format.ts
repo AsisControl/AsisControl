@@ -1,4 +1,4 @@
-import type { FinancialStatus, PaymentCommitment } from "./types";
+import type { FinancialStatus, PaymentCommitment, TransactionStatus } from "./types";
 
 const DATE = new Intl.DateTimeFormat("es-PE", {
   day: "2-digit",
@@ -51,3 +51,50 @@ export function financialToneForStatus(state: FinancialStatus): "success" | "war
     default: return "neutral";
   }
 }
+
+export const transactionLabels: Record<TransactionStatus, string> = {
+  APROBADA: "Aprobada",
+  PENDIENTE: "Pendiente",
+  RECHAZADA: "Rechazada",
+  EXPIRADA: "Expirada",
+  ANULADA: "Anulada",
+};
+
+export function transactionTone(state: TransactionStatus): "success" | "warning" | "danger" | "info" | "neutral" {
+  switch (state) {
+    case "APROBADA": return "success";
+    case "PENDIENTE": return "warning";
+    case "RECHAZADA": return "danger";
+    default: return "neutral";
+  }
+}
+
+const PAYMENT_METHODS: Record<string, string> = {
+  EFECTIVO: "Efectivo",
+  TRANSFERENCIA_BANCARIA: "Transferencia bancaria",
+  TARJETA_DEBITO: "Tarjeta de débito",
+  TARJETA_CREDITO: "Tarjeta de crédito",
+  YAPE: "Yape",
+  PLIN: "Plin",
+  POS: "POS",
+  TARJETA_SIMULADA: "Tarjeta (pago en línea)",
+  QR_SIMULADO: "QR (pago en línea)",
+};
+
+export const paymentMethodLabel = (method: string) =>
+  PAYMENT_METHODS[method] ?? method.charAt(0) + method.slice(1).toLowerCase().replaceAll("_", " ");
+
+const MOMENT = new Intl.DateTimeFormat("es-PE", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Lima",
+});
+
+/** Fecha y hora de una transacción en la hora del colegio. */
+export const momentLabel = (instant: string) => MOMENT.format(new Date(instant));
+
+export const gradeSectionLabel = (record: PaymentCommitment) =>
+  record.grado == null ? null : `${record.grado}.° grado${record.seccion ? ` · Sección ${record.seccion}` : ""}`;

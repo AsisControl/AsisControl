@@ -46,6 +46,7 @@ public class PagosFamiliaService {
     private final TokenQrPagoService tokens;
     private final AuditoriaService auditoria;
     private final EntityManager em;
+    private final SaldoCompromisoService saldos;
     private final boolean habilitado;
     private final String frontendUrl;
     private final String institucion;
@@ -54,6 +55,7 @@ public class PagosFamiliaService {
             CompromisoPagoRepository compromisos, TransaccionPagoRepository transacciones,
             ComprobanteRepository comprobantes, ConsultaObligacionesService acceso,
             TokenQrPagoService tokens, AuditoriaService auditoria, EntityManager em,
+            SaldoCompromisoService saldos,
             @Value("${app.pagos.simulador.enabled:true}") boolean habilitado,
             @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl,
             @Value("${app.pagos.institucion:Colegio PUCP}") String institucion) {
@@ -66,6 +68,7 @@ public class PagosFamiliaService {
         this.tokens = tokens;
         this.auditoria = auditoria;
         this.em = em;
+        this.saldos = saldos;
         this.habilitado = habilitado;
         URI url = URI.create(frontendUrl.trim());
         if (!("http".equalsIgnoreCase(url.getScheme()) || "https".equalsIgnoreCase(url.getScheme()))
@@ -332,11 +335,11 @@ public class PagosFamiliaService {
         for (int indice = 0; indice < filas.size(); indice++) {
             var fila = filas.get(indice);
             var compromiso = bloqueados.get(indice);
-            compromiso.setMontoPagado(compromiso.getMontoPagado().add(fila.getMonto()).setScale(2));
-            compromiso.setEstado(EstadoCompromisoPago.PAGADO);
             var transaccion = fila.getTransaccion();
             transaccion.setEstado(EstadoTransaccionPago.APROBADA);
             transaccion.setFechaTransaccion(ahora);
+            // Al aprobarse la transacción, el saldo y el estado se recalculan desde los pagos aprobados.
+            saldos.recalcular(compromiso);
             Comprobante comprobante = new Comprobante();
             comprobante.setTransaccionPago(transaccion);
             comprobante.setTipoComprobante(TipoComprobante.CONSTANCIA_PAGO_DIGITAL);
@@ -387,7 +390,7 @@ public class PagosFamiliaService {
     }
 
     private BigDecimal saldo(CompromisoPago compromiso) {
-        return compromiso.getMontoTotal().subtract(compromiso.getMontoPagado()).max(CERO).setScale(2);
+        return EstadoFinancieroCompromiso.saldo(compromiso.getMontoTotal(), compromiso.getMontoPagado());
     }
 
     private PagosFamiliaDto.OrdenResponse respuesta(OrdenPago orden, boolean publico) {
