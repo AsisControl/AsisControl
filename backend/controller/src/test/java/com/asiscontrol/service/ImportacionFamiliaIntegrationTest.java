@@ -70,13 +70,32 @@ class ImportacionFamiliaIntegrationTest {
                 guardian(a, "Luis", "Rojas", "MASCULINO", a + "@familia.pe")));
 
         assertThat(result.totalRows()).isEqualTo(5);
-        assertThat(result.importedRows()).isEqualTo(2);
+        assertThat(result.importedRows()).isEqualTo(4);
         assertThat(result.issues()).extracting(PersonaDtos.ImportIssue::row, PersonaDtos.ImportIssue::message)
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(3, "El valor de sexo no esta permitido"),
-                        org.assertj.core.groups.Tuple.tuple(4, "La columna correo es obligatoria"),
-                        org.assertj.core.groups.Tuple.tuple(6,
-                                "La persona con este documento ya esta registrada como apoderado"));
+                        org.assertj.core.groups.Tuple.tuple(3, "El valor de sexo no esta permitido"));
+        // Sin teléfono ni correo se registra igual, con una observación.
+        assertThat(result.warnings()).extracting(PersonaDtos.ImportIssue::row, PersonaDtos.ImportIssue::message)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        4, "El apoderado no tiene teléfono ni correo de contacto"));
+        // Repetido en el archivo: reutiliza su perfil y su única cuenta, sin contraseña nueva.
+        assertThat(result.credentials())
+                .extracting(PersonaDtos.CredencialAcceso::row, PersonaDtos.CredencialAcceso::existing)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(2, false),
+                        org.assertj.core.groups.Tuple.tuple(4, false),
+                        org.assertj.core.groups.Tuple.tuple(5, false),
+                        org.assertj.core.groups.Tuple.tuple(6, true));
+        var primera = result.credentials().get(0);
+        var repetida = result.credentials().get(3);
+        assertThat(primera.temporaryPassword()).isNotBlank();
+        assertThat(primera.code()).matches("APO[0-9]{8}");
+        assertThat(primera.username()).startsWith("luis.rojas");
+        assertThat(primera.expiresAt()).isAfter(java.time.Instant.now().plus(java.time.Duration.ofDays(13)));
+        assertThat(repetida.temporaryPassword()).isNull();
+        assertThat(repetida.username()).isEqualTo(primera.username());
+        assertThat(repetida.code()).isEqualTo(primera.code());
+        assertThat(primera.toString()).doesNotContain(primera.temporaryPassword());
         // La docente se reutilizo como apoderada en lugar de duplicarse.
         var rosa = personaRepository.findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, docente)
                 .orElseThrow();
@@ -116,7 +135,7 @@ class ImportacionFamiliaIntegrationTest {
     }
 
     private List<String> guardian(String dni, String nombres, String apellido, String sexo, String correo) {
-        return List.of("DNI", dni, nombres, apellido, "Quispe", sexo, "1984-07-21", "", correo, "");
+        return List.of("DNI", dni, nombres, apellido, "Quispe", sexo, "1984-07-21", "", "", correo, "");
     }
 
     private PersonaDtos.PersonaRequest persona(String dni, String nombres, String apellido) {

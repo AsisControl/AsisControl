@@ -24,39 +24,44 @@ public class ImportacionDocenteService {
 
     private static final List<String> COLUMNAS = List.of(
             "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-            "apellidoMaterno", "sexo", "fechaNacimiento", "fechaIngreso", "especialidad",
-            "telefono", "correo", "direccion");
+            "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "fechaIngreso",
+            "especialidad", "telefono", "correo", "direccion");
     private static final List<String> EJEMPLO = List.of(
-            "DNI", "41000001", "Patricia", "Morales", "Rios", "FEMENINO", "1985-03-14",
+            "DNI", "41000001", "Patricia", "Morales", "Rios", "FEMENINO", "1985-03-14", "Peruana",
             "2020-03-01", "MATEMATICA", "999888777", "patricia.morales@ejemplo.com", "Lima");
     /**
-     * Desde V5 la base admite personas sin segundo apellido, documento, sexo ni correo (fichas de
-     * alumnos), pero un docente necesita esos datos para identificarlo y contactarlo.
+     * Un docente necesita documento, nombres completos y sexo para identificarlo; nacionalidad,
+     * teléfono, correo y dirección son opcionales.
      */
     private static final List<String> COLUMNAS_OBLIGATORIAS = COLUMNAS.stream()
-            .filter(columna -> !List.of("telefono", "direccion").contains(columna))
+            .filter(columna -> !List.of("nacionalidad", "telefono", "correo", "direccion")
+                    .contains(columna))
             .toList();
 
     private final PersonaService personaService;
     private final Validator validator;
     private final AuditoriaService auditoria;
     private final TransactionTemplate transaccion;
+    private final AccesoImportacionService accesos;
 
     public ImportacionDocenteService(
             PersonaService personaService,
             Validator validator,
             AuditoriaService auditoria,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            AccesoImportacionService accesos) {
         this.personaService = personaService;
         this.validator = validator;
         this.auditoria = auditoria;
         this.transaccion = new TransactionTemplate(transactionManager);
+        this.accesos = accesos;
     }
 
     /**
      * Sin confirmar, procesa el archivo en una transaccion que siempre se deshace: asi tambien se
      * detectan documentos y codigos repetidos dentro del mismo archivo. Al confirmar, cada fila
-     * se guarda en su propia transaccion y una fila rechazada no afecta a las demas.
+     * se guarda con su acceso en su propia transaccion y una fila rechazada no afecta a las demas.
+     * Las contraseñas temporales solo se devuelven al confirmar.
      */
     public PersonaDtos.ImportResult importar(MultipartFile archivo, boolean confirmar) {
         if (confirmar) {
@@ -64,7 +69,7 @@ public class ImportacionDocenteService {
         }
         return transaccion.execute(estado -> {
             estado.setRollbackOnly();
-            return registrarFilas(archivo);
+            return registrarFilas(archivo).sinContrasenas();
         });
     }
 
@@ -80,13 +85,14 @@ public class ImportacionDocenteService {
     }
 
     private PersonaDtos.ImportResult registrarFilas(MultipartFile archivo) {
+        List<PersonaDtos.CredencialAcceso> credenciales = new java.util.ArrayList<>();
         var resumen = LectorExcel.recorrer(archivo, COLUMNAS_OBLIGATORIAS, fila -> {
             var solicitud = aSolicitud(fila);
             LectorExcel.validar(validator, solicitud);
-            personaService.createDocente(solicitud);
+            credenciales.add(accesos.docente(fila.numero(), solicitud));
         });
-        resumen.auditar(auditoria, "IMPORTAR_DOCENTES", "Docente", archivo);
-        return resumen.resultado();
+        resumen.auditar(auditoria, "IMPORTAR_DOCENTES", "Docente", archivo, credenciales);
+        return resumen.resultado(credenciales, List.of());
     }
 
     private PersonaDtos.DocenteCreateRequest aSolicitud(LectorExcel.Fila fila) {
@@ -96,11 +102,13 @@ public class ImportacionDocenteService {
                 fila.obligatorio("apellidoMaterno"),
                 fila.enumerado(TipoDocumento.class, "tipoDocumento", List.of(TipoDocumento.values())),
                 fila.obligatorio("numeroDocumento"),
-                null,
+                fila.opcional("nacionalidad") == null
+                        ? null
+                        : personaService.nacionalidadPorNombre(fila.opcional("nacionalidad")),
                 fila.enumerado(Sexo.class, "sexo", List.of(Sexo.values())),
                 fila.fecha("fechaNacimiento"),
                 fila.opcional("telefono"),
-                fila.obligatorio("correo"),
+                fila.opcional("correo"),
                 fila.opcional("direccion"));
         // El código del docente lo genera el sistema; una columna codigoDocente se ignora.
         return new PersonaDtos.DocenteCreateRequest(

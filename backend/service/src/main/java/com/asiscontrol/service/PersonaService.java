@@ -299,6 +299,35 @@ public class PersonaService {
         return toApoderadoResponse(saved);
     }
 
+    /**
+     * Apoderado de una importación: si el documento ya es de un apoderado habilitado con la misma
+     * identidad, lo reutiliza en lugar de rechazar la fila. Así un apoderado con varios hijos, o
+     * repetido en el archivo, queda con un solo perfil y una sola cuenta.
+     */
+    @Transactional
+    public PersonaDtos.ApoderadoResponse registrarOReutilizarApoderado(
+            PersonaDtos.ApoderadoCreateRequest request) {
+        Persona persona = resolvePersona(request.persona());
+        var existente = apoderadoRepository.findByPersonaIdAndActivoTrue(persona.getId());
+        if (existente.isPresent()) return toApoderadoResponse(existente.get());
+        return createApoderado(request);
+    }
+
+    /** Id de la nacionalidad habilitada con ese nombre, sin distinguir mayúsculas. */
+    @Transactional(readOnly = true)
+    public Long nacionalidadPorNombre(String nombre) {
+        return nacionalidadRepository
+                .findByNombreIgnoreCase(nombre.trim())
+                .filter(nacionalidad -> nacionalidad.isActivo())
+                .map(nacionalidad -> nacionalidad.getId())
+                .orElseThrow(
+                        () ->
+                                new BusinessRuleException(
+                                        "NACIONALIDAD_NO_ENCONTRADA",
+                                        "No hay una nacionalidad registrada con el nombre "
+                                                + nombre.trim()));
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<PersonaDtos.ApoderadoResponse> listApoderados(
             String search, int page, int size, String sortBy, Sort.Direction direction) {
