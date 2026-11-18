@@ -1,7 +1,9 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.PagoDto;
+import com.asiscontrol.entity.Comprobante;
 import com.asiscontrol.entity.CompromisoPago;
+import com.asiscontrol.entity.TransaccionPago;
 import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.ConceptoCobro;
 import com.asiscontrol.entity.TarifaPension;
@@ -14,6 +16,7 @@ import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
+import com.asiscontrol.repository.ComprobanteRepository;
 import com.asiscontrol.repository.CompromisoPagoRepository;
 import com.asiscontrol.repository.ContadorCodigoCompromisoRepository;
 import com.asiscontrol.repository.MatriculaRepository;
@@ -34,15 +37,21 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.Locale;
 import java.util.OptionalLong;
 
 @Service
 public class CompromisoPagoService {
 
-    private static final ZoneId ZONA_NEGOCIO = ZoneId.of("America/Lima");
     private final CompromisoPagoRepository compromisos;
     private final ContadorCodigoCompromisoRepository contadorCodigos;
     private final MatriculaRepository matriculas;
@@ -53,6 +62,21 @@ public class CompromisoPagoService {
     private final ConceptoCobroRepository conceptos;
     private final OrdenPagoRepository ordenes;
     private final EntityManager em;
+    private final ComprobanteRepository comprobantes;
+
+    /** Filtros de la consulta administrativa de compromisos (US-44). */
+    public record FiltroCompromisos(
+            EstadoCompromisoPago estado,
+            EstadoAdministrativoCompromiso estadoAdministrativo,
+            Long idMatricula,
+            Long idAlumno,
+            Integer anioAcademico,
+            Integer grado,
+            Long idSeccion,
+            LocalDate vencimientoDesde,
+            LocalDate vencimientoHasta,
+            String busqueda) {
+    }
 
     public CompromisoPagoService(
             CompromisoPagoRepository compromisos,
@@ -61,7 +85,9 @@ public class CompromisoPagoService {
             AnioAcademicoRepository anios,
             TransaccionPagoRepository transacciones,
             AuditoriaService auditoria, BeneficioCalculoService beneficios,
-            ConceptoCobroRepository conceptos,OrdenPagoRepository ordenes,EntityManager em) {
+            ConceptoCobroRepository conceptos,OrdenPagoRepository ordenes,EntityManager em,
+            ComprobanteRepository comprobantes) {
+        this.comprobantes = comprobantes;
         this.compromisos = compromisos;
         this.contadorCodigos = contadorCodigos;
         this.matriculas = matriculas;
@@ -72,19 +98,104 @@ public class CompromisoPagoService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PagoDto.CompromisoResponse> listar(
-            EstadoCompromisoPago estado,
-            EstadoAdministrativoCompromiso estadoAdministrativo,
-            Long idMatricula,
-            Long idAlumno,
-            Integer anioAcademico,
-            String busqueda,
-            Long personaApoderadoId,
-            Pageable pageable) {
+    public Page<PagoDto.CompromisoResponse> listar(FiltroCompromisos filtro, Long personaApoderadoId, Pageable pageable) {
+        LocalDate hoy = EstadoFinancieroCompromiso.hoy();
+        return buscar(filtro, personaApoderadoId, hoy, pageable).map(compromiso -> respuesta(compromiso, null, hoy));
+    }
+
+    /**
+     * Cantidades y montos por estado de los compromisos dentro del filtro, junto con los
+     * indicadores de morosidad. Todo se calcula con la misma regla que se muestra en el listado.
+     */
+    @Transactional(readOnly = true)
+    public PagoDto.ResumenCompromisosResponse resumir(FiltroCompromisos filtro) {
+        LocalDate hoy = EstadoFinancieroCompromiso.hoy();
+        Map<EstadoCompromisoPago, Acumulado> porEstado = new EnumMap<>(EstadoCompromisoPago.class);
+        for (EstadoCompromisoPago estado : EstadoCompromisoPago.values()) {
+            porEstado.put(estado, new Acumulado());
+        }
+        Acumulado total = new Acumulado();
+        Set<Long> morosos = new HashSet<>();
+        for (CompromisoPago compromiso : buscar(filtro, null, hoy, Pageable.unpaged()).getContent()) {
+            EstadoCompromisoPago estado = EstadoFinancieroCompromiso.visible(compromiso, hoy);
+            BigDecimal pagado = dinero(compromiso.getMontoPagado());
+            BigDecimal saldo = EstadoFinancieroCompromiso.saldo(compromiso);
+            porEstado.get(estado).sumar(compromiso.getMontoTotal(), pagado, saldo);
+            total.sumar(compromiso.getMontoTotal(), pagado, saldo);
+            if (estado == EstadoCompromisoPago.VENCIDO) {
+                morosos.add(compromiso.getMatricula().getAlumno().getId());
+            }
+        }
+        List<PagoDto.ResumenEstadoResponse> estados = porEstado.entrySet().stream()
+                .map(entrada -> entrada.getValue().respuesta(entrada.getKey()))
+                .toList();
+        Acumulado vencidos = porEstado.get(EstadoCompromisoPago.VENCIDO);
+        return new PagoDto.ResumenCompromisosResponse(hoy, total.cantidad, total.montoTotal, total.montoPagado,
+                total.saldo, estados,
+                new PagoDto.IndicadoresMorosidadResponse(vencidos.saldo, vencidos.cantidad, morosos.size()));
+    }
+
+    /** Compromiso con la secuencia de sus transacciones y los comprobantes internos emitidos. */
+    @Transactional(readOnly = true)
+    public PagoDto.CompromisoDetalleResponse detallar(Long id) {
+        CompromisoPago compromiso = compromisos.findByIdAndActivoTrue(id).orElseThrow(this::noEncontrado);
+        Map<Long, Comprobante> comprobantesPorTransaccion = comprobantes.buscarPorCompromiso(id).stream()
+                .collect(Collectors.toMap(c -> c.getTransaccionPago().getId(), Function.identity(), (a, b) -> a));
+        List<PagoDto.MovimientoCompromisoResponse> movimientos = new ArrayList<>();
+        BigDecimal acumulado = dinero(BigDecimal.ZERO);
+        int secuencia = 0;
+        for (TransaccionPago transaccion : transacciones
+                .findAllByCompromisoPagoIdAndActivoTrueOrderByFechaTransaccionAscIdAsc(id)) {
+            boolean aplica = transaccion.getEstado() == EstadoTransaccionPago.APROBADA;
+            if (aplica) {
+                acumulado = dinero(acumulado.add(transaccion.getMonto()));
+            }
+            Comprobante comprobante = comprobantesPorTransaccion.get(transaccion.getId());
+            movimientos.add(new PagoDto.MovimientoCompromisoResponse(
+                    ++secuencia,
+                    PagoService.toTransaccionResponse(transaccion),
+                    aplica,
+                    acumulado,
+                    EstadoFinancieroCompromiso.saldo(compromiso.getMontoTotal(), acumulado),
+                    comprobante == null ? null : PagoService.toComprobanteResponse(comprobante)));
+        }
+        return new PagoDto.CompromisoDetalleResponse(respuesta(compromiso), List.copyOf(movimientos));
+    }
+
+    /** El estado financiero lo calcula el sistema; ningún usuario puede fijarlo manualmente. */
+    public void rechazarCambioEstadoFinanciero() {
+        throw new BusinessRuleException("ESTADO_FINANCIERO_CALCULADO",
+                "El estado del compromiso se calcula con sus pagos aprobados y su vencimiento; no puede cambiarse manualmente.");
+    }
+
+    private Page<CompromisoPago> buscar(FiltroCompromisos filtro, Long personaApoderadoId, LocalDate hoy, Pageable pageable) {
         return compromisos.buscarAdministrados(
-                estado == null ? null : estado.name(), estadoAdministrativo, idMatricula, idAlumno, anioAcademico,
-                limpiar(busqueda), personaApoderadoId, LocalDate.now(ZONA_NEGOCIO), pageable)
-                .map(this::respuesta);
+                filtro.estado() == null ? null : filtro.estado().name(), filtro.estadoAdministrativo(),
+                filtro.idMatricula(), filtro.idAlumno(), filtro.anioAcademico(), filtro.grado(), filtro.idSeccion(),
+                filtro.vencimientoDesde(), filtro.vencimientoHasta(),
+                limpiar(filtro.busqueda()), personaApoderadoId, hoy, pageable);
+    }
+
+    private static BigDecimal dinero(BigDecimal monto) {
+        return (monto == null ? BigDecimal.ZERO : monto).setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private static final class Acumulado {
+        private long cantidad;
+        private BigDecimal montoTotal = dinero(BigDecimal.ZERO);
+        private BigDecimal montoPagado = dinero(BigDecimal.ZERO);
+        private BigDecimal saldo = dinero(BigDecimal.ZERO);
+
+        private void sumar(BigDecimal total, BigDecimal pagado, BigDecimal pendiente) {
+            cantidad++;
+            montoTotal = montoTotal.add(dinero(total));
+            montoPagado = montoPagado.add(pagado);
+            saldo = saldo.add(pendiente);
+        }
+
+        private PagoDto.ResumenEstadoResponse respuesta(EstadoCompromisoPago estado) {
+            return new PagoDto.ResumenEstadoResponse(estado, cantidad, montoTotal, montoPagado, saldo);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -226,6 +337,9 @@ public class CompromisoPagoService {
 
     @Transactional
     public PagoDto.CompromisoResponse modificar(Long id, PagoDto.CompromisoActualizacionRequest request) {
+        if (request.intentaCambiarEstadoFinanciero()) {
+            rechazarCambioEstadoFinanciero();
+        }
         CompromisoPago compromiso = bloquearEditable(id, request.version());
         if (!"PEN".equals(compromiso.getMoneda())) {
             throw new BusinessRuleException("MONEDA_HISTORICA_REQUIERE_REVISION",
@@ -310,34 +424,30 @@ public class CompromisoPagoService {
     }
 
     private EstadoCompromisoPago estadoFinanciero(CompromisoPago compromiso) {
-        if(compromiso.getMontoTotal().signum()==0)return EstadoCompromisoPago.EXONERADO;
-        if (compromiso.getMontoPagado().compareTo(compromiso.getMontoTotal()) >= 0) {
-            return EstadoCompromisoPago.PAGADO;
-        }
-        if (compromiso.getFechaVencimiento().isBefore(LocalDate.now(ZONA_NEGOCIO))) {
-            return EstadoCompromisoPago.VENCIDO;
-        }
-        return compromiso.getMontoPagado().signum() > 0
-                ? EstadoCompromisoPago.PARCIAL : EstadoCompromisoPago.PENDIENTE;
+        return EstadoFinancieroCompromiso.financiero(compromiso, EstadoFinancieroCompromiso.hoy());
     }
 
     private PagoDto.CompromisoResponse respuesta(CompromisoPago compromiso) {
-        return respuesta(compromiso,null);
+        return respuesta(compromiso, null, EstadoFinancieroCompromiso.hoy());
     }
 
-    public PagoDto.CompromisoResponse previsualizar(CompromisoPago compromiso,BeneficioCalculoService.CalculoBeneficio calculo){return respuesta(compromiso,calculo);}
+    public PagoDto.CompromisoResponse previsualizar(CompromisoPago compromiso,BeneficioCalculoService.CalculoBeneficio calculo){
+        return respuesta(compromiso, calculo, EstadoFinancieroCompromiso.hoy());
+    }
 
-    private PagoDto.CompromisoResponse respuesta(CompromisoPago compromiso,BeneficioCalculoService.CalculoBeneficio calculo) {
+    private PagoDto.CompromisoResponse respuesta(CompromisoPago compromiso,BeneficioCalculoService.CalculoBeneficio calculo,LocalDate hoy) {
         Matricula matricula = compromiso.getMatricula();
-        boolean anulado = compromiso.getEstadoAdministrativo() == EstadoAdministrativoCompromiso.ANULADO;
+        boolean anulado = EstadoFinancieroCompromiso.anulado(compromiso);
         var monto=calculo==null?compromiso.getMontoTotal():calculo.montoTotal();
-        EstadoCompromisoPago financiero = calculo==null?estadoFinanciero(compromiso):monto.signum()==0?EstadoCompromisoPago.EXONERADO:
-            compromiso.getFechaVencimiento().isBefore(LocalDate.now(ZONA_NEGOCIO))?EstadoCompromisoPago.VENCIDO:EstadoCompromisoPago.PENDIENTE;
+        // La previsualización de un beneficio solo aplica a compromisos sin pagos, pero se calcula con la misma regla.
+        EstadoCompromisoPago financiero = EstadoFinancieroCompromiso.calcular(
+                monto, compromiso.getMontoPagado(), compromiso.getFechaVencimiento(), hoy);
+        var seccion = matricula.getSeccion();
         return new PagoDto.CompromisoResponse(
                 compromiso.getId(), matricula.getId(), compromiso.getCodigoCompromiso(),
                 compromiso.getConcepto(), compromiso.getDescripcion(), monto,
                 compromiso.getMontoPagado(), anulado ? BigDecimal.ZERO.setScale(2)
-                        : monto.subtract(compromiso.getMontoPagado()).max(BigDecimal.ZERO),
+                        : EstadoFinancieroCompromiso.saldo(monto, compromiso.getMontoPagado()),
                 compromiso.getMoneda(), compromiso.getFechaVencimiento(),
                 anulado ? EstadoCompromisoPago.ANULADO : financiero,
                 compromiso.getFechaCreacion(), compromiso.getFechaActualizacion(),
@@ -348,7 +458,9 @@ public class CompromisoPagoService {
                 compromiso.getConceptoCobro()==null?null:compromiso.getConceptoCobro().getId(),compromiso.getMes(),compromiso.getReferenciaCobro(),
                 calculo==null?(compromiso.getMontoBase()==null?compromiso.getMontoTotal():compromiso.getMontoBase()):calculo.montoBase(),
                 calculo==null?(compromiso.getMontoDescuento()==null?new BigDecimal("0.00"):compromiso.getMontoDescuento()):calculo.montoDescuento(),
-                calculo==null?compromiso.getBeneficioNombre():calculo.beneficioNombre(),calculo==null?compromiso.getIdBeneficio():calculo.idBeneficio(),compromiso.getIdTarifa(),compromiso.getTarifaVersion());
+                calculo==null?compromiso.getBeneficioNombre():calculo.beneficioNombre(),calculo==null?compromiso.getIdBeneficio():calculo.idBeneficio(),compromiso.getIdTarifa(),compromiso.getTarifaVersion(),
+                seccion == null ? null : seccion.getGrado(), seccion == null ? null : seccion.getNombre(),
+                seccion == null ? null : seccion.getId());
     }
 
     private void registrar(String accion, CompromisoPago compromiso, String motivo, String anterior) {

@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,9 +20,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/compromisos-pago")
@@ -42,26 +46,59 @@ public class CompromisoPagoController {
             @RequestParam(required = false) Long idMatricula,
             @RequestParam(required = false) Long idAlumno,
             @RequestParam(required = false) Integer anioAcademico,
+            @RequestParam(required = false) Integer grado,
+            @RequestParam(required = false) Long idSeccion,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimientoDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimientoHasta,
             @RequestParam(required = false) EstadoAdministrativoCompromiso estadoAdministrativo,
             @RequestParam(required = false) String busqueda,
             @PageableDefault(size = 20, sort = "fechaVencimiento", direction = Sort.Direction.ASC)
             Pageable pageable
     ) {
         return compromisoService.listar(
-                estado,
-                estadoAdministrativo,
-                idMatricula,
-                idAlumno,
-                anioAcademico,
-                busqueda,
+                new CompromisoPagoService.FiltroCompromisos(estado, estadoAdministrativo, idMatricula, idAlumno,
+                        anioAcademico, grado, idSeccion, vencimientoDesde, vencimientoHasta, busqueda),
                 accessGuard.restriccionApoderadoPersonaId(),
                 pageable);
+    }
+
+    /** Cantidades y montos por estado, e indicadores de morosidad, de los compromisos del filtro. */
+    @GetMapping("/resumen")
+    @PreAuthorize("hasAuthority('PAGOS_LEER') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'SECRETARIA', 'TESORERIA')")
+    public PagoDto.ResumenCompromisosResponse resumen(
+            @RequestParam(required = false) EstadoCompromisoPago estado,
+            @RequestParam(required = false) Long idMatricula,
+            @RequestParam(required = false) Long idAlumno,
+            @RequestParam(required = false) Integer anioAcademico,
+            @RequestParam(required = false) Integer grado,
+            @RequestParam(required = false) Long idSeccion,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimientoDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimientoHasta,
+            @RequestParam(required = false) EstadoAdministrativoCompromiso estadoAdministrativo,
+            @RequestParam(required = false) String busqueda
+    ) {
+        return compromisoService.resumir(new CompromisoPagoService.FiltroCompromisos(estado, estadoAdministrativo,
+                idMatricula, idAlumno, anioAcademico, grado, idSeccion, vencimientoDesde, vencimientoHasta, busqueda));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('PAGOS_LEER') and @moduloAccessGuard.puedeAccederCompromisoPago(#id)")
     public PagoDto.CompromisoResponse obtener(@PathVariable Long id) {
         return compromisoService.obtener(id);
+    }
+
+    /** Secuencia de transacciones del compromiso con sus comprobantes internos. */
+    @GetMapping("/{id}/detalle")
+    @PreAuthorize("hasAuthority('PAGOS_LEER') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'SECRETARIA', 'TESORERIA')")
+    public PagoDto.CompromisoDetalleResponse detalle(@PathVariable Long id) {
+        return compromisoService.detallar(id);
+    }
+
+    /** El estado financiero es calculado: cualquier intento de fijarlo se rechaza. */
+    @RequestMapping(value = "/{id}/estado", method = {RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.POST})
+    @PreAuthorize("hasAuthority('PAGOS_LEER') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'SECRETARIA', 'TESORERIA')")
+    public void cambiarEstado(@PathVariable Long id) {
+        compromisoService.rechazarCambioEstadoFinanciero();
     }
 
     @PostMapping

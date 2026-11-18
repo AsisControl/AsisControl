@@ -15,6 +15,10 @@ public interface ComprobanteRepository extends JpaRepository<Comprobante, Long> 
 
     Optional<Comprobante> findByTransaccionPagoIdAndActivoTrue(Long idTransaccionPago);
 
+    /** Comprobantes internos vigentes de las transacciones de un compromiso. */
+    @Query("SELECT c FROM Comprobante c WHERE c.activo = true AND c.transaccionPago.compromisoPago.id = :idCompromisoPago")
+    java.util.List<Comprobante> buscarPorCompromiso(@Param("idCompromisoPago") Long idCompromisoPago);
+
     boolean existsBySerieIgnoreCaseAndNumeroIgnoreCaseAndActivoTrue(String serie, String numero);
 
     Page<Comprobante> findAllByActivoTrue(Pageable pageable);
