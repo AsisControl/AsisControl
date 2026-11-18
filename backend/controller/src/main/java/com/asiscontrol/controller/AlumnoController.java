@@ -67,10 +67,8 @@ public class AlumnoController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
     public PersonaDtos.AlumnoResponse create(
             @Valid @RequestBody PersonaDtos.AlumnoCreateRequest request) {
-        // El alta web no admite asignar códigos; la importación interna conserva su contrato
-        // legado.
-        return personaService.createAlumno(
-                new PersonaDtos.AlumnoCreateRequest(request.persona(), null));
+        // El código del estudiante lo genera el sistema (EST{AÑO}{####}).
+        return personaService.createAlumno(request);
     }
 
     @PutMapping("/{id}")

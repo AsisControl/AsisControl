@@ -53,8 +53,7 @@ class ImportacionAlumnoServiceTest {
         assertThat(content).isNotEmpty();
         var result = service.importStudents(new MockMultipartFile("file", "plantilla.xlsx", null, content));
         assertThat(result.importedRows()).isEqualTo(1);
-        verify(personas).createAlumno(argThat(r -> r.codigoAlumno().equals("EST-0001")
-                && r.persona().fechaNacimiento().equals(LocalDate.of(2012, 5, 15))));
+        verify(personas).createAlumno(argThat(r -> r.persona().fechaNacimiento().equals(LocalDate.of(2012, 5, 15))));
     }
 
     @Test void importaFilasValidasYOmiteFilasVacias() throws Exception {
@@ -87,7 +86,7 @@ class ImportacionAlumnoServiceTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"0,''", "4,INVALIDO", "6,abc", "6,10.01", "6,0", "7,INVALIDO", "8,no-es-fecha", "8,30/02/2012", "10,correo-invalido", "8,2099-01-01"})
+    @CsvSource({"1,''", "4,INVALIDO", "6,abc", "6,10.01", "6,0", "7,INVALIDO", "8,no-es-fecha", "8,30/02/2012", "10,correo-invalido", "8,2099-01-01"})
     void reportaFilaInvalidaSinPersistir(int column, String value) throws Exception {
         var result = service.importStudents(file(w -> base(w).getRow(1).getCell(column).setCellValue(value)));
         assertThat(result.rejectedRows()).isEqualTo(1);

@@ -65,7 +65,7 @@ export function ResetPasswordDialog({
           autoComplete="new-password"
         />
         <p className="hint">
-          Vence en 24 horas y requiere cambio al ingresar. Entrega esta
+          Vence en 14 días y requiere cambio al ingresar. Entrega esta
           contraseña al titular una sola vez. Sus sesiones anteriores serán
           revocadas.
         </p>

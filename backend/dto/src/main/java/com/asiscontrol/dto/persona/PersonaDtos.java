@@ -127,9 +127,7 @@ public final class PersonaDtos {
             @NotNull(message = "Completa los datos de identidad")
                     @Valid
                     @ConvertGroup(from = Default.class, to = FichaAlumno.class)
-                    PersonaRequest persona,
-            @Size(max = 30, message = "El código institucional admite hasta 30 caracteres")
-                    String codigoAlumno) {}
+                    PersonaRequest persona) {}
 
     public record AlumnoUpdateRequest(
             @NotNull(message = "Completa los datos de identidad")
@@ -151,17 +149,16 @@ public final class PersonaDtos {
             List<ApoderadoVinculadoResponse> apoderados,
             boolean activo) {}
 
+    /** El código del docente lo genera el sistema (DOC{AÑO}{####}). */
     public record DocenteCreateRequest(
             @NotNull @Valid PersonaRequest persona,
-            @NotBlank(message = "El codigo del docente es obligatorio") @Size(max = 30)
-                    String codigoDocente,
             @NotNull(message = "La fecha de ingreso es obligatoria") LocalDate fechaIngreso,
             @NotNull(message = "La especialidad es obligatoria") Especialidad especialidad) {}
 
+    /** El código es permanente: si se envía, debe ser el registrado. */
     public record DocenteUpdateRequest(
             @NotNull @Valid PersonaRequest persona,
-            @NotBlank(message = "El codigo del docente es obligatorio") @Size(max = 30)
-                    String codigoDocente,
+            @Size(max = 30) String codigoDocente,
             @NotNull(message = "La fecha de ingreso es obligatoria") LocalDate fechaIngreso,
             @NotNull(message = "La especialidad es obligatoria") Especialidad especialidad) {}
 
@@ -179,6 +176,7 @@ public final class PersonaDtos {
 
     public record ApoderadoResponse(
             Long id,
+            String codigoApoderado,
             PersonaResponse persona,
             List<AlumnoVinculadoResponse> alumnos,
             boolean activo) {}

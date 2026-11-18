@@ -65,7 +65,8 @@ public class UsuarioController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UsuarioDtos.Response create(@Valid @RequestBody UsuarioDtos.CreateRequest request) {
-        return usuarioService.create(request);
+        // El administrador ya no escribe usuario ni correo: los genera el sistema.
+        return usuarioService.create(request.conCredencialesGeneradas());
     }
 
     @PutMapping("/{id}")

@@ -1,9 +1,9 @@
 "use client";
 import { passwordHint } from "@/core/auth/password-policy";
-import { Field, PasswordField } from "@/shared/ui";
+import { PasswordField } from "@/shared/ui";
 import { StepCard } from "./step-parts";
 import styles from "./new-user.module.css";
-/** Paso 3: usuario, correo y contraseña temporal del acceso. */
+/** Paso 3: contraseña temporal del acceso; usuario y correo los genera el sistema. */
 export function CredentialsStep({
   password,
   onPasswordChange,
@@ -19,29 +19,14 @@ export function CredentialsStep({
     <StepCard
       number={3}
       title="Acceso"
-      description="Usuario y correo únicos. La contraseña temporal se cambia al primer ingreso."
+      description="El usuario y el correo se generan al guardar. La contraseña temporal se cambia al primer ingreso."
       done={done}
     >
-      <div className="form-grid">
-        <Field
-          label="Usuario"
-          name="username"
-          required
-          minLength={4}
-          maxLength={80}
-          autoComplete="off"
-          placeholder="pmorales"
-        />
-        <Field
-          label="Correo del acceso"
-          name="correo"
-          required
-          type="email"
-          maxLength={150}
-          autoComplete="off"
-          placeholder="nombre@colegio.edu.pe"
-        />
-      </div>
+      <p className="hint">
+        Usuario: primer nombre y apellido paterno (maria.quispe; si ya existe,
+        maria.quispe2). Correo: el código del perfil con el dominio
+        institucional (est20260001@asiscontrol.edu.pe).
+      </p>
       <div className={styles.passwordRow}>
         <PasswordField
           label="Contraseña temporal"
@@ -63,14 +48,11 @@ export function CredentialsStep({
       </div>
       <p className="hint">
         {passwordHint} Entrega la contraseña a su titular antes de guardar;
-        deberá cambiarla al ingresar. Vence en 24 horas.
+        deberá cambiarla al ingresar. Vence en 14 días.
       </p>
-      <label className="check-field">
-        <input type="checkbox" name="correoVerificado" /> La institución
-        verificó que este correo pertenece al titular.
-      </label>
       <p className="hint">
-        Sin esta confirmación, la recuperación por correo queda deshabilitada.
+        El correo institucional no tiene buzón propio: si la persona olvida su
+        contraseña, restablécela desde Usuarios.
       </p>
     </StepCard>
   );

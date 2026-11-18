@@ -31,14 +31,14 @@ public class ImportacionAlumnoService {
 
     private static final long MAX_IMPORT_SIZE = 5L * 1024L * 1024L;
     private static final List<String> TEMPLATE_HEADERS = List.of(
-            "codigoAlumno", "nombres", "apellidoPaterno", "apellidoMaterno",
+            "nombres", "apellidoPaterno", "apellidoMaterno",
             "tipoDocumento", "numeroDocumento", "sexo", "fechaNacimiento",
             "telefono", "correo", "direccion");
     private static final List<String> TEMPLATE_EXAMPLE = List.of(
-            "EST-0001", "Maria", "Quispe", "Flores", "DNI", "70000001",
+            "Maria", "Quispe", "Flores", "DNI", "70000001",
             "FEMENINO", "2012-05-15", "999999999", "familia@ejemplo.com", "Lima");
+    /** El código del estudiante lo genera el sistema; una columna codigoAlumno se ignora. */
     private static final List<String> REQUIRED_HEADERS = List.of(
-            "codigoAlumno",
             "nombres",
             "apellidoPaterno",
             "apellidoMaterno",
@@ -140,7 +140,6 @@ public class ImportacionAlumnoService {
     }
 
     private PersonaDtos.AlumnoCreateRequest toRequest(Row row, Map<String, Integer> columns) {
-        String code = value(row, columns, "codigoAlumno");
         String names = value(row, columns, "nombres");
         String paternalSurname = value(row, columns, "apellidoPaterno");
         String maternalSurname = value(row, columns, "apellidoMaterno");
@@ -169,7 +168,7 @@ public class ImportacionAlumnoService {
                 email,
                 address
         );
-        return new PersonaDtos.AlumnoCreateRequest(person, code);
+        return new PersonaDtos.AlumnoCreateRequest(person);
     }
 
     private Map<String, Integer> readHeaders(Row headerRow) {

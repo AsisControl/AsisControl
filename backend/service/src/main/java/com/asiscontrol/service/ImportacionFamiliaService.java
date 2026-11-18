@@ -88,13 +88,17 @@ public class ImportacionFamiliaService {
     }
 
     /**
-     * Una fila por vinculo alumno-apoderado. En un mismo archivo solo se acepta un apoderado
-     * principal por alumno; al vincular uno principal, los demas vinculos dejan de serlo.
+     * Una fila por vinculo alumno-apoderado, ambos identificados por su documento. En un mismo
+     * archivo solo se acepta un apoderado principal por alumno; al vincular uno principal, los
+     * demas vinculos dejan de serlo.
      */
     public PersonaDtos.ImportResult importRelationships(MultipartFile file) {
         Map<String, Integer> principalPorAlumno = new HashMap<>();
         var resumen = LectorExcel.recorrer(file, RELATIONSHIP_REQUIRED, fila -> {
-            String codigo = fila.obligatorio("codigoAlumno").toUpperCase(Locale.ROOT);
+            TipoDocumento tipoAlumno = fila.enumerado(TipoDocumento.class, "tipoDocumentoAlumno",
+                    List.of(TipoDocumento.values()));
+            String numeroAlumno = fila.obligatorio("numeroDocumentoAlumno").toUpperCase(Locale.ROOT);
+            String codigo = tipoAlumno + " " + numeroAlumno;
             TipoDocumento tipo = fila.enumerado(TipoDocumento.class, "tipoDocumentoApoderado",
                     List.of(TipoDocumento.values()));
             String numero = fila.obligatorio("numeroDocumentoApoderado").toUpperCase(Locale.ROOT);
@@ -102,11 +106,11 @@ public class ImportacionFamiliaService {
                     fila.enumerado(Parentesco.class, "parentesco", PARENTESCOS_IMPORTABLES);
             boolean principal = fila.siNo("principal");
 
-            var alumno = alumnoRepository.findByCodigoAlumnoIgnoreCase(codigo)
-                    .filter(found -> found.isActivo())
+            var alumno = personaRepository.findByTipoDocumentoAndNumeroDocumento(tipoAlumno, numeroAlumno)
+                    .flatMap(persona -> alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()))
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "ALUMNO_NO_ENCONTRADO",
-                            "No hay un estudiante habilitado con el codigo " + codigo));
+                            "No hay un estudiante habilitado con el documento " + codigo));
             var apoderado = personaRepository.findByTipoDocumentoAndNumeroDocumento(tipo, numero)
                     .flatMap(persona -> apoderadoRepository.findByPersonaIdAndActivoTrue(persona.getId()))
                     .orElseThrow(() -> new ResourceNotFoundException(

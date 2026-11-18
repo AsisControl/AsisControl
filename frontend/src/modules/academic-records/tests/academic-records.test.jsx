@@ -22,13 +22,14 @@ const persona = (nombreCompleto, numeroDocumento, correo = null) => ({
 });
 const carmen = {
   id: 7,
+  codigoApoderado: "APO20260007",
   persona: persona("Carmen Flores Vega", "40112233", "carmen@correo.pe"),
   alumnos: [
     { id: 1, alumnoId: 3, codigoAlumno: "EST-042", nombreCompleto: "Lucía Flores", parentesco: "MADRE", principal: true },
   ],
   activo: true,
 };
-const jorge = { id: 8, persona: persona("Jorge Rojas", "40998877"), alumnos: [], activo: false };
+const jorge = { id: 8, codigoApoderado: null, persona: persona("Jorge Rojas", "40998877"), alumnos: [], activo: false };
 const lucia = {
   id: 3,
   codigoAlumno: "EST-042",
@@ -90,10 +91,12 @@ test("Apoderados lista a sus estudiantes a cargo y busca en el backend", async (
   render(<RecordsScreen />);
   const row = (await screen.findByText("Carmen Flores Vega")).closest("tr");
   expect(within(row).getByText("DNI 40112233")).toBeTruthy();
+  expect(within(row).getByText("APO20260007")).toBeTruthy();
   expect(within(row).getByText(/Lucía Flores/).textContent).toBe("Lucía Flores · Madre");
   expect(within(row).getByText("Activo")).toBeTruthy();
   const inactive = screen.getByText("Jorge Rojas").closest("tr");
   expect(within(inactive).getByText("Sin estudiantes vinculados")).toBeTruthy();
+  expect(inactive.cells[0].textContent).toBe("—");
   expect(within(inactive).getByText("Sin correo de contacto")).toBeTruthy();
   expect(screen.getByText("2 apoderados", { exact: false })).toBeTruthy();
   expect(screen.getByRole("button", { name: /Registrar apoderado/ }).disabled).toBe(true);
@@ -128,6 +131,7 @@ test("La ficha del apoderado consulta sus datos y sus estudiantes a cargo", asyn
   expect(await within(dialog).findByText("14/03/1985")).toBeTruthy();
   expect(calls.at(-1).path).toBe("/api/apoderados/7");
   expect(within(dialog).getByText("DNI 40112233")).toBeTruthy();
+  expect(within(dialog).getByText("APO20260007")).toBeTruthy();
   expect(within(dialog).getByText("Femenino")).toBeTruthy();
   expect(within(dialog).getByText("Dirección").nextSibling.textContent).toBe("—");
   const link = within(dialog).getByText("EST-042").closest("tr");

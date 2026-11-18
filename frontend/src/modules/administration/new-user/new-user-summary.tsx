@@ -7,8 +7,6 @@ export function NewUserSummary({
   personName,
   role,
   profileAction,
-  username,
-  email,
   studentCount,
   missing,
   busy,
@@ -18,8 +16,6 @@ export function NewUserSummary({
   role: string;
   /** Qué ocurrirá con el perfil institucional; vacío si aún no hay rol. */
   profileAction: string;
-  username: string;
-  email: string;
   /** null si el rol no admite estudiantes asociados. */
   studentCount: number | null;
   /** Lo que falta para poder crear el usuario. */
@@ -53,12 +49,8 @@ export function NewUserSummary({
           </div>
         )}
         <div>
-          <dt>Usuario</dt>
-          <dd>{username || pending}</dd>
-        </div>
-        <div>
-          <dt>Correo</dt>
-          <dd>{email || pending}</dd>
+          <dt>Usuario y correo</dt>
+          <dd>Se generan al guardar</dd>
         </div>
         {studentCount !== null && (
           <div>

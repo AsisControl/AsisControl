@@ -31,11 +31,11 @@ class PlantillaAlumnoTest {
             sheet.getRow(0).forEach(cell -> columnNames.add(cell.getStringCellValue()));
 
             assertThat(columnNames).containsExactly(
-                    "codigoAlumno", "nombres", "apellidoPaterno", "apellidoMaterno",
+                    "nombres", "apellidoPaterno", "apellidoMaterno",
                     "tipoDocumento", "numeroDocumento", "sexo", "fechaNacimiento",
                     "telefono", "correo", "direccion");
             assertThat(sheet.getRow(1).getLastCellNum()).isEqualTo((short) columnNames.size());
-            assertThat(sheet.getColumnStyle(5).getDataFormatString()).isEqualTo("@");
+            assertThat(sheet.getColumnStyle(4).getDataFormatString()).isEqualTo("@");
             assertThat(sheet.getPaneInformation().isFreezePane()).isTrue();
         }
     }
