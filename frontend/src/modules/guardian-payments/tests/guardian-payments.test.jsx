@@ -16,18 +16,21 @@ const backend = (routes = {}) => fakeBackend({ [STUDENTS]: [student, sibling], [
 const selectFirst = async (user) => user.click(await screen.findByRole("checkbox", { name: "Seleccionar CP-000001 de Lucía Flores" }));
 const checkout = (props = {}) => render(<PaymentCheckout obligations={[obligation()]} onClose={vi.fn()} onSettled={vi.fn()} {...props} />);
 
-test("consulta sólo las obligaciones recibidas, filtra por estudiante y estado y pide páginas de diez", async () => {
+test("consulta sólo las obligaciones recibidas, filtra por estudiante, tipo y estado y pide páginas de diez", async () => {
   const calls = backend({ [OBLIGATIONS]: ({ query }) => ({ ...page([obligation(), obligation(2, { estadoFinanciero: "PAGADO", saldo: 0 })], 2), page: Number(query.page), totalElements: 12 }) });
   const user = userEvent.setup(); render(<GuardianPayments />);
   await screen.findByRole("button", { name: "Ver obligación CP-000001" });
   expect(screen.getByRole("checkbox", { name: "Seleccionar CP-000002 de Lucía Flores" }).disabled).toBe(true);
+  expect(calls.find((call) => call.path === "/api/apoderado/obligaciones").query).not.toHaveProperty("tipo");
   await user.selectOptions(screen.getByLabelText("Estudiante", { exact: true }), "3");
+  await user.selectOptions(screen.getByLabelText("Tipo de cobro"), "PENSION");
   await user.selectOptions(screen.getByLabelText("Situación de pago"), "VENCIDO");
   await user.click(screen.getByRole("button", { name: "Buscar", exact: true }));
-  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ size: "10", page: "0", idAlumno: "3", estado: "VENCIDO" }));
+  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ size: "10", page: "0", idAlumno: "3", tipo: "PENSION", estado: "VENCIDO" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(false));
   await user.click(screen.getByRole("button", { name: "Siguiente" }));
   await waitFor(() => expect(calls.at(-1).query.page).toBe("1"));
+  expect(calls.at(-1).query.tipo).toBe("PENSION");
   expect(calls.every((call) => !("apoderadoId" in call.query))).toBe(true);
 });
 
@@ -39,7 +42,7 @@ test("selecciona varias cuotas entre páginas y envía sólo sus identificadores
   expect(screen.getByText("2 obligaciones seleccionadas")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Pagar seleccionadas" }));
   await user.click(screen.getByRole("button", { name: "Continuar con tarjeta" }));
-  await screen.findByLabelText("Resultado de autorización");
+  await screen.findByRole("button", { name: /Confirmar pago/ });
   expect(calls.find((call) => call.method === "POST").body).toEqual({ obligacionesIds: [1, 2], metodo: "TARJETA" });
 });
 
@@ -101,7 +104,8 @@ test("una aprobación con tarjeta actualiza saldos y muestra el comprobante que 
   await user.click(screen.getByRole("button", { name: "Continuar con tarjeta" }));
   await user.click(await screen.findByRole("button", { name: /Confirmar pago/ }));
   expect(await screen.findByText("Referencias: REC-000022")).toBeTruthy();
-  expect(calls.find((call) => call.path.endsWith("confirmar-tarjeta")).body).toEqual({ escenario: "APROBADO" });
+  expect(calls.find((call) => call.path.endsWith("confirmar-tarjeta")).body).toEqual({});
+  expect(screen.queryByLabelText("Resultado de autorización")).toBeNull();
   expect(screen.queryByLabelText(/CVV|Número de tarjeta/)).toBeNull();
   await user.click(screen.getByRole("button", { name: "Cerrar", exact: true }));
   await waitFor(() => expect(screen.getByRole("checkbox", { name: "Seleccionar CP-000001 de Lucía Flores" }).disabled).toBe(true));
@@ -110,7 +114,6 @@ test("una aprobación con tarjeta actualiza saldos y muestra el comprobante que 
 test("el desafío de autenticación requiere una segunda confirmación explícita", async () => {
   const calls = backend({ "POST /api/pagos/ordenes/10/confirmar-tarjeta": order({ estado: "REQUIERE_AUTENTICACION" }), "POST /api/pagos/ordenes/10/autenticar": complete(), "GET /api/pagos/ordenes/10/comprobante": receipt() });
   const user = userEvent.setup(); checkout({ initialOrder: order() });
-  await user.selectOptions(screen.getByLabelText("Resultado de autorización"), "REQUIERE_AUTENTICACION");
   await user.click(screen.getByRole("button", { name: /Confirmar pago/ }));
   await user.click(await screen.findByRole("button", { name: "Completar autenticación" }));
   expect(await screen.findByText("Referencias: REC-000022")).toBeTruthy();
@@ -118,11 +121,10 @@ test("el desafío de autenticación requiere una segunda confirmación explícit
 });
 
 test("un rechazo no muestra comprobante y permite iniciar otro intento", async () => {
-  const calls = backend({ "POST /api/pagos/ordenes/10/confirmar-tarjeta": order({ estado: "RECHAZADO", mensaje: "Saldo insuficiente en la tarjeta de prueba." }), "POST /api/pagos/iniciar": order({ id: 11, codigo: "OP-11" }) });
+  const calls = backend({ "POST /api/pagos/ordenes/10/confirmar-tarjeta": order({ estado: "RECHAZADO", mensaje: "Saldo insuficiente en la tarjeta." }), "POST /api/pagos/iniciar": order({ id: 11, codigo: "OP-11" }) });
   const user = userEvent.setup(); checkout({ initialOrder: order() });
-  await user.selectOptions(screen.getByLabelText("Resultado de autorización"), "FONDOS_INSUFICIENTES");
   await user.click(screen.getByRole("button", { name: /Confirmar pago/ }));
-  expect(await screen.findByText("Saldo insuficiente en la tarjeta de prueba.")).toBeTruthy();
+  expect(await screen.findByText("Saldo insuficiente en la tarjeta.")).toBeTruthy();
   expect(screen.queryByText("Constancia de pago")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Intentar de nuevo" }));
   await user.click(screen.getByRole("button", { name: "Continuar con tarjeta" }));
@@ -141,7 +143,7 @@ test("reutiliza la clave idempotente después de una respuesta de inicio perdida
   await user.click(screen.getByRole("button", { name: "Continuar con tarjeta" }));
   await screen.findByText("Respuesta temporalmente no disponible"); failed = false;
   await user.click(screen.getByRole("button", { name: "Continuar con tarjeta" }));
-  await screen.findByLabelText("Resultado de autorización");
+  await screen.findByRole("button", { name: /Confirmar pago/ });
   expect(keys[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/); expect(keys[1]).toBe(keys[0]);
 });
 
@@ -188,7 +190,7 @@ test("el historial muestra órdenes, continúa pendientes y sólo ofrece comprob
   expect(await screen.findByText("Referencias: REC-000022")).toBeTruthy();
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cerrar", exact: true }));
   await user.click(screen.getByRole("button", { name: "Continuar pago" }));
-  expect(await screen.findByLabelText("Resultado de autorización")).toBeTruthy();
+  expect(await screen.findByRole("button", { name: /Confirmar pago/ })).toBeTruthy();
 });
 
 test("recupera el comprobante y descarga el archivo entregado por la API", async () => {

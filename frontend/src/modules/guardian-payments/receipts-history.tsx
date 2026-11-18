@@ -15,7 +15,7 @@ export function ReceiptsHistory() {
   return <section className="panel">
     <PanelHeading title="Historial de pagos" summary="Consulta todos los pagos realizados con su comprobante, incluidos los registrados por la institución."
       actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar historial</button>} />
-    <p className={styles.hint}>Cada comprobante acredita un pago aplicado a una cuota. Un pago puede agrupar varias cuotas; consulta las solicitudes pendientes o rechazadas en Seguimiento de pagos.</p>
+    <p className={styles.hint}>Aquí aparecen los pagos aprobados y sus comprobantes. Consulta el estado de una operación en Seguimiento de pagos.</p>
     <Feedback error={list.error} />
     {list.loading ? <p role="status">Cargando historial…</p> : !list.error && !list.data?.content.length ? <p className="empty">Todavía no tienes pagos registrados.</p> : list.data && <div className={styles.tableWrap}>
       <table className={`user-table ${styles.historyTable}`} aria-label="Comprobantes de mis estudiantes"><thead><tr><th>Comprobante y fecha</th><th>Estudiante</th><th>Concepto y cuota</th><th>Medio</th><th>Monto pagado</th><th>Acciones</th></tr></thead><tbody>

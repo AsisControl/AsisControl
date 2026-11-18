@@ -1,6 +1,6 @@
 import { api, apiBlob } from "@/core/api/client";
 import { saveBlob } from "@/shared/lib/save-blob";
-import type { CardScenario, FamilyStudent, ObligationDetail, OrderReceipt, PaymentMethod, PaymentOrder, ReceiptHistoryItem } from "../types";
+import type { FamilyStudent, ObligationDetail, OrderReceipt, PaymentMethod, PaymentOrder, ReceiptHistoryItem } from "../types";
 
 export const OBLIGATIONS_PATH = "/api/apoderado/obligaciones";
 export const ORDERS_PATH = "/api/pagos/ordenes";
@@ -15,8 +15,8 @@ export const getObligation = (id: number) => api<ObligationDetail>(`${OBLIGATION
 export const startOrder = (obligacionesIds: number[], metodo: PaymentMethod, key: string) =>
   api<PaymentOrder>("/api/pagos/iniciar", { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify({ obligacionesIds, metodo }) });
 export const getOrder = (id: number) => api<PaymentOrder>(`${ORDERS_PATH}/${id}`);
-export const confirmCard = (id: number, escenario: CardScenario) =>
-  api<PaymentOrder>(`${ORDERS_PATH}/${id}/confirmar-tarjeta`, { method: "POST", body: JSON.stringify({ escenario }) });
+export const confirmCard = (id: number) =>
+  api<PaymentOrder>(`${ORDERS_PATH}/${id}/confirmar-tarjeta`, { method: "POST", body: JSON.stringify({}) });
 export const authenticateCard = (id: number, aprobar: boolean) =>
   api<PaymentOrder>(`${ORDERS_PATH}/${id}/autenticar`, { method: "POST", body: JSON.stringify({ aprobar }) });
 export const getReceipt = (id: number) => api<OrderReceipt>(`${ORDERS_PATH}/${id}/comprobante`);
@@ -27,7 +27,7 @@ export async function downloadReceipt(id: number, code: string) {
 /** El celular usa únicamente la capacidad del QR; no envía sesión, cookies ni identidad. */
 export const getQrOrder = (token: string) => api<PaymentOrder>(`/api/pagos/qr/${encodeURIComponent(token)}`,
   { credentials: "omit", referrerPolicy: "no-referrer" }, false);
-export const confirmQr = (token: string, accion: "APROBAR" | "RECHAZAR") =>
+export const confirmQr = (token: string) =>
   api<PaymentOrder>(`/api/pagos/qr/${encodeURIComponent(token)}/confirmar`, {
-    method: "POST", credentials: "omit", referrerPolicy: "no-referrer", body: JSON.stringify({ accion }),
+    method: "POST", credentials: "omit", referrerPolicy: "no-referrer", body: JSON.stringify({ accion: "APROBAR" }),
   }, false);

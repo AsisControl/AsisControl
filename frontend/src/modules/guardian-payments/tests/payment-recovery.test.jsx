@@ -79,6 +79,51 @@ test("retoma una orden desde el historial y actualiza obligaciones e historial a
   expect(calls.filter((call) => call.path === "/api/apoderado/obligaciones").length).toBeGreaterThan(1);
 });
 
+test("Seguimiento detecta un QR aprobado fuera del diálogo y las consultas muestran el nuevo resultado", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  let paid = false;
+  const pending = order({ metodo: "QR" });
+  const approved = complete({ metodo: "QR" });
+  backend({
+    [OBLIGATIONS]: () => page([paid
+      ? obligation(1, { estado: "PAGADO", estadoFinanciero: "PAGADO", montoPagado: 350, saldo: 0 })
+      : obligation()]),
+    "GET /api/pagos/ordenes": () => page([paid ? approved : pending]),
+    "GET /api/apoderado/comprobantes": () => page(paid ? [{
+      id: 22, codigo: "REC-000022", fechaEmision: approved.pagadaEn, alumno: student.nombreCompleto,
+      concepto: "Pensión de marzo", numeroCuota: 1, codigoCompromiso: "CP-000001",
+      medioPago: "QR_SIMULADO", montoTotal: 350, moneda: "PEN",
+    }] : []),
+  });
+  const user = userEvent.setup();
+  render(<GuardianPayments />);
+  await user.click(screen.getByRole("tab", { name: "Seguimiento de pagos" }));
+  expect(await screen.findByRole("button", { name: "Continuar pago" })).toBeTruthy();
+
+  paid = true;
+  await act(async () => vi.advanceTimersByTimeAsync(5000));
+  expect(await screen.findByText("Pago aprobado")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Ver comprobante" })).toBeTruthy();
+
+  await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
+  expect(await screen.findByRole("button", { name: "Ver comprobante REC-000022" })).toBeTruthy();
+  await user.click(screen.getByRole("tab", { name: "Obligaciones", exact: true }));
+  await screen.findByText("Pagado", { selector: "span" });
+  expect(screen.getByRole("checkbox", { name: "Seleccionar CP-000001 de Lucía Flores" }).disabled).toBe(true);
+});
+
+test("al volver de otra ventana el estado de cuenta consulta sus obligaciones actualizadas", async () => {
+  let paid = false;
+  backend({ [OBLIGATIONS]: () => page([paid
+    ? obligation(1, { estado: "PAGADO", estadoFinanciero: "PAGADO", saldo: 0 })
+    : obligation()]) });
+  render(<GuardianPayments />);
+  await screen.findByText("Pendiente", { selector: "span" });
+  paid = true;
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  expect(await screen.findByText("Pagado", { selector: "span" })).toBeTruthy();
+});
+
 test("elige QR antes de crear la orden y no abre enlaces con protocolos inesperados", async () => {
   const calls = backend({ "POST /api/pagos/iniciar": order({ metodo: "QR", qrUrl: "javascript:alert(1)" }) });
   const user = userEvent.setup(); render(<PaymentCheckout obligations={[obligation()]} onClose={vi.fn()} onSettled={vi.fn()} />);
