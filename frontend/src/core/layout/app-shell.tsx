@@ -146,9 +146,9 @@ function Dashboard({
               setIsMobileMenuOpen(false);
             }}
           >
-            <span className="account-name">
+            <span className={styles.accountIdentity}>
+              <span className={styles.roleBadge}>{user.role}</span>
               <strong>{user.fullName}</strong>
-              <small>{roleLabel}</small>
             </span>
             <span className={`avatar ${styles.accountAvatar}`}>
               {user.fullName

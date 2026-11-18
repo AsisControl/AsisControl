@@ -28,7 +28,7 @@ export function LoginScreen({
   }
 
   return (
-    <main className={identityStyles.screen}>
+    <main className={`${identityStyles.screen} ${identityStyles.compactScreen}`}>
       <AuthIdentityPanel />
       <section className="login-form-panel">
         <form className="login-form" onSubmit={login}>
