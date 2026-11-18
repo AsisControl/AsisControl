@@ -74,6 +74,10 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
               AND (:idMatricula IS NULL OR m.id = :idMatricula)
               AND (:idAlumno IS NULL OR a.id = :idAlumno)
               AND (:anioAcademico IS NULL OR m.anioAcademico = :anioAcademico)
+              AND (:grado IS NULL OR m.seccion.grado = :grado)
+              AND (:idSeccion IS NULL OR m.seccion.id = :idSeccion)
+              AND (:vencimientoDesde IS NULL OR c.fechaVencimiento >= :vencimientoDesde)
+              AND (:vencimientoHasta IS NULL OR c.fechaVencimiento <= :vencimientoHasta)
               AND (:estado IS NULL
                    OR (:estado = 'ANULADO'
                        AND c.estadoAdministrativo = com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO)
@@ -102,6 +106,10 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
             @Param("idMatricula") Long idMatricula,
             @Param("idAlumno") Long idAlumno,
             @Param("anioAcademico") Integer anioAcademico,
+            @Param("grado") Integer grado,
+            @Param("idSeccion") Long idSeccion,
+            @Param("vencimientoDesde") LocalDate vencimientoDesde,
+            @Param("vencimientoHasta") LocalDate vencimientoHasta,
             @Param("busqueda") String busqueda,
             @Param("personaApoderadoId") Long personaApoderadoId,
             @Param("hoy") LocalDate hoy,

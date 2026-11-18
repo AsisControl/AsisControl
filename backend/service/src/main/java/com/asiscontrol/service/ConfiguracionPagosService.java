@@ -142,9 +142,7 @@ public class ConfiguracionPagosService {
     }
     public static void aplicarCalculo(CompromisoPago c,BeneficioCalculoService.CalculoBeneficio x){
         c.setMontoBase(x.montoBase());c.setMontoDescuento(x.montoDescuento());c.setMontoTotal(x.montoTotal());c.setBeneficioNombre(x.beneficioNombre());c.setIdBeneficio(x.idBeneficio());
-        if(c.getMontoTotal().signum()==0)c.setEstado(EstadoCompromisoPago.EXONERADO);
-        else if(c.getFechaVencimiento().isBefore(java.time.LocalDate.now(java.time.ZoneId.of("America/Lima"))))c.setEstado(EstadoCompromisoPago.VENCIDO);
-        else c.setEstado(EstadoCompromisoPago.PENDIENTE);
+        c.setEstado(EstadoFinancieroCompromiso.visible(c,EstadoFinancieroCompromiso.hoy()));
     }
     public ConceptoCobro concepto(Long id){return conceptos.findByIdAndActivoTrue(id).orElseThrow(()->no("concepto"));}
     private Alumno alumnoBloqueado(Long id){var a=alumnos.findByIdAndActivoTrue(id).orElseThrow(()->no("estudiante"));em.flush();em.refresh(a,LockModeType.PESSIMISTIC_WRITE);if(!a.getPersona().isActivo())throw regla("ALUMNO_INACTIVO","Selecciona un estudiante activo.");return a;}

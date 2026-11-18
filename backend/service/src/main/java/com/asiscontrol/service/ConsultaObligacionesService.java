@@ -106,7 +106,8 @@ public class ConsultaObligacionesService {
         if (vencimiento == null) return intento;
         return new PagoDto.TransaccionResponse(intento.id(), intento.idCompromisoPago(), intento.idApoderado(),
                 intento.idAdministrador(), intento.numeroOperacion(), intento.monto(), intento.medioPago(),
-                EstadoTransaccionPago.EXPIRADA, vencimiento, intento.observacion(), intento.fechaCreacion());
+                EstadoTransaccionPago.EXPIRADA, vencimiento, intento.observacion(), intento.fechaCreacion(),
+                intento.idAlumno(), intento.alumno(), intento.codigoAlumno(), intento.codigoCompromiso(), intento.concepto());
     }
 
     public void verificarAlumno(Long alumnoId, Apoderado apoderado) {

@@ -29,8 +29,19 @@
   min-height: 44px;
 }
 
+/* El botón conserva su tamaño natural aunque caiga en una columna ancha. */
+.filters > button {
+  justify-self: start;
+  min-width: 120px;
+}
+
+/* Transacciones: cuatro filtros y el botón en una sola fila. */
+.transactionFilters {
+  grid-template-columns: minmax(200px, 2fr) minmax(150px, 1fr) minmax(140px, 1fr) minmax(140px, 1fr) auto;
+}
+
 .table {
-  min-width: 800px;
+  min-width: 1040px;
 }
 
 .money {
@@ -133,14 +144,20 @@
 }
 
 @media (max-width: 1000px) {
-  .filters {
+  .filters,
+  .transactionFilters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 600px) {
-  .filters {
+  .filters,
+  .transactionFilters {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .filters > button {
+    justify-self: stretch;
   }
 
   .pickerSearch,
@@ -151,5 +168,188 @@
 
   .enrollmentChoices li {
     align-items: start;
+  }
+}
+
+.indicators {
+  margin-bottom: 20px;
+}
+
+.indicatorsHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.indicatorsHeading h3 {
+  margin: 0;
+}
+
+.indicatorsHeading small {
+  color: #62708c;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.kpis > div {
+  padding: 14px 16px;
+  border: 1px solid #dce1eb;
+  border-radius: 8px;
+  background: #f5f7fc;
+}
+
+.kpis dt {
+  color: #62708c;
+  font-size: 0.85rem;
+}
+
+.kpis dd {
+  margin: 4px 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpis > .kpiDanger {
+  border-color: #f4c7c3;
+  background: #fef3f2;
+}
+
+.kpis > .kpiDanger dd {
+  color: #b42318;
+}
+
+.summaryTable {
+  min-width: 560px;
+}
+
+.summaryTable tfoot th,
+.summaryTable tfoot td {
+  font-weight: 700;
+}
+
+.movements {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e3e8f1;
+}
+
+.movementsHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.movementsHeading h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.movementsHeading span,
+.movementsEmpty {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.movementsEmpty {
+  margin: 0;
+}
+
+/* Una tarjeta por transacción, en el orden en que ocurrieron. */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline li + li {
+  margin-top: 10px;
+}
+
+.timelineCard {
+  min-width: 0;
+  padding: 12px 16px;
+  border: 1px solid #e3e8f1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.timelineMuted .timelineCard {
+  background: #f8fafc;
+}
+
+.timelineMuted .movementAmount {
+  color: #64748b;
+  text-decoration: line-through;
+}
+
+.movementHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.movementAmount {
+  display: block;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.movementDate {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.movementFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed #e3e8f1;
+}
+
+.movementFacts dt {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.movementFacts dd {
+  margin: 2px 0 0;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.movementNote {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1000px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .kpis,
+  .movementFacts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -190,7 +190,13 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         String token = tokenQr(orden);
         expirar(orden);
         var detallePrevio = familia("GET", OBLIGACIONES + "/" + propio.getId(), null, 200);
-        assertThat(detallePrevio.path("transacciones").get(0).path("estado").asText()).isEqualTo("EXPIRADA");
+        var intentoExpirado = detallePrevio.path("transacciones").get(0);
+        var obligacion = detallePrevio.path("compromiso");
+        assertThat(intentoExpirado.path("estado").asText()).isEqualTo("EXPIRADA");
+        for (String campo : List.of("idAlumno", "alumno", "codigoAlumno", "codigoCompromiso", "concepto")) {
+            assertThat(intentoExpirado.hasNonNull(campo)).as(campo).isTrue();
+            assertThat(intentoExpirado.path(campo)).as(campo).isEqualTo(obligacion.path(campo));
+        }
         var callbackTardio = publico("POST", PAGOS + "/qr/" + token + "/confirmar",
                 data("accion", "APROBAR"), 409);
         assertThat(callbackTardio.path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
