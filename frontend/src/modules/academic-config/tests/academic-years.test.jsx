@@ -30,10 +30,10 @@ test("Abre el año activo por defecto y muestra sus períodos", async () => {
   await heading(2026);
   expect(screen.getByText("Año activo")).toBeTruthy();
   expect(screen.getByText(/Admisión del apoderado:/).textContent).toBe(
-    "Del 01 Mar 2026 al 20 Dic 2026 · Admisión del apoderado: cerrada",
+    "Del 01/03/2026 al 20/12/2026 · Admisión del apoderado: cerrada",
   );
   expect(screen.getByText("1. Período I")).toBeTruthy();
-  expect(screen.getAllByText("01 Mar 2026")).toHaveLength(2);
+  expect(screen.getAllByText("01/03/2026")).toHaveLength(2);
   expect(screen.getByRole("button", { name: "Activar" })).toBeTruthy();
   expect(screen.getAllByText(/^Próximamente/).length).toBeGreaterThan(0);
   expect(screen.queryByText(/backend/i)).toBeNull();

@@ -61,7 +61,7 @@ test("Lista las evaluaciones con su curso, sección, fecha y competencias", asyn
   expect(within(row).getByText("Matemática")).toBeTruthy();
   expect(within(row).getByText("3° A")).toBeTruthy();
   expect(within(row).getByText("Bimestral")).toBeTruthy();
-  expect(within(row).getByText(/22 .*2026/)).toBeTruthy();
+  expect(within(row).getByText("22/09/2026")).toBeTruthy();
   expect(within(row).getByText("competencias")).toBeTruthy();
   expect(within(row).getByText("Borrador")).toBeTruthy();
   expect(screen.getByText("1 evaluación")).toBeTruthy();

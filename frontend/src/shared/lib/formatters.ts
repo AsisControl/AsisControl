@@ -5,7 +5,16 @@ export const stateLabel = (state: string) =>
     .replace(/^./, (s) => s.toUpperCase());
 export const dateLabel = (date: string | null) =>
   date
-    ? new Date(date).toLocaleString("es-PE", { timeZone: "America/Lima" })
+    ? new Date(date).toLocaleString("es-PE", {
+        timeZone: "America/Lima",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).replace(",", "")
     : "—";
 export const roleLabel = (r: string) =>
   ({
@@ -21,7 +30,7 @@ export const shortDateLabel = (date: string | null | undefined) =>
     ? new Date(date).toLocaleDateString("es-PE", {
         timeZone: "America/Lima",
         day: "2-digit",
-        month: "short",
+        month: "2-digit",
         year: "numeric",
       })
     : "—";

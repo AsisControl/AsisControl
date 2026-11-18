@@ -11,10 +11,10 @@ const MESES_LARGOS = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
-/** "2026-09-08" → "08 Sep 2026". */
+/** "2026-09-08" → "08/09/2026". */
 export function fechaCorta(iso: string) {
   const [anio, mes, dia] = iso.split("-");
-  return `${dia} ${MESES[Number(mes) - 1]} ${anio}`;
+  return `${dia}/${mes}/${anio}`;
 }
 
 /** "2026-09" → "Septiembre 2026". */

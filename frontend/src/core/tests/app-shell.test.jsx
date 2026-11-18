@@ -91,7 +91,7 @@ test("El menú muestra solo las opciones permitidas y navega por URL", async () 
   expect(within(nav).getByText("Inicio").getAttribute("aria-current")).toBe("page");
   await user.click(within(nav).getByText("Asistencia"));
   expect(currentUrl()).toBe("/asistencia");
-  expect(await screen.findByText("Punto de marcación docente con QR dinámico")).toBeTruthy();
+  expect(await screen.findByText("Marcación de docentes con QR institucional")).toBeTruthy();
   expect(within(nav).getByText("Asistencia").getAttribute("aria-current")).toBe("page");
 });
 

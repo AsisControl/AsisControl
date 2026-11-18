@@ -135,21 +135,55 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
         apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",present,"motivo","No corresponde","archivoIds",Set.of()),422);
     }
 
-    @Test void emiteRenuevaCancelaQrYMarcaSinDuplicarLaJornada() throws Exception {
-        var qr=postOk("/api/asistencias/docentes/qr",data("docenteId",teacher.getId(),"vigenciaSegundos",120));
-        String p="/api/asistencias/docentes/qr/"+qr.path("id").asLong();
-        assertThat(getOk(p).path("token").isNull()).isTrue();
-        var renewed=request("POST",p+"/renovar",null,200);
-        request("POST",p+"/cancelar",null,422);
-        var marked=request("POST","/api/asistencias/docentes/marcar",data("token",renewed.path("token").asText()),200);
-        assertThat(marked.path("estado").asText()).isEqualTo("PRESENTE");
-        request("POST","/api/asistencias/docentes/marcar",data("token",renewed.path("token").asText()),422);
-        request("POST","/api/asistencias/docentes/qr",data("docenteId",teacher.getId()),409);
-        getOk("/api/asistencias/docentes");
+    /** Sesión del docente indicado, con los permisos que le da el rol DOCENTE para marcar su asistencia. */
+    private JsonNode marcaComoDocente(String token, int esperado) throws Exception {
+        var sesion = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                .jwt().jwt(j -> j.subject("docente" + teacher.getId()).claim("personaId", teacher.getPersona().getId()))
+                .authorities(java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ASISTENCIA_LEER"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ASISTENCIA_ESCRIBIR")));
+        var respuesta = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/asistencias/docentes/marcar").with(sesion)
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsBytes(data("token", token))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is(esperado))
+                .andReturn().getResponse();
+        return json.readTree(respuesta.getContentAsByteArray());
+    }
+
+    @Test void elPuntoDeMarcacionEsDeLaInstitucionYElDocenteSeIdentificaPorSuSesion() throws Exception {
+        var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
+        assertThat(qr.has("docenteId")).isFalse();
+        String ruta="/api/asistencias/docentes/qr/"+qr.path("id").asLong();
+        assertThat(getOk(ruta).path("token").isNull()).isTrue();
+        var siguiente=request("POST",ruta+"/renovar",null,200);
+
+        var marcada=marcaComoDocente(qr.path("token").asText(),200);
+        assertThat(marcada.path("estado").asText()).isEqualTo("PRESENTE");
+        assertThat(marcada.path("docenteId").asLong()).isEqualTo(teacher.getId());
+        marcaComoDocente(siguiente.path("token").asText(),409);
+        request("POST","/api/asistencias/docentes/marcar",data("token",siguiente.path("token").asText()),422);
+        assertThat(getOk(ruta).path("estado").asText()).isEqualTo("VIGENTE");
+        request("POST",ruta+"/cancelar",null,204);
+        marcaComoDocente(qr.path("token").asText(),422);
+    }
+
+    @Test void reemplazarElPuntoInvalidaElCodigoAnteriorYElResumenCuentaLasMarcaciones() throws Exception {
+        var primero=postOk("/api/asistencias/docentes/qr",null);
+        var segundo=postOk("/api/asistencias/docentes/qr",null);
+        marcaComoDocente(primero.path("token").asText(),422);
+        marcaComoDocente(segundo.path("token").asText(),200);
+        var resumen=getOk("/api/asistencias/docentes/resumen");
+        assertThat(resumen.path("marcaron").asLong()).isEqualTo(1);
+        assertThat(resumen.path("totalDocentes").asLong()).isGreaterThanOrEqualTo(1);
+        assertThat(resumen.path("sinMarcar").asLong()).isEqualTo(resumen.path("totalDocentes").asLong()-1);
+        assertThat(getOk("/api/asistencias/docentes?fecha="+resumen.path("fecha").asText()).path("content")).hasSize(1);
+        assertThat(getOk("/api/asistencias/docentes?fecha=2000-01-01").path("content")).isEmpty();
+        assertThat(getOk("/api/asistencias/docentes/"+teacher.getId()+"/clases").isArray()).isTrue();
     }
 
     @Test void admiteContingenciaYRecuperaQrExpirado() throws Exception {
-        var qr=postOk("/api/asistencias/docentes/qr",data("docenteId",teacher.getId()));
+        var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
         long id=qr.path("id").asLong();
         em.find(CodigoQRAsistencia.class,id).setFechaHoraExpiracion(LocalDateTime.now().minusSeconds(1)); em.flush();
         assertThat(getOk("/api/asistencias/docentes/qr/"+id).path("estado").asText()).isEqualTo("EXPIRADO");
