@@ -26,12 +26,13 @@ import java.util.Map;
 public class ImportacionFamiliaService {
 
     /**
-     * Desde V5 la base admite personas sin segundo apellido, sexo ni correo (fichas de alumnos),
-     * pero un apoderado necesita esos datos para identificarlo y contactarlo.
+     * Un apoderado necesita documento, nombres completos, sexo y fecha de nacimiento para
+     * identificarlo. El teléfono y el correo son opcionales: si faltan los dos, la fila se registra
+     * con una observación para que la institución consiga un contacto.
      */
     private static final List<String> GUARDIAN_REQUIRED = List.of(
             "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-            "apellidoMaterno", "sexo", "fechaNacimiento", "correo");
+            "apellidoMaterno", "sexo", "fechaNacimiento");
     private static final List<String> RELATIONSHIP_REQUIRED =
             PlantillaFamiliaService.RELATIONSHIP_HEADERS;
     /** El ENUM de AlumnoApoderado.parentesco en MySQL (V1) no incluye NO_DECLARADO. */
@@ -44,6 +45,7 @@ public class ImportacionFamiliaService {
     private final ApoderadoRepository apoderadoRepository;
     private final Validator validator;
     private final AuditoriaService auditoria;
+    private final AccesoImportacionService accesos;
 
     public ImportacionFamiliaService(
             PersonaService personaService,
@@ -51,20 +53,25 @@ public class ImportacionFamiliaService {
             AlumnoRepository alumnoRepository,
             ApoderadoRepository apoderadoRepository,
             Validator validator,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            AccesoImportacionService accesos) {
         this.personaService = personaService;
         this.personaRepository = personaRepository;
         this.alumnoRepository = alumnoRepository;
         this.apoderadoRepository = apoderadoRepository;
         this.validator = validator;
         this.auditoria = auditoria;
+        this.accesos = accesos;
     }
 
     /**
-     * Una fila por apoderado. Si su documento ya esta registrado con la misma identidad (por
-     * ejemplo, como docente), se reutiliza a esa persona: ver PersonaService#createApoderado.
+     * Una fila por apoderado, con su acceso al sistema. Si su documento ya esta registrado con la
+     * misma identidad (por ejemplo, como docente, o como apoderado de otro hijo), se reutiliza a
+     * esa persona y su cuenta: ver PersonaService#registrarOReutilizarApoderado.
      */
     public PersonaDtos.ImportResult importGuardians(MultipartFile file) {
+        List<PersonaDtos.CredencialAcceso> credenciales = new java.util.ArrayList<>();
+        List<PersonaDtos.ImportIssue> observaciones = new java.util.ArrayList<>();
         var resumen = LectorExcel.recorrer(file, GUARDIAN_REQUIRED, fila -> {
             var persona = new PersonaDtos.PersonaRequest(
                     fila.obligatorio("nombres"),
@@ -73,18 +80,27 @@ public class ImportacionFamiliaService {
                     fila.enumerado(TipoDocumento.class, "tipoDocumento",
                             List.of(TipoDocumento.values())),
                     fila.obligatorio("numeroDocumento"),
-                    null,
+                    nacionalidad(fila),
                     fila.enumerado(Sexo.class, "sexo", List.of(Sexo.values())),
                     fila.fecha("fechaNacimiento"),
                     fila.opcional("telefono"),
-                    fila.obligatorio("correo"),
+                    fila.opcional("correo"),
                     fila.opcional("direccion"));
             var request = new PersonaDtos.ApoderadoCreateRequest(persona);
             LectorExcel.validar(validator, request);
-            personaService.createApoderado(request);
+            credenciales.add(accesos.apoderado(fila.numero(), request));
+            if (persona.telefono() == null && persona.correo() == null) {
+                observaciones.add(new PersonaDtos.ImportIssue(fila.numero(), "contacto",
+                        "El apoderado no tiene teléfono ni correo de contacto"));
+            }
         });
-        resumen.auditar(auditoria, "IMPORTAR_APODERADOS", "Apoderado", file);
-        return resumen.resultado();
+        resumen.auditar(auditoria, "IMPORTAR_APODERADOS", "Apoderado", file, credenciales);
+        return resumen.resultado(credenciales, observaciones);
+    }
+
+    private Long nacionalidad(LectorExcel.Fila fila) {
+        String nombre = fila.opcional("nacionalidad");
+        return nombre == null ? null : personaService.nacionalidadPorNombre(nombre);
     }
 
     /**

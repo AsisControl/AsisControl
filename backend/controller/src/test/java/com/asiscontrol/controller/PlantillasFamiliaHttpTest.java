@@ -47,8 +47,8 @@ class PlantillasFamiliaHttpTest {
             Sheet sheet = workbook.getSheet("Apoderados");
             assertThat(cells(sheet.getRow(0))).containsExactly(
                     "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-                    "apellidoMaterno", "sexo", "fechaNacimiento", "telefono", "correo",
-                    "direccion");
+                    "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "telefono",
+                    "correo", "direccion");
             assertThat(cells(sheet.getRow(1))).startsWith("DNI", "40000001");
             assertThat(sheet.getColumnStyle(1).getDataFormatString()).isEqualTo("@");
             assertThat(sheet.getPaneInformation().isFreezePane()).isTrue();

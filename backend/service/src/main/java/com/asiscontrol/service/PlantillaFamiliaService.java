@@ -18,9 +18,10 @@ public class PlantillaFamiliaService {
 
     static final List<String> GUARDIAN_HEADERS = List.of(
             "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-            "apellidoMaterno", "sexo", "fechaNacimiento", "telefono", "correo", "direccion");
+            "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "telefono", "correo",
+            "direccion");
     private static final List<String> GUARDIAN_EXAMPLE = List.of(
-            "DNI", "40000001", "Rosa", "Flores", "Vega", "FEMENINO", "1985-03-14",
+            "DNI", "40000001", "Rosa", "Flores", "Vega", "FEMENINO", "1985-03-14", "Peruana",
             "999888777", "rosa.flores@ejemplo.com", "Lima");
     static final List<String> RELATIONSHIP_HEADERS = List.of(
             "tipoDocumentoAlumno", "numeroDocumentoAlumno", "tipoDocumentoApoderado",

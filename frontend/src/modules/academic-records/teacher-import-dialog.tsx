@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import {
+  AccessCredentials,
   DownloadIcon,
   ExcelFilePicker,
   ImportSummary,
@@ -117,6 +118,7 @@ export function TeacherImportDialog({
               success={`Se ${saved.importedRows === 1 ? "registró" : "registraron"} ${countLabel(saved.importedRows, "docente", "docentes")}.`}
             />
             <ImportSummary result={saved} saved />
+            <AccessCredentials credentials={saved.credentials ?? []} saved />
             <div className="form-actions">
               <button type="button" className="primary-action" onClick={onClose}>
                 Listo
@@ -147,6 +149,12 @@ export function TeacherImportDialog({
               onChange={choose}
             />
             {analysis && <ImportSummary result={analysis} saved={false} />}
+            {analysis && (
+              <AccessCredentials
+                credentials={analysis.credentials ?? []}
+                saved={false}
+              />
+            )}
             <div className="form-actions">
               <button type="button" disabled={busy} onClick={onClose}>
                 Cancelar

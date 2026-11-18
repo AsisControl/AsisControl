@@ -50,8 +50,8 @@ class ImportacionDocenteHttpTest {
     private static final String IMPORTACIONES = "/api/docentes/importaciones";
     private static final List<String> COLUMNAS = List.of(
             "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-            "apellidoMaterno", "sexo", "fechaNacimiento", "fechaIngreso", "especialidad",
-            "telefono", "correo", "direccion");
+            "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "fechaIngreso",
+            "especialidad", "telefono", "correo", "direccion");
 
     @Autowired WebApplicationContext context;
     @Autowired DocenteRepository docentes;
@@ -92,14 +92,20 @@ class ImportacionDocenteHttpTest {
         assertThat(resultado.path("importedRows").asInt()).isEqualTo(1);
         assertThat(docente(fila)).isEmpty();
         assertThat(auditoriasDe(archivo)).isEmpty();
+        // El análisis anticipa usuario y código, pero nunca entrega una contraseña.
+        JsonNode credencial = resultado.path("credentials").get(0);
+        assertThat(credencial.path("username").asText()).startsWith("patricia.morales");
+        assertThat(credencial.path("temporaryPassword").isNull()).isTrue();
     }
 
     @Test
     void confirmarCreaLasFilasValidasConTodosSusDatosYAuditaElLote() throws Exception {
         List<String> completa = filaValida();
         List<String> sinOpcionales = filaValida();
-        sinOpcionales.set(9, "");
+        sinOpcionales.set(7, "");
+        sinOpcionales.set(10, "");
         sinOpcionales.set(11, "");
+        sinOpcionales.set(12, "");
         String archivo = "lote-" + UUID.randomUUID() + ".xlsx";
 
         JsonNode resultado = importar(libro(completa, sinOpcionales), archivo, true, status().isOk());
@@ -116,7 +122,18 @@ class ImportacionDocenteHttpTest {
         assertThat(creado.isActivo()).isTrue();
         RegistroAuditoria lote = auditoriasDe(archivo).get(0);
         assertThat(lote.getAccion()).isEqualTo("IMPORTAR_DOCENTES");
-        assertThat(lote.getNuevoValor()).contains("filas=2", "importados=2", "fallidos=0");
+        assertThat(lote.getNuevoValor()).contains(
+                "filas=2", "importados=2", "fallidos=0", "accesosCreados=2", "accesosExistentes=0");
+        JsonNode credencial = resultado.path("credentials").get(0);
+        String contrasena = credencial.path("temporaryPassword").asText();
+        assertThat(contrasena).hasSize(12);
+        assertThat(credencial.path("code").asText()).isEqualTo(creado.getCodigoDocente());
+        assertThat(credencial.path("email").asText())
+                .isEqualTo(creado.getCodigoDocente().toLowerCase() + "@asiscontrol.edu.pe");
+        // La contraseña no queda en la auditoría.
+        assertThat(auditorias.findAll()).noneMatch(registro ->
+                String.valueOf(registro.getNuevoValor()).contains(contrasena)
+                        || String.valueOf(registro.getValorAnterior()).contains(contrasena));
     }
 
     @Test
@@ -127,13 +144,13 @@ class ImportacionDocenteHttpTest {
         List<String> valida = filaValida();
         List<String> yaRegistrado = new ArrayList<>(existente);
         List<String> documentoRepetidoEnElArchivo = new ArrayList<>(valida);
-        documentoRepetidoEnElArchivo.set(10, "otro" + clave() + "@example.test");
+        documentoRepetidoEnElArchivo.set(11, "otro" + clave() + "@example.test");
         List<String> sinCorreo = filaValida();
-        sinCorreo.set(10, "");
+        sinCorreo.set(11, "");
         List<String> especialidadInvalida = filaValida();
-        especialidadInvalida.set(8, "COCINA");
+        especialidadInvalida.set(9, "COCINA");
         List<String> ingresoFuturo = filaValida();
-        ingresoFuturo.set(7, LocalDate.now().plusDays(1).toString());
+        ingresoFuturo.set(8, LocalDate.now().plusDays(1).toString());
         List<String> fechaIlegible = filaValida();
         fechaIlegible.set(6, "ayer");
         List<String> documentoInvalido = filaValida();
@@ -144,18 +161,19 @@ class ImportacionDocenteHttpTest {
                 true, status().isOk());
 
         assertThat(resultado.path("totalRows").asInt()).isEqualTo(8);
-        assertThat(resultado.path("importedRows").asInt()).isEqualTo(1);
-        assertThat(resultado.path("rejectedRows").asInt()).isEqualTo(7);
+        // El correo es opcional: la fila sin correo se registra.
+        assertThat(resultado.path("importedRows").asInt()).isEqualTo(2);
+        assertThat(resultado.path("rejectedRows").asInt()).isEqualTo(6);
         assertThat(resultado.path("issues").findValuesAsText("row"))
-                .containsExactly("3", "4", "5", "6", "7", "8", "9");
+                .containsExactly("3", "4", "6", "7", "8", "9");
         List<String> motivos = resultado.path("issues").findValuesAsText("message");
         assertThat(motivos.get(0)).containsIgnoringCase("docente");
         assertThat(motivos.get(1)).containsIgnoringCase("docente");
-        assertThat(motivos.get(2)).isEqualTo("La columna correo es obligatoria");
-        assertThat(motivos.get(3)).isEqualTo("El valor de especialidad no esta permitido");
-        assertThat(motivos.get(4)).contains("futuro");
-        assertThat(motivos.get(5)).contains("fechaNacimiento");
-        assertThat(motivos.get(6)).containsIgnoringCase("documento");
+        assertThat(motivos.get(2)).isEqualTo("El valor de especialidad no esta permitido");
+        assertThat(motivos.get(3)).contains("futuro");
+        assertThat(motivos.get(4)).contains("fechaNacimiento");
+        assertThat(motivos.get(5)).containsIgnoringCase("documento");
+        assertThat(resultado.path("credentials").findValuesAsText("row")).containsExactly("2", "5");
         assertThat(docente(valida)).isPresent();
         assertThat(docentes.count()).isGreaterThanOrEqualTo(2);
     }
@@ -215,6 +233,9 @@ class ImportacionDocenteHttpTest {
                         .param("confirmar", String.valueOf(confirmar))
                         .with(comoRol("ADMINISTRADOR")))
                 .andExpect(esperado)
+                // La respuesta puede traer contraseñas temporales: no se guarda en caché.
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
                 .andReturn().getResponse().getContentAsByteArray();
         return json.readTree(respuesta);
     }
@@ -240,7 +261,7 @@ class ImportacionDocenteHttpTest {
         String clave = clave();
         return new ArrayList<>(List.of(
                 "PASAPORTE", clave.toUpperCase(), "Patricia", "Morales", "Rios", "FEMENINO",
-                "1985-03-14", "2020-03-01", "MATEMATICA", "999888777", clave + "@example.test", "Lima"));
+                "1985-03-14", "Peruana", "2020-03-01", "MATEMATICA", "999888777", clave + "@example.test", "Lima"));
     }
 
     private String clave() {

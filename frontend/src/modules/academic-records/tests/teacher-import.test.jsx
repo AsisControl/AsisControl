@@ -148,3 +148,34 @@ test("Descarga la plantilla de docentes", async () => {
   await waitFor(() => expect(click).toHaveBeenCalled());
   expect(calls.some((call) => call.path === `${IMPORT_PATH}/plantilla`)).toBe(true);
 });
+
+test("Anticipa el usuario de cada docente y al importar muestra su contraseña temporal una sola vez", async () => {
+  const access = {
+    row: 2,
+    fullName: "Patricia Morales Rios",
+    role: "DOCENTE",
+    code: "DOC20260001",
+    username: "patricia.morales",
+    email: "doc20260001@asiscontrol.edu.pe",
+    temporaryPassword: null,
+    expiresAt: "2026-12-01T15:00:00Z",
+    existing: false,
+  };
+  const result = (credentials) => ({ totalRows: 1, importedRows: 1, rejectedRows: 0, issues: [], credentials });
+  backend({
+    "POST /api/docentes/importaciones": (call) =>
+      call.query.confirmar === "true"
+        ? result([{ ...access, temporaryPassword: "Hm4tPq8wRz2K" }])
+        : result([access]),
+  });
+  const user = userEvent.setup();
+  const dialog = await openDialog(user);
+  await choose(user, dialog, excel());
+  await user.click(within(dialog).getByRole("button", { name: "Validar archivo" }));
+  expect(await within(dialog).findByText("patricia.morales")).toBeTruthy();
+  expect(within(dialog).getByText("Nuevo")).toBeTruthy();
+  expect(within(dialog).queryByText("Hm4tPq8wRz2K")).toBeNull();
+  await user.click(within(dialog).getByRole("button", { name: "Importar" }));
+  expect(await within(dialog).findByText("Hm4tPq8wRz2K")).toBeTruthy();
+  expect(within(dialog).getByRole("button", { name: "Imprimir o guardar PDF" })).toBeTruthy();
+});
