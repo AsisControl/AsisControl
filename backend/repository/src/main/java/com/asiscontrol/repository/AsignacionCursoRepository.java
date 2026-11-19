@@ -20,6 +20,8 @@ public interface AsignacionCursoRepository extends JpaRepository<AsignacionCurso
 
     boolean existsByCursoIdAndActivoTrue(Long cursoId);
 
+    boolean existsByCursoIdAndSeccionAnioAcademicoAndSeccionGradoAndActivoTrue(Long cursoId, int anio, int grado);
+
     Optional<AsignacionCurso> findByIdAndActivoTrue(Long id);
 
     Optional<AsignacionCurso> findByCursoIdAndSeccionIdAndActivoTrue(Long cursoId, Long seccionId);

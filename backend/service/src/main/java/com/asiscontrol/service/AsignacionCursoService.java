@@ -11,7 +11,6 @@ import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.Seccion;
-import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
@@ -21,7 +20,6 @@ import com.asiscontrol.repository.CursoRepository;
 import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.HorarioRepository;
 import com.asiscontrol.repository.SeccionRepository;
-import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -29,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +43,7 @@ public class AsignacionCursoService {
     private final SeccionRepository seccionRepository;
     private final DocenteRepository docenteRepository;
     private final HorarioRepository horarioRepository;
-    private final AnioAcademicoRepository anioRepository;
+    private final PlanEstudiosService planes;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
     private final ApplicationEventPublisher eventos;
@@ -55,7 +54,7 @@ public class AsignacionCursoService {
             SeccionRepository seccionRepository,
             DocenteRepository docenteRepository,
             HorarioRepository horarioRepository,
-            AnioAcademicoRepository anioRepository,
+            PlanEstudiosService planes,
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria,
             ApplicationEventPublisher eventos) {
@@ -64,19 +63,18 @@ public class AsignacionCursoService {
         this.seccionRepository = seccionRepository;
         this.docenteRepository = docenteRepository;
         this.horarioRepository = horarioRepository;
-        this.anioRepository = anioRepository;
+        this.planes = planes;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
         this.eventos = eventos;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AsignacionCursoResponse crear(CrearAsignacionCursoRequest request) {
         Curso curso = buscarCurso(request.cursoId());
         Seccion seccion = buscarSeccion(request.seccionId());
-        validarMismoGrado(curso, seccion);
-        validarAnioVigente(seccion);
         Docente docente = buscarDocente(request.docenteId());
+        planes.comprobarAsignacion(curso, seccion);
 
         var existente = asignacionRepository.findByCursoIdAndSeccionId(curso.getId(), seccion.getId());
         if (existente.filter(AsignacionCurso::isActivo).isPresent()) {
@@ -100,7 +98,7 @@ public class AsignacionCursoService {
         return mapear(saved);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AsignacionCursoResponse actualizar(Long id, ActualizarAsignacionCursoRequest request) {
         AsignacionCurso asignacion = obtenerEntidad(id);
         exigirVersion(asignacion.getVersion(), request.version());
@@ -109,8 +107,7 @@ public class AsignacionCursoService {
         Curso curso = buscarCurso(request.cursoId());
         Seccion seccion = buscarSeccion(request.seccionId());
         Docente docente = buscarDocente(request.docenteId());
-        validarMismoGrado(curso, seccion);
-        validarAnioVigente(seccion);
+        planes.comprobarAsignacion(curso, seccion);
 
         List<Horario> horarios = horarioRepository.findActivosPorAsignacion(id);
         boolean cambiaContexto = !curso.getId().equals(asignacion.getCurso().getId())
@@ -223,30 +220,6 @@ public class AsignacionCursoService {
     // asistencia alumnos: sin excepción, para sincronizar sesiones de una asignación retirada
     public Optional<AsignacionCurso> buscarActiva(Long id) {
         return asignacionRepository.findByIdAndActivoTrue(id);
-    }
-
-    /** Un curso de 1.er grado de 2027 solo se dicta en secciones de ese grado y anio. */
-    private void validarMismoGrado(Curso curso, Seccion seccion) {
-        var grado = curso.getGradoAcademico();
-        if (grado != null && (grado.getNumero() != seccion.getGrado()
-                || grado.getAnioAcademico().getAnio() != seccion.getAnioAcademico())) {
-            throw new ConflictException(
-                    "CURSO_DE_OTRO_GRADO",
-                    "El curso es de " + grado.getNumero() + ".° grado " + grado.getAnioAcademico().getAnio()
-                            + " y la sección es de " + seccion.getGrado() + ".° grado "
-                            + seccion.getAnioAcademico());
-        }
-    }
-
-    /** Periodo vigente: el año de la seccion no puede estar cerrado (borrador permite planificar). */
-    private void validarAnioVigente(Seccion seccion) {
-        anioRepository.findByAnio(seccion.getAnioAcademico())
-                .filter(anio -> anio.getEstado() == EstadoAnioAcademico.CERRADO)
-                .ifPresent(anio -> {
-                    throw new BusinessRuleException(
-                            "ANIO_NO_VIGENTE",
-                            "El año académico " + anio.getAnio() + " está cerrado y no admite asignaciones");
-                });
     }
 
     /** Al cambiar de docente, sus otros bloques no pueden cruzarse con los de esta asignacion. */

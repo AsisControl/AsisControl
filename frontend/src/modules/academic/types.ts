@@ -18,7 +18,7 @@ export type CourseInput = {
   nombre: string;
   descripcion: string | null;
   horasSemanales: number;
-  gradoAcademicoId: number;
+  gradoAcademicoId: number | null;
 };
 /** Respuesta de /api/cursos-competencias (CursoCompetenciaResponse). */
 export type CourseCompetency = {

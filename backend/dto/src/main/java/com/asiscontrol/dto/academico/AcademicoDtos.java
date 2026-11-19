@@ -24,7 +24,7 @@ public final class AcademicoDtos {
             @NotBlank @Size(max = 120) String nombre,
             @Size(max = 500) String descripcion,
             @Min(1) @Max(40) int horasSemanales,
-            @NotNull(message = "Seleccione el año y el grado del curso") Long gradoAcademicoId) {}
+            @Positive Long gradoAcademicoId) {}
 
     public record ActualizarCursoRequest(
             @NotBlank @Size(max = 30) String codigo,
@@ -32,9 +32,9 @@ public final class AcademicoDtos {
             @Size(max = 500) String descripcion,
             @Min(1) @Max(40) int horasSemanales,
             @NotNull Long version,
-            @NotNull(message = "Seleccione el año y el grado del curso") Long gradoAcademicoId) {}
+            @Positive Long gradoAcademicoId) {}
 
-    /** anioAcademico, grado y gradoAcademicoId son nulos en cursos creados antes de V6. */
+    /** El catálogo admite cursos sin un año y grado de referencia. */
     public record CursoResponse(
             Long id,
             String codigo,
