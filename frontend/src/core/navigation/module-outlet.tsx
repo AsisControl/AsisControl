@@ -5,6 +5,7 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
+import { AdminHome } from "@/modules/admin-home";
 import { Administration } from "@/modules/administration";
 import { AttendanceAdmin, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollmentPortal } from "@/modules/enrollment";
@@ -37,7 +38,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
-    Progreso: () => <ProgressReports />,
+    Progreso: ({ user }) => <ProgressReports key={user.id} />,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
   },
@@ -68,6 +69,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   ADMINISTRADOR: {
+    Inicio: ({ user }) => <AdminHome fullName={user.fullName} quickActions={<HomeQuickActions user={user} embedded />} />,
     Asistencia: ({ user }) => (
       <AttendanceAdmin
         canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
@@ -102,6 +104,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Pagos: () => <GuardianPayments />,
+    Progreso: ({ user }) => <ProgressReports key={user.id} guardian />,
     Matrícula: ({ user, subpath: [tab] }) => (
       <GuardianEnrollmentPortal
         tab={tab}

@@ -1,15 +1,24 @@
 package com.asiscontrol.repository;
 
 import com.asiscontrol.entity.Curso;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Set;
 
 public interface CursoRepository extends JpaRepository<Curso, Long> {
+    List<Curso> findAllByGradoAcademicoIdAndActivoTrue(Long gradoId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Curso c where c.id in :ids order by c.id")
+    List<Curso> bloquearTodos(@Param("ids") Set<Long> ids);
 
     Optional<Curso> findByIdAndActivoTrue(Long id);
 

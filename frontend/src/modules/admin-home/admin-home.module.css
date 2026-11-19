@@ -1,0 +1,82 @@
+.actualizado {
+  color: #94a3b8;
+  font-size: 12px;
+}
+.vacio {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.indicadores {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.indicador {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000d;
+  color: inherit;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  text-decoration: none;
+}
+.indicadorEnlace:hover,
+.indicadorEnlace:focus-visible {
+  border-color: var(--blue);
+}
+.indicador div {
+  display: grid;
+}
+.indicador strong {
+  font-size: 24px;
+  line-height: 32px;
+}
+.indicador div span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.indicadorIcono {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  flex: none;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.indicadorIcono.neutral {
+  background: #eff6ff;
+}
+.indicadorIcono.exito {
+  background: #dcfce7;
+}
+.indicadorIcono.advertencia {
+  background: #fef3c7;
+}
+.indicadorIcono.peligro {
+  background: #fee2e2;
+}
+.neutral {
+  color: var(--blue);
+}
+.exito {
+  color: #16a34a;
+}
+.advertencia {
+  color: #d97706;
+}
+.peligro {
+  color: #dc2626;
+}
+.esqueletoTexto {
+  display: grid;
+  gap: 6px;
+}
+.acciones {
+  margin-top: 16px;
+}

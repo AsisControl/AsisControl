@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { message } from "@/core/api/client";
+import { api, message } from "@/core/api/client";
 import { Feedback, Loading, PageHeader } from "@/shared/ui";
 import type { OwnAssignment } from "./types";
 import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-types";
@@ -9,21 +9,43 @@ import { generateReportDrafts, getProgressReportDraft, publishPeriodReports, get
 import { ReportContent } from "./report-content";
 
 
-/** Opciones autorizadas de libretas persistidas y publicadas. */
-export function ProgressReports() {
+type FamilyStudent = { id: number; nombreCompleto: string };
+const periodKey = (item: AvailableReport) => `${item.anio}-${item.idPeriodoAcademico}`;
+
+/** Consulta de libretas publicadas para el estudiante y su familia. */
+export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
   const [items, setItems] = useState<AvailableReport[] | null>(null);
+  const [students, setStudents] = useState<FamilyStudent[]>([]);
+  const [student, setStudent] = useState("");
+  const [period, setPeriod] = useState("");
   const [detail, setDetail] = useState<ProgressReport | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    listAvailableReports()
-      .then(data => { if (active) setItems(data); })
-      .catch(e => { if (active) setError(message(e)); });
+    Promise.all([
+      listAvailableReports(),
+      guardian ? api<FamilyStudent[]>("/api/familia/estudiantes") : Promise.resolve([]),
+    ]).then(([reports, family]) => {
+      if (!active) return;
+      setItems(reports);
+      setStudents(family);
+      if (family.length === 1) setStudent(String(family[0].id));
+    }).catch(e => { if (active) setError(message(e)); });
     return () => { active = false; };
-  }, []);
-  const option = selected === "" ? undefined : items?.[Number(selected)];
+  }, [guardian]);
+  const visible = (items ?? []).filter(item => !guardian || String(item.idAlumno) === student);
+  const periods = [...new Map(visible.map(item => [periodKey(item), item])).values()];
+  const courses = visible.filter(item => periodKey(item) === period);
+  const option = courses.find(item => String(item.idAsignacionCurso) === selected);
+
+  function changeCourse(value: string) {
+    setSelected(value);
+    setDetail(null);
+    setError("");
+  }
+
   async function open(download: boolean) {
     if (!option) return;
     setBusy(true); setError("");
@@ -36,24 +58,39 @@ export function ProgressReports() {
     finally { setBusy(false); }
   }
   return <section>
-    <PageHeader title="Progreso" description="Consulta las libretas publicadas por el docente y descarga tu informe por período." />
+    <PageHeader title="Progreso" description="Consulta las libretas publicadas por período y curso." />
     <Feedback error={error} />
     {!items && !error && <Loading skeleton="list" rows={3}>Cargando informes disponibles.</Loading>}
-    {items?.length === 0 && <p>Todavía no hay libretas publicadas para consultar.</p>}
-    {!!items?.length && <>
-      <label className="field">Alumno, curso y período
-        <select value={selected} disabled={busy} onChange={e => { setSelected(e.target.value); setDetail(null); setError(""); }}>
-          <option value="">Selecciona un informe</option>
-          {items.map((item, index) => <option key={`${item.idAlumno}-${item.idAsignacionCurso}-${item.idPeriodoAcademico}`} value={index}>
-            {item.alumno} · {item.curso} · {item.periodo} · {item.anio}
-          </option>)}
+    {items && guardian && (students.length === 0 ? <p>No tienes estudiantes asociados.</p> :
+      <label className="field">Estudiante
+        <select value={student} disabled={busy} onChange={e => {
+          setStudent(e.target.value);
+          setPeriod("");
+          changeCourse("");
+        }}>
+          <option value="">Selecciona un estudiante</option>
+          {students.map(item => <option key={item.id} value={item.id}>{item.nombreCompleto}</option>)}
         </select>
-      </label>
-      <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>Ver notas</button>{" "}
-      <button className="primary-action" disabled={!option || busy} onClick={() => open(true)}>Descargar PDF</button>
-      {busy && <p role="status">Preparando informe.</p>}
-      {detail && <ReportContent report={detail} />}
-    </>}
+      </label>)}
+    {items && (!guardian || student) && (visible.length === 0 ?
+      <p>Todavía no hay libretas publicadas para consultar.</p> : <>
+        <label className="field">Período académico
+          <select value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); changeCourse(""); }}>
+            <option value="">Selecciona un período</option>
+            {periods.map(item => <option key={periodKey(item)} value={periodKey(item)}>{item.periodo} · {item.anio}</option>)}
+          </select>
+        </label>
+        {period && <label className="field">Curso
+          <select value={selected} disabled={busy} onChange={e => changeCourse(e.target.value)}>
+            <option value="">Selecciona un curso</option>
+            {courses.map(item => <option key={item.idAsignacionCurso} value={item.idAsignacionCurso}>{item.curso}</option>)}
+          </select>
+        </label>}
+        <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>Ver notas</button>{" "}
+        <button className="primary-action" disabled={!option || busy} onClick={() => open(true)}>Descargar PDF</button>
+      </>)}
+    {busy && <p role="status">Preparando informe.</p>}
+    {detail && <ReportContent report={detail} />}
   </section>;
 }
 

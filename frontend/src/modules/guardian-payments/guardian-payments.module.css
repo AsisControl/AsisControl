@@ -80,3 +80,19 @@
   .walletHeader h1 { font-size: 21px; }
   .total { font-size: 18px; }
 }
+/* Selector de estudiante: siempre deja claro de quién es la cuenta que se muestra. */
+.scope { align-items: center; background: #fff; border: 1px solid #dce1eb; border-radius: 12px; display: grid; gap: 16px 24px; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); margin-bottom: 20px; padding: 16px 20px; }
+.scopeField { margin: 0; }
+.scopeField select { min-height: 44px; }
+.scopeSummary { align-items: center; border-inline-start: 1px solid #e2e8f0; display: flex; gap: 14px; min-width: 0; padding-inline-start: 24px; }
+.scopeSummary p { display: flex; flex-direction: column; gap: 2px; margin: 0; min-width: 0; }
+.scopeSummary small { color: #64748b; font-size: 12px; }
+.scopeSummary strong { color: #0f172a; font-size: 17px; overflow-wrap: anywhere; }
+.scopeSummary span:not(.scopeAvatar) { color: #64748b; font-size: 13px; }
+.scopeAvatar { align-items: center; background: #e9eefb; border-radius: 50%; color: var(--blue); display: flex; flex-shrink: 0; font-size: 14px; font-weight: 700; height: 40px; justify-content: center; width: 40px; }
+.stateFilters { grid-template-columns: repeat(2, minmax(180px, 280px)) auto; justify-content: start; }
+@media (max-width: 650px) {
+  .scope { grid-template-columns: 1fr; padding: 16px; }
+  .scopeSummary { border-inline-start: 0; border-top: 1px solid #e2e8f0; padding: 14px 0 0; }
+  .stateFilters { grid-template-columns: 1fr; }
+}
