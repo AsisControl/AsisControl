@@ -3,7 +3,9 @@ package com.asiscontrol.entity;
 
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.AuditableEntity;
+import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoVerificacionClase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,7 +16,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -29,8 +30,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "AsistenciaDocente", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_asistencia_docente_jornada", columnNames = {"id_docente", "fecha_jornada"}),
-        @UniqueConstraint(name = "uk_asistencia_docente_qr", columnNames = "id_codigo_qr")
+        @UniqueConstraint(name = "uk_asistencia_docente_jornada", columnNames = {"id_docente", "fecha_jornada"})
 })
 public class AsistenciaDocente extends AuditableEntity {
 
@@ -43,9 +43,14 @@ public class AsistenciaDocente extends AuditableEntity {
     @JoinColumn(name = "id_docente", nullable = false)
     private Docente docente;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_codigo_qr")
     private CodigoQRAsistencia codigoQR;
+
+    /** Sesión de clase que cruza esta marcación; vacía si el docente no tenía clase programada. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_sesion_clase")
+    private SesionClase sesionClase;
 
     @Column(name = "fecha_jornada", nullable = false)
     private LocalDate fechaJornada;
@@ -62,4 +67,8 @@ public class AsistenciaDocente extends AuditableEntity {
 
     @Column(name = "motivo_contingencia", length = 1000)
     private String motivoContingencia;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_verificacion", nullable = false, length = 20)
+    private EstadoVerificacionClase verificacion = EstadoVerificacionClase.CONFIRMADA;
 }

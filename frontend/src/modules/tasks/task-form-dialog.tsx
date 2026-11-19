@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError } from "@/core/api/client";
 import { fieldErrorsOf, message } from "./task-error-copy";
-import { Dialog, Feedback, Field, FormDialog } from "@/shared/ui";
+import { Dialog, Feedback, Field, FormDialog, Loading } from "@/shared/ui";
 import {
   actualizarTarea, contarEntregas, crearTarea, listarAsignacionesPropias, obtenerTarea, obtenerContextoAsignacion,
 } from "./services/tarea-service";
@@ -156,7 +156,7 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
   if (loading || (taskId !== undefined && !task) || conflict || (task && !editable(task))) {
     return <Dialog title="Editar tarea" onClose={onClose} busy={loading}>
       <Feedback error={error} />
-      {loading ? <p role="status">Cargando tarea…</p> : conflict ? <>
+      {loading ? <Loading skeleton="detail" rows={6}>Cargando tarea…</Loading> : conflict ? <>
         <p>La tarea cambió mientras la editabas. Tus cambios no se han guardado. Al actualizar se descartarán los cambios y los adjuntos nuevos seleccionados.</p>
         <button type="button" onClick={reloadCurrent}>Descartar cambios y actualizar</button>
       </> : task ? <p>Esta tarea ya no se puede editar. Solo se pueden editar borradores o tareas publicadas.</p>
@@ -173,7 +173,7 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     busy={busy} error={error} onClose={onClose} onSubmit={save} noValidate
     submitLabel={taskId !== undefined ? "Guardar cambios" : "Guardar borrador"}>
     {task && <div className="full-field" role="group" aria-label="Curso y sección asociados">
-      {context?.source !== task ? <p role="status">Cargando curso y sección…</p>
+      {context?.source !== task ? <Loading skeleton="list" rows={1}>Cargando curso y sección…</Loading>
         : context.value ? <p>Curso: <strong>{context.value.curso}</strong> · Sección: <strong>{context.value.seccion}</strong> · {context.value.anioAcademico}</p>
           : <p className="hint">Curso y sección no disponibles. Puedes continuar editando sin cambiarlos.</p>}
       <p className="hint">El curso y la sección no se pueden cambiar al editar.</p>

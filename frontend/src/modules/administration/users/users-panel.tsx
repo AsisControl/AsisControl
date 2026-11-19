@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Eye, Feedback, Pager, RowMenu, type MenuOption } from "@/shared/ui";
+import { Eye, Feedback, Pager, RowMenu, type MenuOption, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { roleLabel } from "@/shared/lib/formatters";
 import type { Account, Role } from "../types";
@@ -167,7 +167,7 @@ export function UsersPanel({
           </select>
         </div>
         {users.loading ? (
-          <p role="status">Cargando usuarios…</p>
+          <Loading>Cargando usuarios…</Loading>
         ) : users.data?.content.length ? (
           <div className={styles.tableWrap}>
             <table className={`user-table ${styles.table}`}>

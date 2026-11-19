@@ -19,11 +19,14 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
     @Query("""
             SELECT DISTINCT c FROM CompromisoPago c
             JOIN c.matricula m JOIN m.alumno a JOIN a.persona p
+            LEFT JOIN c.conceptoCobro concepto
             JOIN AlumnoApoderado v ON v.alumno = a
             JOIN v.apoderado ap JOIN ap.persona pp
             WHERE c.activo=true AND v.activo=true AND ap.id=:apoderadoId
               AND ap.activo=true AND pp.activo=true AND a.activo=true AND p.activo=true
               AND (:idAlumno IS NULL OR a.id=:idAlumno)
+              AND (:tipo IS NULL OR (:tipo='PENSION' AND concepto.esPension=true)
+                    OR (:tipo='OTRO' AND concepto.esPension=false))
               AND (:estado IS NULL
                 OR (:estado='ANULADO' AND c.estadoAdministrativo=com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO)
                 OR (c.estadoAdministrativo=com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ACTIVO
@@ -36,6 +39,7 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
     Page<CompromisoPago> buscarDeApoderado(@Param("apoderadoId") Long apoderadoId,
                                          @Param("idAlumno") Long idAlumno,
                                          @Param("estado") String estado,
+                                         @Param("tipo") String tipo,
                                          @Param("hoy") LocalDate hoy,
                                          Pageable pageable);
 
@@ -54,6 +58,15 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
             @Param("cuota") Integer cuota);
 
     @Query("""
+            SELECT c.id FROM CompromisoPago c
+            WHERE c.matricula.alumno.id = :alumnoId AND c.activo = true
+              AND c.estadoAdministrativo = com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ACTIVO
+              AND c.fechaVencimiento < :hoy AND c.montoPagado < c.montoTotal
+            """)
+    List<Long> buscarIdsDeObligacionesVencidas(@Param("alumnoId") Long alumnoId,
+            @Param("hoy") LocalDate hoy, Pageable pagina);
+
+    @Query("""
             SELECT c FROM CompromisoPago c
             JOIN c.matricula m JOIN m.alumno a JOIN a.persona p
             WHERE c.activo = true
@@ -61,6 +74,10 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
               AND (:idMatricula IS NULL OR m.id = :idMatricula)
               AND (:idAlumno IS NULL OR a.id = :idAlumno)
               AND (:anioAcademico IS NULL OR m.anioAcademico = :anioAcademico)
+              AND (:grado IS NULL OR m.seccion.grado = :grado)
+              AND (:idSeccion IS NULL OR m.seccion.id = :idSeccion)
+              AND (:vencimientoDesde IS NULL OR c.fechaVencimiento >= :vencimientoDesde)
+              AND (:vencimientoHasta IS NULL OR c.fechaVencimiento <= :vencimientoHasta)
               AND (:estado IS NULL
                    OR (:estado = 'ANULADO'
                        AND c.estadoAdministrativo = com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO)
@@ -89,6 +106,10 @@ public interface CompromisoPagoRepository extends JpaRepository<CompromisoPago, 
             @Param("idMatricula") Long idMatricula,
             @Param("idAlumno") Long idAlumno,
             @Param("anioAcademico") Integer anioAcademico,
+            @Param("grado") Integer grado,
+            @Param("idSeccion") Long idSeccion,
+            @Param("vencimientoDesde") LocalDate vencimientoDesde,
+            @Param("vencimientoHasta") LocalDate vencimientoHasta,
             @Param("busqueda") String busqueda,
             @Param("personaApoderadoId") Long personaApoderadoId,
             @Param("hoy") LocalDate hoy,

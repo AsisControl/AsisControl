@@ -3,7 +3,6 @@ import type { PaymentCommitment } from "@/modules/finance";
 export type FamilyStudent = { id: number; codigoAlumno: string; nombreCompleto: string };
 export type PaymentMethod = "TARJETA" | "QR";
 export type OrderStatus = "PENDIENTE" | "REQUIERE_AUTENTICACION" | "COMPLETADO" | "RECHAZADO" | "EXPIRADO";
-export type CardScenario = "APROBADO" | "FONDOS_INSUFICIENTES" | "RECHAZADO" | "REQUIERE_AUTENTICACION";
 export type PaymentOrder = {
   id: number; codigo: string; metodo: PaymentMethod; estado: OrderStatus; moneda: "PEN";
   montoBase: number; mora: number; montoTotal: number; creadaEn: string; expiraEn: string;

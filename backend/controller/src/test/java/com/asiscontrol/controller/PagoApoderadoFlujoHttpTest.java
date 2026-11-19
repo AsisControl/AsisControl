@@ -68,7 +68,7 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         var primero = compromiso(1, "350.00");
         var segundo = compromiso(2, "150.50");
         var orden = iniciar("TARJETA", primero.getId(), segundo.getId());
-        var aprobado = confirmar(orden, "APROBADO");
+        var aprobado = familia("POST", rutaOrden(orden) + "/confirmar-tarjeta", data(), 200);
         assertThat(aprobado.path("estado").asText()).isEqualTo("COMPLETADO");
         assertThat(aprobado.path("pagadaEn").isNull()).isFalse();
         assertThat(primero.getMontoPagado()).isEqualByComparingTo("350.00");
@@ -86,6 +86,16 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         for (JsonNode comprobante : recibo.path("comprobantes")) {
             assertThat(comprobante.path("tipoComprobante").asText()).isEqualTo("CONSTANCIA_PAGO_DIGITAL");
         }
+        var estadoCuenta = familia("GET", OBLIGACIONES + "?estado=PAGADO", null, 200);
+        assertThat(estadoCuenta.path("content")).hasSize(2);
+        var historial = familia("GET", "/api/apoderado/comprobantes", null, 200);
+        assertThat(historial.path("content")).hasSize(2);
+        assertThat(getOk("/api/compromisos-pago/" + primero.getId()).path("estadoFinanciero").asText())
+                .isEqualTo("PAGADO");
+        var intentoInvalido = familia("POST", rutaOrden(orden) + "/confirmar-tarjeta",
+                data("escenario", "RECHAZADO"), 409);
+        assertThat(intentoInvalido.path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
+        assertThat(contar("Comprobante")).isEqualTo(2);
     }
 
     @Test
@@ -115,7 +125,8 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         assertThat(contar("Comprobante")).isZero();
         var aprobado = familia("POST", rutaOrden(orden) + "/autenticar", data("aprobar", true), 200);
         assertThat(aprobado.path("estado").asText()).isEqualTo("COMPLETADO");
-        familia("POST", rutaOrden(orden) + "/autenticar", data("aprobar", true), 200);
+        assertThat(familia("POST", rutaOrden(orden) + "/autenticar", data("aprobar", true), 409)
+                .path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
         assertThat(contar("Comprobante")).isEqualTo(1);
         assertThat(propio.getMontoPagado()).isEqualByComparingTo("350.00");
     }
@@ -124,8 +135,11 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
     void cancelarElDesafioTresDSRechazaSinPagarYNoAceptaAutenticarSinDesafio() throws Exception {
         var propio = compromiso(1, "350.00");
         var orden = iniciar("TARJETA", propio.getId());
-        familia("POST", rutaOrden(orden) + "/autenticar", data("aprobar", true), 422);
+        assertThat(familia("POST", rutaOrden(orden) + "/autenticar", data("aprobar", true), 409)
+                .path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
         confirmar(orden, "REQUIERE_AUTENTICACION");
+        assertThat(familia("POST", rutaOrden(orden) + "/confirmar-tarjeta", data(), 409)
+                .path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
         var cancelado = familia("POST", rutaOrden(orden) + "/autenticar", data("aprobar", false), 200);
         assertThat(cancelado.path("estado").asText()).isEqualTo("RECHAZADO");
         assertThat(propio.getMontoPagado()).isZero();
@@ -148,6 +162,8 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
                 data("accion", "APROBAR"), 200).path("estado").asText()).isEqualTo("COMPLETADO");
         assertThat(familia("GET", rutaOrden(orden), null, 200).path("estado").asText()).isEqualTo("COMPLETADO");
         publico("POST", PAGOS + "/qr/" + token + "/confirmar", data("accion", "APROBAR"), 200);
+        assertThat(publico("POST", PAGOS + "/qr/" + token + "/confirmar",
+                data("accion", "RECHAZAR"), 409).path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
         assertThat(propio.getMontoPagado()).isEqualByComparingTo("350.00");
         assertThat(contar("Comprobante")).isEqualTo(1);
     }
@@ -173,13 +189,22 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         var orden = iniciar("QR", propio.getId());
         String token = tokenQr(orden);
         expirar(orden);
+        var detallePrevio = familia("GET", OBLIGACIONES + "/" + propio.getId(), null, 200);
+        var intentoExpirado = detallePrevio.path("transacciones").get(0);
+        var obligacion = detallePrevio.path("compromiso");
+        assertThat(intentoExpirado.path("estado").asText()).isEqualTo("EXPIRADA");
+        for (String campo : List.of("idAlumno", "alumno", "codigoAlumno", "codigoCompromiso", "concepto")) {
+            assertThat(intentoExpirado.hasNonNull(campo)).as(campo).isTrue();
+            assertThat(intentoExpirado.path(campo)).as(campo).isEqualTo(obligacion.path(campo));
+        }
+        var callbackTardio = publico("POST", PAGOS + "/qr/" + token + "/confirmar",
+                data("accion", "APROBAR"), 409);
+        assertThat(callbackTardio.path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
+        assertThat(em.find(OrdenPago.class, orden.path("id").asLong()).getEstado())
+                .isEqualTo(EstadoOrdenPago.EXPIRADO);
         var publicoExpirado = publico("GET", PAGOS + "/qr/" + token, null, 200);
         assertThat(publicoExpirado.path("estado").asText()).isEqualTo("EXPIRADO");
         comprobarCapacidadCaducadaSinDatos(publicoExpirado);
-        var callbackTardio = publico("POST", PAGOS + "/qr/" + token + "/confirmar",
-                data("accion", "APROBAR"), 200);
-        assertThat(callbackTardio.path("estado").asText()).isEqualTo("EXPIRADO");
-        comprobarCapacidadCaducadaSinDatos(callbackTardio);
         var vistaPrivada = familia("GET", rutaOrden(orden), null, 200);
         assertThat(vistaPrivada.path("estado").asText()).isEqualTo("EXPIRADO");
         assertThat(vistaPrivada.path("apoderado").asText()).isEqualTo(guardian.getPersona().nombreCompleto());
@@ -220,7 +245,8 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         var propio = compromiso(1, "350.00");
         var tarjeta = iniciar("TARJETA", propio.getId());
         expirar(tarjeta);
-        assertThat(confirmar(tarjeta, "APROBADO").path("estado").asText()).isEqualTo("EXPIRADO");
+        assertThat(familia("POST", rutaOrden(tarjeta) + "/confirmar-tarjeta", data(), 409)
+                .path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
         var qr = iniciar("QR", propio.getId());
         familia("POST", rutaOrden(qr) + "/confirmar-tarjeta", data("escenario", "APROBADO"), 422);
         assertThat(propio.getMontoPagado()).isZero();

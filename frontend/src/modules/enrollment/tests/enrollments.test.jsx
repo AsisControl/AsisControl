@@ -608,3 +608,18 @@ test("Abrir una ficha que no existe muestra el error", async () => {
   await user.click((await screen.findAllByText("Ver ficha"))[0]);
   expect((await screen.findByRole("alert")).textContent).toBe("La ficha ya no está disponible. Actualiza el listado.");
 });
+
+test("Si fallan el historial o los vínculos, muestra el error y no se queda cargando", async () => {
+  backend({
+    "GET /api/solicitudes-matricula/:id": request({ estado: "ENVIADA" }),
+    "GET /api/solicitudes-matricula/:id/historial": reply(500, { message: "Historial no disponible" }),
+    "GET /api/alumnos/:id": reply(500, { message: "Alumno no disponible" }),
+  });
+  const user = userEvent.setup();
+  render(<EnrollmentsScreen />);
+  const dialog = await openRequest(user);
+  expect(await within(dialog).findByText(/Historial no disponible/)).toBeTruthy();
+  expect(await within(dialog).findByText(/Alumno no disponible/)).toBeTruthy();
+  expect(within(dialog).queryByText("Cargando historial…")).toBeNull();
+  expect(within(dialog).queryByText("Cargando vínculos…")).toBeNull();
+});

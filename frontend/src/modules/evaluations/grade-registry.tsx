@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
+import { Feedback, Loading } from "@/shared/ui";
 import { GradeSheet } from "./grade-sheet";
 import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import { listarEvaluaciones, obtenerEvaluacion } from "./services/evaluation-service";
@@ -158,7 +158,7 @@ export function GradeRegistry({
           canWrite={canWrite && assignments.some((item) => item.id === current.idAsignacionCurso)}
         />
       ) : ready && !items ? (
-        <p role="status">Cargando evaluaciones…</p>
+        <Loading>Cargando evaluaciones…</Loading>
       ) : (
         <div className={`panel ${styles.emptyState}`}>
           <strong>

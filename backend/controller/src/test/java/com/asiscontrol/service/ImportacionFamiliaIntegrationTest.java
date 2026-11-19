@@ -59,7 +59,7 @@ class ImportacionFamiliaIntegrationTest {
     void registraLasFilasValidasYReportaLasDemasPorFila() {
         String a = dni(), b = dni(), docente = dni();
         personas.createDocente(new PersonaDtos.DocenteCreateRequest(
-                persona(docente, "Rosa", "Pizarro"), "DOC" + docente, LocalDate.now(),
+                persona(docente, "Rosa", "Pizarro"), LocalDate.now(),
                 Especialidad.TUTORIA));
 
         var result = importacion.importGuardians(excel(GUARDIAN,
@@ -70,13 +70,32 @@ class ImportacionFamiliaIntegrationTest {
                 guardian(a, "Luis", "Rojas", "MASCULINO", a + "@familia.pe")));
 
         assertThat(result.totalRows()).isEqualTo(5);
-        assertThat(result.importedRows()).isEqualTo(2);
+        assertThat(result.importedRows()).isEqualTo(4);
         assertThat(result.issues()).extracting(PersonaDtos.ImportIssue::row, PersonaDtos.ImportIssue::message)
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(3, "El valor de sexo no esta permitido"),
-                        org.assertj.core.groups.Tuple.tuple(4, "La columna correo es obligatoria"),
-                        org.assertj.core.groups.Tuple.tuple(6,
-                                "La persona con este documento ya esta registrada como apoderado"));
+                        org.assertj.core.groups.Tuple.tuple(3, "El valor de sexo no esta permitido"));
+        // Sin teléfono ni correo se registra igual, con una observación.
+        assertThat(result.warnings()).extracting(PersonaDtos.ImportIssue::row, PersonaDtos.ImportIssue::message)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        4, "El apoderado no tiene teléfono ni correo de contacto"));
+        // Repetido en el archivo: reutiliza su perfil y su única cuenta, sin contraseña nueva.
+        assertThat(result.credentials())
+                .extracting(PersonaDtos.CredencialAcceso::row, PersonaDtos.CredencialAcceso::existing)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(2, false),
+                        org.assertj.core.groups.Tuple.tuple(4, false),
+                        org.assertj.core.groups.Tuple.tuple(5, false),
+                        org.assertj.core.groups.Tuple.tuple(6, true));
+        var primera = result.credentials().get(0);
+        var repetida = result.credentials().get(3);
+        assertThat(primera.temporaryPassword()).isNotBlank();
+        assertThat(primera.code()).matches("APO[0-9]{8}");
+        assertThat(primera.username()).startsWith("luis.rojas");
+        assertThat(primera.expiresAt()).isAfter(java.time.Instant.now().plus(java.time.Duration.ofDays(13)));
+        assertThat(repetida.temporaryPassword()).isNull();
+        assertThat(repetida.username()).isEqualTo(primera.username());
+        assertThat(repetida.code()).isEqualTo(primera.code());
+        assertThat(primera.toString()).doesNotContain(primera.temporaryPassword());
         // La docente se reutilizo como apoderada en lugar de duplicarse.
         var rosa = personaRepository.findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, docente)
                 .orElseThrow();
@@ -84,27 +103,27 @@ class ImportacionFamiliaIntegrationTest {
     }
 
     @Test
-    void vinculaPorCodigoYDocumentoConUnSoloPrincipalPorEstudiante() {
-        String codigo = "EST" + dni();
+    void vinculaPorDocumentosConUnSoloPrincipalPorEstudiante() {
+        String alumnoDni = dni();
         var alumno = personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(
-                persona(dni(), "Mateo", "Ramos", LocalDate.of(2014, 2, 3)), codigo));
+                persona(alumnoDni, "Mateo", "Ramos", LocalDate.of(2014, 2, 3))));
         String madre = dni(), padre = dni();
         importacion.importGuardians(excel(GUARDIAN,
                 guardian(madre, "Carmen", "Ramos", "FEMENINO", madre + "@familia.pe"),
                 guardian(padre, "Jorge", "Ramos", "MASCULINO", padre + "@familia.pe")));
 
         var result = importacion.importRelationships(excel(RELATIONSHIP,
-                List.of(codigo.toLowerCase(), "DNI", madre, "MADRE", "SI"),
-                List.of(codigo, "DNI", padre, "PADRE", "si"),
-                List.of(codigo, "DNI", padre, "PADRE", "NO"),
-                List.of("NO-EXISTE", "DNI", padre, "PADRE", "NO"),
-                List.of(codigo, "DNI", "99999999", "PADRE", "NO"),
-                List.of(codigo, "DNI", padre, "NO_DECLARADO", "NO")));
+                List.of("dni", alumnoDni, "DNI", madre, "MADRE", "SI"),
+                List.of("DNI", alumnoDni, "DNI", padre, "PADRE", "si"),
+                List.of("DNI", alumnoDni, "DNI", padre, "PADRE", "NO"),
+                List.of("DNI", "11111111", "DNI", padre, "PADRE", "NO"),
+                List.of("DNI", alumnoDni, "DNI", "99999999", "PADRE", "NO"),
+                List.of("DNI", alumnoDni, "DNI", padre, "NO_DECLARADO", "NO")));
 
         assertThat(result.importedRows()).isEqualTo(2);
         assertThat(result.issues()).extracting(PersonaDtos.ImportIssue::row).containsExactly(3, 5, 6, 7);
         assertThat(result.issues().get(0).message()).contains("ya tiene un apoderado principal en la fila 2");
-        assertThat(result.issues().get(1).message()).isEqualTo("No hay un estudiante habilitado con el codigo NO-EXISTE");
+        assertThat(result.issues().get(1).message()).isEqualTo("No hay un estudiante habilitado con el documento DNI 11111111");
         assertThat(result.issues().get(2).message()).contains("Importalo primero");
         assertThat(result.issues().get(3).message()).isEqualTo("El valor de parentesco no esta permitido");
         assertThat(personas.getAlumno(alumno.id()).apoderados())
@@ -116,7 +135,7 @@ class ImportacionFamiliaIntegrationTest {
     }
 
     private List<String> guardian(String dni, String nombres, String apellido, String sexo, String correo) {
-        return List.of("DNI", dni, nombres, apellido, "Quispe", sexo, "1984-07-21", "", correo, "");
+        return List.of("DNI", dni, nombres, apellido, "Quispe", sexo, "1984-07-21", "", "", correo, "");
     }
 
     private PersonaDtos.PersonaRequest persona(String dni, String nombres, String apellido) {

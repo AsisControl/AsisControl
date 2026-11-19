@@ -16,6 +16,7 @@ import {
   importFamilies,
 } from "./services/family-import-service";
 import { DownloadIcon, ExcelFilePicker } from "./excel-file-picker";
+import { AccessCredentials } from "./access-credentials";
 import styles from "./import-dialog.module.css";
 /** Mismos límites que ImportacionAlumnoService: solo .xlsx y hasta 5 MB. */
 export const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
@@ -42,7 +43,7 @@ const IMPORT_SLOTS: ImportSlot[] = [
   {
     id: "estudiantes",
     title: "Estudiantes",
-    description: "Una fila por estudiante, con su código.",
+    description: "Una fila por estudiante, con su documento. El código lo genera el sistema.",
     template: {
       fileName: "plantilla_alumnos.xlsx",
       download: downloadStudentTemplate,
@@ -62,7 +63,7 @@ const IMPORT_SLOTS: ImportSlot[] = [
     id: "parentescos",
     title: "Parentescos",
     description:
-      "Une a cada estudiante con su apoderado: código del estudiante, documento del apoderado, parentesco (padre, madre, tutor legal u otro familiar) y si es el principal.",
+      "Une a cada estudiante con su apoderado: documento del estudiante, documento del apoderado, parentesco (padre, madre, tutor legal u otro familiar) y si es el principal.",
     template: {
       fileName: "plantilla_parentescos.xlsx",
       download: downloadRelationshipTemplate,
@@ -190,7 +191,7 @@ export function FamilyImportDialog({
               </h4>
               <p className={styles.slotText}>
                 Descarga las tres y complétalas juntas. En parentescos usa el
-                mismo código del estudiante y el mismo documento del apoderado.
+                mismo documento del estudiante y el mismo documento del apoderado.
               </p>
               <div className={styles.templateList}>
                 {IMPORT_SLOTS.map((slot) => (
@@ -220,7 +221,8 @@ export function FamilyImportDialog({
               Cada paso se habilita al elegir el archivo del anterior: primero
               estudiantes, luego apoderados y al final parentescos. Antes de
               importar se validan los tres juntos; si alguno tiene errores no se
-              guarda ninguna fila.
+              guarda ninguna fila. Cada estudiante y apoderado recibe su acceso
+              al sistema; un apoderado con varios hijos tiene una sola cuenta.
             </p>
           </>
         )}
@@ -266,6 +268,14 @@ export function FamilyImportDialog({
             );
           })}
         </ol>
+        {report && (
+          <AccessCredentials
+            credentials={IMPORT_SLOTS.flatMap(
+              (slot) => report.files[slot.id]?.result?.credentials ?? [],
+            )}
+            saved={saved}
+          />
+        )}
         {saved ? (
           <div className="form-actions">
             <button type="button" className="primary-action" onClick={onClose}>
@@ -382,6 +392,24 @@ export function ImportSummary({
           <dd>{result.rejectedRows}</dd>
         </div>
       </dl>
+      {(result.warnings?.length ?? 0) > 0 && (
+        <>
+          <h4>
+            {countLabel(
+              result.warnings!.length,
+              "observación",
+              "observaciones",
+            )}
+          </h4>
+          <ul className={styles.slotText}>
+            {result.warnings!.map((warning, index) => (
+              <li key={`${warning.row}-${index}`}>
+                Fila {warning.row}: {warning.message}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {result.issues.length > 0 && (
         <>
           <h4>

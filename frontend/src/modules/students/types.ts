@@ -42,6 +42,24 @@ export type ImportResult = {
   importedRows: number;
   rejectedRows: number;
   issues: { row: number; field: string | null; message: string }[];
+  /** Accesos de las filas registradas; la contraseña solo llega al guardar. */
+  credentials?: AccessCredential[];
+  /** Observaciones de filas registradas, por ejemplo un apoderado sin contacto. */
+  warnings?: { row: number; field: string | null; message: string }[];
+};
+/** PersonaDtos.CredencialAcceso. */
+export type AccessCredential = {
+  row: number;
+  fullName: string;
+  role: string;
+  code: string | null;
+  username: string;
+  email: string;
+  /** Solo al guardar la carga; no se vuelve a mostrar. */
+  temporaryPassword: string | null;
+  expiresAt: string | null;
+  /** Ya tenía acceso para ese rol: no se creó otro. */
+  existing: boolean;
 };
 export type FamilyImportSlot = "estudiantes" | "apoderados" | "parentescos";
 /** Respuesta de POST /api/alumnos/importaciones/familias (PersonaDtos.FamilyImportResult). */

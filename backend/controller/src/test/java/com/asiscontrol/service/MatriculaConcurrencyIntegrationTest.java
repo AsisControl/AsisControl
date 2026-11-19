@@ -172,7 +172,7 @@ class MatriculaConcurrencyIntegrationTest {
                         key + "@example.test",
                         null);
         long student =
-                personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(person, "EST" + key))
+                personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(person))
                         .id();
         var request = solicitudes.crear(new CrearSolicitudMatriculaRequest(student, section, null));
         request =

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { message } from "@/core/api/client";
-import { Feedback, PageHeader, TabNav, type TabItem } from "@/shared/ui";
+import { Feedback, PageHeader, TabNav, type TabItem, Loading } from "@/shared/ui";
 import { EvaluationList } from "./evaluation-list";
 import { GradeRegistry } from "./grade-registry";
 import { PublishPeriod } from "./progress-reports";
@@ -78,7 +78,7 @@ export function Evaluations({
       />
       <Feedback error={error} />
       {!assignments ? (
-        !error && <p role="status">Cargando tus cursos…</p>
+        !error && <Loading>Cargando tus cursos…</Loading>
       ) : current === PUBLISH_TAB ? (
         <PublishPeriod assignments={assignments} canWrite={canWrite} />
       ) : current === LIST_TAB ? (

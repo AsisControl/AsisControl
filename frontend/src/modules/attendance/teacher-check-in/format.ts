@@ -1,4 +1,4 @@
-import type { CodigoQR, EstadoAsistencia } from "./types";
+import type { CodigoQR, EstadoAsistencia, EstadoSesionClase, VerificacionClase } from "./types";
 
 export const ESTADO_LABEL: Record<EstadoAsistencia, string> = {
   PRESENTE: "Presente",
@@ -8,6 +8,38 @@ export const ESTADO_LABEL: Record<EstadoAsistencia, string> = {
   INASISTENCIA_JUSTIFICADA: "Inasistencia justificada",
   TARDANZA_JUSTIFICADA: "Tardanza justificada",
 };
+
+export const VERIFICACION_LABEL: Record<VerificacionClase, string> = {
+  CONFIRMADA: "Confirmada",
+  OBSERVADA: "Pendiente de confirmación",
+};
+
+export const SESION_LABEL: Record<EstadoSesionClase, string> = {
+  PENDIENTE: "Sin registrar",
+  BORRADOR: "En borrador",
+  TOMADA: "Tomada",
+};
+
+/** Ruta que abre la cámara del celular al escanear el QR del punto de marcación. */
+export const MARCACION_PATH = "/asistencia/mi-marcacion";
+
+/** El QR guarda un enlace: con la cámara del celular lleva al docente a marcar con su cuenta. */
+export function markingLink(origin: string, token: string) {
+  return `${origin}${MARCACION_PATH}?codigo=${encodeURIComponent(token)}`;
+}
+
+/** Acepta el enlace del QR o el código suelto (ingreso manual) y devuelve el código. */
+export function tokenFromScan(text: string) {
+  const value = text.trim();
+  try {
+    return new URL(value).searchParams.get("codigo") ?? value;
+  } catch {
+    return value;
+  }
+}
+
+/** "07:30:00" → "07:30". */
+export const hourOf = (time: string) => time.slice(0, 5);
 
 /** "2026-11-06T07:52:13" → "07:52". Se muestra la hora tal como la registró el servidor. */
 export function timeOf(dateTime: string | null) {

@@ -8,6 +8,8 @@
   margin-bottom: 20px;
 }
 .pageHeader h2 {
+  border-inline-start: var(--role-title-width, 0) solid var(--role-accent, transparent);
+  padding-inline-start: var(--role-title-indent, 0);
   color: var(--ink);
   font-size: 28px;
   font-weight: 700;
@@ -52,6 +54,13 @@
 }
 .actions :global(.primary-action) {
   border-radius: 8px;
+}
+@media (max-width: 600px) {
+  .pageHeader > div,
+  .panelHeading > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 /* Iniciales de una persona junto a su nombre en las tablas. */
 .person {

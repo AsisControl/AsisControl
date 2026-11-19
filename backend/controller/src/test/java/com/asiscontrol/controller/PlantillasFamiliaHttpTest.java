@@ -47,8 +47,8 @@ class PlantillasFamiliaHttpTest {
             Sheet sheet = workbook.getSheet("Apoderados");
             assertThat(cells(sheet.getRow(0))).containsExactly(
                     "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-                    "apellidoMaterno", "sexo", "fechaNacimiento", "telefono", "correo",
-                    "direccion");
+                    "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "telefono",
+                    "correo", "direccion");
             assertThat(cells(sheet.getRow(1))).startsWith("DNI", "40000001");
             assertThat(sheet.getColumnStyle(1).getDataFormatString()).isEqualTo("@");
             assertThat(sheet.getPaneInformation().isFreezePane()).isTrue();
@@ -62,10 +62,10 @@ class PlantillasFamiliaHttpTest {
                 "plantilla_parentescos.xlsx")) {
             Sheet sheet = workbook.getSheet("Parentescos");
             assertThat(cells(sheet.getRow(0))).containsExactly(
-                    "codigoAlumno", "tipoDocumentoApoderado", "numeroDocumentoApoderado",
-                    "parentesco", "principal");
+                    "tipoDocumentoAlumno", "numeroDocumentoAlumno", "tipoDocumentoApoderado",
+                    "numeroDocumentoApoderado", "parentesco", "principal");
             assertThat(cells(sheet.getRow(1)))
-                    .containsExactly("EST-0001", "DNI", "40000001", "MADRE", "SI");
+                    .containsExactly("DNI", "70000001", "DNI", "40000001", "MADRE", "SI");
             assertThat(sheet.getDataValidations())
                     .extracting(validation -> List.of(
                             validation.getValidationConstraint().getExplicitListValues()))

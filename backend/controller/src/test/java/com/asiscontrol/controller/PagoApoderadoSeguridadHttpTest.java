@@ -61,6 +61,38 @@ class PagoApoderadoSeguridadHttpTest extends PagosFamiliaIntegrationSupport {
     }
 
     @Test
+    void separaPensionesYOtrosCobrosPorCatalogoSinAdivinarElTipoDeLegados() throws Exception {
+        var pension = em.createQuery("select c from ConceptoCobro c where c.esPension=true",
+                com.asiscontrol.entity.ConceptoCobro.class).getSingleResult();
+        var actividad = new com.asiscontrol.entity.ConceptoCobro();
+        actividad.setCodigo("ACT-" + key());
+        actividad.setNombre("Actividad");
+        actividad.setPeriodicidad(com.asiscontrol.entity.enums.PeriodicidadCobro.UNICO);
+        em.persist(actividad);
+
+        var cuota = compromiso(1, "350.00");
+        cuota.setConceptoCobro(pension);
+        var cobro = compromiso(2, "75.00");
+        cobro.setConceptoCobro(actividad);
+        cobro.setNumeroCuota(null);
+        var legado = compromiso(3, "90.00");
+        var otraFamilia = otraFamilia();
+        var ajeno = compromiso(otraFamilia.alumno(), 1, "900.00", "0.00", LocalDate.now(LIMA).plusDays(10));
+        ajeno.setConceptoCobro(pension);
+        em.flush();
+
+        var pensiones = familia("GET", OBLIGACIONES + "?tipo=PENSION", null, 200).path("content");
+        assertThat(pensiones).hasSize(1);
+        assertThat(pensiones.get(0).path("id").asLong()).isEqualTo(cuota.getId());
+        var otros = familia("GET", OBLIGACIONES + "?tipo=OTRO", null, 200).path("content");
+        assertThat(otros).hasSize(1);
+        assertThat(otros.get(0).path("id").asLong()).isEqualTo(cobro.getId());
+        var todos = familia("GET", OBLIGACIONES, null, 200).path("content");
+        assertThat(todos).hasSize(3).anySatisfy(row -> assertThat(row.path("id").asLong()).isEqualTo(legado.getId()));
+        familia("GET", OBLIGACIONES + "?tipo=PENSION&idAlumno=" + otraFamilia.alumno().getId(), null, 403);
+    }
+
+    @Test
     void noConfiaEnElMontoNiEnLaIdentidadDeApoderadoEnviadosPorElCliente() throws Exception {
         var propio = compromiso(1, "350.00");
         var otra = otraFamilia();

@@ -2,16 +2,16 @@
   display: inline-block;
   text-decoration: none;
 }
-.ejemplo {
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: 8px;
-  color: #92400e;
-  font-size: 13px;
-  font-weight: 500;
-  margin: 16px 0;
-  padding: 8px 12px;
+.actualizado {
+  color: #94a3b8;
+  font-size: 12px;
 }
+.vacio {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+/* Indicadores: icono en un recuadro de color suave y número con el color de su estado. */
 .indicadores {
   display: grid;
   gap: 16px;
@@ -25,24 +25,62 @@
   box-shadow: 0 1px 2px #0000000d;
 }
 .indicador {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+}
+.indicador div {
   display: grid;
-  gap: 2px;
-  padding: 16px 20px;
 }
 .indicador strong {
   font-size: 24px;
   line-height: 32px;
 }
-.indicador span {
+.indicador div span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 16px;
 }
+.indicadorIcono {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  flex: none;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.indicadorIcono.primario {
+  background: #eff6ff;
+}
+.indicadorIcono.advertencia {
+  background: #fef3c7;
+}
+.indicadorIcono.info {
+  background: #e0f2fe;
+}
+.primario {
+  color: var(--blue);
+}
+.advertencia {
+  color: #d97706;
+}
+.info {
+  color: #0284c7;
+}
+/* Clases (5), pendientes (4) y acciones rápidas (3) sobre 12 columnas, como en el prototipo. */
 .columnas {
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   margin-top: 16px;
+}
+@media (min-width: 1100px) {
+  .columnas {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr);
+  }
 }
 .tarjeta {
   padding: 20px;
@@ -53,12 +91,12 @@
 }
 .resumen {
   color: var(--muted);
-  font-size: 13px;
-  margin: -12px 0 12px;
+  font-size: 14px;
+  margin: -14px 0 12px;
 }
 .clase,
 .claseActual {
-  border-radius: 8px;
+  border-radius: 12px;
   margin-top: 12px;
   padding: 12px;
 }
@@ -67,7 +105,7 @@
   border: 1px solid #e2e8f0;
 }
 .claseActual {
-  background: #ecfdf5;
+  background: #f0fdf4;
   border: 1px solid #059669;
 }
 .claseFila {
@@ -75,14 +113,18 @@
   gap: 12px;
   justify-content: space-between;
 }
+.claseFila strong {
+  font-size: 14px;
+}
 .claseFila p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   margin: 2px 0 0;
 }
 .claseHora {
   align-items: flex-end;
   display: grid;
+  flex: none;
   gap: 6px;
   justify-items: end;
 }
@@ -107,42 +149,49 @@
   padding: 10px 14px;
   text-decoration: none;
 }
+/* Cada pendiente es un enlace a la pantalla donde se resuelve. */
 .pendientes {
   display: grid;
-  gap: 14px;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .pendientes li {
   align-items: center;
+  border-radius: 8px;
   display: flex;
   gap: 12px;
   justify-content: space-between;
+  padding: 10px;
 }
-.pendientes span:first-child {
-  display: block;
-  font-size: 13px;
+.pendientes li:hover {
+  background: var(--surface);
 }
-.pendientes small {
-  color: var(--muted);
-  font-size: 11px;
-}
-.accesos {
+.pendientes a {
+  color: inherit;
   display: grid;
-  gap: 4px;
-}
-.accesos a {
-  border-radius: 8px;
-  color: var(--ink);
-  display: flex;
-  font-size: 14px;
-  font-weight: 500;
-  justify-content: space-between;
-  padding: 12px 8px;
+  gap: 2px;
+  min-width: 0;
   text-decoration: none;
 }
-.accesos a:hover {
-  background: var(--surface);
-  color: var(--blue);
+.pendientes a span {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 16px;
+}
+.pendientes a:hover span {
+  text-decoration: underline;
+}
+.pendientes small {
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 15px;
+}
+/* Texto de espera: líneas apiladas como en el contenido real. */
+.esqueletoTexto {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
 }

@@ -76,7 +76,7 @@ class AulaServiceIntegrationTest {
                 TipoDocumento.PASAPORTE, clave, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1985, 1, 1), null, clave.toLowerCase() + "@example.test", null);
         var docente = personas.createDocente(new PersonaDtos.DocenteCreateRequest(
-                persona, "D" + clave, LocalDate.of(2020, 1, 1), Especialidad.MATEMATICA));
+                persona, LocalDate.of(2020, 1, 1), Especialidad.MATEMATICA));
         var asignacion = asignaciones.crear(new CrearAsignacionCursoRequest(curso.id(), seccion.id(), docente.id()));
         AulaResponse aula = aula("A" + clave, 35);
         horarios.crear(new CrearHorarioRequest(

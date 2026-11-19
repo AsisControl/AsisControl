@@ -1,0 +1,19 @@
+"ID de actividad","ID principal","Tipo de actividad","Resumen","Descripción","Prioridad","Estimación de puntos de historia","Etiquetas","Etiquetas","Etiquetas","Etiquetas"
+"6","","Épica","Planificación académica, recursos y horarios","Reúne aulas, asignaciones docentes, horarios, cruces, capacidad y seguimiento de modificaciones.","","","horarios","","",""
+"74","6","Historia","US-58 · Asignar docentes activos a cursos, secciones y períodos","h3. Historia de usuario
+Como administrador autorizado, quiero asignar docentes activos a cursos, secciones y períodos, para definir quién puede operar cada contexto académico.
+h3. Criterios de aceptación
+# Dado entidades habilitadas y combinación nueva (profesor activo, curso activo, periodo vigente), cuando el administrador confirma, entonces el sistema crea la asignación Activa.
+# Dado existe la misma combinación, cuando se intenta crear, entonces el sistema rechaza la operación.
+# Dado un docente que ingresa al sistema para registrar asistencia o notas, cuando navega por sus módulos, entonces el sistema le permite operar únicamente en las secciones y cursos a los que fue asignado oficialmente, bloqueando el acceso a otros contextos.
+# Dado que se crea o inactiva una relación docente-curso, cuando la operación finaliza, entonces el sistema audita automáticamente quién hizo el cambio, en qué fecha, en qué contexto y el motivo de la inactivación
+# Dado que el administrador intenta inactivar o retirar a un docente de un curso, cuando confirma el motivo, entonces el sistema lo permite solo si el docente no tiene bloques de horario programados a futuro. Si los tiene, el sistema exige que primero se reasignen o eliminen esos bloques en la matriz de horarios.
+h3. Trazabilidad
+* Backlog: US-58 / PLA-06
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-05, US-06, US-36, US-37
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","5","horarios","us-58","release-1.1",""
+"75","74","Subtarea","[Backend] Verificar la regla PLA-06: no retirar docente con bloques de horario futuros","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","backend","release-1.1","",""
+"76","74","Subtarea","[Frontend] Pestaña Horarios > Asignaciones docentes: listado y alta","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"77","74","Subtarea","[Frontend] Edición con versión y retiro con motivo","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"78","74","Subtarea","[Pruebas] Pruebas de la pestaña con backend simulado","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""

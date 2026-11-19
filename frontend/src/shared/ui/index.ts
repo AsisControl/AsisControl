@@ -4,6 +4,15 @@ export { Feedback } from "./feedback";
 export { FormDialog } from "./form-dialog";
 export { Field, PasswordField, ReasonField } from "./form-fields";
 export { PageHeader, PanelHeading, PersonCell, initialsOf } from "./page";
+export { Loading } from "./loading";
+export {
+  CardGridSkeleton,
+  DetailSkeleton,
+  ListSkeleton,
+  Skeleton,
+  TableSkeleton,
+  TimetableSkeleton,
+} from "./skeleton";
 export { Pager } from "./pager";
 export { StatusPill, toneOf, type StatusTone } from "./status-pill";
 export { RowMenu, type MenuOption } from "./row-menu";

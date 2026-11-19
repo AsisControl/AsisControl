@@ -73,7 +73,7 @@ test("Sin sesión muestra el login, informa credenciales inválidas y luego ingr
   await user.clear(password);
   await user.type(password, "Correcta2026");
   await user.click(screen.getByText("Iniciar sesión", { selector: "button" }));
-  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   expect(calls.filter((c) => c.path === "/api/auth/login").at(-1).body).toEqual({
     identifier: "admin",
     password: "Correcta2026",
@@ -91,7 +91,7 @@ test("El menú muestra solo las opciones permitidas y navega por URL", async () 
   expect(within(nav).getByText("Inicio").getAttribute("aria-current")).toBe("page");
   await user.click(within(nav).getByText("Asistencia"));
   expect(currentUrl()).toBe("/asistencia");
-  expect(await screen.findByText("Punto de marcación docente con QR dinámico")).toBeTruthy();
+  expect(await screen.findByText("Marcación de docentes con QR institucional")).toBeTruthy();
   expect(within(nav).getByText("Asistencia").getAttribute("aria-current")).toBe("page");
 });
 
@@ -233,7 +233,9 @@ test("Cada rol ve su menú y su pantalla de inicio", async () => {
     sessionFor({ role, permissions: [] });
     const { unmount } = renderApp();
     expect(await screen.findByText(title)).toBeTruthy();
-    expect(screen.getByText(role === "DOCENTE" ? /Datos de ejemplo/ : /Has ingresado como/)).toBeTruthy();
+    // El docente tiene su propio inicio (con datos del backend); los demás, el aviso genérico.
+    if (role === "DOCENTE") expect(screen.getByRole("button", { name: "Actualizar" })).toBeTruthy();
+    else expect(screen.getByText(/Has ingresado como/)).toBeTruthy();
     unmount();
   }
 });
@@ -391,7 +393,7 @@ test("Una sesión vencida no se muestra y otra pestaña puede cerrar la sesión"
   await act(async () => {
     window.dispatchEvent(new Event("pageshow"));
   });
-  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   await act(async () => {
     window.localStorage.setItem("asiscontrol:session-invalidation", "otra-pestaña");
     window.dispatchEvent(new Event("storage"));
@@ -403,7 +405,7 @@ test("Volver a la pestaña revalida la sesión y la actividad la mantiene", asyn
   const calls = backend();
   sessionFor();
   renderApp();
-  await screen.findByText("Panel de administración");
+  await screen.findByRole("heading", { name: "Panel de administración", exact: true });
   const before = calls.filter((c) => c.path === "/api/auth/me").length;
   await act(async () => {
     document.dispatchEvent(new Event("visibilitychange"));
@@ -511,7 +513,7 @@ test("Al recargar la página la cookie de renovación recupera la sesión", asyn
   expect(screen.getByText("Cargando sesión…")).toBeTruthy();
   // pageshow llega junto con el montaje: no debe enviarse la cookie dos veces.
   window.dispatchEvent(new Event("pageshow"));
-  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   expect(fetchCalls("/api/auth/refresh")).toEqual([
     { method: "POST", credentials: "include", authorization: null },
   ]);
@@ -548,7 +550,7 @@ test("Si no hay conexión al recargar se muestra el login y se reintenta al volv
   await act(async () => {
     window.dispatchEvent(new Event("pageshow"));
   });
-  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
 });
 
 test("Renueva el token un minuto antes de que venza y usa el nuevo", async () => {
@@ -559,7 +561,7 @@ test("Renueva el token un minuto antes de que venza y usa el nuevo", async () =>
   });
   sessionFor({ permissions: ["ACADEMICO_LEER"] }).expiresAt = new Date(Date.now() + 60_300).toISOString();
   renderApp();
-  await screen.findByText("Panel de administración");
+  await screen.findByRole("heading", { name: "Panel de administración", exact: true });
   await waitFor(() => expect(fetchCalls("/api/auth/refresh")).toHaveLength(1), { timeout: 3000 });
   act(() => setUrl("/academico"));
   await screen.findByText("Aún no hay cursos registrados.");
@@ -600,12 +602,12 @@ test("Un token vencido al volver a la pestaña se renueva en lugar de cerrar la 
   backend({ "POST /api/auth/refresh": authResponse("renovado") });
   sessionFor();
   renderApp();
-  await screen.findByText("Panel de administración");
+  await screen.findByRole("heading", { name: "Panel de administración", exact: true });
   sessionFor().expiresAt = "2000-01-01T00:00:00Z";
   await act(async () => {
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  expect(await screen.findByText("Panel de administración")).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   expect(fetchCalls("/api/auth/refresh")).toHaveLength(1);
 });
 
@@ -616,7 +618,7 @@ test("Con Web Locks las pestañas renuevan por turnos", async () => {
   try {
     reloadPage();
     renderApp();
-    expect(await screen.findByText("Panel de administración")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
     expect(request).toHaveBeenCalledTimes(1);
     expect(request.mock.calls[0][0]).toBe("asiscontrol:session-refresh");
   } finally {

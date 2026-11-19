@@ -25,12 +25,14 @@ test("la billetera pública confirma usando sólo su capacidad, sin Bearer ni co
   expect(screen.queryByText("Iniciar sesión")).toBeNull();
 });
 
-test("la billetera permite rechazo y no lo muestra como pago realizado", async () => {
+test("la billetera presenta una única confirmación y muestra el rechazo que devuelve el servidor", async () => {
   const calls = fakeBackend({ "GET /api/pagos/qr/capacidad": pendingQr(), "POST /api/pagos/qr/capacidad/confirmar": pendingQr({ estado: "RECHAZADO" }) });
   const user = userEvent.setup(); render(<QrWallet token="capacidad" />);
-  await user.click(await screen.findByRole("button", { name: "Rechazar operación" }));
+  const confirm = await screen.findByRole("button", { name: /Confirmar pago/ });
+  expect(screen.getAllByRole("button")).toEqual([confirm]);
+  await user.click(confirm);
   expect(await screen.findByText("El pago fue rechazado.")).toBeTruthy();
-  expect(calls.find((call) => call.method === "POST").body).toEqual({ accion: "RECHAZAR" });
+  expect(calls.find((call) => call.method === "POST").body).toEqual({ accion: "APROBAR" });
   expect(screen.queryByText("Tu pago fue confirmado.")).toBeNull();
 });
 
@@ -45,6 +47,21 @@ test("un pago QR con respuesta perdida se confirma por sondeo y elimina el mensa
   await act(async () => vi.advanceTimersByTimeAsync(2000));
   expect(await screen.findByText("Tu pago fue confirmado.")).toBeTruthy();
   expect(screen.queryByText("No llegó la respuesta de la billetera")).toBeNull();
+});
+
+test("una confirmación que llega tras el vencimiento consulta el resultado definitivo", async () => {
+  let consultations = 0;
+  fakeBackend({
+    "GET /api/pagos/qr/capacidad": () => ++consultations === 1 ? pendingQr() : pendingQr({ estado: "EXPIRADO" }),
+    "POST /api/pagos/qr/capacidad/confirmar": reply(409, {
+      code: "TRANSICION_PAGO_INVALIDA", message: "La operación ya venció.",
+    }),
+  });
+  const user = userEvent.setup();
+  render(<QrWallet token="capacidad" />);
+  await user.click(await screen.findByRole("button", { name: /Confirmar pago/ }));
+  expect(await screen.findByText("Este código QR ya venció.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Confirmar pago/ })).toBeNull();
 });
 
 test("un QR inválido informa el error y permite volver a consultar", async () => {

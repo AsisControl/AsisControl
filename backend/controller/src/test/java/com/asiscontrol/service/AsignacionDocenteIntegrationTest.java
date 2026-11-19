@@ -100,7 +100,7 @@ class AsignacionDocenteIntegrationTest {
                 TipoDocumento.PASAPORTE, clave, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1985, 1, 1), null, clave.toLowerCase() + "@example.test", null);
         return personas.createDocente(new PersonaDtos.DocenteCreateRequest(
-                persona, "D" + clave, LocalDate.of(2020, 1, 1), Especialidad.MATEMATICA)).id();
+                persona, LocalDate.of(2020, 1, 1), Especialidad.MATEMATICA)).id();
     }
 
     private Long horario(AsignacionCursoResponse asignacion, LocalTime inicio) {

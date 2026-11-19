@@ -1,6 +1,7 @@
 package com.asiscontrol.entity;
 
 import com.asiscontrol.entity.enums.EstadoMatricula;
+import com.asiscontrol.entity.enums.ResultadoPromocion;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -71,6 +72,13 @@ public class Matricula extends AuditableEntity {
 
     @Column(name = "clave_vigente")
     private Integer claveVigente;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resultado_promocion", length = 20, columnDefinition = "VARCHAR(20)")
+    private ResultadoPromocion resultadoPromocion;
+
+    @Column(name = "motivo_promocion", length = 700)
+    private String motivoPromocion;
 
     @jakarta.persistence.PrePersist
     @jakarta.persistence.PreUpdate

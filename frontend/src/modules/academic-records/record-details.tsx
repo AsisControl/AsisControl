@@ -9,6 +9,7 @@ import {
   RecordHeader,
   RecordItem,
   RecordSection,
+  Loading,
 } from "@/shared/ui";
 import { specialtyLabel, stateLabel } from "@/shared/lib/formatters";
 import type { Guardian, Teacher } from "./types";
@@ -48,7 +49,7 @@ function RecordDialog<T>({
       ) : record ? (
         children(record)
       ) : (
-        <p role="status">Cargando ficha…</p>
+        <Loading skeleton="detail" rows={8}>Cargando ficha…</Loading>
       )}
       <div className="form-actions">
         <button type="button" onClick={onClose}>
@@ -78,6 +79,12 @@ export function GuardianDetail({
             name={guardian.persona.nombreCompleto}
             active={guardian.activo}
           />
+          <RecordSection title="Datos del apoderado" />
+          <dl className="detail-grid">
+            <RecordItem label="Código">
+              {guardian.codigoApoderado ?? "Sin código"}
+            </RecordItem>
+          </dl>
           <PersonSections persona={guardian.persona} />
           <RecordSection title="Estudiantes a cargo" />
           {guardian.alumnos.length ? (

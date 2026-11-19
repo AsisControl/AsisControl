@@ -25,6 +25,8 @@ export type Account = {
   fechaCreacion: string;
   correoVerificado: boolean;
   contrasenaTemporalExpira: string | null;
+  /** Código institucional del perfil del acceso (EST20260001, DOC20260003…). */
+  codigoPerfil?: string | null;
 };
 export type Permission = {
   id: number;

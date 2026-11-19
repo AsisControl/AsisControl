@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, apiBlob, message } from "@/core/api/client";
-import { Feedback, PageHeader } from "@/shared/ui";
+import { Feedback, PageHeader, Loading } from "@/shared/ui";
 import type { OwnAssignment } from "./types";
 
 type Option = { idAlumno: number; alumno: string; idAsignacionCurso: number; curso: string;
@@ -45,8 +45,8 @@ export function ProgressReports() {
   return <section>
     <PageHeader title="Progreso" description="Consulta las libretas publicadas por el docente y descarga tu informe por período." />
     <Feedback error={error} />
-    {!items && !error && <p role="status">Cargando informes disponibles.</p>}
-    {items?.length === 0 && <p>Todavía no hay libretas publicadas para consultar.</p>}
+    {!items && !error && <Loading skeleton="list" rows={3}>Cargando informes disponibles.</Loading>}
+    {items?.length === 0 && <p>Todavía no hay notas publicadas para consultar.</p>}
     {!!items?.length && <>
       <label className="field">Alumno, curso y período
         <select value={selected} disabled={busy} onChange={e => { setSelected(e.target.value); setDetail(null); setError(""); }}>
@@ -62,7 +62,7 @@ export function ProgressReports() {
       {detail && <div className="user-table-wrap" style={{ marginTop: 24 }}><p>{detail.periodo}</p><table className="user-table">
         <thead><tr>{["Competencia", "Evaluación", "Fecha", "Nivel", "Peso", "Observación"].map(t => <th key={t}>{t}</th>)}</tr></thead>
         <tbody>{detail.filas.map((row, i) => <tr key={i}>
-          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha}</td>
+          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha?.split("-").reverse().join("/")}</td>
           <td>{row.resultado}</td><td>{row.ponderacion}</td><td>{row.observacion}</td>
         </tr>)}</tbody>
       </table></div>}

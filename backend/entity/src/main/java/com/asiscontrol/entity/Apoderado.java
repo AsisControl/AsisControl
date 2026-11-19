@@ -21,7 +21,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @Entity
 @Table(name = "Apoderado", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_apoderado_persona", columnNames = "id_persona")
+        @UniqueConstraint(name = "uk_apoderado_persona", columnNames = "id_persona"),
+        @UniqueConstraint(name = "uk_apoderado_codigo", columnNames = "codigo_apoderado")
 })
 public class Apoderado extends AuditableEntity {
 
@@ -33,4 +34,8 @@ public class Apoderado extends AuditableEntity {
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_persona", nullable = false)
     private Persona persona;
+
+    /** Código institucional (ver CodigoInstitucionalService); se asigna al registrar el perfil. */
+    @Column(name = "codigo_apoderado", length = 30)
+    private String codigoApoderado;
 }

@@ -5,6 +5,7 @@ import { obtenerSeguimiento } from "./services/entrega-service";
 import type { SeguimientoTareaResponse } from "./types";
 import styles from "./tasks.module.css";
 
+import { Loading } from "@/shared/ui";
 /**
  * Padrón de la sección (GET /api/tareas/{id}/seguimiento): cuántos entregaron y quiénes no.
  * `reload` cambia cuando el panel se actualiza o se guarda una calificación.
@@ -22,7 +23,7 @@ export function TaskRoster({ taskId, reload }: { taskId: number; reload: number 
 
   // Al recargar se conserva el padrón anterior hasta que llega el nuevo, sin parpadeo.
   const current = data;
-  if (!current) return <p className="hint" role="status">Cargando el padrón de la sección…</p>;
+  if (!current) return <Loading variant="inline">Cargando el padrón de la sección…</Loading>;
   if (!current.value) return <p className="hint">No se pudo cargar el padrón de la sección: {current.error}</p>;
   const { totalAlumnos, entregados, calificados, alumnos } = current.value;
   const missing = alumnos.filter((alumno) => alumno.matriculaActiva && alumno.entregaId === null);

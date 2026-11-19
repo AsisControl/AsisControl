@@ -15,6 +15,8 @@ public interface ApoderadoRepository extends JpaRepository<Apoderado, Long> {
 
     boolean existsByPersonaId(Long personaId);
 
+    boolean existsByCodigoApoderadoIgnoreCase(String codigo);
+
     Optional<Apoderado> findByPersonaIdAndActivoTrue(Long personaId);
 
     @Query("""
