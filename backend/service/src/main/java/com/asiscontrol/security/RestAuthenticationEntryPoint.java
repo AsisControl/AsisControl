@@ -35,7 +35,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 """.formatted(
                 Instant.now(),
                 MENSAJE_SESION,
-                escape(request.getRequestURI()),
+                escape(SafeRequestPath.redact(request.getRequestURI())),
                 escape(MDC.get("correlationId"))
         ).replace("\n", ""));
     }

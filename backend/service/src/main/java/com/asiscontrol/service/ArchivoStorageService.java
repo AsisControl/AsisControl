@@ -5,8 +5,10 @@ import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.dto.archivo.ArchivoDtos.ArchivoResponse;
 import com.asiscontrol.entity.ArchivoAdjunto;
 import com.asiscontrol.exception.BusinessRuleException;
+import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.ArchivoAdjuntoRepository;
+import com.asiscontrol.repository.EvidenciaPedagogicaRepository;
 import com.asiscontrol.repository.PersonaRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -49,6 +51,7 @@ public class ArchivoStorageService {
     );
 
     private final ArchivoAdjuntoRepository archivoRepository;
+    private final EvidenciaPedagogicaRepository evidenciaRepository;
     private final PersonaRepository personaRepository;
     private final ModuloAccessGuard accessGuard;
     private final Path directorioRaiz;
@@ -58,9 +61,11 @@ public class ArchivoStorageService {
             ArchivoAdjuntoRepository archivoRepository,
             PersonaRepository personaRepository,
             ModuloAccessGuard accessGuard,
+            EvidenciaPedagogicaRepository evidenciaRepository,
             @Value("${app.storage.path:./storage}") String directorio,
             @Value("${app.storage.tamanio-maximo-bytes:10485760}") long tamanioMaximoBytes) {
         this.archivoRepository = archivoRepository;
+        this.evidenciaRepository = evidenciaRepository;
         this.personaRepository = personaRepository;
         this.accessGuard = accessGuard;
         this.directorioRaiz = Path.of(directorio).toAbsolutePath().normalize();
@@ -156,9 +161,20 @@ public class ArchivoStorageService {
 
     @Transactional
     public void eliminarLogicamente(Long id) {
-        ArchivoAdjunto archivo = obtenerEntidad(id);
+        ArchivoAdjunto archivo = obtenerActivoParaVincular(id);
+        if (evidenciaRepository.existsByArchivoIdAndActivoTrue(id)) {
+            throw new ConflictException("ARCHIVO_EN_EVIDENCIA_PEDAGOGICA",
+                    "El archivo está asociado a una evidencia pedagógica activa");
+        }
         archivo.setActivo(false);
         archivoRepository.save(archivo);
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public ArchivoAdjunto obtenerActivoParaVincular(Long id) {
+        return archivoRepository.buscarActivoParaVincularOEliminar(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "ARCHIVO_NO_ENCONTRADO", "No existe un archivo activo con id " + id));
     }
 
     public ArchivoAdjunto obtenerEntidad(Long id) {

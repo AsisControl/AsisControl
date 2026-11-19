@@ -537,6 +537,36 @@ input {
   font-weight: 600;
   padding: 10px 14px;
 }
+.secondary-action,
+.pager button.secondary-action,
+.user-table button.secondary-action {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+}
+.secondary-action:hover:not(:disabled) {
+  background: #eff6ff;
+}
+.secondary-action:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+.secondary-action.danger-action {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+.secondary-action.danger-action:hover:not(:disabled) {
+  background: #fef2f2;
+}
 .management-tabs {
   border-bottom: 1px solid #e2e8f0;
   display: flex;

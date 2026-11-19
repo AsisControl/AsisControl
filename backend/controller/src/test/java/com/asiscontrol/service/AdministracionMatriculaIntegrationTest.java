@@ -28,6 +28,7 @@ import java.util.UUID;
 @ActiveProfiles("test")
 @Transactional
 class AdministracionMatriculaIntegrationTest {
+    @Autowired jakarta.persistence.EntityManager em;
     @Autowired ConfiguracionAcademicaService configuracion;
     @Autowired SeccionService secciones;
     @Autowired PersonaService personas;
@@ -50,6 +51,7 @@ class AdministracionMatriculaIntegrationTest {
         var year = configuracion.obtener(2060);
         configuracion.estado(
                 2060, new EstadoAnio(EstadoAnioAcademico.ACTIVO, year.version(), "Inicio del año"));
+        com.asiscontrol.support.TarifasTestSupport.configurar(em, 2060, 1);
     }
 
     private long estudiante() {

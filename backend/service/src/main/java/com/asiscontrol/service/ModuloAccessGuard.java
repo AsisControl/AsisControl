@@ -505,7 +505,9 @@ public class ModuloAccessGuard {
             return true;
         }
         Long personaId = personaIdActual();
-        if (esPropietarioArchivo(archivoId, personaId)) {
+        boolean esEvidenciaDocente = tieneRol("DOCENTE") && esArchivoDeEvidencia(archivoId);
+        if (esEvidenciaDocente ? puedeAccederArchivoEvidencia(archivoId, personaId)
+                : esPropietarioArchivo(archivoId, personaId)) {
             return true;
         }
         if (tieneRol("DOCENTE")) {
@@ -609,6 +611,26 @@ public class ModuloAccessGuard {
                         """, Long.class)
                 .setParameter("id", alertaId)
                 .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
+    }
+
+    private boolean esArchivoDeEvidencia(Long archivoId) {
+        return entityManager.createQuery("""
+                        SELECT COUNT(e) FROM EvidenciaPedagogica e WHERE e.archivo.id = :id
+                        """, Long.class)
+                .setParameter("id", archivoId)
+                .getSingleResult() > 0;
+    }
+
+    private boolean puedeAccederArchivoEvidencia(Long archivoId, Long personaId) {
+        return entityManager.createQuery("""
+                        SELECT COUNT(e) FROM EvidenciaPedagogica e
+                        WHERE e.archivo.id = :id AND e.activo = true AND e.archivo.activo = true
+                            AND e.asignacion.activo = true AND e.asignacion.docente.activo = true
+                            AND e.asignacion.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", archivoId)
+                .setParameter("personaId", personaId)
                 .getSingleResult() > 0;
     }
 
@@ -716,6 +738,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = c.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", compromisoId)
                 .setParameter("personaId", personaIdActual())
@@ -739,6 +763,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = t.compromisoPago.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", transaccionId)
                 .setParameter("personaId", personaIdActual())
@@ -762,6 +788,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = c.transaccionPago.compromisoPago.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", comprobanteId)
                 .setParameter("personaId", personaIdActual())

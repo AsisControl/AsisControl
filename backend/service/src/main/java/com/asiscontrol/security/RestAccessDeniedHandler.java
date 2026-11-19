@@ -28,7 +28,7 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
                 "path":"%s","correlationId":"%s","fieldErrors":[]}
                 """.formatted(
                 Instant.now(),
-                escape(request.getRequestURI()),
+                escape(SafeRequestPath.redact(request.getRequestURI())),
                 escape(MDC.get("correlationId"))
         ).replace("\n", ""));
     }

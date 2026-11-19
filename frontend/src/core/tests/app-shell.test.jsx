@@ -114,7 +114,7 @@ test("Finanzas permite consultar y habilita la emisión solo con PAGOS_ESCRIBIR"
     sessionFor({ permissions });
     setUrl("/finanzas");
     const { unmount } = renderApp();
-    expect(await screen.findByRole("heading", { name: "Compromisos de pago" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Finanzas" })).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Navegación principal" });
     expect(within(nav).getByText("Finanzas").getAttribute("aria-current")).toBe("page");
     expect(Boolean(screen.queryByRole("button", { name: /Emitir compromiso/ }))).toBe(writable);
@@ -268,6 +268,16 @@ test("La URL abre la pantalla del módulo según el rol", async () => {
   setUrl("/matricula");
   renderApp();
   expect(await screen.findByText("Solicitudes de mis estudiantes")).toBeTruthy();
+});
+
+test("Pagos del apoderado abre sus obligaciones y requiere permiso financiero", async () => {
+  backend({ "GET /api/auth/me": summary({ rol: "APODERADO", permisos: ["PAGOS_LEER"] }),
+    "GET /api/apoderado/obligaciones/estudiantes": [], "GET /api/apoderado/obligaciones": page([]) });
+  sessionFor({ role: "APODERADO", permissions: ["PAGOS_LEER"] });
+  setUrl("/pagos");
+  renderApp();
+  expect(await screen.findByText("Mis pagos")).toBeTruthy();
+  expect(await screen.findByText("No hay obligaciones que coincidan con la consulta.")).toBeTruthy();
 });
 
 test("Administración recibe la pestaña desde la URL", async () => {

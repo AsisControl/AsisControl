@@ -21,6 +21,8 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -58,6 +60,7 @@ public class TransaccionPago extends AuditableEntity {
     private BigDecimal monto;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "medio_pago", nullable = false, length = 40)
     private MedioPago medioPago;
 
