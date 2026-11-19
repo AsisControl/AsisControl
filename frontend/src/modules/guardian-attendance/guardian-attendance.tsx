@@ -18,7 +18,8 @@ export function GuardianAttendance() {
   const [justificando, setJustificando] = useState<AsistenciaEstudiante | null>(null);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
-  const alumnoId = elegido ?? estudiantes?.[0]?.id ?? null;
+  // Con un solo estudiante no hay nada que elegir; con varios no se carga nada hasta que elija.
+  const alumnoId = elegido ?? (estudiantes?.length === 1 ? estudiantes[0].id : null);
   const estudiante = estudiantes?.find((item) => item.id === alumnoId);
   useEffect(() => {
     let activo = true;
@@ -63,6 +64,7 @@ export function GuardianAttendance() {
           <label className={styles.selector}>
             <span>Estudiante:</span>
             <select value={alumnoId ?? ""} onChange={(event) => cambiarEstudiante(Number(event.target.value))}>
+              {alumnoId === null && <option value="" disabled>Selecciona un estudiante</option>}
               {estudiantes.map((item) => (
                 <option key={item.id} value={item.id}>{item.nombreCompleto}</option>
               ))}
@@ -76,6 +78,9 @@ export function GuardianAttendance() {
       <Feedback error={error} success={exito} />
       {!error && !estudiantes && <Loading>Cargando estudiantes…</Loading>}
       {estudiantes?.length === 0 && <p className={styles.vacio}>No tienes estudiantes asociados.</p>}
+      {estudiantes && estudiantes.length > 1 && alumnoId === null && (
+        <p className={styles.vacio}>Elige a uno de tus estudiantes para ver su asistencia.</p>
+      )}
       {!error && alumnoId !== null && !asistencias && <Loading>Cargando asistencia…</Loading>}
       {asistencias && (
         <AttendanceRecord

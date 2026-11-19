@@ -2,7 +2,7 @@
 "use client";
 import { useState } from "react";
 import { countLabel } from "@/shared/lib/formatters";
-import { StatusPill } from "@/shared/ui";
+import { Dialog, StatusPill } from "@/shared/ui";
 import {
   anioDe,
   enPeriodo,
@@ -32,6 +32,70 @@ type Filtros = {
 };
 const SIN_FILTROS: Filtros = { anio: null, periodo: "TODO", desde: "", hasta: "", curso: "", estado: "" };
 
+/** Detalle de una clase: fecha, curso, hora, período, estado y, si la hay, la justificación. */
+function RecordDetail({
+  fila,
+  onClose,
+  onJustify,
+}: {
+  fila: AsistenciaEstudiante;
+  onClose: () => void;
+  onJustify?: () => void;
+}) {
+  const { etiqueta, tono } = presentarEstado(fila);
+  const justificacion = presentarJustificacion(fila);
+  return (
+    <Dialog title="Detalle de asistencia" onClose={onClose}>
+      <dl className={styles.detalleRegistro}>
+        <dt>Fecha</dt>
+        <dd>{fechaConDia(fila.fechaRegistro)}</dd>
+        <dt>Curso</dt>
+        <dd>{fila.curso}</dd>
+        <dt>Hora de la clase</dt>
+        <dd>{horaDe(fila)}</dd>
+        {fila.periodo && (
+          <>
+            <dt>Período</dt>
+            <dd>{fila.periodo}</dd>
+          </>
+        )}
+        <dt>Estado</dt>
+        <dd><StatusPill state={fila.estado} label={etiqueta} tone={tono} /></dd>
+        {fila.comentario && (
+          <>
+            <dt>Comentario del docente</dt>
+            <dd>{fila.comentario}</dd>
+          </>
+        )}
+        {justificacion && (
+          <>
+            <dt>Justificación</dt>
+            <dd><StatusPill state={justificacion.etiqueta} label={justificacion.etiqueta} tone={justificacion.tono} /></dd>
+          </>
+        )}
+        {justificacion && fila.motivoJustificacion && fila.estadoJustificacion !== "CANCELADA" && (
+          <>
+            <dt>Motivo</dt>
+            <dd>{fila.motivoJustificacion}</dd>
+          </>
+        )}
+        {fila.estadoJustificacion === "RECHAZADA" && fila.observacionRevision && (
+          <>
+            <dt>Motivo del rechazo</dt>
+            <dd>{fila.observacionRevision}</dd>
+          </>
+        )}
+      </dl>
+      <div className="form-actions">
+        <button type="button" onClick={onClose}>Cerrar</button>
+        {onJustify && (
+          <button type="button" className="primary-action" onClick={onJustify}>Justificar</button>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
 /**
  * Historial de un estudiante con filtros, totales y tabla, común al apoderado y al alumno.
  * Sin `onJustify` la tabla es solo de consulta. Los filtros se reinician al cambiar el `key`.
@@ -46,6 +110,7 @@ export function AttendanceRecord({
   const [filtros, setFiltros] = useState(SIN_FILTROS);
   const [visibles, setVisibles] = useState(POR_TANDA);
   const [abiertos, setAbiertos] = useState(false);
+  const [detalle, setDetalle] = useState<AsistenciaEstudiante | null>(null);
   const anios = [...new Set(asistencias.map(anioDe))].sort((a, b) => b - a);
   const anio = filtros.anio ?? anios[0];
   const delAnio = asistencias.filter((fila) => anioDe(fila) === anio);
@@ -208,8 +273,23 @@ export function AttendanceRecord({
                 const justificacion = presentarJustificacion(fila);
                 const hora = horaDe(fila);
                 return (
-                  <tr key={fila.id}>
-                    <td className={styles.celdaFecha}>{fechaConDia(fila.fechaRegistro)}</td>
+                  <tr
+                    key={fila.id}
+                    className={styles.filaClicable}
+                    onClick={(event) => {
+                      if (!(event.target as HTMLElement).closest("button")) setDetalle(fila);
+                    }}
+                  >
+                    <td className={styles.celdaFecha}>
+                      <button
+                        type="button"
+                        className={styles.verDetalle}
+                        aria-label={`Ver detalle de ${fila.curso} del ${fechaConDia(fila.fechaRegistro)}`}
+                        onClick={() => setDetalle(fila)}
+                      >
+                        {fechaConDia(fila.fechaRegistro)}
+                      </button>
+                    </td>
                     <td className={styles.celdaCurso}>
                       {fila.curso}
                       <span className={styles.horaMovil}> · {hora}</span>
@@ -248,6 +328,20 @@ export function AttendanceRecord({
               })}
             </tbody>
           </table>
+        )}
+        {detalle && (
+          <RecordDetail
+            fila={detalle}
+            onClose={() => setDetalle(null)}
+            onJustify={
+              onJustify && puedeJustificar(detalle)
+                ? () => {
+                    setDetalle(null);
+                    onJustify(detalle);
+                  }
+                : undefined
+            }
+          />
         )}
         {filas.length > visibles && (
           <button type="button" className={styles.verMas} onClick={() => setVisibles((valor) => valor + POR_TANDA)}>

@@ -173,3 +173,13 @@ test("Hoy avisa cuando no hay clases y no bloquea la pantalla si falla el horari
   expect(await screen.findByText("Hoy no tienes clases.")).toBeTruthy();
   expect(screen.getByText("50%")).toBeTruthy();
 });
+
+test("El alumno abre el detalle de un registro solo para consultar", async () => {
+  await abrir();
+  await userEvent.click(screen.getByRole("button", { name: "Ver detalle de Historia del Jue, 20 Ago 2026" }));
+  const detalle = screen.getByRole("dialog", { name: "Detalle de asistencia" });
+  expect(within(detalle).getByText("Bimestre II")).toBeTruthy();
+  expect(within(detalle).getByText("Pendiente")).toBeTruthy();
+  expect(within(detalle).getByText("Cita médica")).toBeTruthy();
+  expect(within(detalle).queryByRole("button", { name: "Justificar" })).toBeNull();
+});

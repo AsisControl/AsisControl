@@ -130,3 +130,45 @@ test("Avisa cuando el apoderado no tiene estudiantes", async () => {
   render(<GuardianAttendance />);
   expect(await screen.findByText("No tienes estudiantes asociados.")).toBeTruthy();
 });
+
+const ana = { id: 6, codigoAlumno: "A-6", nombreCompleto: "Ana García" };
+
+test("Con varios estudiantes exige elegir uno antes de cargar su asistencia", async () => {
+  const calls = fakeBackend({ [ESTUDIANTES]: [luis, ana], [ASISTENCIAS]: page(FILAS) });
+  render(<GuardianAttendance />);
+  expect(await screen.findByText("Elige a uno de tus estudiantes para ver su asistencia.")).toBeTruthy();
+  const selector = screen.getByLabelText("Estudiante:");
+  expect(selector.value).toBe("");
+  expect([...selector.options].map((opcion) => opcion.textContent)).toEqual([
+    "Selecciona un estudiante", "Luis García", "Ana García",
+  ]);
+  expect(calls.some((call) => call.path === "/api/asistencias/alumnos")).toBe(false);
+  await userEvent.selectOptions(selector, "Ana García");
+  expect(await screen.findByText("57%")).toBeTruthy();
+  expect(calls.find((call) => call.path === "/api/asistencias/alumnos").query.alumnoId).toBe("6");
+  expect(screen.queryByRole("option", { name: "Selecciona un estudiante" })).toBeNull();
+});
+
+test("Seleccionar un registro muestra su detalle y permite justificar desde ahí", async () => {
+  fakeBackend({ [ESTUDIANTES]: [luis], [ASISTENCIAS]: page(FILAS) });
+  render(<GuardianAttendance />);
+  await screen.findByText("57%");
+  await userEvent.click(screen.getByRole("button", { name: "Ver detalle de Historia del Mar, 08 Sep 2026" }));
+  let detalle = screen.getByRole("dialog", { name: "Detalle de asistencia" });
+  expect(within(detalle).getByText("Historia")).toBeTruthy();
+  expect(within(detalle).getByText("07:30")).toBeTruthy();
+  expect(within(detalle).getByText("Bimestre III")).toBeTruthy();
+  expect(within(detalle).getByText("Inasistencia")).toBeTruthy();
+  expect(within(detalle).getByText("Rechazada")).toBeTruthy();
+  expect(within(detalle).getByText("Sin sustento")).toBeTruthy();
+  expect(within(detalle).queryByRole("button", { name: "Justificar" })).toBeNull();
+  await userEvent.click(within(detalle).getByRole("button", { name: "Cerrar" }));
+
+  // Un clic en cualquier parte de la fila también abre el detalle.
+  await userEvent.click(screen.getByText("Sin justificar"));
+  detalle = screen.getByRole("dialog", { name: "Detalle de asistencia" });
+  expect(within(detalle).getByText("Vie, 28 Ago 2026")).toBeTruthy();
+  await userEvent.click(within(detalle).getByRole("button", { name: "Justificar" }));
+  expect(await screen.findByRole("dialog", { name: "Justificar inasistencia" })).toBeTruthy();
+  expect(screen.queryByRole("dialog", { name: "Detalle de asistencia" })).toBeNull();
+});

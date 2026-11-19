@@ -199,6 +199,41 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.filaClicable {
+  cursor: pointer;
+}
+.filaClicable:hover,
+.filaClicable:focus-within {
+  background: var(--surface);
+}
+.verDetalle {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+.verDetalle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.detalleRegistro {
+  display: grid;
+  font-size: 14px;
+  gap: 10px 16px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0 0 16px;
+}
+.detalleRegistro dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.detalleRegistro dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .celdaCurso {
   font-weight: 500;
 }
