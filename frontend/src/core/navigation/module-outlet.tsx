@@ -5,6 +5,7 @@ import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
 import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
+import { AdminHome } from "@/modules/admin-home";
 import { Administration } from "@/modules/administration";
 import { AttendanceAdmin, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollmentPortal } from "@/modules/enrollment";
@@ -68,6 +69,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   ADMINISTRADOR: {
+    Inicio: ({ user }) => <AdminHome fullName={user.fullName} quickActions={<HomeQuickActions user={user} embedded />} />,
     Asistencia: ({ user }) => (
       <AttendanceAdmin
         canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}

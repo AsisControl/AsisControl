@@ -27,6 +27,7 @@ function backend(routes = {}) {
     "GET /api/auth/me": summary(),
     "POST /api/auth/logout": reply(204),
     "GET /api/solicitudes-matricula": page([]),
+    "GET /api/dashboard": { rol: "ADMINISTRADOR", personaId: null, generadoEn: "2026-11-19T10:00:00Z", indicadores: [] },
     ...routes,
   });
 }
