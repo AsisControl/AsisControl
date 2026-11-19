@@ -72,6 +72,7 @@ abstract class ApiIntegrationSupport {
         section.setCapacidadMaxima(30); section.setDocenteTutor(teacher); em.persist(section);
         course = new Curso(); course.setCodigo("MAT" + key()); course.setNombre("Matematica");
         course.setHorasSemanales(4); course.setGradoAcademico(grade); em.persist(course);
+        grade.getCursosPlan().add(course);
         competence = new Competencia(); competence.setCodigo("COMP" + key()); competence.setNombre("Resuelve problemas"); em.persist(competence);
         var courseCompetence = new CursoCompetencia();
         courseCompetence.setCurso(course); courseCompetence.setCompetencia(competence);

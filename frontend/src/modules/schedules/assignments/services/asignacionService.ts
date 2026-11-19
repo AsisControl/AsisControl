@@ -45,12 +45,12 @@ export async function seccionesDelAnio(anio: number) {
   );
   return result.content;
 }
-/** Cursos activos del año y grado de la sección elegida. */
+/** Cursos del plan de estudios de la sección elegida. */
 export async function cursosDelGrado(anio: number, grado: number) {
-  const result = await api<Page<CourseOption>>(
-    `/api/cursos?anio=${anio}&grado=${grado}&size=100`,
+  const result = await api<{ cursos: CourseOption[] }>(
+    `/api/planes-estudios/${anio}/${grado}`,
   );
-  return result.content;
+  return result.cursos;
 }
 /** Docentes activos. */
 export async function docentesActivos() {

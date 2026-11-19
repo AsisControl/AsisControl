@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 
 import lombok.Getter;
 import lombok.Setter;
+import java.util.HashSet;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -31,4 +33,13 @@ public class GradoAcademico extends AuditableEntity {
 
     @Column(name = "capacidad_default", nullable = false)
     private int capacidadDefault;
+
+    @Column(name = "plan_definido", nullable = false)
+    private boolean planDefinido;
+
+    @ManyToMany
+    @JoinTable(name = "PlanEstudiosCurso",
+            joinColumns = @JoinColumn(name = "id_grado_academico"),
+            inverseJoinColumns = @JoinColumn(name = "id_curso"))
+    private Set<Curso> cursosPlan = new HashSet<>();
 }

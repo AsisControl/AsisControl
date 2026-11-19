@@ -92,6 +92,11 @@ public class ConfiguracionAcademicaService {
                 rechazarRegla("ANIO_SIN_PERIODOS", "Configure al menos un período antes de activar el año");
             if (anios.existsByEstado(EstadoAnioAcademico.ACTIVO))
                 rechazarConflicto("ANIO_ACTIVO_EXISTENTE", "Ya existe un año académico activo");
+            for (var grado : grados.findByAnioAcademicoAnioOrderByNumero(numero)) {
+                if (!grado.isActivo() || grado.isPlanDefinido()) continue;
+                grado.getCursosPlan().addAll(cursos.findAllByGradoAcademicoIdAndActivoTrue(grado.getId()));
+                grado.setPlanDefinido(!grado.getCursosPlan().isEmpty());
+            }
             anioAcademico.setClaveActiva(1);
         } else if (anioAcademico.getEstado() == EstadoAnioAcademico.ACTIVO
                 && request.estado() == EstadoAnioAcademico.CERRADO) {
