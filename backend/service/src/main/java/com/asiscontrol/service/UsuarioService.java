@@ -9,11 +9,12 @@ import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.enums.EstadoSesion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
+import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
+import com.asiscontrol.repository.AccesoUsuarioRolRepository;
 import com.asiscontrol.repository.PermisoRepository;
-import com.asiscontrol.repository.PersonaRepository;
 import com.asiscontrol.repository.RolRepository;
 import com.asiscontrol.repository.SesionAccesoRepository;
 import com.asiscontrol.util.PageUtils;
@@ -38,7 +39,7 @@ public class UsuarioService {
             Set.of("username", "correo", "estado", "fechaCreacion");
 
     private final AccesoUsuarioRepository usuarioRepository;
-    private final PersonaRepository personaRepository;
+    private final AccesoUsuarioRolRepository asignaciones;
     private final RolRepository rolRepository;
     private final PermisoRepository permisoRepository;
     private final SesionAccesoRepository sesionRepository;
@@ -46,11 +47,13 @@ public class UsuarioService {
     private final AuditoriaService auditoriaService;
     private final PerfilAccesoService perfiles;
     private final CredencialesInstitucionales credenciales;
+    private final CicloCuentaService ciclo;
+    private final CodigoInstitucionalService codigos;
     private final VigenciaContrasenaTemporal vigencia;
 
     public UsuarioService(
             AccesoUsuarioRepository usuarioRepository,
-            PersonaRepository personaRepository,
+            AccesoUsuarioRolRepository asignaciones,
             RolRepository rolRepository,
             PermisoRepository permisoRepository,
             SesionAccesoRepository sesionRepository,
@@ -58,9 +61,11 @@ public class UsuarioService {
             AuditoriaService auditoriaService,
             PerfilAccesoService perfiles,
             CredencialesInstitucionales credenciales,
+            CicloCuentaService ciclo,
+            CodigoInstitucionalService codigos,
             VigenciaContrasenaTemporal vigencia) {
         this.usuarioRepository = usuarioRepository;
-        this.personaRepository = personaRepository;
+        this.asignaciones = asignaciones;
         this.rolRepository = rolRepository;
         this.permisoRepository = permisoRepository;
         this.sesionRepository = sesionRepository;
@@ -68,6 +73,8 @@ public class UsuarioService {
         this.auditoriaService = auditoriaService;
         this.perfiles = perfiles;
         this.credenciales = credenciales;
+        this.ciclo = ciclo;
+        this.codigos = codigos;
         this.vigencia = vigencia;
     }
 
@@ -94,90 +101,66 @@ public class UsuarioService {
     }
 
     @Transactional
-    public UsuarioDtos.Response create(UsuarioDtos.CreateRequest request) {
-        Persona persona =
-                personaRepository
-                        .lockActiveById(request.personaId())
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "PERSONA_NO_ENCONTRADA",
-                                                "No se encontro la persona"));
-        Rol role = findActiveRole(request.rolId());
-        if (!perfiles.hasProfile(persona.getId(), role.getNombre()))
-            throw new ConflictException(
-                    "PERFIL_REQUERIDO",
-                    "La persona necesita un perfil habilitado compatible con el rol");
-        if (usuarioRepository.existsByPersonaIdAndRolId(persona.getId(), role.getId()))
-            throw new ConflictException(
-                    "ACCESO_DUPLICADO", "La persona ya tiene un acceso para este rol");
-        String username =
-                blank(request.username())
-                        ? credenciales.username(persona)
-                        : request.username().trim();
-        String correo =
-                blank(request.correo())
-                        ? credenciales.correo(codigoPerfil(persona, role))
-                        : request.correo().trim();
-        com.asiscontrol.security.PasswordPolicy.validate(request.password(), username);
-        ensureUniqueCredentials(username, correo, null);
+    public UsuarioDtos.RegistroAdministradorResponse registrarAdministrador(
+            UsuarioDtos.RegistroAdministradorRequest request) {
+        prepararAlta();
+        Persona persona = perfiles.resolve(request.personaId(), request.persona());
+        String codigoPerfil = perfiles.registrarAdministrador(persona);
+        var credencial = ciclo.altaDesdeFicha(persona, "ADMINISTRADOR", codigoPerfil);
+        AccesoUsuario cuenta = usuarioRepository.findByPersonaId(persona.getId()).orElseThrow();
+        return new UsuarioDtos.RegistroAdministradorResponse(
+                cuenta.getId(), cuenta.getUsername(), cuenta.getCorreo(), persona.nombreCompleto(),
+                credencial.temporaryPassword(), credencial.expiresAt());
+    }
 
-        AccesoUsuario usuario = new AccesoUsuario();
-        usuario.setPersona(persona);
-        usuario.setRol(role);
-        usuario.setUsername(username);
-        usuario.setCorreo(correo.toLowerCase(java.util.Locale.ROOT));
-        usuario.setContrasenaHash(passwordEncoder.encode(request.password()));
-        usuario.setRequiereCambioContrasena(true);
-        usuario.setContrasenaTemporalExpira(vigencia.expiraDesde(Instant.now()));
-        usuario.setEstado(EstadoAcceso.ACTIVO);
-        usuario.setCorreoVerificado(Boolean.TRUE.equals(request.correoVerificado()));
-        AccesoUsuario saved = usuarioRepository.save(usuario);
-        auditoriaService.registrar(
-                "CREAR_USUARIO",
-                ModuloAuditoria.SEGURIDAD,
-                "AccesoUsuario",
-                saved.getId().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                null,
-                "rol=" + role.getNombre());
-        return toResponse(saved);
+    @Transactional
+    public UsuarioDtos.Response cambiarRol(Long id, Long rolId, UsuarioDtos.CambiarRolRequest req) {
+        if (req.motivo() == null || req.motivo().isBlank()) {
+            throw new BusinessRuleException("MOTIVO_REQUERIDO", "Registre el motivo del cambio de rol");
+        }
+        rolRepository.bloquearAdministrador().orElseThrow();
+        AccesoUsuario cuenta = buscarConBloqueo(id);
+        Rol rol = findActiveRole(rolId);
+        if (req.activo() && (!cuenta.getPersona().isActivo()
+                || !perfiles.hasProfile(cuenta.getPersona().getId(), rol.getNombre()))) {
+            throw new ConflictException(
+                    "PERFIL_REQUERIDO", "La cuenta necesita un perfil habilitado para este rol");
+        }
+        ciclo.cambiarRol(cuenta, rol, req.activo(), req.motivo().trim());
+        return toResponse(cuenta);
+    }
+
+    /** Alta con temporal preconfigurada para integraciones internas autorizadas. */
+    @Transactional
+    public UsuarioDtos.Response create(UsuarioDtos.CreateRequest request) {
+        prepararAlta();
+        Persona persona = perfiles.resolve(request.personaId(), null);
+        Rol rol = findActiveRole(request.rolId());
+        return altaConfigurada(persona, rol, request.correo(), request.password(),
+                Boolean.TRUE.equals(request.correoVerificado()));
     }
 
     @Transactional
     public UsuarioDtos.Response provision(UsuarioDtos.ProvisionRequest request) {
-        Rol role = findActiveRole(request.rolId());
-        boolean personaNueva = request.personaId() == null;
-        Persona persona = perfiles.resolve(request);
-        perfiles.prepare(persona, role.getNombre(), request);
-        UsuarioDtos.Response creado =
-                create(
-                        new UsuarioDtos.CreateRequest(
-                                persona.getId(),
-                                role.getId(),
-                                null,
-                                null,
-                                request.password(),
-                                true,
-                                request.correoVerificado()));
-        // create() ya audita CREAR_USUARIO; este registro deja constancia del alta completa,
-        // incluida la persona cuando se crea en el mismo paso.
-        auditoriaService.registrar(
-                "PROVISIONAR_ACCESO",
-                ModuloAuditoria.SEGURIDAD,
-                "AccesoUsuario",
-                creado.id().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                null,
-                "personaId="
-                        + persona.getId()
-                        + ",personaNueva="
-                        + personaNueva
-                        + ",rol="
-                        + role.getNombre());
-        return creado;
+        prepararAlta();
+        Rol rol = findActiveRole(request.rolId());
+        Persona persona = perfiles.resolve(request.personaId(), request.persona());
+        perfiles.prepare(persona, rol.getNombre(), request);
+        return altaConfigurada(persona, rol, null, request.password(),
+                Boolean.TRUE.equals(request.correoVerificado()));
+    }
+
+    private void prepararAlta() {
+        rolRepository.bloquearAdministrador().orElseThrow();
+        codigos.bloquearSecuenciaCuentas();
+    }
+
+    private UsuarioDtos.Response altaConfigurada(
+            Persona persona, Rol rol, String correo, String password, boolean verificado) {
+        String codigo = codigoPerfil(persona, rol);
+        String destino = correo == null && verificado ? credenciales.correo(codigo) : correo;
+        ciclo.altaConfigurada(persona, rol.getNombre(), codigo, destino, password, verificado);
+        return toResponse(usuarioRepository.findByPersonaId(persona.getId()).orElseThrow());
     }
 
     @Transactional(readOnly = true)
@@ -188,22 +171,27 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioDtos.Response update(Long id, UsuarioDtos.UpdateRequest request) {
-        rolRepository.bloquearAdministrador();
-        AccesoUsuario usuario =
-                usuarioRepository
-                        .bloquear(id)
-                        .filter(AccesoUsuario::isActivo)
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "USUARIO_NO_ENCONTRADO",
-                                                "No se encontró el usuario"));
-        protegerAdministrador(usuario, request.estado() != EstadoAcceso.ACTIVO);
+        rolRepository.bloquearAdministrador().orElseThrow();
+        AccesoUsuario usuario = buscarConBloqueo(id);
+        if (request.estado() == EstadoAcceso.BLOQUEADO_TEMPORALMENTE
+                && request.estado() != usuario.getEstado()) {
+            throw new BusinessRuleException("ESTADO_INVALIDO",
+                    "El bloqueo temporal solo puede aplicarlo el sistema");
+        }
+        boolean deshabilitar = request.estado() == EstadoAcceso.DESACTIVADO
+                || request.estado() == EstadoAcceso.PENDIENTE;
+        if (deshabilitar && request.estado() != usuario.getEstado()) {
+            protegerCuentaPropia(usuario);
+            ciclo.protegerUltimoAdministrador(usuario);
+        }
         if (request.estado() != usuario.getEstado()
                 && (request.motivo() == null || request.motivo().isBlank()))
             throw new com.asiscontrol.exception.BusinessRuleException(
                     "MOTIVO_REQUERIDO", "Registre el motivo del cambio de estado");
-        boolean cambioCorreo = !usuario.getCorreo().equalsIgnoreCase(request.correo().trim());
+        String nuevoCorreo = request.correo().trim().toLowerCase(java.util.Locale.ROOT);
+        boolean cambioCorreo = !usuario.getCorreo().equalsIgnoreCase(nuevoCorreo);
+        String previous = "estado=" + usuario.getEstado()
+                + ",correoConfirmado=" + usuario.isCorreoVerificado();
         boolean reactivar =
                 (usuario.getEstado() == EstadoAcceso.DESACTIVADO
                                 || usuario.getEstado() == EstadoAcceso.PENDIENTE)
@@ -225,20 +213,10 @@ public class UsuarioService {
         if (request.correoVerificado() != null)
             usuario.setCorreoVerificado(Boolean.TRUE.equals(request.correoVerificado()));
         else if (cambioCorreo) usuario.setCorreoVerificado(false);
-        ensureUniqueCredentials(usuario.getUsername(), request.correo(), usuario.getId());
-        Rol role = findActiveRole(request.rolId());
-        String previous =
-                "rol="
-                        + usuario.getRol().getNombre()
-                        + ",estado="
-                        + usuario.getEstado()
-                        + ",correoConfirmado="
-                        + usuario.isCorreoVerificado();
-        if (!usuario.getRol().getId().equals(role.getId()))
-            throw new ConflictException(
-                    "ROL_FIJO", "Cree otro acceso para utilizar un rol diferente");
-        usuario.setRol(role);
-        usuario.setCorreo(request.correo().trim().toLowerCase());
+        if (cambioCorreo && usuarioRepository.existsByCorreoIgnoreCase(nuevoCorreo)) {
+            throw new ConflictException("CORREO_DUPLICADO", "El correo ya está en uso");
+        }
+        usuario.setCorreo(nuevoCorreo);
         usuario.setEstado(request.estado());
         if (request.estado() != EstadoAcceso.BLOQUEADO_TEMPORALMENTE) {
             usuario.setBloqueadoHasta(null);
@@ -257,10 +235,7 @@ public class UsuarioService {
                 ResultadoAuditoria.EXITOSO,
                 request.motivo(),
                 previous,
-                "rol="
-                        + role.getNombre()
-                        + ",estado="
-                        + request.estado()
+                "estado=" + request.estado()
                         + ",correoConfirmado="
                         + saved.isCorreoVerificado());
         return toResponse(saved);
@@ -268,15 +243,7 @@ public class UsuarioService {
 
     @Transactional
     public void resetPassword(Long id, UsuarioDtos.ResetPasswordRequest request) {
-        AccesoUsuario usuario =
-                usuarioRepository
-                        .bloquear(id)
-                        .filter(AccesoUsuario::isActivo)
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "USUARIO_NO_ENCONTRADO",
-                                                "No se encontró el usuario"));
+        AccesoUsuario usuario = buscarConBloqueo(id);
         if (!request.identidadVerificada()
                 || request.motivo() == null
                 || request.motivo().isBlank())
@@ -322,8 +289,7 @@ public class UsuarioService {
         return rolRepository.findAllByActivoTrueOrderByNombreAsc().stream()
                 .filter(
                         r ->
-                                Set.of("ADMINISTRADOR", "DOCENTE", "ALUMNO", "APODERADO")
-                                        .contains(r.getNombre()))
+                                CicloCuentaService.ROLES_INSTITUCIONALES.contains(r.getNombre()))
                 .map(this::toRoleResponse)
                 .toList();
     }
@@ -359,49 +325,19 @@ public class UsuarioService {
                 .toList();
     }
 
-    private void protegerAdministrador(AccesoUsuario usuario, boolean desactivar) {
-        if (!desactivar) return;
-        var actor =
-                org.springframework.security.core.context.SecurityContextHolder.getContext()
-                        .getAuthentication();
-        if (actor != null && actor.getName().equalsIgnoreCase(usuario.getUsername()))
+    private void protegerCuentaPropia(AccesoUsuario usuario) {
+        var actor = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication();
+        if (actor != null && actor.getName().equalsIgnoreCase(usuario.getUsername())) {
             throw new ConflictException(
                     "AUTO_DESACTIVACION", "No puede desactivar su propio acceso");
-        if (usuario.getRol().getNombre().equals("ADMINISTRADOR")
-                && usuario.getEstado() == EstadoAcceso.ACTIVO
-                && usuarioRepository.countByRolNombreAndActivoTrueAndEstado(
-                                "ADMINISTRADOR", EstadoAcceso.ACTIVO)
-                        <= 1)
-            throw new ConflictException(
-                    "ULTIMO_ADMINISTRADOR", "Debe conservar al menos un administrador habilitado");
+        }
     }
 
-    private void ensureUniqueCredentials(String username, String email, Long currentId) {
-        if (currentId == null
-                && (usuarioRepository.existsByUsernameIgnoreCase(username.trim())
-                        || usuarioRepository.existsByCorreoIgnoreCase(requestEmail(email))))
-            throw new ConflictException(
-                    "CREDENCIALES_DUPLICADAS", "El usuario o correo ya estan registrados");
-        usuarioRepository
-                .findActiveByIdentifier(username)
-                .filter(existing -> currentId == null || !existing.getId().equals(currentId))
-                .ifPresent(
-                        existing -> {
-                            throw new ConflictException(
-                                    "USERNAME_DUPLICADO", "El nombre de usuario ya esta en uso");
-                        });
-        usuarioRepository
-                .findActiveByIdentifier(email)
-                .filter(existing -> currentId == null || !existing.getId().equals(currentId))
-                .ifPresent(
-                        existing -> {
-                            throw new ConflictException(
-                                    "CORREO_DUPLICADO", "El correo ya esta en uso");
-                        });
-    }
-
-    private static boolean blank(String value) {
-        return value == null || value.isBlank();
+    private AccesoUsuario buscarConBloqueo(Long id) {
+        return usuarioRepository.bloquear(id).filter(AccesoUsuario::isActivo)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "USUARIO_NO_ENCONTRADO", "No se encontró el usuario"));
     }
 
     private String codigoPerfil(Persona persona, Rol role) {
@@ -411,10 +347,6 @@ public class UsuarioService {
                     "PERFIL_REQUERIDO",
                     "La persona necesita un perfil habilitado compatible con el rol");
         return codigo;
-    }
-
-    private String requestEmail(String email) {
-        return email.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private AccesoUsuario findActive(Long id) {
@@ -429,21 +361,29 @@ public class UsuarioService {
     private Rol findActiveRole(Long id) {
         return rolRepository
                 .findByIdAndActivoTrue(id)
-                .orElseThrow(
-                        () ->
-                                new ResourceNotFoundException(
-                                        "ROL_NO_ENCONTRADO", "No se encontro el rol"));
+                .filter(rol -> CicloCuentaService.ROLES_INSTITUCIONALES.contains(rol.getNombre()))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "ROL_NO_ENCONTRADO", "No se encontró el rol institucional"));
     }
 
     private UsuarioDtos.Response toResponse(AccesoUsuario usuario) {
+        List<UsuarioDtos.RolAsignadoResponse> roles = asignaciones.findAllByUsuarioId(usuario.getId())
+                .stream()
+                .map(asignacion -> new UsuarioDtos.RolAsignadoResponse(
+                        asignacion.getRol().getId(), asignacion.getRol().getNombre(),
+                        asignacion.isActivo(), perfiles.codigoPerfil(
+                                usuario.getPersona().getId(), asignacion.getRol().getNombre(), false)))
+                .sorted(java.util.Comparator.comparing(UsuarioDtos.RolAsignadoResponse::nombre))
+                .toList();
+        var rolUnico = roles.size() == 1 ? roles.getFirst() : null;
         return new UsuarioDtos.Response(
                 usuario.getId(),
                 usuario.getPersona().getId(),
                 usuario.getUsername(),
                 usuario.getCorreo(),
                 usuario.getPersona().nombreCompleto(),
-                usuario.getRol().getId(),
-                usuario.getRol().getNombre(),
+                rolUnico == null ? null : rolUnico.id(),
+                rolUnico == null ? null : rolUnico.nombre(),
                 usuario.getEstado(),
                 usuario.isRequiereCambioContrasena(),
                 usuario.getIntentosFallidos(),
@@ -452,8 +392,8 @@ public class UsuarioService {
                 usuario.getFechaCreacion(),
                 usuario.isCorreoVerificado(),
                 usuario.getContrasenaTemporalExpira(),
-                perfiles.codigoPerfil(
-                        usuario.getPersona().getId(), usuario.getRol().getNombre(), false));
+                rolUnico == null ? null : rolUnico.codigoPerfil(),
+                roles);
     }
 
     private UsuarioDtos.RolResponse toRoleResponse(Rol role) {

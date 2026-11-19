@@ -1,7 +1,5 @@
 package com.asiscontrol.security;
 
-import com.asiscontrol.util.HashUtils;
-
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
@@ -20,8 +18,15 @@ public class SessionTokenValidator implements OAuth2TokenValidator<Jwt> {
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt token) {
-        return actividad.validar(HashUtils.sha256(token.getTokenValue()))
-                ? OAuth2TokenValidatorResult.success()
-                : OAuth2TokenValidatorResult.failure(INVALID_SESSION);
+        Object sesion = token.getClaims().get("sesionId");
+        Object version = token.getClaims().get("versionContexto");
+        Object usuario = token.getClaims().get("usuarioId");
+        if (sesion instanceof Number sid && version instanceof Number contexto
+                && usuario instanceof Number cuenta
+                && actividad.validar(sid.longValue(), contexto.longValue(), cuenta.longValue(),
+                        token.getClaimAsString("rol"))) {
+            return OAuth2TokenValidatorResult.success();
+        }
+        return OAuth2TokenValidatorResult.failure(INVALID_SESSION);
     }
 }

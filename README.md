@@ -6,6 +6,8 @@
 
 Contiene login y cambio inicial, recuperación por correo, gestión de accesos, fichas, configuración académica, solicitudes y matrícula, auditoría, logs y consulta de los cuatro roles fijos y sus permisos. Conserva el header con nombre y rol y la estructura del coordinador.
 
+La autenticación unificada asigna una cuenta por persona e incorpora la selección de rol activo. Consulta el flujo vigente, los códigos de acceso y el procedimiento de migración. [Autenticación unificada](docs/AUTENTICACION_UNIFICADA.md)
+
 ## Obtener esta versión sin reemplazar tu carpeta de trabajo
 
 En una terminal, desde una carpeta donde quieras crear una copia nueva:
@@ -37,7 +39,6 @@ En otra terminal, dentro de `backend`, configura el administrador inicial antes 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = "local"
 $env:APP_MAIL_ENABLED = "false"
-$env:BOOTSTRAP_ADMIN_USERNAME = "admin"
 $env:BOOTSTRAP_ADMIN_DOCUMENT = Read-Host "DNI del administrador (8 dígitos)"
 $env:BOOTSTRAP_ADMIN_EMAIL = Read-Host "Correo del administrador"
 $asiscontrolTemporal = Read-Host "Contraseña temporal (mayúscula, minúscula y número; 8-64 caracteres)" -AsSecureString
@@ -46,15 +47,15 @@ $env:BOOTSTRAP_ADMIN_PASSWORD = [System.Net.NetworkCredential]::new("", $asiscon
 java -jar ./controller/target/asiscontrol-controller-1.0.0-SNAPSHOT.jar
 ```
 
-El perfil `local` usa H2 en memoria: los datos se reinician al detener el backend. El administrador debe cambiar la contraseña temporal al ingresar. Las variables del backend se definen en la terminal o en el IDE; este proyecto no carga `.env` automáticamente.
+El perfil `local` usa H2 en memoria y reinicia los datos al detener el backend. Al crearse el administrador inicial, el log de arranque muestra su identificador generado de ocho dígitos. Ingresa con ese código y cambia la contraseña temporal. Define las variables del backend en la terminal o en el IDE.
 
-Para probar **correo real**, configura el SMTP autorizado siguiendo [la guía del incremento](backend/LEEME_SEGURIDAD_APODERADO.md#4-configurar-el-correo-y-ejecutar-el-backend). Sin esa configuración no llegará un mensaje externo. Para usar la base MySQL existente, sigue la guía y aplica la migración 003 solamente después de 001 y 002, con respaldo previo.
+Para probar **correo real**, configura el SMTP autorizado. Para una base MySQL existente, ensaya el respaldo y la migración de autenticación antes del corte. [Configuración de correo](backend/LEEME_SEGURIDAD_APODERADO.md#4-configurar-el-correo-y-ejecutar-el-backend) · [Migración de autenticación](docs/AUTENTICACION_UNIFICADA.md#migración-y-puesta-en-servicio)
 
 ## Recorrido mínimo de revisión
 
 1. Ingresar como administrador, cambiar la temporal y cerrar/iniciar sesión.
 2. Configurar y activar un año con períodos, grados, secciones y capacidades; abrir admisión.
-3. Registrar la ficha del estudiante, asociar un apoderado y crear su acceso desde Usuarios.
+3. Registrar las fichas del estudiante y del apoderado, entregar las credenciales de las cuentas nuevas y registrar la asociación familiar.
 4. Ingresar como apoderado, cambiar la temporal, crear un borrador y enviar la solicitud.
 5. Volver como administrador, revisar, asignar sección y finalizar con control de vacantes.
 6. Comprobar que la familia consulta el resultado y no accede a estudiantes ajenos.

@@ -1,0 +1,62 @@
+.form {
+  margin-top: 16px;
+}
+
+.roles {
+  border: 0;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.role {
+  align-items: center;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.role:has(:checked),
+.role:focus-within {
+  border-color: var(--primary, #293780);
+}
+
+.role:has(:disabled) {
+  cursor: default;
+}
+
+.role input {
+  margin: 0;
+}
+
+.role strong,
+.role small {
+  display: block;
+}
+
+.role small {
+  color: var(--muted, #64748b);
+  margin-top: 2px;
+}
+
+.icon {
+  color: var(--primary, #293780);
+  display: grid;
+  place-content: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}

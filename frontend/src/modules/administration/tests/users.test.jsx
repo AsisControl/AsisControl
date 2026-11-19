@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
@@ -21,6 +21,10 @@ const account = (overrides = {}) => ({
   nombreCompleto: "Patricia Morales",
   rolId: 2,
   rol: "DOCENTE",
+  roles: [
+    { id: 2, nombre: "DOCENTE", activo: true, codigoPerfil: "DOC20260001" },
+    { id: 4, nombre: "APODERADO", activo: true, codigoPerfil: "APO20260001" },
+  ],
   estado: "ACTIVO",
   requiereCambioContrasena: true,
   intentosFallidos: 2,
@@ -38,6 +42,7 @@ const admin = account({
   nombreCompleto: "Ana Ramos",
   rol: "ADMINISTRADOR",
   rolId: 1,
+  roles: [{ id: 1, nombre: "ADMINISTRADOR", activo: true, codigoPerfil: "ADM20260001" }],
   ultimoAcceso: null,
 });
 const inactive = account({
@@ -45,6 +50,7 @@ const inactive = account({
   username: "lgarcia",
   nombreCompleto: "Luis García",
   rol: "ALUMNO",
+  roles: [{ id: 3, nombre: "ALUMNO", activo: false, codigoPerfil: "EST20260001" }],
   estado: "DESACTIVADO",
   requiereCambioContrasena: false,
   correoVerificado: false,
@@ -82,15 +88,91 @@ test("Lista los accesos con su rol, estado y último acceso", async () => {
   expect(await screen.findByText("3 de 3 usuarios")).toBeTruthy();
   const row = screen.getByText("Patricia Morales").closest("tr");
   expect(within(row).getByText("Docente")).toBeTruthy();
+  expect(within(row).getByText("Apoderado")).toBeTruthy();
   expect(within(row).getByText("Activo")).toBeTruthy();
   expect(within(screen.getByText("Ana Ramos").closest("tr")).getByText("Sin registro")).toBeTruthy();
   expect(screen.getByText("Inactivo", { selector: "span" })).toBeTruthy();
+  expect(within(screen.getByText("Luis García").closest("tr")).getByText("Estudiante (inactivo)")).toBeTruthy();
   const roleFilter = screen.getByLabelText("Filtrar por rol");
   expect(within(roleFilter).queryByText("TESORERIA")).toBeNull();
   expect(calls.find((c) => c.path === "/api/usuarios").query).toMatchObject({
     page: "0",
     size: "20",
   });
+});
+
+test("Muestra una cuenta sin roles y reconoce la representación anterior de un rol activo", async () => {
+  backend({
+    "GET /api/usuarios": page([
+      account({ roles: undefined }),
+      account({
+        id: 10, username: "20260010", nombreCompleto: "Elena Prado", roles: undefined,
+        rol: null, rolId: null,
+      }),
+    ]),
+  });
+  renderUsers();
+  const legacy = (await screen.findByText("Patricia Morales")).closest("tr");
+  expect(within(legacy).getByText("Docente")).toBeTruthy();
+  const noRoles = screen.getByText("Elena Prado").closest("tr");
+  expect(within(noRoles).getByText("Sin roles")).toBeTruthy();
+  expect(within(noRoles).getByText("Activo")).toBeTruthy();
+});
+
+test("Retira un rol sin mandar cambios de cuenta ni de credencial", async () => {
+  const { promise: response, resolve } = Promise.withResolvers();
+  const calls = backend({ "PUT /api/usuarios/7/roles/2": () => response });
+  const user = userEvent.setup();
+  renderUsers();
+  await openMenu(user, "Patricia Morales", "Administrar roles");
+  const dialog = await screen.findByRole("dialog", { name: "Administrar roles" });
+  await user.selectOptions(within(dialog).getByLabelText(/^Rol/), "2");
+  await user.type(within(dialog).getByLabelText(/^Motivo/), "Cese del perfil docente");
+  await user.click(within(dialog).getByRole("button", { name: "Retirar rol" }));
+  const pending = within(dialog).getByRole("button", { name: "Guardando…" });
+  expect(pending.disabled).toBe(true);
+  fireEvent.submit(pending.closest("form"));
+  expect(calls.filter((call) => call.method === "PUT")).toHaveLength(1);
+  resolve(account());
+  expect(await screen.findByText("Roles actualizados.")).toBeTruthy();
+  expect(calls.find((c) => c.method === "PUT").body).toEqual({
+    activo: false,
+    motivo: "Cese del perfil docente",
+  });
+});
+
+test("Exige un motivo con texto al administrar roles y Cancela sin guardar", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  renderUsers();
+  await openMenu(user, "Patricia Morales", "Administrar roles");
+  const dialog = within(await screen.findByRole("dialog", { name: "Administrar roles" }));
+  expect(dialog.getByRole("button", { name: "Habilitar rol" }).disabled).toBe(true);
+  await user.selectOptions(dialog.getByLabelText(/^Rol/), "2");
+  await user.type(dialog.getByLabelText(/^Motivo/), "   ");
+  await user.click(dialog.getByRole("button", { name: "Retirar rol" }));
+  expect(dialog.getByRole("alert").textContent).toBe("Ingresa el motivo del cambio.");
+  await user.selectOptions(dialog.getByLabelText(/^Rol/), "1");
+  expect(dialog.queryByRole("alert")).toBeNull();
+  await user.click(dialog.getByRole("button", { name: "Cancelar" }));
+  expect(screen.queryByRole("dialog", { name: "Administrar roles" })).toBeNull();
+  expect(calls.some((call) => call.method === "PUT")).toBe(false);
+});
+
+test("Al asignar un rol sin perfil muestra el requisito que devuelve el servidor", async () => {
+  const calls = backend({
+    "PUT /api/usuarios/7/roles/1": reply(409, { message: "La persona necesita un perfil habilitado." }),
+  });
+  const user = userEvent.setup();
+  renderUsers();
+  await openMenu(user, "Patricia Morales", "Administrar roles");
+  const dialog = await screen.findByRole("dialog", { name: "Administrar roles" });
+  await user.selectOptions(within(dialog).getByLabelText(/^Rol/), "1");
+  await user.type(within(dialog).getByLabelText(/^Motivo/), "Alta de un perfil de gestión");
+  await user.click(within(dialog).getByRole("button", { name: "Habilitar rol" }));
+  expect((await within(dialog).findByRole("alert")).textContent)
+    .toBe("La persona necesita un perfil habilitado.");
+  expect(calls.find((c) => c.method === "PUT").body).toMatchObject({ activo: true });
 });
 
 test("Filtra por rol, estado y texto de búsqueda", async () => {
@@ -187,7 +269,6 @@ test("Editar envía correo, estado, verificación y motivo sin cambiar el rol", 
     correoVerificado: false,
     temporaryPassword: null,
     motivo: "Correo nuevo",
-    rolId: 2,
   });
 });
 
@@ -210,15 +291,16 @@ test("Reactivar exige una contraseña temporal válida", async () => {
   expect(calls.find((c) => c.method === "PUT").body.temporaryPassword).toBe("Temporal2026");
 });
 
-test("El propio administrador solo edita su correo y no puede desactivarse", async () => {
+test("El administrador puede gestionar roles, pero su cuenta no ofrece desactivarse", async () => {
   backend();
   const user = userEvent.setup();
   renderUsers();
   await user.click(await screen.findByLabelText("Más acciones para Ana Ramos"));
   expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
     "Editar correo",
+    "Administrar roles",
   ]);
-  await user.click(screen.getByRole("menuitem"));
+  await user.click(screen.getByRole("menuitem", { name: "Editar correo" }));
   const dialog = await screen.findByRole("dialog", { name: "Editar acceso" });
   expect(within(dialog).queryByText("Inactivo")).toBeNull();
 });
@@ -329,7 +411,7 @@ test("Las pestañas navegan por URL y una ruta inválida vuelve a usuarios", asy
   const { rerender } = renderUsers();
   await user.click(screen.getByText("Roles y permisos"));
   expect(currentUrl()).toBe("/administracion/roles-y-permisos");
-  await user.click(screen.getByText("+ Nuevo usuario"));
+  await user.click(screen.getByText("+ Registrar administrador"));
   expect(currentUrl()).toBe("/administracion/usuarios/nuevo");
   rerender(<Administration currentUserId="1" tab="desconocida" />);
   expect(currentUrl()).toBe("/administracion/usuarios");

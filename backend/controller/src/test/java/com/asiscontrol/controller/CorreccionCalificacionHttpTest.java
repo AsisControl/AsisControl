@@ -328,13 +328,14 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     private AccesoUsuario acceso(Docente docente) {
         AccesoUsuario acceso = new AccesoUsuario();
         acceso.setPersona(docente.getPersona());
-        acceso.setRol(em.createQuery("from Rol r where r.nombre = 'DOCENTE'", Rol.class).getSingleResult());
         acceso.setUsername("docente" + key());
         acceso.setCorreo(key() + "@example.test");
         acceso.setContrasenaHash("hash-exclusivo-de-prueba");
         acceso.setEstado(EstadoAcceso.ACTIVO);
         acceso.setRequiereCambioContrasena(false);
         em.persist(acceso);
+        asignarRol(acceso, em.createQuery("from Rol r where r.nombre = 'DOCENTE'", Rol.class)
+                .getSingleResult());
         em.flush();
         return acceso;
     }
@@ -344,7 +345,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     }
 
     private JwtRequestPostProcessor como(AccesoUsuario acceso, String... permisos) {
-        return identidad(acceso.getUsername(), acceso.getPersona().getId(), acceso.getRol().getNombre(), permisos);
+        return identidad(acceso.getUsername(), acceso.getPersona().getId(), "DOCENTE", permisos);
     }
 
     private JwtRequestPostProcessor identidad(String usuario, Long persona, String rol, String... permisos) {
@@ -354,7 +355,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
             autoridades.add(new SimpleGrantedAuthority(permiso));
         }
         return jwt().jwt(token -> token.subject(usuario).claim("personaId", persona)
-                .claim("requiereCambioContrasena", false)).authorities(autoridades);
+                .claim("rol", rol).claim("requiereCambioContrasena", false)).authorities(autoridades);
     }
 
     private Docente otroDocente() {

@@ -3,7 +3,6 @@ import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { passwordError } from "@/core/auth/password-policy";
 import { Dialog, Feedback, Field, PasswordField } from "@/shared/ui";
-import { roleLabel } from "@/shared/lib/formatters";
 import type { Account } from "../types";
 import { actualizarUsuario } from "./services/usuarioService";
 import { stateLabels } from "./user-format";
@@ -56,7 +55,7 @@ export function EditAccessDialog({
     <Dialog title="Editar acceso" onClose={onClose} busy={busy}>
       <form onSubmit={save}>
         <p>
-          {account.nombreCompleto} · {roleLabel(account.rol)}
+          {account.nombreCompleto} · {account.username}
         </p>
         <Feedback error={error} />
         <Field
@@ -106,8 +105,7 @@ export function EditAccessDialog({
           <textarea name="motivo" required maxLength={700} rows={3} />
         </label>
         <p className="hint">
-          Al cambiar el correo, confirma nuevamente su titularidad. Para otro
-          rol, crea un acceso separado.
+          Al cambiar el correo de recuperación, confirma nuevamente su titularidad.
         </p>
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={onClose}>

@@ -4,11 +4,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { message } from "@/core/api/client";
 import type { Account } from "../types";
 import { obtenerUsuario } from "./services/usuarioService";
-export type UserDialogKind = "detail" | "edit" | "reset" | "deactivate";
+export type UserDialogKind = "detail" | "edit" | "roles" | "reset" | "deactivate";
 /** Parámetro de la URL de cada ventana: ?ver=12, ?editar=12… */
 const DIALOG_PARAMS: Record<UserDialogKind, string> = {
   detail: "ver",
   edit: "editar",
+  roles: "roles",
   reset: "restablecer",
   deactivate: "desactivar",
 };

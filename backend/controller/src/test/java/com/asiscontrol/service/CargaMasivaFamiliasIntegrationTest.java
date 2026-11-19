@@ -54,7 +54,7 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(resultado.files().get("estudiantes").result().credentials())
                 .singleElement()
                 .satisfies(c -> {
-                    assertThat(c.username()).startsWith("mateo.ramos");
+                    assertThat(c.username()).matches("[0-9]{8}");
                     assertThat(c.temporaryPassword()).isNull();
                 });
         assertThat(resultado.files().get("apoderados").result().credentials())
@@ -116,12 +116,9 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(estudiante.temporaryPassword()).isNotBlank();
         assertThat(madre.role()).isEqualTo("APODERADO");
         assertThat(madre.temporaryPassword()).isNotBlank();
-        assertThat(accesos.findAllByPersonaIdAndActivoTrue(persona.getId()))
-                .singleElement()
-                .satisfies(cuenta -> {
-                    assertThat(cuenta.getUsername()).isEqualTo(estudiante.username());
-                    assertThat(cuenta.isRequiereCambioContrasena()).isTrue();
-                });
+        var cuenta = accesos.findByPersonaId(persona.getId()).orElseThrow();
+        assertThat(cuenta.getUsername()).isEqualTo(estudiante.username());
+        assertThat(cuenta.isRequiereCambioContrasena()).isTrue();
     }
 
     @Test
@@ -144,9 +141,20 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(resultado.files().get("apoderados").result().credentials()).hasSize(1);
         var persona = personaRepository
                 .findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, madre).orElseThrow();
-        assertThat(accesos.findAllByPersonaIdAndActivoTrue(persona.getId()))
-                .singleElement()
-                .satisfies(cuenta -> assertThat(cuenta.getRol().getNombre()).isEqualTo("APODERADO"));
+        assertThat(accesos.findByPersonaId(persona.getId()).orElseThrow().getUsername())
+                .matches("[0-9]{8}");
+    }
+
+    @Test
+    void rechazaUnaFichaNuevaSinDocumentoEnLaCargaMasiva() {
+        var sinDocumento = excel("estudiantes.xlsx", STUDENT,
+                List.of("", "Mateo", "Ramos", "Quispe", "", "", "MASCULINO", "2013-04-10",
+                        "", "", ""));
+        var resultado = carga.procesar(sinDocumento, null, null, true);
+
+        assertThat(resultado.saved()).isFalse();
+        assertThat(resultado.files().get("estudiantes").result().issues()).hasSize(1);
+        assertThat(resultado.files().get("estudiantes").result().credentials()).isEmpty();
     }
 
     /** Un estudiante y su madre con documentos y codigo unicos en cada prueba. */

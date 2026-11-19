@@ -89,14 +89,20 @@ class ReutilizacionPersonaIntegrationTest {
     }
 
     @Test
-    void elDocumentoDeUnEstudianteNoSeReutiliza() {
+    void unSegundoPerfilReutilizaLaCuentaDelEstudianteSinVincularFamilia() {
         String dni = dni();
         var persona = persona(dni, "Mateo", "Ramos", LocalDate.of(2012, 5, 2));
-        personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(persona));
+        var alumno = personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(persona));
+        var apoderado = personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(persona));
 
-        assertConflict(
-                () -> personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(persona)),
-                "DOCUMENTO_DE_ESTUDIANTE");
+        assertThat(apoderado.persona().id()).isEqualTo(alumno.persona().id());
+        assertThat(apoderado.credencialAcceso().username()).isEqualTo(alumno.credencialAcceso().username());
+        assertThat(apoderado.credencialAcceso().temporaryPassword()).isNull();
+        assertThat(apoderado.alumnos()).isEmpty();
+        assertThatThrownBy(() -> personas.linkGuardian(alumno.id(),
+                new PersonaDtos.VinculoApoderadoRequest(apoderado.id(), null, true)))
+                .isInstanceOfSatisfying(com.asiscontrol.exception.BusinessRuleException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("VINCULO_MISMA_PERSONA"));
     }
 
     @Test

@@ -82,6 +82,8 @@ async function fillMinimum() {
   await change("nombres", "Lucía");
   await change("apellidoPaterno", "Flores");
   await change("fechaNacimiento", "2012-05-14");
+  await change("tipoDocumento", "DNI");
+  await change("numeroDocumento", "12345678");
 }
 afterEach(async () => {
   if (root) await React.act(async () => root.unmount());
@@ -211,7 +213,7 @@ test("FE2-05 DOM: dos envíos simultáneos producen una sola petición y conserv
   assert.equal(calls.length, 1);
   assert.equal(document.querySelector("fieldset").disabled, true);
   assert.equal(calls[0].body.persona.nombres, "Lucía");
-  assert.equal(calls[0].body.persona.tipoDocumento, null);
+  assert.equal(calls[0].body.persona.tipoDocumento, "DNI");
   assert.equal("codigoAlumno" in calls[0].body, false);
   await React.act(async () => release(response(201, fixture())));
   assert.equal(saved.length, 1);

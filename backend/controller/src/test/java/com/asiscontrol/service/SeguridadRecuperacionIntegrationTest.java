@@ -69,7 +69,7 @@ class SeguridadRecuperacionIntegrationTest {
     @Autowired RolRepository roles;
     @Autowired CapturingMail mail;
     @Autowired PlatformTransactionManager manager;
-    @Autowired SesionActividadService activity;
+    @Autowired org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
     @Autowired LimiteRecuperacionService limits;
 
     private UsuarioDtos.Response create(boolean verified) {
@@ -154,7 +154,8 @@ class SeguridadRecuperacionIntegrationTest {
         recovery.validar(token);
         recovery.confirmar(
                 new AuthDtos.ResetRecoveryRequest(token, "NuevaSegura123!", "NuevaSegura123!"));
-        assertThat(activity.validar(HashUtils.sha256(session.accessToken()))).isFalse();
+        assertThatThrownBy(() -> jwtDecoder.decode(session.accessToken()))
+                .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
         assertThat(login(u, "NuevaSegura123!").user().requiereCambioContrasena()).isFalse();
         assertThatThrownBy(
                         () ->
@@ -219,7 +220,8 @@ class SeguridadRecuperacionIntegrationTest {
         var u = create(true);
         var temporalSession = login(u, "Temporal123!");
         mutate(u.id(), a -> a.setContrasenaTemporalExpira(Instant.now().minusSeconds(1)));
-        assertThat(activity.validar(HashUtils.sha256(temporalSession.accessToken()))).isFalse();
+        assertThatThrownBy(() -> jwtDecoder.decode(temporalSession.accessToken()))
+                .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
         assertThatThrownBy(() -> login(u, "Temporal123!"))
                 .isInstanceOf(BadCredentialsException.class);
         String token = link(u);
@@ -303,6 +305,7 @@ class SeguridadRecuperacionIntegrationTest {
                             session.setUltimaActividad(Instant.now().minus(Duration.ofMinutes(31)));
                             sessions.saveAndFlush(session);
                         });
-        assertThat(activity.validar(hash)).isFalse();
+        assertThatThrownBy(() -> jwtDecoder.decode(response.accessToken()))
+                .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
     }
 }

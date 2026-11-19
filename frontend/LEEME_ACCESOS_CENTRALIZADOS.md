@@ -1,5 +1,7 @@
 # AsisControl — Accesos centralizados (reconstrucción 1.2-r)
 
+Este documento conserva el procedimiento de la reconstrucción 1.2-r. Para la operación actual consulta [Autenticación unificada](../docs/AUTENTICACION_UNIFICADA.md).
+
 Fecha: 01/10/2026. Los ZIP originales no estaban disponibles. Esta es una reconstrucción funcional basada en las decisiones acordadas y en la última versión del equipo, no una copia idéntica de los archivos perdidos.
 
 ## Base y contenido

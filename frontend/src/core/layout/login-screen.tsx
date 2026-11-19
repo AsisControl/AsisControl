@@ -11,6 +11,7 @@ export function LoginScreen({
   onLogin: ReturnType<typeof useAuth>["login"];
 }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -19,8 +20,14 @@ export function LoginScreen({
     setError("");
     setIsSubmitting(true);
     const form = new FormData(event.currentTarget);
+    const identifier = String(form.get("username") ?? "").trim();
+    if (!/^\d{8}$/.test(identifier)) {
+      setError("Ingresa los 8 dígitos de tu usuario institucional.");
+      setIsSubmitting(false);
+      return;
+    }
     const result = await onLogin({
-      username: String(form.get("username") ?? ""),
+      username: identifier,
       password: String(form.get("password") ?? ""),
     });
     setIsSubmitting(false);
@@ -35,13 +42,15 @@ export function LoginScreen({
           <h2>Iniciar sesión</h2>
           <p>Ingresa tus credenciales institucionales</p>
           <label>
-            Usuario <i>*</i>
+            Usuario institucional <i>*</i>
             <input
               name="username"
-              maxLength={150}
               required
+              inputMode="numeric"
               autoComplete="username"
-              placeholder="Ingresa tu usuario"
+              placeholder="Ej. 20260001"
+              value={username}
+              onChange={(event) => setUsername(event.target.value.replace(/\D/g, "").slice(0, 8))}
               disabled={isSubmitting}
             />
           </label>

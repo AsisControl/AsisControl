@@ -102,8 +102,10 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
 
     @Test void avisaAlApoderadoDelResultado() throws Exception {
         var acceso=new AccesoUsuario(); acceso.setPersona(guardian.getPersona());
-        acceso.setRol(rol("APODERADO")); acceso.setUsername("apo"+key()); acceso.setCorreo("apo"+key()+"@example.test");
-        acceso.setContrasenaHash("x"); em.persist(acceso); em.flush();
+        acceso.setUsername("apo"+key()); acceso.setCorreo("apo"+key()+"@example.test");
+        acceso.setContrasenaHash("x"); em.persist(acceso);
+        asignarRol(acceso, rol("APODERADO"));
+        em.flush();
         String p=justificar(asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA));
         request("POST",p+"/rechazar",data("version",version(p),"observacion","Sin sustento"),200);
         var aviso=em.createQuery("from Notificacion n where n.destinatario.id=:id",Notificacion.class)

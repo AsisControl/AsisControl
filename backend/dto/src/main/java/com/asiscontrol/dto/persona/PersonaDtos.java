@@ -147,7 +147,8 @@ public final class PersonaDtos {
             String codigoAlumno,
             PersonaResponse persona,
             List<ApoderadoVinculadoResponse> apoderados,
-            boolean activo) {}
+            boolean activo,
+            CredencialAcceso credencialAcceso) {}
 
     /** El código del docente lo genera el sistema (DOC{AÑO}{####}). */
     public record DocenteCreateRequest(
@@ -168,7 +169,8 @@ public final class PersonaDtos {
             LocalDate fechaIngreso,
             Especialidad especialidad,
             PersonaResponse persona,
-            boolean activo) {}
+            boolean activo,
+            CredencialAcceso credencialAcceso) {}
 
     public record ApoderadoCreateRequest(@NotNull @Valid PersonaRequest persona) {}
 
@@ -179,7 +181,8 @@ public final class PersonaDtos {
             String codigoApoderado,
             PersonaResponse persona,
             List<AlumnoVinculadoResponse> alumnos,
-            boolean activo) {}
+            boolean activo,
+            CredencialAcceso credencialAcceso) {}
 
     public record VinculoApoderadoRequest(
             @NotNull(message = "El apoderado es obligatorio") Long apoderadoId,
@@ -230,7 +233,7 @@ public final class PersonaDtos {
     }
 
     /**
-     * Acceso de una persona importada. {@code existing}: ya tenía acceso para ese rol y no se creó
+     * Acceso de una persona registrada. {@code existing}: ya tenía acceso y no se creó
      * otro; entonces no hay contraseña temporal. La contraseña nunca se escribe en logs ni en la
      * auditoría: {@link #toString()} la oculta.
      */
@@ -244,6 +247,11 @@ public final class PersonaDtos {
             String temporaryPassword,
             Instant expiresAt,
             boolean existing) {
+        public CredencialAcceso enFila(int fila) {
+            return new CredencialAcceso(
+                    fila, fullName, role, code, username, email, temporaryPassword, expiresAt, existing);
+        }
+
         public CredencialAcceso sinContrasena() {
             return new CredencialAcceso(
                     row, fullName, role, code, username, email, null, expiresAt, existing);

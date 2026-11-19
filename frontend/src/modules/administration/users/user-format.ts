@@ -1,3 +1,4 @@
+import type { Account } from "../types";
 import styles from "./users.module.css";
 export const accessStates = [
   "ACTIVO",
@@ -28,6 +29,12 @@ export const statePillClass = (state: string) =>
   `${styles.pill} ${statePills[state] ?? styles.pillGray}`;
 export const rolePillClass = (role: string) =>
   `${styles.pill} ${rolePills[role] ?? styles.pillGray}`;
+export function accountRoles(account: Account) {
+  if (account.roles) return account.roles;
+  return account.rol && account.rolId
+    ? [{ id: account.rolId, nombre: account.rol, activo: true, codigoPerfil: account.codigoPerfil ?? null }]
+    : [];
+}
 export const initialsOf = (fullName: string) =>
   fullName
     .split(/\s+/)

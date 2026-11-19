@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @SpringBootTest(
         properties =
@@ -36,6 +37,7 @@ import java.util.Map;
 @ActiveProfiles("test")
 @Transactional
 class FichaAlumnoValidationIntegrationTest {
+    private static final AtomicInteger DOCUMENTOS = new AtomicInteger(51000000);
     @Autowired WebApplicationContext webContext;
     @Autowired AlumnoRepository alumnoRepository;
     @Autowired RegistroAuditoriaRepository auditoriaRepository;
@@ -52,8 +54,8 @@ class FichaAlumnoValidationIntegrationTest {
         persona.put("nombres", "Diego");
         persona.put("apellidoPaterno", "Ibarra");
         persona.put("apellidoMaterno", null);
-        persona.put("tipoDocumento", null);
-        persona.put("numeroDocumento", null);
+        persona.put("tipoDocumento", "DNI");
+        persona.put("numeroDocumento", Integer.toString(DOCUMENTOS.incrementAndGet()));
         persona.put("sexo", null);
         persona.put(
                 "fechaNacimiento",
@@ -104,7 +106,9 @@ class FichaAlumnoValidationIntegrationTest {
                                                 org.hamcrest.Matchers.matchesPattern(
                                                         "EST[0-9]{8}")))
                         .andExpect(jsonPath("$.persona.apellidoMaterno").isEmpty())
-                        .andExpect(jsonPath("$.persona.tipoDocumento").isEmpty())
+                        .andExpect(jsonPath("$.persona.tipoDocumento").value("DNI"))
+                        .andExpect(jsonPath("$.credencialAcceso.username")
+                                .value(org.hamcrest.Matchers.matchesPattern("[0-9]{8}")))
                         .andExpect(jsonPath("$.persona.nombreCompleto").value("Diego Ibarra"))
                         .andReturn()
                         .getResponse()
@@ -128,7 +132,7 @@ class FichaAlumnoValidationIntegrationTest {
             propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void dosAltasSimultaneasGeneranCodigosDistintos() throws Exception {
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
-            java.util.concurrent.Callable<String> create =
+            java.util.concurrent.Callable<com.fasterxml.jackson.databind.JsonNode> create =
                     () -> {
                         String body =
                                 mvc.perform(
@@ -141,12 +145,16 @@ class FichaAlumnoValidationIntegrationTest {
                                         .andReturn()
                                         .getResponse()
                                         .getContentAsString();
-                        return jsonMapper.readTree(body).get("codigoAlumno").asText();
+                        return jsonMapper.readTree(body);
                     };
             var firstResult = executor.submit(create);
             var secondResult = executor.submit(create);
-            assertThat(firstResult.get(20, java.util.concurrent.TimeUnit.SECONDS))
-                    .isNotEqualTo(secondResult.get(20, java.util.concurrent.TimeUnit.SECONDS));
+            var primero = firstResult.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            var segundo = secondResult.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(primero.path("codigoAlumno").asText()).isNotEqualTo(segundo.path("codigoAlumno").asText());
+            assertThat(primero.path("credencialAcceso").path("username").asText())
+                    .matches("[0-9]{8}")
+                    .isNotEqualTo(segundo.path("credencialAcceso").path("username").asText());
         }
     }
 
@@ -190,8 +198,13 @@ class FichaAlumnoValidationIntegrationTest {
     }
 
     @Test
-    void documentoEsOpcionalEnParejaYSeValidaSegunTipo() throws Exception {
+    void documentoEsObligatorioEnUnaFichaNuevaYSeValidaSegunTipo() throws Exception {
         var persona = createStudentPersonPayload();
+        persona.put("tipoDocumento", null);
+        persona.put("numeroDocumento", null);
+        mvc.perform(createAdminRequest(post("/api/alumnos"), Map.of("persona", persona)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].field").value("persona.tipoDocumento"));
         persona.put("numeroDocumento", "12345678");
         mvc.perform(createAdminRequest(post("/api/alumnos"), Map.of("persona", persona)))
                 .andExpect(status().isBadRequest())

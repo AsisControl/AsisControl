@@ -5,7 +5,8 @@ import { fakeBackend, inOneHour, page, reply, signIn, signOut } from "../../../t
 import { currentUrl, setUrl } from "../../../tests/support/navigation.js";
 import { AppShell } from "@/core/layout/app-shell";
 import { ModuleOutlet } from "@/core/navigation/module-outlet";
-import { setSessionStatus } from "@/core/auth/session-storage";
+import { roleContextEventKey, setSessionStatus } from "@/core/auth/session-storage";
+import { api } from "@/core/api/client";
 import AppLayout from "@/app/(app)/layout";
 import AppPage from "@/app/(app)/[[...ruta]]/page";
 
@@ -14,7 +15,7 @@ vi.mock("next/link", () => import("../../../tests/support/next-link.jsx"));
 
 const summary = (overrides = {}) => ({
   id: 1,
-  username: "admin",
+  username: "20260001",
   nombreCompleto: "Ana Ramos",
   rol: "ADMINISTRADOR",
   permisos: ["USUARIOS_LEER", "MATRICULA_LEER"],
@@ -64,7 +65,7 @@ test("Sin sesión muestra el login, informa credenciales inválidas y luego ingr
   expect(screen.getByText("¿Olvidaste tu contraseña?").getAttribute("href")).toBe(
     "/recuperar-contrasena",
   );
-  await user.type(screen.getByLabelText(/^Usuario/), "admin");
+  await user.type(screen.getByLabelText(/^Usuario/), "20260001");
   await user.type(screen.getByPlaceholderText("Ingresa tu contraseña"), "Incorrecta1");
   await user.click(screen.getByLabelText("Mostrar contraseña"));
   expect(screen.getByPlaceholderText("Ingresa tu contraseña").type).toBe("text");
@@ -76,9 +77,96 @@ test("Sin sesión muestra el login, informa credenciales inválidas y luego ingr
   await user.click(screen.getByText("Iniciar sesión", { selector: "button" }));
   expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   expect(calls.filter((c) => c.path === "/api/auth/login").at(-1).body).toEqual({
-    identifier: "admin",
+    identifier: "20260001",
     password: "Correcta2026",
   });
+});
+
+test("Un código incompleto no se envía al backend", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  renderApp();
+  await user.type(screen.getByLabelText(/^Usuario/), "2026");
+  await user.type(screen.getByLabelText(/^Contraseña/), "Correcta2026");
+  await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/8 dígitos/);
+  expect(calls.some((call) => call.path === "/api/auth/login")).toBe(false);
+});
+
+test("Una cuenta sin roles sigue fuera de los módulos", async () => {
+  backend({
+    "GET /api/auth/me": summary({ rol: null, rolesDisponibles: [], permisos: [] }),
+  });
+  sessionFor({ role: null, availableRoles: [] });
+  renderApp();
+  expect(await screen.findByText(/aún no tiene roles habilitados/)).toBeTruthy();
+  expect(screen.queryByRole("navigation", { name: "Navegación principal" })).toBeNull();
+});
+
+test("Elige uno de los roles habilitados y cambia de rol desde la misma sesión", async () => {
+  const common = {
+    rolesDisponibles: ["DOCENTE", "APODERADO", "TESORERIA"],
+    sesionId: 48,
+    permisos: [],
+  };
+  let active = summary({ ...common, rol: null, versionContexto: 0 });
+  const calls = backend({
+    "GET /api/auth/me": () => active,
+    "PUT /api/auth/rol-activo": ({ body }) => {
+      active = { ...active, rol: body.rol, versionContexto: active.versionContexto + 1 };
+      return { accessToken: "token-rol", expiresAt: inOneHour(), user: active };
+    },
+  });
+  sessionFor({
+    role: null, availableRoles: ["DOCENTE", "APODERADO"], sessionId: "48", contextVersion: 0,
+  });
+  const user = userEvent.setup();
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "Elige con qué rol ingresar" })).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: /Tesorería/i })).toBeNull();
+  expect(screen.getByRole("button", { name: "Continuar" }).disabled).toBe(true);
+  await user.click(screen.getByRole("radio", { name: /Apoderado/ }));
+  await user.click(screen.getByRole("button", { name: "Continuar" }));
+  expect(await screen.findByText("Portal del apoderado")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Abrir menú de usuario" }));
+  await user.click(screen.getByRole("button", { name: "Cambiar de rol" }));
+  const dialog = await screen.findByRole("dialog", { name: "Cambiar de rol" });
+  expect(within(dialog).getByRole("radio", { name: /Apoderado/ }).disabled).toBe(true);
+  await user.click(within(dialog).getByRole("radio", { name: /Docente/ }));
+  await user.click(within(dialog).getByRole("button", { name: "Cambiar rol" }));
+  expect(await screen.findByText("Aula docente")).toBeTruthy();
+  expect(calls.filter((call) => call.path === "/api/auth/rol-activo").map((call) => call.body))
+    .toEqual([{ rol: "APODERADO" }, { rol: "DOCENTE" }]);
+  expect(calls.some((call) => call.path === "/api/auth/login")).toBe(false);
+});
+
+test("Un cambio entre pestañas oculta el contexto anterior y descarta su escritura pendiente", async () => {
+  let releasePrevious;
+  const previous = new Promise((resolve) => { releasePrevious = resolve; });
+  const original = summary({ sesionId: 35, versionContexto: 0 });
+  const switched = summary({
+    rol: "APODERADO", sesionId: 35, versionContexto: 1,
+    permisos: [], rolesDisponibles: ["ADMINISTRADOR", "APODERADO"],
+  });
+  const calls = backend({
+    "GET /api/auth/me": original,
+    "POST /api/auth/refresh": { accessToken: "tab-token", expiresAt: inOneHour(), user: switched },
+    "PUT /api/anterior": () => previous,
+  });
+  sessionFor({ sessionId: "35", contextVersion: 0 });
+  setUrl("/matricula");
+  renderApp();
+  await screen.findByText("Panel de administración");
+  const pending = api("/api/anterior", { method: "PUT", body: "{}" }).catch((error) => error);
+  await act(async () => {
+    window.dispatchEvent(new StorageEvent("storage", { key: roleContextEventKey }));
+  });
+  expect(await screen.findByText("Portal del apoderado")).toBeTruthy();
+  expect(currentUrl()).toBe("/");
+  expect(screen.queryByText("Panel de administración")).toBeNull();
+  releasePrevious(reply(401));
+  expect((await pending).code).toBe("CONTEXTO_DE_SESION_CAMBIO");
+  expect(calls.filter((call) => call.path === "/api/anterior")).toHaveLength(1);
 });
 
 test("El menú muestra solo las opciones permitidas y navega por URL", async () => {

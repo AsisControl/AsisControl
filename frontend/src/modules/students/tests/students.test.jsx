@@ -35,11 +35,18 @@ const response = (status, body) => ({
 const rules = () => studentRules;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("CA-01/02: solo nombres, primer apellido y nacimiento permiten un alta sin documento", () => {
+test("El alta de una ficha exige documento y una ficha existente se puede editar sin él", () => {
   const studentRules = rules();
   const draft = studentRules.studentDraft(fixture());
   assert.deepEqual(
     plain(studentRules.validateStudent(draft, undefined, "2026-10-21")),
+    {
+      tipoDocumento: "Selecciona el tipo de documento.",
+      numeroDocumento: "Ingresa el número de documento.",
+    },
+  );
+  assert.deepEqual(
+    plain(studentRules.validateStudent(draft, fixture(), "2026-10-21")),
     {},
   );
   const body = studentRules.studentInput(draft);
