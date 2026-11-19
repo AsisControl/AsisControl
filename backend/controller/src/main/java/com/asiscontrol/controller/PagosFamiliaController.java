@@ -35,8 +35,9 @@ public class PagosFamiliaController {
 
     @GetMapping("/ordenes")
     public Page<PagosFamiliaDto.OrdenResponse> listar(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long idAlumno,
             @PageableDefault(size = 10, sort = "creadaEn", direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.listar(pageable);
+        return service.listar(idAlumno, pageable);
     }
 
     @GetMapping("/ordenes/{id}")

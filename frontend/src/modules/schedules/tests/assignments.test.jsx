@@ -37,7 +37,7 @@ function backend(routes = {}) {
     "GET /api/asignaciones-cursos": page([assignment(), withSchedule]),
     "GET /api/docentes": page(teachers),
     "GET /api/secciones": page(sections),
-    "GET /api/cursos": page(courses),
+    [`GET /api/planes-estudios/${YEAR}/1`]: { cursos: courses },
     ...routes,
   });
 }
@@ -111,10 +111,7 @@ test("Crea una asignación eligiendo sección, curso del grado y docente", async
     activo: "true",
     anioAcademico: String(YEAR),
   });
-  expect(calls.find((c) => c.path === "/api/cursos").query).toMatchObject({
-    anio: String(YEAR),
-    grado: "1",
-  });
+  expect(calls.some((c) => c.path === `/api/planes-estudios/${YEAR}/1`)).toBe(true);
   expect(calls.find((c) => c.method === "POST").body).toEqual({ seccionId: 8, cursoId: 5, docenteId: 12 });
 });
 

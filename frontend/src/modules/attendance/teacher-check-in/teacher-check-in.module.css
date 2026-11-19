@@ -371,6 +371,7 @@
   display: block;
   width: min(100%, 300px);
   height: auto;
+  margin-inline: auto;
 }
 
 .entrance {

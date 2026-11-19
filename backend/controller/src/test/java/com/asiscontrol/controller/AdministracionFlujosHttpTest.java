@@ -79,6 +79,16 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].anio").value(2090));
     }
 
+    @Test void familiaConPermisoDeProgresoConsultaVinculosSinAccesoAMatricula() throws Exception {
+        var autenticacion = jwt().jwt(j -> j.subject("apoderado-progreso")
+                        .claim("personaId", guardian.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_APODERADO"),
+                        new SimpleGrantedAuthority("CALIFICACIONES_LEER"));
+        mvc.perform(get("/api/familia/estudiantes").with(autenticacion))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(student.getId()));
+        mvc.perform(get("/api/familia/oferta").with(autenticacion)).andExpect(status().isForbidden());
+    }
+
     @Test void subeConsultaDescargaYDesactivaUnArchivoDesdeHttp() throws Exception {
         byte[] content=new byte[]{0x25,0x50,0x44,0x46};
         var uploaded=mvc.perform(multipart("/api/archivos")
