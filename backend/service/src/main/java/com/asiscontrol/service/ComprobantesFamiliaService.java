@@ -33,9 +33,11 @@ public class ComprobantesFamiliaService {
         this.institucion = institucion;
     }
 
-    public Page<PagosFamiliaDto.HistorialComprobanteResponse> listar(Pageable pageable) {
+    /** Historial de la familia; con idAlumno, solo el de ese estudiante, que debe estar vinculado al apoderado. */
+    public Page<PagosFamiliaDto.HistorialComprobanteResponse> listar(Long idAlumno, Pageable pageable) {
         var apoderado = acceso.apoderadoActual();
-        return comprobantes.buscarHistorialFamiliar(apoderado.getId(), pageable).map(this::respuesta);
+        if (idAlumno != null) acceso.verificarAlumno(idAlumno, apoderado);
+        return comprobantes.buscarHistorialFamiliar(apoderado.getId(), idAlumno, pageable).map(this::respuesta);
     }
 
     public PagosFamiliaDto.HistorialComprobanteResponse obtener(Long id) {

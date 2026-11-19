@@ -43,6 +43,10 @@ public interface OrdenPagoRepository extends JpaRepository<OrdenPago, Long> {
                       and v.apoderado.activo=true and v.apoderado.persona.activo=true
                       and v.alumno=d.compromiso.matricula.alumno
                       and v.alumno.activo=true and v.alumno.persona.activo=true))
+              and (:idAlumno is null or exists (
+                select d2.id from OrdenPagoDetalle d2
+                where d2.orden=o and d2.compromiso.matricula.alumno.id=:idAlumno))
             """)
-    Page<OrdenPago> buscarPropias(@Param("apoderadoId") Long apoderadoId, Pageable pageable);
+    Page<OrdenPago> buscarPropias(@Param("apoderadoId") Long apoderadoId, @Param("idAlumno") Long idAlumno,
+                                  Pageable pageable);
 }

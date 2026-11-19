@@ -9,15 +9,16 @@ import { ReceiptDetail } from "./receipt-detail";
 import type { ReceiptHistoryItem } from "./types";
 import styles from "./guardian-payments.module.css";
 
-export function ReceiptsHistory() {
-  const list = usePaged<ReceiptHistoryItem>(RECEIPTS_PATH, "", "", 10);
+/** Comprobantes del estudiante elegido o, sin estudiante, de toda la familia. */
+export function ReceiptsHistory({ studentId = "", scope = "mis estudiantes" }: { studentId?: string; scope?: string }) {
+  const list = usePaged<ReceiptHistoryItem>(RECEIPTS_PATH, "", studentId ? `idAlumno=${encodeURIComponent(studentId)}` : "", 10);
   const [selected, setSelected] = useState<ReceiptHistoryItem | null>(null);
   return <section className="panel">
-    <PanelHeading title="Historial de pagos" summary="Consulta todos los pagos realizados con su comprobante, incluidos los registrados por la institución."
+    <PanelHeading title={`Historial de pagos de ${scope}`} summary="Consulta todos los pagos realizados con su comprobante, incluidos los registrados por la institución."
       actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar historial</button>} />
     <p className={styles.hint}>Aquí aparecen los pagos aprobados y sus comprobantes. Consulta el estado de una operación en Seguimiento de pagos.</p>
     <Feedback error={list.error} />
-    {list.loading ? <Loading>Cargando historial…</Loading> : !list.error && !list.data?.content.length ? <p className="empty">Todavía no tienes pagos registrados.</p> : list.data && <div className={styles.tableWrap}>
+    {list.loading ? <Loading>Cargando historial…</Loading> : !list.error && !list.data?.content.length ? <p className="empty">{studentId ? `Todavía no hay pagos registrados de ${scope}.` : "Todavía no tienes pagos registrados."}</p> : list.data && <div className={styles.tableWrap}>
       <table className={`user-table ${styles.historyTable}`} aria-label="Comprobantes de mis estudiantes"><thead><tr><th>Comprobante y fecha</th><th>Estudiante</th><th>Concepto y cuota</th><th>Medio</th><th>Monto pagado</th><th>Acciones</th></tr></thead><tbody>
         {list.data.content.map((receipt) => <tr key={receipt.id}>
           <td><strong>{receipt.codigo}</strong><small>{dateLabel(receipt.fechaEmision)}</small>{receipt.codigoOrden && <small>{receipt.codigoOrden}</small>}</td>
