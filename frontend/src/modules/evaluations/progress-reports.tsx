@@ -98,12 +98,19 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
   const [assignment, setAssignment] = useState("");
   const [periods, setPeriods] = useState<ReportPeriod[]>([]);
   const [period, setPeriod] = useState("");
-  const [confirm, setConfirm] = useState(false);
+  const [confirm, setConfirm] = useState<"course" | "section" | null>(null);
+  const [sectionResults, setSectionResults] = useState<Array<{
+    assignment: OwnAssignment;
+    result: string;
+  }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [drafts, setDrafts] = useState<AvailableReport[]>([]);
-  const [preview, setPreview] = useState<ProgressReport | null>(null);
+  const [published, setPublished] = useState<AvailableReport[] | null>(null);
+  const [publishedError, setPublishedError] = useState("");
+  const [refresh, setRefresh] = useState(0);
+  const [preview, setPreview] = useState<{ report: ProgressReport; draft: boolean } | null>(null);
   const [student, setStudent] = useState("");
   useEffect(() => {
     if (!assignment) return;
@@ -112,51 +119,167 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
       .then(data => { if (active) setPeriods(data); }).catch(e => { if (active) setError(message(e)); });
     return () => { active = false; };
   }, [assignment]);
+  useEffect(() => {
+    if (!assignment || !period) return;
+    let active = true;
+    listAvailableReports()
+      .then(items => {
+        if (active) setPublished(items.filter(item =>
+          String(item.idAsignacionCurso) === assignment && String(item.idPeriodoAcademico) === period));
+      })
+      .catch(e => { if (active) setPublishedError(message(e)); });
+    return () => { active = false; };
+  }, [assignment, period, refresh]);
+
+  const draftsByStudent = new Map(drafts.map(item => [item.idAlumno, item]));
+  const publishedByStudent = new Map((published ?? []).map(item => [item.idAlumno, item]));
+  const students = [...new Map([...publishedByStudent, ...draftsByStudent]).values()];
+  const selectedAssignment = assignments.find(item => String(item.id) === assignment);
+  const sectionAssignments = selectedAssignment?.seccionId
+    ? assignments.filter(item => item.seccionId === selectedAssignment.seccionId
+        && item.anioAcademico === selectedAssignment.anioAcademico)
+    : [];
+
+  function reloadPublished() {
+    setPublished(null);
+    setPublishedError("");
+    setRefresh(value => value + 1);
+  }
+
+  function changePeriod(value: string) {
+    setPeriod(value);
+    setDrafts([]);
+    setPublished(null);
+    setPublishedError("");
+    setStudent("");
+    setPreview(null);
+    setConfirm(null);
+    setSectionResults([]);
+    setSuccess("");
+    setError("");
+  }
+
   async function generate() {
-    setBusy(true); setError(""); setSuccess(""); setPreview(null); setConfirm(false); setStudent(""); setDrafts([]);
+    setBusy(true); setError(""); setSuccess(""); setPreview(null); setConfirm(null); setStudent(""); setDrafts([]);
     try {
       const result = await generateReportDrafts(Number(assignment), Number(period));
       setDrafts(result.informes);
       setSuccess(`Se generaron ${result.informesProcesados} borradores. Revisa los resultados antes de publicar.`);
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
-  async function review() {
-    const item = drafts.find(d => String(d.idAlumno) === student);
-    if (!item) return;
-    setBusy(true); setError("");
-    try { setPreview(await getProgressReportDraft(item)); }
+  async function review(item: AvailableReport, draft: boolean) {
+    setBusy(true); setError(""); setPreview(null);
+    try {
+      const report = await (draft ? getProgressReportDraft(item) : getProgressReport(item));
+      setPreview({ report, draft });
+    }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   async function publish() {
     setBusy(true); setError(""); setSuccess("");
+    setSectionResults([]);
     try {
       const result = await publishPeriodReports(Number(assignment), Number(period));
       setSuccess(result.informesProcesados ? `Se publicaron ${result.informesProcesados} libretas. Los estudiantes y sus apoderados pueden consultar sus notas y descargar su informe.` : "No hay nuevas libretas para publicar. Genera borradores para preparar una nueva versión.");
-      setConfirm(false); setPreview(null); setDrafts([]); setStudent("");
+      setConfirm(null); setPreview(null); setDrafts([]); setStudent("");
+      reloadPublished();
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
+  }
+  async function publishSection() {
+    if (!canWrite || !period || sectionAssignments.length < 2) return;
+    setBusy(true); setError(""); setSuccess(""); setSectionResults([]);
+    let confirmed = 0;
+    try {
+      // Each request commits independently. Keep going and report any unconfirmed course.
+      for (const item of sectionAssignments) {
+        let result: string;
+        try {
+          const response = await publishPeriodReports(item.id, Number(period));
+          confirmed++;
+          result = response.informesProcesados
+            ? `Libretas publicadas: ${response.informesProcesados}`
+            : "Sin nuevas libretas publicadas";
+          if (String(item.id) === assignment) {
+            setPreview(null); setDrafts([]); setStudent("");
+          }
+        } catch (e) {
+          result = `Publicación sin confirmar. ${message(e)}`;
+        }
+        setSectionResults(current => [...current, { assignment: item, result }]);
+      }
+      setSuccess(`Cursos con respuesta confirmada: ${confirmed} de ${sectionAssignments.length}. Consulta el resultado de cada curso.`);
+    } finally {
+      reloadPublished();
+      setConfirm(null);
+      setBusy(false);
+    }
   }
   return <section className="panel" style={{ padding: 24 }}>
     <h2>Libretas del período</h2>
-    <p>Genera los borradores del curso y período y revisa sus resultados. Para actualizarlos, vuelve a generarlos. Publicar requiere todos los niveles completos; las versiones anteriores se conservan.</p>
+    <p>La publicación abarca el curso, la sección y el período seleccionados. Revisa los borradores antes de publicar. Si cambian las notas, vuelve a generar los borradores. La publicación requiere que todas las libretas pendientes del curso estén completas.</p>
     <Feedback error={error} />{success && <p role="status">{success}</p>}
     <label className="field">Curso y sección<select value={assignment} disabled={busy} onChange={e => {
-      setDrafts([]); setPreview(null); setStudent(""); setAssignment(e.target.value); setPeriod(""); setPeriods([]); setConfirm(false); setError(""); setSuccess("");
+      setAssignment(e.target.value); setPeriods([]); changePeriod("");
     }}><option value="">Selecciona un curso</option>{assignments.map(a => <option key={a.id} value={a.id}>{a.curso} · {a.seccion} · {a.anioAcademico}</option>)}</select></label>
-    <label className="field">Período académico<select value={period} disabled={busy || !periods.length} onChange={e => { setDrafts([]); setPreview(null); setStudent(""); setPeriod(e.target.value); setConfirm(false); setSuccess(""); }}>
+    <label className="field">Período académico<select value={period} disabled={busy || !periods.length} onChange={e => changePeriod(e.target.value)}>
       <option value="">Selecciona un período</option>{periods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
     </select></label>
     {canWrite && <button className="primary-action" disabled={!period || busy} onClick={generate}>Generar borradores</button>}{" "}
+    {busy && <Loading variant="inline">Procesando libretas…</Loading>}
+    {period && !published && !publishedError && <Loading variant="inline">Consultando libretas publicadas…</Loading>}
+    {publishedError && <>
+      <Feedback error={`No se pudo consultar el estado de las libretas publicadas. ${publishedError}`} />
+      <button type="button" disabled={busy} onClick={reloadPublished}>Reintentar consulta</button>
+    </>}
+    {period && published && !students.length && <p>No hay libretas publicadas para este curso y período.</p>}
+    {!!students.length && <div className="user-table-wrap">
+      <table className="user-table">
+        <caption>Libretas por estudiante</caption>
+        <thead><tr><th scope="col">Estudiante</th><th scope="col">Estado</th><th scope="col">Consulta</th></tr></thead>
+        <tbody>{students.map(item => {
+          const hasDraft = draftsByStudent.has(item.idAlumno);
+          const publishedReport = publishedByStudent.get(item.idAlumno);
+          return <tr key={item.idAlumno}>
+            <th scope="row">{item.alumno}</th>
+            <td>{hasDraft && "BORRADOR"}{hasDraft && publishedReport && " · "}{publishedReport && "PUBLICADA"}</td>
+            <td>{publishedReport && <button type="button" disabled={busy} onClick={() => review(publishedReport, false)}>
+              Ver libreta publicada de {item.alumno}
+            </button>}</td>
+          </tr>;
+        })}</tbody>
+      </table>
+    </div>}
     {!!drafts.length && <div>
       <label className="field">Alumno para revisar<select value={student} disabled={busy} onChange={e => { setStudent(e.target.value); setPreview(null); }}>
         <option value="">Selecciona un alumno</option>{drafts.map(d => <option key={d.idAlumno} value={d.idAlumno}>{d.alumno}</option>)}
       </select></label>
-      <button disabled={!student || busy} onClick={review}>Revisar borrador</button>
-      {preview && <ReportContent report={preview} draft />}
+      <button disabled={!student || busy} onClick={() => {
+        const item = draftsByStudent.get(Number(student));
+        if (item) void review(item, true);
+      }}>Revisar borrador</button>
     </div>}
-    {canWrite && (!confirm ? <button className="primary-action" disabled={!period || busy} onClick={() => setConfirm(true)}>Publicar libretas</button> : <div>
-      <p>¿Confirmas la publicación? Los alumnos y apoderados vinculados podrán ver sus notas y generar su PDF.</p>
-      <button className="primary-action" disabled={busy} onClick={publish}>{busy ? "Publicando…" : "Confirmar publicación"}</button>{" "}
-      <button disabled={busy} onClick={() => setConfirm(false)}>Cancelar</button>
+    {preview && <ReportContent report={preview.report} draft={preview.draft} />}
+    {canWrite && (!confirm ? <>
+      <button className="primary-action" disabled={!period || busy} onClick={() => setConfirm("course")}>Publicar libretas</button>{" "}
+      {sectionAssignments.length > 1 && <button type="button" disabled={!period || busy} onClick={() => setConfirm("section")}>
+        Publicar mis cursos de esta sección
+      </button>}
+    </> : <div>
+      {confirm === "section" ? <>
+        <p>Cursos a tu cargo en la sección {selectedAssignment?.seccion}. Cada curso se publica por separado para el período seleccionado. El fallo de un curso permite continuar con los demás.</p>
+        <ul>{sectionAssignments.map(item => <li key={item.id}>{item.curso}</li>)}</ul>
+      </> : <p>¿Confirmas la publicación de las libretas de este curso, sección y período? Los alumnos y apoderados vinculados podrán consultarlas y descargar su PDF.</p>}
+      <button className="primary-action" disabled={busy} onClick={confirm === "section" ? publishSection : publish}>
+        {busy ? "Publicando…" : "Confirmar publicación"}
+      </button>{" "}
+      <button disabled={busy} onClick={() => setConfirm(null)}>Cancelar</button>
     </div>)}
+    {!!sectionResults.length && <table className="user-table">
+      <caption>Resultado por curso</caption>
+      <thead><tr><th scope="col">Curso</th><th scope="col">Resultado</th></tr></thead>
+      <tbody>{sectionResults.map(({ assignment: item, result }) => <tr key={item.id}>
+        <th scope="row">{item.curso}</th><td>{result}</td>
+      </tr>)}</tbody>
+    </table>}
   </section>;
 }
