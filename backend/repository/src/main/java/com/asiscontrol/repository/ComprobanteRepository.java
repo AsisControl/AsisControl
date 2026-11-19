@@ -32,8 +32,10 @@ public interface ComprobanteRepository extends JpaRepository<Comprobante, Long> 
                   AND v.apoderado.activo=true AND v.apoderado.persona.activo=true
                   AND v.alumno=cp.matricula.alumno AND v.alumno.activo=true
                   AND v.alumno.persona.activo=true)
+              AND (:idAlumno IS NULL OR cp.matricula.alumno.id=:idAlumno)
             """)
-    Page<Comprobante> buscarHistorialFamiliar(@Param("apoderadoId") Long apoderadoId, Pageable pageable);
+    Page<Comprobante> buscarHistorialFamiliar(@Param("apoderadoId") Long apoderadoId, @Param("idAlumno") Long idAlumno,
+                                              Pageable pageable);
 
     @Query("""
             SELECT c FROM Comprobante c
