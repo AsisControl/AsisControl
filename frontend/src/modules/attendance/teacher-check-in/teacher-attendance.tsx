@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { JustificationInbox } from "../justification-inbox";
 import { TeacherCheckIn } from "./teacher-check-in";
-import styles from "./teacher-check-in.module.css";
+import styles from "./teacher-attendance.module.css";
 
 /** Pestañas de Asistencia del docente: /asistencia y /asistencia/mi-marcacion. */
 const TABS = [
@@ -17,7 +17,7 @@ const TABS = [
 export function TeacherAttendance({ tab, canCheckIn }: { tab?: string; canCheckIn: boolean }) {
   const current = tab === "mi-marcacion" ? "mi-marcacion" : "";
   return (
-    <>
+    <div className={styles.shell}>
       <nav aria-label="Secciones de asistencia" className={styles.tabs}>
         {TABS.map((item) => (
           <Link
@@ -31,6 +31,6 @@ export function TeacherAttendance({ tab, canCheckIn }: { tab?: string; canCheckI
         ))}
       </nav>
       {current === "mi-marcacion" ? <TeacherCheckIn canWrite={canCheckIn} /> : <JustificationInbox />}
-    </>
+    </div>
   );
 }
