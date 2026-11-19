@@ -37,7 +37,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
-    Progreso: () => <ProgressReports />,
+    Progreso: ({ user }) => <ProgressReports key={user.id} />,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
   },
@@ -102,6 +102,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Pagos: () => <GuardianPayments />,
+    Progreso: ({ user }) => <ProgressReports key={user.id} guardian />,
     Matrícula: ({ user, subpath: [tab] }) => (
       <GuardianEnrollmentPortal
         tab={tab}

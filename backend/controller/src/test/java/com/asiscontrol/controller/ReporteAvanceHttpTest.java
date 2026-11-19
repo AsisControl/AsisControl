@@ -16,6 +16,33 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ReporteAvanceHttpTest extends ApiIntegrationSupport {
+    @Test void sinEvaluacionesRechazaGenerarYConEvaluacionSinNotasDejaBorradorPrivado() throws Exception {
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year);
+        periodo.setNombre("Primer bimestre");
+        periodo.setOrden(1);
+        periodo.setFechaInicio(LocalDate.of(2090, 3, 1));
+        periodo.setFechaFin(LocalDate.of(2090, 4, 30));
+        em.persist(periodo);
+        var entrada = data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId());
+        String base = "/api/calificaciones/informes/";
+        assertThat(request("POST", base + "generar", entrada, 422).path("code").asText())
+                .isEqualTo("REPORTE_SIN_CALIFICACIONES");
+
+        evaluacionConNota(LocalDate.of(2090, 3, 15), false);
+        em.flush();
+        assertThat(request("POST", base + "generar", entrada, 200).path("informesProcesados").asInt())
+                .isEqualTo(1);
+        String params = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + periodo.getId();
+        assertThat(getOk(base + "borrador" + params).path("filas").get(0).path("resultado").asText())
+                .isEqualTo("Sin registrar");
+        assertThat(request("POST", base + "publicar", entrada, 422).path("code").asText())
+                .isEqualTo("INFORME_INCOMPLETO");
+        mvc.perform(get("/api/calificaciones/informes-disponibles")
+                        .with(como("APODERADO", guardian.getPersona().getId())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
     @Test void descargaSoloParaAlumnoYFamiliaVinculadosDespuesDePublicar() throws Exception {
         var periodo = new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Primer bimestre");
         periodo.setOrden(1); periodo.setFechaInicio(LocalDate.of(2090,3,1)); periodo.setFechaFin(LocalDate.of(2090,4,30));
@@ -53,6 +80,8 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         for (String rol : new String[]{"ALUMNO","APODERADO","DOCENTE"}) {
             var ajeno=como(rol,person().getId());
             mvc.perform(get(url).with(ajeno)).andExpect(status().isForbidden());
+            mvc.perform(get(url.replace("/reporte-avance?", "/avance?")).with(ajeno))
+                    .andExpect(status().isForbidden());
             mvc.perform(get("/api/calificaciones/informes-disponibles").with(ajeno)).andExpect(jsonPath("$.length()").value(0));
             mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
                     .with(ajeno).contentType("application/json").content(body)).andExpect(status().isForbidden());
