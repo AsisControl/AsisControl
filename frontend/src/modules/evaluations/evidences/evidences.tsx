@@ -4,6 +4,7 @@ import { Feedback, Loading, PanelHeading } from "@/shared/ui";
 import { sectionOf } from "../lib/labels";
 import type { OwnAssignment } from "../types";
 import { EvidenceFormDialog } from "./evidence-form-dialog";
+import { EvidenceList } from "./evidence-list";
 import { useEvidenceContext } from "./use-evidence-context";
 import styles from "./evidences.module.css";
 
@@ -24,6 +25,8 @@ export function Evidences({
   const [periodoId, setPeriodoId] = useState("");
   const [creating, setCreating] = useState(false);
   const [success, setSuccess] = useState("");
+  // Cada registro nuevo vuelve a montar el listado para mostrarlo al instante.
+  const [version, setVersion] = useState(0);
   const assignment = assignments.find((item) => String(item.id) === assignmentId);
   const { context, error, loading } = useEvidenceContext(assignment);
   const student = context?.students?.find((item) => String(item.id) === studentId);
@@ -120,9 +123,25 @@ export function Evidences({
             )
           }
         />
-        <Feedback error={error} success={success} />
+        <Feedback error={error} />
         {loading && <Loading>Cargando datos del curso…</Loading>}
         {!assignment && <p className="empty">Selecciona un curso y sección para empezar.</p>}
+        {assignment && context && student && (
+          <EvidenceList
+            key={`${assignment.id}-${student.id}-${competenciaId}-${periodoId}-${version}`}
+            assignment={assignment}
+            student={student}
+            competencies={context.competencies}
+            periods={context.periods}
+            competenciaId={competenciaId}
+            periodoId={periodoId}
+            canWrite={canWrite}
+            notice={success}
+          />
+        )}
+        {assignment && context && !student && !noStudents && (
+          <p className="empty">Selecciona un estudiante para ver sus evidencias.</p>
+        )}
       </div>
       {creating && assignment && student && context && (
         <EvidenceFormDialog
@@ -136,6 +155,7 @@ export function Evidences({
           onSaved={() => {
             setCreating(false);
             setSuccess("Evidencia registrada.");
+            setVersion((value) => value + 1);
           }}
         />
       )}

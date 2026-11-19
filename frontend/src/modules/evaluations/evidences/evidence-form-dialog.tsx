@@ -5,13 +5,13 @@ import { FormDialog } from "@/shared/ui";
 import { sectionOf } from "../lib/labels";
 import type { CourseCompetency, OwnAssignment } from "../types";
 import { evidenceError } from "./lib/messages";
-import { crearEvidencia } from "./services/evidence-service";
+import { crearEvidencia, editarEvidencia } from "./services/evidence-service";
 import type { Evidence, EvidencePeriod, EvidenceStudent } from "./types";
 import styles from "./evidences.module.css";
 
 export const MAX_DESCRIPTION = 1000;
 
-/** Registro de una evidencia: se sube el archivo y luego se crea la evidencia con su id. */
+/** Registro o edición de una evidencia: se sube el archivo y luego se guarda con su id. */
 export function EvidenceFormDialog({
   assignment,
   student,
@@ -19,6 +19,7 @@ export function EvidenceFormDialog({
   periods,
   competenciaId = "",
   periodoId = "",
+  evidence,
   onClose,
   onSaved,
 }: {
@@ -29,15 +30,18 @@ export function EvidenceFormDialog({
   /** Filtros activos del listado, para no volver a elegirlos. */
   competenciaId?: string;
   periodoId?: string;
+  /** Con una evidencia se edita: el contexto no cambia, solo descripción y archivo. */
+  evidence?: Evidence;
   onClose: () => void;
   onSaved: (evidence: Evidence) => void;
 }) {
   const selector = useRef<HTMLInputElement>(null);
   // Un archivo ya subido se conserva: reintentar no lo vuelve a cargar.
   const uploaded = useRef<number | null>(null);
-  const [competencia, setCompetencia] = useState(competenciaId);
-  const [periodo, setPeriodo] = useState(periodoId);
-  const [descripcion, setDescripcion] = useState("");
+  const [competencia, setCompetencia] = useState(evidence ? String(evidence.competenciaId) : competenciaId);
+  const [periodo, setPeriodo] = useState(evidence ? String(evidence.periodoId) : periodoId);
+  const [descripcion, setDescripcion] = useState(evidence?.descripcion ?? "");
+  const [keep, setKeep] = useState(evidence?.archivo ?? null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,7 +56,7 @@ export function EvidenceFormDialog({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = descripcion.trim();
-    if (!text && !file) {
+    if (!text && !file && !keep) {
       setError("Escribe una descripción o adjunta un archivo.");
       return;
     }
@@ -60,15 +64,18 @@ export function EvidenceFormDialog({
     setError("");
     try {
       if (file && uploaded.current === null) uploaded.current = (await subirArchivo(file)).id;
+      const archivoId = uploaded.current ?? keep?.id ?? null;
       onSaved(
-        await crearEvidencia({
-          asignacionId: assignment.id,
-          alumnoId: student.id,
-          competenciaId: Number(competencia),
-          periodoId: Number(periodo),
-          descripcion: text || null,
-          archivoId: uploaded.current,
-        }),
+        evidence
+          ? await editarEvidencia(evidence.id, { descripcion: text || null, archivoId })
+          : await crearEvidencia({
+              asignacionId: assignment.id,
+              alumnoId: student.id,
+              competenciaId: Number(competencia),
+              periodoId: Number(periodo),
+              descripcion: text || null,
+              archivoId,
+            }),
       );
     } catch (e) {
       setError(evidenceError(e));
@@ -77,17 +84,17 @@ export function EvidenceFormDialog({
   }
   return (
     <FormDialog
-      title="Nueva evidencia"
+      title={evidence ? "Editar evidencia" : "Nueva evidencia"}
       description={`${student.nombre} · ${assignment.curso} · ${sectionOf(assignment)}`}
       busy={busy}
       error={error}
-      submitLabel="Guardar evidencia"
+      submitLabel={evidence ? "Guardar cambios" : "Guardar evidencia"}
       onClose={onClose}
       onSubmit={submit}
     >
       <label className="field">
         Competencia <span className="field-required">*</span>
-        <select required value={competencia} onChange={(event) => setCompetencia(event.target.value)}>
+        <select required disabled={!!evidence} value={competencia} onChange={(event) => setCompetencia(event.target.value)}>
           <option value="">Selecciona una competencia</option>
           {competencies.map((item) => (
             <option key={item.competenciaId} value={item.competenciaId}>
@@ -98,7 +105,7 @@ export function EvidenceFormDialog({
       </label>
       <label className="field">
         Período <span className="field-required">*</span>
-        <select required value={periodo} onChange={(event) => setPeriodo(event.target.value)}>
+        <select required disabled={!!evidence} value={periodo} onChange={(event) => setPeriodo(event.target.value)}>
           <option value="">Selecciona un período</option>
           {periods.map((item) => (
             <option key={item.id} value={item.id}>
@@ -131,6 +138,14 @@ export function EvidenceFormDialog({
           aria-label="Archivo de evidencia"
           onChange={choose}
         />
+        {!file && keep && (
+          <p className={styles.fileName}>
+            {keep.nombreOriginal}
+            <button type="button" onClick={() => setKeep(null)}>
+              Quitar
+            </button>
+          </p>
+        )}
         {file ? (
           <p className={styles.fileName}>
             {file.name}
@@ -146,7 +161,7 @@ export function EvidenceFormDialog({
           </p>
         ) : (
           <button type="button" onClick={() => selector.current?.click()}>
-            Seleccionar archivo
+            {keep ? "Reemplazar archivo" : "Seleccionar archivo"}
           </button>
         )}
       </div>
