@@ -1,5 +1,5 @@
 -- US-20: versiones de libretas y copia de los resultados que las componen.
--- Flyway aplica este script una sola vez, despues de V9. No ejecutarlo manualmente.
+-- Flyway aplica este script una sola vez, despues de V19. No ejecutarlo manualmente.
 CREATE TABLE InformeProgreso (
     id_informe_progreso BIGINT NOT NULL AUTO_INCREMENT,
     id_alumno BIGINT NOT NULL,
