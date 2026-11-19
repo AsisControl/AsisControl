@@ -72,6 +72,38 @@ public class ModuloAccessGuard {
         }
     }
 
+    /** asistencia alumnos: pedir el historial de otro estudiante se rechaza en vez de devolver una lista vacía. */
+    public void verificarConsultaAsistenciaAlumno(Long alumnoId) {
+        if (alumnoId == null) {
+            return;
+        }
+        if (tieneRol("ALUMNO")) {
+            Long propios = entityManager.createQuery("""
+                            SELECT COUNT(a) FROM Alumno a
+                            WHERE a.id = :alumnoId AND a.persona.id = :personaId
+                            """, Long.class)
+                    .setParameter("alumnoId", alumnoId)
+                    .setParameter("personaId", personaIdActual())
+                    .getSingleResult();
+            if (propios == 0) {
+                throw new AccessDeniedException("Solo puede consultar su propia asistencia");
+            }
+        } else if (tieneRol("APODERADO")) {
+            Long vinculos = entityManager.createQuery("""
+                            SELECT COUNT(v) FROM AlumnoApoderado v
+                            WHERE v.activo = true
+                              AND v.alumno.id = :alumnoId
+                              AND v.apoderado.persona.id = :personaId
+                            """, Long.class)
+                    .setParameter("alumnoId", alumnoId)
+                    .setParameter("personaId", personaIdActual())
+                    .getSingleResult();
+            if (vinculos == 0) {
+                throw new AccessDeniedException("El estudiante no está asociado al apoderado");
+            }
+        }
+    }
+
     public void verificarSolicitanteJustificacion(Alumno alumno) {
         if (tieneRol("ADMINISTRADOR")) {
             return;

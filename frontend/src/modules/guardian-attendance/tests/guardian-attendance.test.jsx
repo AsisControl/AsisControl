@@ -8,16 +8,17 @@ import { GuardianAttendance } from "@/modules/guardian-attendance";
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
 const fila = (overrides = {}) => ({
-  id: 1, fechaRegistro: "2026-09-08", horaRegistro: "07:30:00", estado: "PRESENTE", comentario: null, curso: "Matemática",
+  id: 1, fechaRegistro: "2026-09-08", horaRegistro: "07:30:00", horaSesion: "07:30:00", estado: "PRESENTE", comentario: null,
+  curso: "Matemática", anioAcademico: 2026, periodo: "Bimestre III",
   justificacionId: null, estadoJustificacion: null, motivoJustificacion: null, observacionRevision: null, ...overrides,
 });
 const FILAS = [
   fila({ id: 1 }),
   fila({ id: 2, curso: "Comunicación" }),
   fila({ id: 3, estado: "TARDANZA", horaRegistro: "08:10:00", comentario: "Transporte" }),
-  fila({ id: 4, estado: "PRESENTE", fechaRegistro: "2026-08-29" }),
+  fila({ id: 4, estado: "PRESENTE", fechaRegistro: "2026-08-29", periodo: "Bimestre II" }),
   fila({ id: 5, estado: "INASISTENCIA_JUSTIFICADA", horaRegistro: null, curso: "Inglés", justificacionId: 8, estadoJustificacion: "APROBADA", motivoJustificacion: "Cita médica" }),
-  fila({ id: 6, estado: "INASISTENCIA", horaRegistro: null, fechaRegistro: "2026-08-28", curso: "Comunicación" }),
+  fila({ id: 6, estado: "INASISTENCIA", horaRegistro: null, fechaRegistro: "2026-08-28", curso: "Comunicación", periodo: "Bimestre II" }),
   fila({ id: 7, estado: "INASISTENCIA", horaRegistro: null, curso: "Historia", justificacionId: 9, estadoJustificacion: "RECHAZADA", observacionRevision: "Sin sustento" }),
 ];
 const ESTUDIANTES = "GET /api/familia/estudiantes";
@@ -30,7 +31,7 @@ beforeEach(() => {
 });
 
 const abrirModal = async () => {
-  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del 28 Ago 2026" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del Vie, 28 Ago 2026" }));
   return screen.findByRole("dialog");
 };
 
@@ -40,11 +41,11 @@ test("Resume la asistencia y solo ofrece justificar inasistencias sin solicitud"
   expect(await screen.findByText("57%")).toBeTruthy();
   expect(calls.find((call) => call.path === "/api/asistencias/alumnos").query.alumnoId).toBe("5");
   expect(screen.getAllByRole("button", { name: /^Justificar/ })).toHaveLength(1);
-  expect(screen.getByText("08:10 · Transporte")).toBeTruthy();
-  expect(screen.getByText("Justificada")).toBeTruthy();
-  expect(screen.getByText("— · Cita médica")).toBeTruthy();
-  expect(screen.getByText("Rechazada")).toBeTruthy();
-  expect(screen.getByText("— · Sin sustento")).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Acciones" })).toBeTruthy();
+  expect(screen.getByText("Tardanza", { selector: ".status" }).closest("[title]").getAttribute("title")).toBe("Transporte");
+  expect(screen.getByText("Justificada").closest("[title]").getAttribute("title")).toBe("Cita médica");
+  expect(screen.getByText("Rechazada").closest("[title]").getAttribute("title")).toBe("Sin sustento");
+  expect(screen.getByText("Sin justificar")).toBeTruthy();
 });
 
 test("Los filtros recalculan la tabla y los totales", async () => {
@@ -54,7 +55,7 @@ test("Los filtros recalculan la tabla y los totales", async () => {
   await userEvent.selectOptions(screen.getByLabelText("Curso"), "Comunicación");
   expect(screen.getByText("50%")).toBeTruthy();
   expect(screen.queryByRole("cell", { name: "Historia" })).toBeNull();
-  await userEvent.selectOptions(screen.getByLabelText("Mes"), "2026-08");
+  await userEvent.selectOptions(screen.getByLabelText("Periodo"), "Bimestre II");
   expect(screen.getByText("0%")).toBeTruthy();
 });
 
@@ -86,7 +87,7 @@ test("Envía el motivo con las observaciones y el sustento, y queda pendiente", 
   expect(await screen.findByText("La justificación fue enviada y está pendiente de revisión.")).toBeTruthy();
   expect(calls.find((call) => call.method === "POST" && call.path === "/api/justificaciones-asistencia").body)
     .toEqual({ asistenciaAlumnoId: 6, motivo: "Cita médica — Control", archivoIds: [30] });
-  expect(await screen.findByText("Justificación pendiente")).toBeTruthy();
+  expect(await screen.findByText("Pendiente")).toBeTruthy();
   expect(screen.queryByRole("button", { name: /^Justificar/ })).toBeNull();
 });
 

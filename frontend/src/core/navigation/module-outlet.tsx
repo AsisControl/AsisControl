@@ -14,7 +14,7 @@ import {
   ProgressReports,
 } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
-import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { GuardianAttendance, StudentAttendance } from "@/modules/guardian-attendance";
 import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { StudentTasks } from "@/modules/student-tasks";
@@ -40,6 +40,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     Progreso: () => <ProgressReports />,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
+    Asistencia: ({ user }) => <StudentAttendance fullName={user.fullName} />,
   },
   DOCENTE: {
     Progreso: () => <ProgressPreview />,

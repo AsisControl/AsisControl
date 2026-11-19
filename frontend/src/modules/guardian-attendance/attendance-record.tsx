@@ -1,0 +1,260 @@
+// asistencia alumnos
+"use client";
+import { useState } from "react";
+import { countLabel } from "@/shared/lib/formatters";
+import { StatusPill } from "@/shared/ui";
+import {
+  anioDe,
+  enPeriodo,
+  ESTADOS,
+  estadoBase,
+  etiquetaPeriodo,
+  fechaConDia,
+  horaDe,
+  presentarEstado,
+  presentarJustificacion,
+  puedeJustificar,
+  resumir,
+  type EstadoBase,
+  type FiltroPeriodo,
+} from "./lib";
+import styles from "./guardian-attendance.module.css";
+import type { AsistenciaEstudiante } from "./types";
+
+const POR_TANDA = 20;
+type Filtros = {
+  anio: number | null;
+  periodo: FiltroPeriodo;
+  desde: string;
+  hasta: string;
+  curso: string;
+  estado: EstadoBase | "";
+};
+const SIN_FILTROS: Filtros = { anio: null, periodo: "TODO", desde: "", hasta: "", curso: "", estado: "" };
+
+/**
+ * Historial de un estudiante con filtros, totales y tabla, común al apoderado y al alumno.
+ * Sin `onJustify` la tabla es solo de consulta. Los filtros se reinician al cambiar el `key`.
+ */
+export function AttendanceRecord({
+  asistencias,
+  onJustify,
+}: {
+  asistencias: AsistenciaEstudiante[];
+  onJustify?: (fila: AsistenciaEstudiante) => void;
+}) {
+  const [filtros, setFiltros] = useState(SIN_FILTROS);
+  const [visibles, setVisibles] = useState(POR_TANDA);
+  const [abiertos, setAbiertos] = useState(false);
+  const anios = [...new Set(asistencias.map(anioDe))].sort((a, b) => b - a);
+  const anio = filtros.anio ?? anios[0];
+  const delAnio = asistencias.filter((fila) => anioDe(fila) === anio);
+  const periodos = [...new Set(
+    [...delAnio].sort((a, b) => a.fechaRegistro.localeCompare(b.fechaRegistro)).map((fila) => fila.periodo),
+  )].filter((periodo): periodo is string => !!periodo);
+  const cursos = [...new Set(delAnio.map((fila) => fila.curso))].sort((a, b) => a.localeCompare(b, "es"));
+  const fechas = delAnio.map((fila) => fila.fechaRegistro).sort();
+  const base = delAnio.filter(
+    (fila) =>
+      enPeriodo(fila, filtros.periodo, filtros.desde, filtros.hasta) &&
+      (!filtros.curso || fila.curso === filtros.curso),
+  );
+  const filas = base
+    .filter((fila) => !filtros.estado || estadoBase(fila) === filtros.estado)
+    .sort((a, b) => `${b.fechaRegistro}${b.horaSesion ?? ""}`.localeCompare(`${a.fechaRegistro}${a.horaSesion ?? ""}`));
+  const extras = Number(!!filtros.curso) + Number(!!filtros.estado);
+  const activos = extras + Number(filtros.periodo !== "TODO") + Number(filtros.anio !== null);
+  const cambiar = (cambio: Partial<Filtros>) => {
+    setFiltros((actual) => ({ ...actual, ...cambio }));
+    setVisibles(POR_TANDA);
+  };
+  const limpiar = () => {
+    setFiltros(SIN_FILTROS);
+    setVisibles(POR_TANDA);
+  };
+  const { totales, porcentaje } = resumir(base);
+  const contexto = [
+    anios.length > 1 ? String(anio) : null,
+    etiquetaPeriodo(filtros.periodo, filtros.desde, filtros.hasta),
+    filtros.curso || "Todos los cursos",
+    countLabel(base.length, "registro", "registros"),
+  ].filter(Boolean).join(" · ");
+  if (!asistencias.length) return <p className={styles.vacio}>Aún no hay asistencias registradas.</p>;
+  return (
+    <>
+      <div className={styles.filtros}>
+        {anios.length > 1 && (
+          <label>
+            <span>Año</span>
+            <select
+              value={anio}
+              onChange={(event) => cambiar({ anio: Number(event.target.value), periodo: "TODO", desde: "", hasta: "", curso: "" })}
+            >
+              {anios.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+        )}
+        <label className={styles.filtroPeriodo}>
+          <span>Periodo</span>
+          <select value={filtros.periodo} onChange={(event) => cambiar({ periodo: event.target.value as FiltroPeriodo })}>
+            <option value="TODO">Todo el año</option>
+            {anio === anios[0] && <option value="MES">Este mes</option>}
+            {anio === anios[0] && <option value="MES_ANTERIOR">Mes anterior</option>}
+            {periodos.map((periodo) => <option key={periodo} value={`P:${periodo}`}>{periodo}</option>)}
+            <option value="PERSONALIZADO">Personalizado</option>
+          </select>
+        </label>
+        {filtros.periodo === "PERSONALIZADO" && (
+          <>
+            <label>
+              <span>Desde</span>
+              <input
+                type="date"
+                value={filtros.desde}
+                min={fechas[0]}
+                max={filtros.hasta || fechas.at(-1)}
+                onChange={(event) => cambiar({ desde: event.target.value })}
+              />
+            </label>
+            <label>
+              <span>Hasta</span>
+              <input
+                type="date"
+                value={filtros.hasta}
+                min={filtros.desde || fechas[0]}
+                max={fechas.at(-1)}
+                onChange={(event) => cambiar({ hasta: event.target.value })}
+              />
+            </label>
+          </>
+        )}
+        <button
+          type="button"
+          className={styles.botonFiltros}
+          aria-expanded={abiertos}
+          onClick={() => setAbiertos((valor) => !valor)}
+        >
+          Filtros{extras ? ` · ${extras}` : ""}
+        </button>
+        <div className={styles.filtrosExtra} data-abierto={abiertos}>
+          <label>
+            <span>Curso</span>
+            <select value={filtros.curso} onChange={(event) => cambiar({ curso: event.target.value })}>
+              <option value="">Todos</option>
+              {cursos.map((curso) => <option key={curso} value={curso}>{curso}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Estado</span>
+            <select value={filtros.estado} onChange={(event) => cambiar({ estado: event.target.value as EstadoBase | "" })}>
+              <option value="">Todos</option>
+              {ESTADOS.map(({ valor, etiqueta }) => <option key={valor} value={valor}>{etiqueta}</option>)}
+            </select>
+          </label>
+        </div>
+        {activos > 0 && (
+          <button type="button" className={styles.limpiar} onClick={limpiar}>Limpiar filtros</button>
+        )}
+      </div>
+      <p className={styles.contexto}>{contexto}</p>
+      <div className={styles.totales}>
+        <button
+          type="button"
+          className={`${styles.tarjeta} ${styles.tarjetaPrincipal}`}
+          aria-pressed={!filtros.estado}
+          title="Presentes y tardanzas cuentan como asistencia"
+          onClick={() => cambiar({ estado: "" })}
+        >
+          <strong>{porcentaje}%</strong>
+          <span>Asistencia</span>
+        </button>
+        {ESTADOS.map(({ valor, plural }) => (
+          <button
+            key={valor}
+            type="button"
+            className={styles.tarjeta}
+            aria-pressed={filtros.estado === valor}
+            onClick={() => cambiar({ estado: filtros.estado === valor ? "" : valor })}
+          >
+            <strong className={totales[valor] ? styles[valor] : styles.cero}>{totales[valor]}</strong>
+            <span>{plural}</span>
+          </button>
+        ))}
+      </div>
+      <div className={styles.lista}>
+        {filas.length === 0 ? (
+          <div className={styles.vacioFiltros}>
+            <h3>Aún no hay asistencias en este periodo</h3>
+            <p>Prueba con otro mes o quita los filtros.</p>
+            {activos > 0 && (
+              <button type="button" className={styles.accion} onClick={limpiar}>Limpiar filtros</button>
+            )}
+          </div>
+        ) : (
+          <table className={styles.tabla}>
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Curso</th>
+                <th scope="col">Hora</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Justificación</th>
+                {onJustify && <th scope="col">Acciones</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filas.slice(0, visibles).map((fila) => {
+                const { etiqueta, tono } = presentarEstado(fila);
+                const justificacion = presentarJustificacion(fila);
+                const hora = horaDe(fila);
+                return (
+                  <tr key={fila.id}>
+                    <td className={styles.celdaFecha}>{fechaConDia(fila.fechaRegistro)}</td>
+                    <td className={styles.celdaCurso}>
+                      {fila.curso}
+                      <span className={styles.horaMovil}> · {hora}</span>
+                    </td>
+                    <td className={styles.celdaHora}>{hora}</td>
+                    <td className={styles.celdaEstado}>
+                      <span title={fila.comentario ?? undefined}>
+                        <StatusPill state={fila.estado} label={etiqueta} tone={tono} />
+                      </span>
+                    </td>
+                    <td className={styles.celdaJustificacion} data-vacia={!justificacion}>
+                      {justificacion ? (
+                        <span title={justificacion.detalle ?? undefined}>
+                          <StatusPill state={etiqueta} label={justificacion.etiqueta} tone={justificacion.tono} />
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    {onJustify && (
+                      <td className={styles.celdaAcciones} data-vacia={!puedeJustificar(fila)}>
+                        {puedeJustificar(fila) && (
+                          <button
+                            type="button"
+                            className={styles.accion}
+                            aria-label={`Justificar ${fila.curso} del ${fechaConDia(fila.fechaRegistro)}`}
+                            onClick={() => onJustify(fila)}
+                          >
+                            Justificar
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        {filas.length > visibles && (
+          <button type="button" className={styles.verMas} onClick={() => setVisibles((valor) => valor + POR_TANDA)}>
+            Ver más
+          </button>
+        )}
+      </div>
+    </>
+  );
+}

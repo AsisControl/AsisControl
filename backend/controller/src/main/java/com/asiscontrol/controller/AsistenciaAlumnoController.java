@@ -47,6 +47,7 @@ public class AsistenciaAlumnoController {
             @RequestParam(required = false) Long asignacionCursoId,
             @RequestParam(required = false) LocalDate fechaRegistro,
             @PageableDefault(size = 20, sort = "fechaRegistro") Pageable pageable) {
+        accessGuard.verificarConsultaAsistenciaAlumno(alumnoId);
         return asistenciaService.listar(
                 alumnoId,
                 asignacionCursoId,
