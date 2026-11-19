@@ -16,7 +16,7 @@ const PUBLISH_TAB = "publicar-notas";
 const tabs: TabItem[] = [
   { id: LIST_TAB, label: "Mis evaluaciones" },
   { id: REGISTRY_TAB, label: "Registro de calificaciones" },
-  { id: PUBLISH_TAB, label: "Publicar notas" },
+  { id: PUBLISH_TAB, label: "Libretas" },
 ];
 
 /** Evaluaciones del docente (US-18 y US-50). La URL es /evaluaciones/{pestaña}/{evaluación}. */
