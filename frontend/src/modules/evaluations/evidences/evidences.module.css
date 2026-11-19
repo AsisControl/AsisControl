@@ -1,0 +1,65 @@
+.filters {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 16px;
+  padding: 16px;
+}
+.filters :global(.field) {
+  margin: 0;
+}
+.pending {
+  background: #fef3c7;
+  border-radius: 999px;
+  color: #92400e;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+  padding: 2px 8px;
+}
+.reason {
+  color: #64748b;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+.attachment {
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+.attachment p {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+}
+.fileName {
+  align-items: center;
+  color: #0f172a !important;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  overflow-wrap: anywhere;
+}
+.actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+.description {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.linkButton {
+  background: none;
+  border: 0;
+  color: var(--brand-primary, #1e3a8a);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+}
