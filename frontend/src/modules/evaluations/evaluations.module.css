@@ -191,8 +191,8 @@
 }
 .levelActive,
 .levelActive:disabled {
-  background: #1e3a8a;
-  border-color: #1e3a8a;
+  background: var(--blue);
+  border-color: var(--blue);
   color: #fff;
 }
 .levelActive.levelChanged {

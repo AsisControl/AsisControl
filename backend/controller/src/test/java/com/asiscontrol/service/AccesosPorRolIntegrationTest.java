@@ -37,8 +37,7 @@ class AccesosPorRolIntegrationTest {
     }
     private UsuarioDtos.ProvisionRequest request(String rol, Long id, Set<Long> studentIds) {
         String k = key();
-        return new UsuarioDtos.ProvisionRequest(id, id == null ? person(k) : null, role(rol),
-            "usr" + k, "cuenta" + k + "@example.test", "Temporal123!", "EST" + k, "DOC" + k,
+        return new UsuarioDtos.ProvisionRequest(id, id == null ? person(k) : null, role(rol), "Temporal123!",
             LocalDate.now(), Especialidad.MATEMATICA, studentIds);
     }
 
@@ -71,7 +70,7 @@ class AccesosPorRolIntegrationTest {
                 LocalDate.now(java.time.ZoneId.of("America/Lima")).minusYears(14),
                 personaRequest.telefono(), personaRequest.correo(), personaRequest.direccion());
         var student = personas.createAlumno(
-                new PersonaDtos.AlumnoCreateRequest(studentPerson, "EST" + key()));
+                new PersonaDtos.AlumnoCreateRequest(studentPerson));
         var guardian = service.provision(request("APODERADO", null, Set.of(student.id())));
         var profile = apoderadoRepo.findByPersonaIdAndActivoTrue(guardian.personaId()).orElseThrow();
         var link = links.findByAlumnoIdAndApoderadoIdAndActivoTrue(student.id(), profile.getId()).orElseThrow();
@@ -90,15 +89,29 @@ class AccesosPorRolIntegrationTest {
     }
     @Test void rechazaPasswordTemporalDebil() {
         var r = request("ADMINISTRADOR", null, Set.of());
-        var weak = new UsuarioDtos.ProvisionRequest(r.personaId(), r.persona(), r.rolId(), r.username(), r.correo(),
-            "soloMinusculas", null, null, null, null, Set.of());
+        var weak = new UsuarioDtos.ProvisionRequest(r.personaId(), r.persona(), r.rolId(),
+            "soloMinusculas", null, null, Set.of());
         assertThatThrownBy(() -> service.provision(weak)).isInstanceOf(BusinessRuleException.class);
     }
     @Test void exigeExclusividadEntrePersonaNuevaYExistente() {
         var first = service.provision(request("DOCENTE", null, Set.of()));
         var r = request("APODERADO", null, Set.of());
-        var ambiguous = new UsuarioDtos.ProvisionRequest(first.personaId(), r.persona(), r.rolId(), r.username(),
-            r.correo(), r.password(), null, null, null, null, Set.of());
+        var ambiguous = new UsuarioDtos.ProvisionRequest(first.personaId(), r.persona(), r.rolId(), r.password(), null, null, Set.of());
         assertThatThrownBy(() -> service.provision(ambiguous)).isInstanceOf(BusinessRuleException.class);
+    }
+    @Test void generaUsuarioYCorreoInstitucionalPorPerfilConVigenciaDe14Dias() {
+        var antes = java.time.Instant.now();
+        var docente = service.provision(request("DOCENTE", null, Set.of()));
+        var apoderado = service.provision(request("APODERADO", docente.personaId(), Set.of()));
+        // Mismo nombre, otra cuenta: el usuario lleva sufijo y cada perfil tiene su propio correo.
+        assertThat(docente.username()).startsWith("persona.prueba");
+        assertThat(apoderado.username()).startsWith("persona.prueba").isNotEqualTo(docente.username());
+        assertThat(docente.codigoPerfil()).matches("DOC[0-9]{8}");
+        assertThat(apoderado.codigoPerfil()).matches("APO[0-9]{8}");
+        assertThat(docente.correo()).isEqualTo(docente.codigoPerfil().toLowerCase() + "@asiscontrol.edu.pe");
+        assertThat(apoderado.correo()).isEqualTo(apoderado.codigoPerfil().toLowerCase() + "@asiscontrol.edu.pe");
+        assertThat(docente.contrasenaTemporalExpira())
+            .isBetween(antes.plus(java.time.Duration.ofDays(14)).minusSeconds(5),
+                java.time.Instant.now().plus(java.time.Duration.ofDays(14)));
     }
 }

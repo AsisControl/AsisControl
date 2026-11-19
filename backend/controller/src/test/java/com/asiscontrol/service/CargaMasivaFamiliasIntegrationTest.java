@@ -11,6 +11,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
@@ -39,11 +41,9 @@ class CargaMasivaFamiliasIntegrationTest {
     @Autowired private com.asiscontrol.repository.ApoderadoRepository apoderadoRepository;
     @Autowired private com.asiscontrol.repository.AlumnoApoderadoRepository vinculos;
     @Autowired private com.asiscontrol.repository.AccesoUsuarioRepository accesos;
-    @Autowired private com.asiscontrol.repository.RolRepository roles;
-    @Autowired private UsuarioService usuarios;
 
     @Test
-    void familiaNuevaImportaDosHijosUnApoderadoYDosVinculosSinCrearCuentas() {
+    void familiaNuevaImportaDosHijosUnApoderadoYDosVinculosYGeneraAccesos() {
         var familia = new Familia();
         long personasAntes = personaRepository.count(), apoderadosAntes = apoderadoRepository.count();
         long alumnosAntes = alumnoRepository.count(), vinculosAntes = vinculos.count(), cuentasAntes = accesos.count();
@@ -54,50 +54,61 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(apoderadoRepository.count()).isEqualTo(apoderadosAntes + 1);
         assertThat(alumnoRepository.count()).isEqualTo(alumnosAntes + 2);
         assertThat(vinculos.count()).isEqualTo(vinculosAntes + 2);
-        assertThat(accesos.count()).isEqualTo(cuentasAntes);
+        assertThat(accesos.count()).isEqualTo(cuentasAntes + 3);
         var madre = personaRepository.findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, familia.madreDni).orElseThrow();
         var apoderado = apoderadoRepository.findByPersonaIdAndActivoTrue(madre.getId()).orElseThrow();
         assertThat(personas.getApoderado(apoderado.getId()).alumnos()).hasSize(2);
     }
 
-    @Test
-    void agregaSegundoHijoSinArchivoDeApoderadosYConservaSuUnicaCuenta() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void agregaSegundoHijoYConservaLaCuentaDelApoderado(boolean incluirApoderado) {
         var familia = new Familia();
         assertThat(carga.procesar(familia.estudiantes(), familia.apoderados(), familia.parentescos("MADRE"), true).saved()).isTrue();
-        var cuenta = familia.crearCuenta();
+        var madre = familia.madreRegistrada();
+        var cuenta = accesos.findAllByPersonaIdAndActivoTrue(madre.getId()).getFirst();
         long personasAntes = personaRepository.count(), apoderadosAntes = apoderadoRepository.count();
         long alumnosAntes = alumnoRepository.count(), vinculosAntes = vinculos.count(), cuentasAntes = accesos.count();
-        var resultado = carga.procesar(familia.segundoEstudiante(), null, familia.segundoParentesco(), true);
+        var resultado = carga.procesar(familia.segundoEstudiante(),
+                incluirApoderado ? familia.apoderados() : null, familia.segundoParentesco(), true);
         assertThat(resultado.saved()).isTrue();
-        assertThat(resultado.files()).containsOnlyKeys("estudiantes", "parentescos");
+        if (incluirApoderado) {
+            assertThat(resultado.files()).containsOnlyKeys("estudiantes", "apoderados", "parentescos");
+            assertThat(resultado.files().get("apoderados").result().credentials())
+                    .singleElement().satisfies(credencial -> {
+                        assertThat(credencial.existing()).isTrue();
+                        assertThat(credencial.temporaryPassword()).isNull();
+                    });
+        } else {
+            assertThat(resultado.files()).containsOnlyKeys("estudiantes", "parentescos");
+        }
         assertThat(personaRepository.count()).isEqualTo(personasAntes + 1);
         assertThat(apoderadoRepository.count()).isEqualTo(apoderadosAntes);
         assertThat(alumnoRepository.count()).isEqualTo(alumnosAntes + 1);
         assertThat(vinculos.count()).isEqualTo(vinculosAntes + 1);
-        assertThat(accesos.count()).isEqualTo(cuentasAntes);
-        assertThat(usuarios.get(cuenta.id()).personaId()).isEqualTo(cuenta.personaId());
-        var apoderado = apoderadoRepository.findByPersonaIdAndActivoTrue(cuenta.personaId()).orElseThrow();
+        assertThat(accesos.count()).isEqualTo(cuentasAntes + 1);
+        assertThat(accesos.findAllByPersonaIdAndActivoTrue(madre.getId()))
+                .extracting(acceso -> acceso.getId()).containsExactly(cuenta.getId());
+        var apoderado = apoderadoRepository.findByPersonaIdAndActivoTrue(madre.getId()).orElseThrow();
         assertThat(personas.getApoderado(apoderado.getId()).alumnos()).hasSize(2);
     }
 
     @Test
-    void reimportarApoderadoRechazaTodoElLoteSinDuplicadosNiSegundoHijoParcial() {
+    void identidadIncompatibleRechazaTodoElLoteSinSegundoHijoParcial() {
         var familia = new Familia();
         assertThat(carga.procesar(familia.estudiantes(), familia.apoderados(), familia.parentescos("MADRE"), true).saved()).isTrue();
-        familia.crearCuenta();
         long personasAntes = personaRepository.count(), apoderadosAntes = apoderadoRepository.count();
         long alumnosAntes = alumnoRepository.count(), vinculosAntes = vinculos.count(), cuentasAntes = accesos.count();
-        var resultado = carga.procesar(familia.segundoEstudiante(), familia.apoderados(), familia.segundoParentesco(), true);
+        var resultado = carga.procesar(familia.segundoEstudiante(), familia.apoderados("Elena"), familia.segundoParentesco(), true);
         assertThat(resultado.valid()).isFalse();
         assertThat(resultado.saved()).isFalse();
         assertThat(resultado.files().get("apoderados").result().issues()).anySatisfy(issue ->
-                assertThat(issue.message()).contains("ya esta registrada como apoderado"));
+                assertThat(issue.message()).contains("otros nombres o fecha de nacimiento"));
         assertThat(personaRepository.count()).isEqualTo(personasAntes);
         assertThat(apoderadoRepository.count()).isEqualTo(apoderadosAntes);
         assertThat(alumnoRepository.count()).isEqualTo(alumnosAntes);
         assertThat(vinculos.count()).isEqualTo(vinculosAntes);
         assertThat(accesos.count()).isEqualTo(cuentasAntes);
-        assertThat(alumnoRepository.findByCodigoAlumnoIgnoreCase(familia.codigo2)).isEmpty();
         assertThat(personaRepository.findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, familia.segundoDni)).isEmpty();
     }
 
@@ -113,6 +124,15 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(resultado.files()).containsOnlyKeys("estudiantes", "apoderados", "parentescos");
         // Los parentescos encontraron al estudiante y al apoderado de los otros dos archivos.
         assertThat(resultado.files().get("parentescos").result().importedRows()).isEqualTo(1);
+        // Al validar se anticipan los usuarios, pero ninguna contraseña: no se guardó nada.
+        assertThat(resultado.files().get("estudiantes").result().credentials())
+                .singleElement()
+                .satisfies(c -> {
+                    assertThat(c.username()).startsWith("mateo.ramos");
+                    assertThat(c.temporaryPassword()).isNull();
+                });
+        assertThat(resultado.files().get("apoderados").result().credentials())
+                .allSatisfy(c -> assertThat(c.temporaryPassword()).isNull());
         familia.noSeGuardo();
     }
 
@@ -135,7 +155,7 @@ class CargaMasivaFamiliasIntegrationTest {
     @Test
     void unArchivoIlegibleSeInformaYTampocoSeGuardaNada() {
         var familia = new Familia();
-        var sinCabeceras = excel("parentescos.xlsx", List.of("codigoAlumno"));
+        var sinCabeceras = excel("parentescos.xlsx", List.of("numeroDocumentoAlumno"));
 
         var resultado = carga.procesar(familia.estudiantes(), familia.apoderados(), sinCabeceras, true);
 
@@ -154,10 +174,53 @@ class CargaMasivaFamiliasIntegrationTest {
 
         assertThat(resultado.valid()).isTrue();
         assertThat(resultado.saved()).isTrue();
-        var alumno = alumnoRepository.findByCodigoAlumnoIgnoreCase(familia.codigo).orElseThrow();
+        var persona = personaRepository
+                .findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, familia.alumnoDni)
+                .orElseThrow();
+        var alumno = alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()).orElseThrow();
+        // La columna codigoAlumno de un archivo antiguo se ignora: el código lo genera el sistema.
+        assertThat(alumno.getCodigoAlumno()).startsWith("EST").isNotEqualTo(familia.codigo);
         assertThat(personas.getAlumno(alumno.getId()).apoderados())
                 .extracting(PersonaDtos.ApoderadoVinculadoResponse::nombreCompleto)
                 .containsExactly("Carmen Ramos Quispe");
+        var estudiante = resultado.files().get("estudiantes").result().credentials().getFirst();
+        var madre = resultado.files().get("apoderados").result().credentials().getFirst();
+        assertThat(estudiante.role()).isEqualTo("ALUMNO");
+        assertThat(estudiante.code()).isEqualTo(alumno.getCodigoAlumno());
+        assertThat(estudiante.temporaryPassword()).isNotBlank();
+        assertThat(madre.role()).isEqualTo("APODERADO");
+        assertThat(madre.temporaryPassword()).isNotBlank();
+        assertThat(accesos.findAllByPersonaIdAndActivoTrue(persona.getId()))
+                .singleElement()
+                .satisfies(cuenta -> {
+                    assertThat(cuenta.getUsername()).isEqualTo(estudiante.username());
+                    assertThat(cuenta.isRequiereCambioContrasena()).isTrue();
+                });
+    }
+
+    @Test
+    void unApoderadoConDosHijosTieneUnaSolaCuenta() {
+        String hijo = dni(), hija = dni(), madre = dni();
+        var estudiantes = excel("estudiantes.xlsx", STUDENT,
+                List.of("", "Mateo", "Ramos", "Quispe", "DNI", hijo, "MASCULINO", "2013-04-10", "", "", ""),
+                List.of("", "Lucia", "Ramos", "Quispe", "DNI", hija, "FEMENINO", "2014-06-02", "", "", ""));
+        var apoderados = excel("apoderados.xlsx", PlantillaFamiliaService.GUARDIAN_HEADERS,
+                List.of("DNI", madre, "Carmen", "Ramos", "Quispe", "FEMENINO", "1984-07-21", "",
+                        "987654321", "", ""));
+        var parentescos = excel("parentescos.xlsx", PlantillaFamiliaService.RELATIONSHIP_HEADERS,
+                List.of("DNI", hijo, "DNI", madre, "MADRE", "SI"),
+                List.of("DNI", hija, "DNI", madre, "MADRE", "SI"));
+
+        var resultado = carga.procesar(estudiantes, apoderados, parentescos, true);
+
+        assertThat(resultado.saved()).isTrue();
+        assertThat(resultado.files().get("estudiantes").result().credentials()).hasSize(2);
+        assertThat(resultado.files().get("apoderados").result().credentials()).hasSize(1);
+        var persona = personaRepository
+                .findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, madre).orElseThrow();
+        assertThat(accesos.findAllByPersonaIdAndActivoTrue(persona.getId()))
+                .singleElement()
+                .satisfies(cuenta -> assertThat(cuenta.getRol().getNombre()).isEqualTo("APODERADO"));
     }
 
     /** Un estudiante y su madre con documentos y codigo unicos en cada prueba. */
@@ -178,17 +241,14 @@ class CargaMasivaFamiliasIntegrationTest {
                     List.of(codigo, "Mateo", "Ramos", "Quispe", "DNI", alumnoDni, "MASCULINO", "2013-04-10", "", alumnoDni + "@alumno.pe", ""), filaSegundo());
         }
         MockMultipartFile segundoParentesco() {
-            return excel("parentescos.xlsx", PlantillaFamiliaService.RELATIONSHIP_HEADERS, List.of(codigo2, "DNI", madreDni, "MADRE", "SI"));
+            return excel("parentescos.xlsx", PlantillaFamiliaService.RELATIONSHIP_HEADERS, List.of("DNI", segundoDni, "DNI", madreDni, "MADRE", "SI"));
         }
         MockMultipartFile dosParentescos() {
             return excel("parentescos.xlsx", PlantillaFamiliaService.RELATIONSHIP_HEADERS,
-                    List.of(codigo, "DNI", madreDni, "MADRE", "SI"), List.of(codigo2, "DNI", madreDni, "MADRE", "SI"));
+                    List.of("DNI", alumnoDni, "DNI", madreDni, "MADRE", "SI"), List.of("DNI", segundoDni, "DNI", madreDni, "MADRE", "SI"));
         }
-        com.asiscontrol.dto.seguridad.UsuarioDtos.Response crearCuenta() {
-            var madre = personaRepository.findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, madreDni).orElseThrow();
-            return usuarios.create(new com.asiscontrol.dto.seguridad.UsuarioDtos.CreateRequest(madre.getId(),
-                    roles.findByNombreIgnoreCase("APODERADO").orElseThrow().getId(), "madre" + madreDni,
-                    madreDni + "@familia.pe", "Temporal2026Clave!", true));
+        com.asiscontrol.entity.Persona madreRegistrada() {
+            return personaRepository.findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, madreDni).orElseThrow();
         }
 
         MockMultipartFile estudiantes() {
@@ -196,15 +256,17 @@ class CargaMasivaFamiliasIntegrationTest {
                     "DNI", alumnoDni, "MASCULINO", "2013-04-10", "", alumnoDni + "@alumno.pe", ""));
         }
 
-        MockMultipartFile apoderados() {
+        MockMultipartFile apoderados() { return apoderados("Carmen"); }
+
+        MockMultipartFile apoderados(String nombre) {
             return excel("apoderados.xlsx", PlantillaFamiliaService.GUARDIAN_HEADERS,
-                    List.of("DNI", madreDni, "Carmen", "Ramos", "Quispe", "FEMENINO",
-                            "1984-07-21", "", madreDni + "@familia.pe", ""));
+                    List.of("DNI", madreDni, nombre, "Ramos", "Quispe", "FEMENINO",
+                            "1984-07-21", "", "", madreDni + "@familia.pe", ""));
         }
 
         MockMultipartFile parentescos(String parentesco) {
             return excel("parentescos.xlsx", PlantillaFamiliaService.RELATIONSHIP_HEADERS,
-                    List.of(codigo, "DNI", madreDni, parentesco, "SI"));
+                    List.of("DNI", alumnoDni, "DNI", madreDni, parentesco, "SI"));
         }
 
         void noSeGuardo() {

@@ -1,5 +1,5 @@
 "use client";
-import { Feedback, Pager } from "@/shared/ui";
+import { Feedback, Pager, Loading } from "@/shared/ui";
 import { PersonFields } from "@/shared/forms/person-fields";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { roleLabel } from "@/shared/lib/formatters";
@@ -70,7 +70,7 @@ export function PersonStep({
           />
           <Feedback error={people.error} />
           {people.loading ? (
-            <p role="status">Cargando personas…</p>
+            <Loading>Cargando personas…</Loading>
           ) : people.data?.content.length ? (
             <div className={styles.choiceList}>
               {people.data.content.map((choice) => {

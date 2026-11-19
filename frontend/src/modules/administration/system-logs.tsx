@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
-import { Dialog, Feedback, Field, Pager } from "@/shared/ui";
+import { Dialog, Feedback, Field, Pager, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { dateLabel, stateLabel } from "@/shared/lib/formatters";
 type SystemError = {
@@ -140,7 +140,7 @@ export function SystemLogs() {
         </div>
       </form>
       {logs.loading ? (
-        <p role="status">Cargando logs…</p>
+        <Loading>Cargando logs…</Loading>
       ) : logs.data?.content.length ? (
         <div className="user-table-wrap">
           <table className="user-table">
@@ -256,7 +256,7 @@ export function SystemLogs() {
               <p className="empty">Sin seguimientos registrados.</p>
             )
           ) : (
-            <p role="status">Cargando historial…</p>
+            <Loading skeleton="list">Cargando historial…</Loading>
           )}
         </Dialog>
       )}

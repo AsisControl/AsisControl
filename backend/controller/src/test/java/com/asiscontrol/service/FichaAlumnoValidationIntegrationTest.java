@@ -102,7 +102,7 @@ class FichaAlumnoValidationIntegrationTest {
                                 jsonPath("$.codigoAlumno")
                                         .value(
                                                 org.hamcrest.Matchers.matchesPattern(
-                                                        "ESTU-[0-9]{6,}")))
+                                                        "EST[0-9]{8}")))
                         .andExpect(jsonPath("$.persona.apellidoMaterno").isEmpty())
                         .andExpect(jsonPath("$.persona.tipoDocumento").isEmpty())
                         .andExpect(jsonPath("$.persona.nombreCompleto").value("Diego Ibarra"))

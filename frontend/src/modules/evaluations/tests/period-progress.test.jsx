@@ -44,7 +44,7 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   expect(within(article).getByText(/Generado:.*Lima/)).toBeTruthy();
   expect(within(article).getByText(/Explica su procedimiento/)).toBeTruthy();
   expect(within(article).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["Competencia", "Evaluación", "Fecha", "Resultado", "Ponderación", "Observación"]);
-  expect(screen.getByText(/no representa una versión publicada persistida/)).toBeTruthy();
+  expect(screen.getByText(/Consulta la última versión publicada/)).toBeTruthy();
   expect(calls.find((call) => call.path.endsWith("periodos-informe")).query).toEqual({ idAsignacionCurso: "5" });
   expect(calls.find((call) => call.path.endsWith("avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
   await interaction.click(screen.getByRole("button", { name: "Descargar PDF" }));

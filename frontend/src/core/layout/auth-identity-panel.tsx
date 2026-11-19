@@ -1,5 +1,13 @@
+import type { UserRole } from "@/core/auth/types";
+import { roleLabels } from "@/core/navigation/navigation";
 import { Brand } from "./brand";
+import { SpaceIcon } from "./role-context";
+import { roleSpaces } from "./role-space";
+import "./role-theme.css";
 import styles from "./auth-identity-panel.module.css";
+
+const roles: UserRole[] = ["ADMINISTRADOR", "DOCENTE", "ESTUDIANTE", "APODERADO"];
+
 /** Columna institucional común a login, recuperación y cambio de contraseña. */
 export function AuthIdentityPanel() {
   return (
@@ -18,14 +26,21 @@ export function AuthIdentityPanel() {
             Integrada
           </h2>
           <p>
-            Accede a la información académica, administrativa y de comunicación
-            del Colegio PUCP.
+            Matrícula, asistencia, evaluaciones, tareas y pagos del Colegio PUCP
+            en un solo lugar.
           </p>
-          <ul>
-            <li>Administrador</li>
-            <li>Docente</li>
-            <li>Estudiante</li>
-            <li>Apoderado</li>
+          <h3 className={styles.rolesTitle}>Un espacio para cada rol</h3>
+          {/* Cada tarjeta usa el color con el que el rol verá su espacio al ingresar. */}
+          <ul className={styles.roleGrid}>
+            {roles.map((role) => (
+              <li key={role} className={styles.roleCard} data-role-palette={role}>
+                <span className={styles.roleIcon} aria-hidden="true">
+                  <SpaceIcon icon={roleSpaces[role].icon} size={18} />
+                </span>
+                <strong>{roleLabels[role]}</strong>
+                <small>{roleSpaces[role].title}</small>
+              </li>
+            ))}
           </ul>
         </div>
       </div>

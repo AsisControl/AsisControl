@@ -48,7 +48,7 @@ test("un doble clic mientras se prepara el pago envía una sola solicitud", asyn
   await waitFor(() => expect(calls.filter((call) => call.method === "POST")).toHaveLength(1));
   expect(screen.getByRole("button", { name: "Preparando…" }).disabled).toBe(true);
   await act(async () => { finish(order()); });
-  expect(await screen.findByLabelText("Resultado de autorización")).toBeTruthy();
+  expect(await screen.findByRole("button", { name: /Confirmar pago/ })).toBeTruthy();
   expect(calls.filter((call) => call.method === "POST")).toHaveLength(1);
 });
 

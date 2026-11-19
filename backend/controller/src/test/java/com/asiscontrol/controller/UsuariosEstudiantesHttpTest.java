@@ -78,7 +78,7 @@ class UsuariosEstudiantesHttpTest {
         var student =
                 call(
                         post("/api/alumnos"),
-                        new PersonaDtos.AlumnoCreateRequest(persona(s), "EST" + s),
+                        new PersonaDtos.AlumnoCreateRequest(persona(s)),
                         201);
         long id = student.path("id").asLong();
         assertThat(student.path("persona").path("nombres").asText()).isEqualTo("Maria");
@@ -121,7 +121,7 @@ class UsuariosEstudiantesHttpTest {
         var alumno =
                 call(
                         post("/api/alumnos"),
-                        new PersonaDtos.AlumnoCreateRequest(persona(s), "EST" + s),
+                        new PersonaDtos.AlumnoCreateRequest(persona(s)),
                         201);
         long role = roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId();
         var account =
@@ -138,6 +138,11 @@ class UsuariosEstudiantesHttpTest {
                         201);
         long id = account.path("id").asLong();
         String email = account.path("correo").asText();
+        // Por la API web el usuario y el correo enviados se ignoran: los genera el sistema.
+        org.assertj.core.api.Assertions.assertThat(account.path("username").asText())
+                .startsWith("maria.torres");
+        org.assertj.core.api.Assertions.assertThat(email)
+                .isEqualTo(account.path("codigoPerfil").asText().toLowerCase() + "@asiscontrol.edu.pe");
         call(get("/api/usuarios"), null, 200);
         call(get("/api/usuarios/personas"), null, 200);
         call(get("/api/usuarios/{id}", id), null, 200);
@@ -164,11 +169,7 @@ class UsuariosEstudiantesHttpTest {
                                 null,
                                 persona(p),
                                 role,
-                                "usr" + p,
-                                "cuenta" + p + "@example.test",
                                 "Temporal123!",
-                                "EST" + p,
-                                null,
                                 null,
                                 null,
                                 Set.of()),

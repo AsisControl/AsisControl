@@ -18,5 +18,5 @@ public interface CodigoQRAsistenciaRepository extends JpaRepository<CodigoQRAsis
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<CodigoQRAsistencia> findLockedByTokenHashAndActivoTrue(String tokenHash);
 
-    List<CodigoQRAsistencia> findAllByDocenteIdAndEstadoAndActivoTrue(Long docenteId, EstadoCodigoQR estado);
+    List<CodigoQRAsistencia> findAllByEstadoAndActivoTrue(EstadoCodigoQR estado);
 }

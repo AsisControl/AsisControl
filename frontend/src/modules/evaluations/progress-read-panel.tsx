@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
+import { Feedback, Loading } from "@/shared/ui";
 import styles from "./evaluations.module.css";
 
 /** Montar con una key por contexto y una función load estable para descartar respuestas anteriores. */
@@ -17,7 +17,7 @@ export function ReadPanel<T>({ load, children }: { load: () => Promise<T>; child
     );
     return () => { active = false; };
   }, [load, attempt]);
-  if (!result) return <p role="status">Cargando progreso…</p>;
+  if (!result) return <Loading>Cargando progreso…</Loading>;
   if ("error" in result) return <div className="panel">
     <Feedback error={result.error} />
     <button type="button" className="secondary-action" onClick={() => {

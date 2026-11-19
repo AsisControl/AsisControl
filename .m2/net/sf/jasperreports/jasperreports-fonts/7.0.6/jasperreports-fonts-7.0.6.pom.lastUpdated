@@ -1,0 +1,4 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed Nov 18 21:22:54 PET 2026
+@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1795054974766
+https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact net.sf.jasperreports\:jasperreports-fonts\:pom\:7.0.6 from/to central (https\://repo.maven.apache.org/maven2)\: repo.maven.apache.org

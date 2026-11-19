@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { Feedback, PageHeader, Pager, StatusPill } from "@/shared/ui";
+import { Feedback, PageHeader, Pager, StatusPill, Loading } from "@/shared/ui";
 import type { StatusTone } from "@/shared/ui";
 import { obtenerContextoAsignacion, TAREAS_PATH } from "./services/tarea-service";
 import type { AsignacionCursoResponse, EstadoPublicacionTarea, TareaResponse } from "./types";
@@ -92,7 +92,7 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
         {contextFailed && !tasks.loading && !tasks.error && (
           <p className="hint">No se pudo cargar el curso o la sección de algunas tareas. Inténtalo de nuevo con Actualizar.</p>
         )}
-        {tasks.loading ? <p role="status">Cargando tareas…</p> : tasks.error ? null : tasks.data?.content.length ? (
+        {tasks.loading ? <Loading>Cargando tareas…</Loading> : tasks.error ? null : tasks.data?.content.length ? (
           <div className={styles.tableWrap}>
             <table className={`user-table ${styles.table} ${styles.withActions}`}>
               <caption className={styles.srOnly}>Tareas asignadas a tus cursos y secciones</caption>

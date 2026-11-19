@@ -8,7 +8,7 @@ import { Brand } from "../layout/brand";
 import { HomeQuickActions } from "../layout/home-quick-actions";
 import { RoleContext } from "../layout/role-context";
 import { ModuleOutlet } from "../navigation/module-outlet";
-import { roleDetails } from "../navigation/navigation";
+import { roleDetails, roleLabels } from "../navigation/navigation";
 
 vi.mock("next/navigation", () => import("../../../tests/support/navigation.js"));
 vi.mock("next/link", () => import("../../../tests/support/next-link.jsx"));
@@ -29,7 +29,7 @@ function renderShell(role = "DOCENTE", granted = permissions) {
 
 test.each([
   ["ADMINISTRADOR", "Panel de administración", ["Matrícula", "Académico", "Administración"]],
-  ["DOCENTE", "Aula docente", ["Mis cursos", "Evaluaciones", "Progreso"]],
+  ["DOCENTE", "Aula docente", ["Mis cursos", "Evaluaciones", "Tareas", "Horario"]],
   ["ESTUDIANTE", "Portal del estudiante", ["Tareas", "Progreso", "Horario"]],
   ["APODERADO", "Portal del apoderado", ["Matrícula", "Pagos", "Asistencia"]],
 ])("%s integra identidad en un solo header y acciones dentro de Inicio", async (role, title, shortcuts) => {
@@ -42,6 +42,12 @@ test.each([
   expect(within(context).getByText(title)).toBeTruthy();
   expect(context.querySelector("svg[aria-hidden='true']")).toBeTruthy();
   expect(within(header).getByText("AsisControl")).toBeTruthy();
+  const account = within(header).getByRole("button", { name: "Abrir menú de usuario" });
+  const name = within(account).getByText("Ana Ramos");
+  const badge = within(account).getByText(role);
+  expect(badge.nextElementSibling).toBe(name);
+  expect(within(account).getByText("AR")).toBeTruthy();
+  expect(within(account).queryByText(roleLabels[role])).toBeNull();
   expect(within(header).queryByText("Colegio PUCP")).toBeNull();
   expect(within(header).queryByRole("link")).toBeNull();
   expect(screen.queryByRole("complementary", { name: "Espacio del usuario" })).toBeNull();
@@ -77,7 +83,8 @@ test("Una ruta distinta de Inicio nunca muestra acciones rápidas", async () => 
 
 test.each([
   ["DOCENTE", ["CALIFICACIONES_LEER"], ["/evaluaciones"]],
-  ["DOCENTE", ["ACADEMICO_LEER"], []],
+  ["DOCENTE", ["ACADEMICO_LEER"], ["/horario"]],
+  ["DOCENTE", [], []],
   ["APODERADO", ["PAGOS_LEER"], ["/pagos", "/asistencia"]],
   ["ADMINISTRADOR", ["MATRICULA_LEER"], ["/matricula"]],
 ])("Las acciones de %s respetan los permisos existentes (%j)", (role, granted, expected) => {
@@ -101,7 +108,7 @@ test("El teclado activa acciones y los clics modificados conservan el enlace nat
   const interaction = userEvent.setup();
   await interaction.tab();
   expect(document.activeElement).toBe(screen.getByRole("link", { name: "Mis cursos" }));
-  const link = screen.getByRole("link", { name: "Progreso" });
+  const link = screen.getByRole("link", { name: "Tareas" });
   link.addEventListener("click", (event) => event.preventDefault(), { once: true });
   fireEvent.click(link, { ctrlKey: true });
   expect(currentUrl()).toBe("/");

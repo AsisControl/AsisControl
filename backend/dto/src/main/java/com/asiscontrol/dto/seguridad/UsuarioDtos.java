@@ -15,13 +15,15 @@ public final class UsuarioDtos {
 
     private UsuarioDtos() {}
 
+    /**
+     * Sin usuario ni correo, se generan: nombre.apellido y {codigo}@dominio institucional. Por la
+     * API web siempre se generan; solo la configuración interna (administrador inicial) los fija.
+     */
     public record CreateRequest(
             @NotNull(message = "La persona es obligatoria") Long personaId,
             @NotNull(message = "El rol es obligatorio") Long rolId,
-            @NotBlank(message = "El nombre de usuario es obligatorio") @Size(min = 4, max = 80)
-                    String username,
-            @NotBlank(message = "El correo es obligatorio")
-                    @Email(message = "El correo no tiene un formato valido")
+            @Size(min = 4, max = 80) String username,
+            @Email(message = "El correo no tiene un formato valido") @Size(max = 150)
                     String correo,
             @NotBlank(message = "La contrasena temporal es obligatoria") @Size(min = 8, max = 64)
                     String password,
@@ -30,18 +32,26 @@ public final class UsuarioDtos {
         public CreateRequest(Long p, Long r, String u, String c, String password, boolean cambio) {
             this(p, r, u, c, password, cambio, false);
         }
+
+        public CreateRequest(Long personaId, Long rolId, String password) {
+            this(personaId, rolId, null, null, password, true, false);
+        }
+
+        /** La misma solicitud con usuario y correo generados por el sistema. */
+        public CreateRequest conCredencialesGeneradas() {
+            return new CreateRequest(
+                    personaId, rolId, null, null, password, requiereCambioContrasena,
+                    correoVerificado);
+        }
     }
 
+    /** Usuario, correo y códigos de perfil los genera el sistema. */
     public record ProvisionRequest(
             Long personaId,
             @jakarta.validation.Valid
                     com.asiscontrol.dto.persona.PersonaDtos.PersonaRequest persona,
             @NotNull Long rolId,
-            @NotBlank @Size(min = 4, max = 80) String username,
-            @NotBlank @Email @Size(max = 150) String correo,
             @NotBlank @Size(min = 8, max = 64) String password,
-            @Size(max = 30) String codigoAlumno,
-            @Size(max = 30) String codigoDocente,
             java.time.LocalDate fechaIngreso,
             com.asiscontrol.entity.enums.Especialidad especialidad,
             Set<Long> alumnoIds,
@@ -50,15 +60,11 @@ public final class UsuarioDtos {
                 Long p,
                 com.asiscontrol.dto.persona.PersonaDtos.PersonaRequest persona,
                 Long r,
-                String u,
-                String c,
                 String password,
-                String a,
-                String d,
                 java.time.LocalDate fecha,
                 com.asiscontrol.entity.enums.Especialidad e,
                 Set<Long> ids) {
-            this(p, persona, r, u, c, password, a, d, fecha, e, ids, false);
+            this(p, persona, r, password, fecha, e, ids, false);
         }
     }
 
@@ -110,7 +116,8 @@ public final class UsuarioDtos {
             Instant ultimoAcceso,
             Instant fechaCreacion,
             boolean correoVerificado,
-            Instant contrasenaTemporalExpira) {}
+            Instant contrasenaTemporalExpira,
+            String codigoPerfil) {}
 
     public record RolRequest(
             @NotBlank(message = "El nombre es obligatorio") @Size(max = 50) String nombre,

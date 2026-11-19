@@ -9,6 +9,7 @@ import {
   PanelHeading,
   PersonCell,
   RecordStatus,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
@@ -141,7 +142,7 @@ function StudentManagement() {
         <button disabled={list.loading || opening}>Buscar</button>
       </form>
       {list.loading ? (
-        <p role="status">Cargando estudiantes…</p>
+        <Loading>Cargando estudiantes…</Loading>
       ) : list.error ? (
         <>
           <Feedback error="No se pudo cargar el listado. Comprueba la conexión e inténtalo nuevamente." />

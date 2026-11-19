@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, Feedback, Field, PanelHeading, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, Field, PanelHeading, StatusPill, Loading } from "@/shared/ui";
 import { deactivateSettings, saveSettings, SETTINGS_PATH } from "./services/settings-service";
 import { SettingsReasonDialog } from "./reason-dialog";
 import { useSettingsList } from "./use-settings-list";
@@ -24,7 +24,7 @@ export function RatesPanel({ canWrite }: { canWrite: boolean }) {
     {(concepts.error || years.error) && <button type="button" className="secondary-action" onClick={() => { concepts.refresh(); years.refresh(); }}>Reintentar configuración</button>}
     {!years.loading && !years.error && !years.items.length && <p className={styles.notice}>Primero registra el año académico para configurar sus tarifas.</p>}
     <div className={styles.toolbar}><label className="field">Filtrar año académico<select value={year} onChange={(e) => setYear(e.target.value)}><option value="">Todos</option>{Array.from(new Set(list.items.map((row) => row.anioAcademico))).sort().map((value) => <option key={value}>{value}</option>)}</select></label><button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar tarifas</button></div>
-    {list.loading ? <p role="status">Cargando tarifas…</p> : list.error ? <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar tarifas</button> : !list.items.filter((item) => !year || item.anioAcademico === Number(year)).length ? <p className={styles.empty}>No hay tarifas para esta consulta.</p> : <div className={styles.tableWrap}><table className={`user-table ${styles.table}`} aria-label="Tarifas de pensiones"><thead><tr><th>Año académico</th><th>Grado</th><th>Pensión mensual</th><th>Estado</th>{canWrite && <th>Acciones</th>}</tr></thead><tbody>{list.items.filter((item) => !year || item.anioAcademico === Number(year)).map((item) => <tr key={item.id}>
+    {list.loading ? <Loading>Cargando tarifas…</Loading> : list.error ? <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar tarifas</button> : !list.items.filter((item) => !year || item.anioAcademico === Number(year)).length ? <p className={styles.empty}>No hay tarifas para esta consulta.</p> : <div className={styles.tableWrap}><table className={`user-table ${styles.table}`} aria-label="Tarifas de pensiones"><thead><tr><th>Año académico</th><th>Grado</th><th>Pensión mensual</th><th>Estado</th>{canWrite && <th>Acciones</th>}</tr></thead><tbody>{list.items.filter((item) => !year || item.anioAcademico === Number(year)).map((item) => <tr key={item.id}>
       <td>{item.anioAcademico}</td><td>{item.grado}° de secundaria</td><td>{soles(item.montoMensual)}</td><td><StatusPill state={item.activo ? "ACTIVO" : "INACTIVO"} tone={item.activo ? "success" : "neutral"} /></td>
       {canWrite && <td><div className={styles.actions}><button type="button" className="secondary-action" aria-label={`${item.activo ? "Editar" : "Reactivar"} tarifa ${item.anioAcademico} grado ${item.grado}`} onClick={() => setEditing(item)}>{item.activo ? "Editar" : "Reactivar"}</button>{item.activo && <button type="button" className="secondary-action" aria-label={`Desactivar tarifa ${item.anioAcademico} grado ${item.grado}`} onClick={() => setDeactivating(item)}>Desactivar</button>}</div></td>}
     </tr>)}</tbody></table></div>}

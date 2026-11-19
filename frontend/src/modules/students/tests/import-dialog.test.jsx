@@ -320,3 +320,60 @@ test("Mientras se valida no permite cambiar de archivo ni cerrar la ventana", as
   await act(async () => finishImport(reply(bulk({ estudiantes: ok(0) }))));
   expect(studentsInput().disabled).toBe(false);
 });
+
+const credential = (overrides = {}) => ({
+  row: 2,
+  fullName: "Mateo Ramos Quispe",
+  role: "ALUMNO",
+  code: "EST20260001",
+  username: "mateo.ramos",
+  email: "est20260001@asiscontrol.edu.pe",
+  temporaryPassword: null,
+  expiresAt: "2026-12-01T15:00:00Z",
+  existing: false,
+  ...overrides,
+});
+const withAccess = (credentials, warnings = []) => ({
+  error: null,
+  result: { totalRows: credentials.length, importedRows: credentials.length, rejectedRows: 0, issues: [], credentials, warnings },
+});
+
+test("Valida mostrando los accesos que se crearán y al guardar entrega las contraseñas para imprimir", async () => {
+  const mother = credential({ row: 2, fullName: "Carmen Ramos Quispe", role: "APODERADO", code: "APO20260001", username: "carmen.ramos" });
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(reply(bulk({
+      estudiantes: withAccess([credential()]),
+      apoderados: withAccess([mother, credential({ row: 3, fullName: "Carmen Ramos Quispe", role: "APODERADO", code: "APO20260001", username: "carmen.ramos", existing: true })],
+        [{ row: 3, field: "contacto", message: "El apoderado no tiene teléfono ni correo de contacto" }]),
+    })))
+    .mockResolvedValueOnce(reply(bulk({
+      estudiantes: withAccess([credential({ temporaryPassword: "Kp7rQ2mXz9Ab" })]),
+      apoderados: withAccess([{ ...mother, temporaryPassword: "<b>Zt4" }]),
+    }, { saved: true })));
+  vi.stubGlobal("fetch", fetcher);
+  const sheet = { document: { write: vi.fn(), close: vi.fn() }, focus: vi.fn(), print: vi.fn() };
+  const open = vi.fn(() => sheet);
+  vi.stubGlobal("open", open);
+  const user = userEvent.setup();
+  renderDialog();
+  await user.upload(studentsInput(), excel());
+  await user.click(screen.getByRole("button", { name: "Validar archivos" }));
+  const preview = await screen.findByRole("table", { name: "Accesos de la importación" });
+  expect(screen.getByText(/Se crearán 2 accesos y se conservarán 1 acceso existente/)).toBeTruthy();
+  expect(within(preview).getByText("mateo.ramos")).toBeTruthy();
+  expect(within(preview).getByText("Ya tenía acceso")).toBeTruthy();
+  expect(screen.getByText("Fila 3: El apoderado no tiene teléfono ni correo de contacto")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Imprimir o guardar PDF" })).toBeNull();
+
+  await user.click(screen.getByRole("button", { name: "Importar" }));
+  const saved = await screen.findByRole("region", { name: "Credenciales iniciales" });
+  expect(within(saved).getByText("Kp7rQ2mXz9Ab")).toBeTruthy();
+  expect(within(saved).getByText(/solo se muestran ahora/)).toBeTruthy();
+  await user.click(within(saved).getByRole("button", { name: "Imprimir o guardar PDF" }));
+  expect(open).toHaveBeenCalledWith("", "_blank");
+  const html = sheet.document.write.mock.calls[0][0];
+  expect(html).toContain("Kp7rQ2mXz9Ab");
+  expect(html).toContain("&lt;b&gt;Zt4");
+  expect(html).not.toContain("<b>Zt4");
+  expect(sheet.print).toHaveBeenCalledOnce();
+});

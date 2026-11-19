@@ -39,3 +39,27 @@ export function saveProgressReportPdf(blob: Blob, context: ReportContext) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }
+
+export function getProgressReportDraft(context: ReportContext) {
+  return api<ProgressReport>(`/api/calificaciones/informes/borrador?${reportQuery(context)}`);
+}
+
+function periodReportRequest(idAsignacionCurso: number, idPeriodoAcademico: number) {
+  return {
+    method: "POST",
+    body: JSON.stringify({ idAsignacionCurso, idPeriodoAcademico }),
+    timeoutMs: 60000,
+  };
+}
+
+export function generateReportDrafts(assignmentId: number, periodId: number) {
+  return api<{ informesProcesados: number; informes: AvailableReport[] }>(
+    "/api/calificaciones/informes/generar", periodReportRequest(assignmentId, periodId),
+  );
+}
+
+export function publishPeriodReports(assignmentId: number, periodId: number) {
+  return api<{ informesProcesados: number }>(
+    "/api/calificaciones/informes/publicar", periodReportRequest(assignmentId, periodId),
+  );
+}

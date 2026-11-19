@@ -15,7 +15,7 @@ export type AvailableReport = ReportContext & {
 
 export type ReportPeriod = { id: number; nombre: string };
 
-/** ReporteAvanceDto: contenido vigente calculado al consultar, sin estado ni versión persistida. */
+/** ReporteAvanceDto: contenido de una versión persistida de la libreta. */
 export type ProgressReport = {
   alumno: string;
   codigoAlumno: string | null;

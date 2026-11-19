@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "@/core/api/client";
 import { fieldErrorsOf, message } from "./task-error-copy";
-import { Dialog, Feedback, Field, FormDialog } from "@/shared/ui";
+import { Dialog, Feedback, Field, FormDialog, Loading } from "@/shared/ui";
 import { calificarEntrega, obtenerEntrega } from "./services/entrega-service";
 import { obtenerTarea } from "./services/tarea-service";
 import type { EntregaTareaResponse, TareaResponse } from "./types";
@@ -84,7 +84,7 @@ export function DeliveryGradeDialog({ deliveryId, taskId, student, onClose, onRe
   if (loading || !snapshot || !allowed || conflict || blocked) {
     return <Dialog title="Calificar entrega" description={student} busy={loading} onClose={onClose}>
       <Feedback error={error} />
-      {loading ? <p role="status">Cargando entrega…</p> : conflict ? <>
+      {loading ? <Loading skeleton="detail" rows={4}>Cargando entrega…</Loading> : conflict ? <>
         <p>Tus cambios no se guardaron. Al actualizar se descartarán la nota y el comentario que escribiste.</p>
         <button type="button" onClick={reloadCurrent}>Descartar cambios y actualizar</button>
       </> : !snapshot ? <button type="button" onClick={reloadCurrent}>Reintentar carga</button>

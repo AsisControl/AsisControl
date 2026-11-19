@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { Feedback, Field, Pager, PanelHeading } from "@/shared/ui";
+import { Feedback, Field, Pager, PanelHeading, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import styles from "./academic-records.module.css";
@@ -69,7 +69,7 @@ export function RecordsPanel<T>({
         <button disabled={list.loading}>Buscar</button>
       </form>
       {list.loading ? (
-        <p role="status">Cargando {noun[1]}…</p>
+        <Loading>Cargando {noun[1]}…</Loading>
       ) : list.error ? (
         <>
           <Feedback error="No se pudo cargar el listado. Comprueba la conexión e inténtalo nuevamente." />

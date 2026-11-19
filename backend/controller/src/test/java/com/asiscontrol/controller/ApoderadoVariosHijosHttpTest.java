@@ -19,13 +19,12 @@ class ApoderadoVariosHijosHttpTest extends ApiIntegrationSupport {
         long apoderadoId = apoderado.path("id").asLong();
         var primero = postOk("/api/alumnos", data("persona", persona("Mateo", "2013-04-10")));
         long rol = em.createQuery("select r.id from Rol r where r.nombre='APODERADO'", Long.class).getSingleResult();
-        String username = "familia" + key();
         var cuenta = postOk("/api/usuarios/provisionar", data("personaId", personaId, "rolId", rol,
-                "username", username, "correo", username + "@familia.test", "password", "Temporal2026Clave!",
-                "correoVerificado", true, "alumnoIds", java.util.List.of(primero.path("id").asLong())));
+                "password", "Temporal2026Clave!", "alumnoIds", java.util.List.of(primero.path("id").asLong())));
         assertThat(cuenta.path("personaId").asLong()).isEqualTo(personaId);
         assertThat(contar("select count(p) from Persona p where p.numeroDocumento='" + guardianData.get("numeroDocumento") + "'" )).isEqualTo(1);
 
+        String username = cuenta.path("username").asText();
         String token = login(username, "Temporal2026Clave!").path("accessToken").asText();
         familiar(token, "POST", "/api/auth/change-password",
                 data("currentPassword", "Temporal2026Clave!", "newPassword", "Definitiva2026Clave!"));

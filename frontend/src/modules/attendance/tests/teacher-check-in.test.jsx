@@ -39,6 +39,14 @@ describe("US-15 · marcación del docente", () => {
     delete navigator.mediaDevices;
   });
 
+  it("al abrir el enlace del QR marca con el código y limpia la dirección", async () => {
+    marcarAsistencia.mockResolvedValue(record());
+    window.history.replaceState(null, "", "/asistencia/mi-marcacion?codigo=token-qr");
+    render(<TeacherCheckIn canWrite />);
+    await waitFor(() => expect(marcarAsistencia).toHaveBeenCalledWith("token-qr"));
+    expect(window.location.search).toBe("");
+  });
+
   it("envía solo el token y muestra el estado y la hora del servidor", async () => {
     const user = userEvent.setup();
     marcarAsistencia.mockResolvedValue(record({ estado: "TARDANZA", fechaHoraMarcada: "2026-11-06T08:14:05" }));

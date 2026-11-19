@@ -49,6 +49,10 @@ public class PlanPensionService {
     public PlanResponse previewMatricula(Long id){var m=matriculas.findByIdAndActivoTrue(id).orElseThrow(()->no("matrícula"));
         return preview(m.getId(),m.getSolicitudMatricula().getId(),m.getAlumno(),m.getAnioAcademico(),m.getSeccion().getGrado(),false);}
 
+    public PlanResponse previewRenovacion(Alumno alumno, int anio, int grado) {
+        return preview(null, null, alumno, anio, grado, false);
+    }
+
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public PlanResponse generar(Long id){return generar(id,null);}
     @Transactional(isolation=Isolation.READ_COMMITTED)

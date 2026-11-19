@@ -41,7 +41,7 @@ function AuthorizedStudents({ assignmentId, periodId }: { assignmentId: number; 
 function ReportStudentSelector({ items }: { items: AvailableReport[] }) {
   const [id, setId] = useState("");
   const context = items.find((item) => String(item.idAlumno) === id);
-  if (!items.length) return <Empty>No hay informes disponibles para este curso y período. Puedes consultar las evaluaciones en borrador en Consulta por evaluación.</Empty>;
+  if (!items.length) return <Empty>No hay informes disponibles: aún no hay libretas publicadas para este curso y período. Puedes consultar las evaluaciones en borrador en Consulta por evaluación.</Empty>;
   return <>
     <div className={`panel ${styles.filters}`}>
       <label className="field">Estudiante
@@ -92,7 +92,7 @@ function ReportWithDownload({ context, report }: { context: AvailableReport; rep
         {busy ? "Preparando PDF…" : error ? "Reintentar descarga PDF" : "Descargar PDF"}
       </button>
       {busy && <p role="status">Preparando el PDF del estudiante seleccionado.</p>}
-      <p className="hint">La descarga se genera con los datos vigentes al solicitarla; puede reflejar correcciones posteriores a esta consulta.</p>
+      <p className="hint">El PDF corresponde a la última versión publicada disponible al descargarlo.</p>
     </div>
   </>;
 }

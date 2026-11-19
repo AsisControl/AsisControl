@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api, message } from "@/core/api/client";
-import { Feedback, PanelHeading } from "@/shared/ui";
+import { Feedback, PanelHeading, Loading } from "@/shared/ui";
 import { countLabel, roleLabel, timeLabel } from "@/shared/lib/formatters";
 import type { Role, Permission } from "./types";
 import styles from "./roles-matrix.module.css";
@@ -97,7 +97,7 @@ export function RolesMatrix() {
   return (
     <>
       <Feedback error={error} />
-      {!roles && !error && <p role="status">Cargando roles y permisos…</p>}
+      {!roles && !error && <Loading>Cargando roles y permisos…</Loading>}
       {!roles && error && (
         <button
           type="button"

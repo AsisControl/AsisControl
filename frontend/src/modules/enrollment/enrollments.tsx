@@ -13,6 +13,7 @@ import {
   StatusPill,
   TabNav,
   type TabItem,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import {
@@ -27,8 +28,9 @@ import { type Student } from "@/modules/students";
 import { AcademicRecords } from "@/modules/academic-records";
 import type { AcademicYear } from "@/modules/academic-config";
 import { EnrollmentHistory } from "./enrollment-history";
-import { EnrollmentPaymentPreview, type EnrollmentPaymentPlan } from "./enrollment-payment-preview";
-import type { History } from "./types";
+import { EnrollmentPaymentPreview } from "./enrollment-payment-preview";
+import { AdminRenewals } from "./renewals/renewal-navigation";
+import type { EnrollmentPaymentPlan, History } from "./types";
 type EnrollmentRecord = {
   id: number;
   alumnoId: number;
@@ -68,6 +70,7 @@ const actionLabels: Record<string, string> = {
 };
 const ENROLLMENT_TABS: TabItem[] = [
   { id: "solicitudes", label: "Solicitudes" },
+  { id: "renovaciones", label: "Renovación anual" },
   { id: "matriculas", label: "Matrículas" },
   { id: "fichas", label: "Fichas académicas" },
 ];
@@ -77,10 +80,12 @@ const DEFAULT_TAB = "solicitudes";
 export function Enrollments({
   tab = DEFAULT_TAB,
   view,
+  canManageRenewals = false,
 }: {
   tab?: string;
   /** Vista de Fichas académicas: estudiantes, apoderados, parentescos o docentes. */
   view?: string;
+  canManageRenewals?: boolean;
 }) {
   const router = useRouter();
   const current = ENROLLMENT_TABS.find((item) => item.id === tab);
@@ -102,6 +107,8 @@ export function Enrollments({
       />
       {current.id === "fichas" ? (
         <AcademicRecords basePath={`${ENROLLMENT_PATH}/fichas`} view={view} />
+      ) : current.id === "renovaciones" ? (
+        <AdminRenewals view={view} canWrite={canManageRenewals} />
       ) : (
         <EnrollmentList
           key={current.id}
@@ -154,7 +161,7 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
       />
       <Feedback error={list.error} success={success} />
       {list.loading ? (
-        <p role="status">Cargando registros…</p>
+        <Loading>Cargando registros…</Loading>
       ) : list.data?.content.length ? (
         <div className="user-table-wrap">
           <table className="user-table">
@@ -269,7 +276,7 @@ function StudentPicker({
         </p>
       )}
       {students.loading ? (
-        <p role="status">Cargando estudiantes…</p>
+        <Loading>Cargando estudiantes…</Loading>
       ) : (
         <ul className="choice-list">
           {students.data?.content.map((student) => (
@@ -782,7 +789,8 @@ function EnrollmentDetail({
           <p className="empty">Sin cambios registrados.</p>
         )
       ) : (
-        <p role="status">Cargando historial…</p>
+        // Si falló la carga, el error ya se muestra en el diálogo: no seguir «cargando».
+        !error && <Loading skeleton="list">Cargando historial…</Loading>
       )}
     </Dialog>
   );
@@ -846,7 +854,7 @@ function GuardianLinks({ studentId }: { studentId: number }) {
       </div>
       <Feedback error={error} />
       {!student ? (
-        <p role="status">Cargando vínculos…</p>
+        !error && <Loading skeleton="list" rows={2}>Cargando vínculos…</Loading>
       ) : student.apoderados.length ? (
         <ul className="choice-list">
           {student.apoderados.map((guardian) => (
@@ -885,7 +893,7 @@ function GuardianLinks({ studentId }: { studentId: number }) {
           </form>
           <Feedback error={guardians.error} />
           {guardians.loading ? (
-            <p role="status">Cargando apoderados…</p>
+            <Loading>Cargando apoderados…</Loading>
           ) : (
             <ul className="choice-list">
               {guardians.data?.content.map((guardian) => {

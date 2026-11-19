@@ -6,8 +6,8 @@ import { useSessionUser } from "@/core/layout/session-user";
 import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
-import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
-import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
+import { AttendanceAdmin, TeacherAttendance } from "@/modules/attendance";
+import { Enrollments, GuardianEnrollmentPortal } from "@/modules/enrollment";
 import {
   Evaluations,
   ProgressPreview,
@@ -69,11 +69,17 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   ADMINISTRADOR: {
     Asistencia: ({ user }) => (
-      <CheckInPoint
+      <AttendanceAdmin
         canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
       />
     ),
-    Matrícula: ({ subpath: [tab, view] }) => <Enrollments tab={tab} view={view} />,
+    Matrícula: ({ user, subpath: [tab, view] }) => (
+      <Enrollments
+        tab={tab}
+        view={view}
+        canManageRenewals={(user.permissions ?? []).includes("MATRICULA_ESCRIBIR")}
+      />
+    ),
     Finanzas: ({ user }) => (
       <Finance canWrite={(user.permissions ?? []).includes("PAGOS_ESCRIBIR")} />
     ),
@@ -96,7 +102,12 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   APODERADO: {
     Pagos: () => <GuardianPayments />,
-    Matrícula: () => <GuardianEnrollment />,
+    Matrícula: ({ user, subpath: [tab] }) => (
+      <GuardianEnrollmentPortal
+        tab={tab}
+        canWrite={(user.permissions ?? []).includes("SOLICITUDES_ESCRIBIR")}
+      />
+    ),
     Asistencia: () => <GuardianAttendance />,
   },
 };

@@ -11,7 +11,7 @@ import { OrderSummary } from "./order-summary";
 import { ReceiptPanel } from "./receipt-panel";
 import { PaymentTabs } from "./payment-tabs";
 import { paymentRequestKey } from "./payment-request-key";
-import type { CardScenario, PaymentMethod, PaymentOrder } from "./types";
+import type { PaymentMethod, PaymentOrder } from "./types";
 import styles from "./guardian-payments.module.css";
 
 export function PaymentCheckout({ obligations, initialOrder, onClose, onSettled, onFollowPayments }: {
@@ -23,7 +23,6 @@ export function PaymentCheckout({ obligations, initialOrder, onClose, onSettled,
 }) {
   const [method, setMethod] = useState<PaymentMethod>(initialOrder?.metodo ?? "TARJETA");
   const [order, setOrder] = useState<PaymentOrder | null>(initialOrder ?? null);
-  const [scenario, setScenario] = useState<CardScenario>("APROBADO");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -49,10 +48,13 @@ export function PaymentCheckout({ obligations, initialOrder, onClose, onSettled,
     inFlight.current = true; setBusy(true); setError(""); setConflict(false);
     try { update(await action()); }
     catch (caught) {
-      // Una respuesta perdida no contradice un resultado definitivo recibido por sondeo.
       if (!latest.current || isPending(latest.current.estado)) {
         setError(message(caught));
         setConflict(caught instanceof ApiError && caught.code === "PAGO_EN_CURSO");
+        const current = latest.current;
+        if (current && caught instanceof ApiError && caught.code === "TRANSICION_PAGO_INVALIDA") {
+          try { update(await getOrder(current.id)); } catch { /* El sondeo volverá a consultar. */ }
+        }
       }
     }
     finally { inFlight.current = false; setBusy(false); }
@@ -69,14 +71,18 @@ export function PaymentCheckout({ obligations, initialOrder, onClose, onSettled,
   }
   const url = walletUrl(order?.qrUrl ?? null);
   return <Dialog title={order?.estado === "COMPLETADO" ? "Pago aprobado" : "Pagar obligaciones"}
-    description="Revisa el detalle y confirma el pago de las cuotas seleccionadas." size="lg" onClose={onClose} busy={busy}>
+    description={order ? "Consulta el importe y el estado de tu operación." : "Revisa tus obligaciones y elige cómo pagar."}
+    size="lg" onClose={onClose} busy={busy}>
     <Feedback error={error} />
     {conflict && onFollowPayments && <button type="button" className="secondary-action" onClick={onFollowPayments}>Ir a Seguimiento de pagos</button>}
     {!order ? <>
       <PaymentTabs label="Medio de pago" selected={method} onSelect={(value) => setMethod(value as PaymentMethod)} disabled={busy}
         items={[{ id: "TARJETA", label: "Tarjeta" }, { id: "QR", label: "Código QR" }]}>
       <ul className={styles.itemList}>{obligations.map((item) => <li key={item.id}><span><strong>{item.alumno}</strong><small>{item.concepto} · {item.codigoCompromiso}</small></span><strong>{moneyLabel(item.saldo, "PEN")}</strong></li>)}</ul>
-      <p className={styles.hint}>Revisa las cuotas seleccionadas antes de continuar. Sin recargos por mora.</p>
+      <dl className={styles.totals}>
+        <div className={styles.total}><dt>Total seleccionado</dt><dd>{moneyLabel(obligations.reduce((sum, item) => sum + item.saldo, 0), "PEN")}</dd></div>
+      </dl>
+      <p className={styles.hint}>Pago simulado. No se realizará un cargo bancario.</p>
       <div className="form-actions"><button type="button" className="secondary-action" disabled={busy} onClick={onClose}>Cancelar</button>
         <button type="button" className="primary-action" disabled={busy || !obligations.length} onClick={begin}>{busy ? "Preparando…" : method === "QR" ? "Generar código QR" : "Continuar con tarjeta"}</button></div>
       </PaymentTabs>
@@ -89,27 +95,27 @@ export function PaymentCheckout({ obligations, initialOrder, onClose, onSettled,
         {pending && <>
           <p className={styles.timer}>Tiempo disponible: <strong>{countdownLabel(remaining)}</strong></p>
           {order.metodo === "QR" ? <div className={styles.qrPanel}>
-            {url ? <><div className={styles.qrCode}><QRCodeSVG value={url} size={208} title="Escanea para abrir la billetera" level="M" /></div>
+            {url && remaining > 0 ? <><div className={styles.qrCode}><QRCodeSVG value={url} size={208} title="Escanea para abrir la billetera" level="M" /></div>
               <p role="status">Esperando confirmación en la billetera…</p>
+              <p className={styles.hint}>Escanea el código con tu celular o abre la billetera en esta pantalla.</p>
               <a className="secondary-action" href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Abrir billetera en esta pantalla</a></>
-              : <p role="alert">No pudimos preparar el enlace del QR. Cierra la ventana e inténtalo nuevamente.</p>}
+              : url ? <p role="status">El tiempo del código terminó. Estamos verificando el resultado de la operación.</p>
+                : <p role="alert">No pudimos preparar el enlace del QR. Cierra la ventana e inténtalo nuevamente.</p>}
           </div> : order.estado === "REQUIERE_AUTENTICACION" ? <section className={styles.challenge} aria-label="Autenticación adicional">
             <h4>Confirma la autenticación adicional</h4><p>Completa la verificación adicional para continuar.</p>
             <div className={styles.actions}><button type="button" className="primary-action" disabled={busy || remaining === 0} onClick={() => perform(() => authenticateCard(order.id, true))}>Completar autenticación</button>
               <button type="button" className="secondary-action" disabled={busy} onClick={() => perform(() => authenticateCard(order.id, false))}>Cancelar autenticación</button></div>
-          </section> : <section className={styles.cardPanel}>
-            {order.simulador && <label className="field">Resultado de autorización<select value={scenario} disabled={busy} onChange={(event) => setScenario(event.target.value as CardScenario)}>
-              <option value="APROBADO">Aprobada · Visa terminada en 4242</option>
-              <option value="REQUIERE_AUTENTICACION">Autenticación adicional · terminada en 3155</option>
-              <option value="FONDOS_INSUFICIENTES">Fondos insuficientes · terminada en 9995</option>
-              <option value="RECHAZADO">Tarjeta rechazada · terminada en 0002</option>
-            </select></label>}
-            <p className={styles.hint}>Revisa el importe antes de confirmar.</p>
-            <button type="button" className="primary-action" disabled={busy || remaining === 0 || !order.simulador} onClick={() => perform(() => confirmCard(order.id, scenario))}>{busy ? "Confirmando…" : `Confirmar pago ${moneyLabel(order.montoTotal, "PEN")}`}</button>
+          </section> : <section className={styles.cardPanel} aria-label="Pago con tarjeta">
+            <div className={styles.cardMethod}>
+              <span className={styles.cardIcon} aria-hidden="true" />
+              <div><h4>Pago con tarjeta</h4><p>Confirma la operación con una tarjeta virtual del sistema.</p></div>
+            </div>
+            <p className={styles.hint}>Pago simulado. No se realizará un cargo bancario.</p>
+            <button type="button" className="primary-action" disabled={busy || remaining === 0 || !order.simulador} onClick={() => perform(() => confirmCard(order.id))}>{busy ? "Confirmando…" : `Confirmar pago ${moneyLabel(order.montoTotal, "PEN")}`}</button>
           </section>}
           {pollError && <p role="status" className={styles.notice}>No pudimos actualizar el estado. Seguiremos consultando; evita iniciar otro pago mientras confirmamos el resultado.</p>}
           <button type="button" className="secondary-action" disabled={busy} onClick={() => perform(() => getOrder(order.id))}>Consultar estado</button>
-          <p className={styles.hint}>Puedes cerrar esta ventana y continuar desde Seguimiento de pagos mientras siga vigente. Cerrar la ventana no cancela el pago.</p>
+          <p className={styles.hint}>Puedes retomar esta operación desde Seguimiento de pagos mientras siga vigente.</p>
         </>}
       </>}
       <div className={styles.actions}>

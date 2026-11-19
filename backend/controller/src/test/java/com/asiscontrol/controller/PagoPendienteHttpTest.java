@@ -87,7 +87,10 @@ class PagoPendienteHttpTest extends PagosFamiliaIntegrationSupport {
         // No se consulta primero la orden anterior: debe bastar su fecha en la base.
         var siguiente = iniciar("TARJETA", cuota.getId());
         assertThat(siguiente.path("id").asLong()).isNotEqualTo(anterior.path("id").asLong());
-        assertThat(confirmar(anterior, "APROBADO").path("estado").asText()).isEqualTo("EXPIRADO");
+        assertThat(familia("POST", rutaOrden(anterior) + "/confirmar-tarjeta", data(), 409)
+                .path("code").asText()).isEqualTo("TRANSICION_PAGO_INVALIDA");
+        assertThat(familia("GET", rutaOrden(anterior), null, 200).path("estado").asText())
+                .isEqualTo("EXPIRADO");
         assertThat(cuota.getMontoPagado()).isZero();
         assertThat(iniciar(guardian, "TARJETA", clave, cuota.getId()).path("id").asLong())
                 .isEqualTo(anterior.path("id").asLong());

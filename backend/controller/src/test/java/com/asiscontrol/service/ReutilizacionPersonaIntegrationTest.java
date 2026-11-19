@@ -92,7 +92,7 @@ class ReutilizacionPersonaIntegrationTest {
     void elDocumentoDeUnEstudianteNoSeReutiliza() {
         String dni = dni();
         var persona = persona(dni, "Mateo", "Ramos", LocalDate.of(2012, 5, 2));
-        personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(persona, "EST" + dni));
+        personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(persona));
 
         assertConflict(
                 () -> personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(persona)),
@@ -125,7 +125,7 @@ class ReutilizacionPersonaIntegrationTest {
 
     private PersonaDtos.DocenteCreateRequest docente(PersonaDtos.PersonaRequest persona) {
         return new PersonaDtos.DocenteCreateRequest(
-                persona, "DOC" + persona.numeroDocumento(), LocalDate.now(), Especialidad.TUTORIA);
+                persona, LocalDate.now(), Especialidad.TUTORIA);
     }
 
     private PersonaDtos.PersonaRequest persona(

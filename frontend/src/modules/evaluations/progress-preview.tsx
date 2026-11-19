@@ -20,7 +20,7 @@ export function ProgressPreview() {
     ]} />
     <p className={styles.notice}>{mode === "evaluation"
       ? "Vista preliminar por evaluación. Los resultados pueden cambiar; esta consulta no constituye una libreta publicada ni un consolidado del período."
-      : "Informe de evaluaciones publicadas o cerradas del período. Se calcula con los datos vigentes; no representa una versión publicada persistida de la libreta."}</p>
+      : "Consulta la última versión publicada de la libreta de cada estudiante."}</p>
     <ReadPanel key={mode} load={listarAsignacionesPropias}>{(items) => <AssignmentSelector assignments={items} mode={mode} />}</ReadPanel>
   </section>;
 }

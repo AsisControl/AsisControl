@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, Feedback, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, StatusPill, Loading } from "@/shared/ui";
 import { dateLabel } from "@/shared/lib/formatters";
 import { dueDateLabel, financialLabel, financialStatus, financialTone, moneyLabel } from "./commitment-format";
 import { getCommitment } from "./services/commitment-service";
+import { CommitmentMovements } from "./commitment-movements";
 import type { PaymentCommitment } from "./types";
 import styles from "./finance.module.css";
 
@@ -49,7 +50,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
           Reintentar consulta
         </button>
       )}
-      {!record && !error && <p role="status">Cargando compromiso…</p>}
+      {!record && !error && <Loading skeleton="detail">Cargando compromiso…</Loading>}
       {record && (
         <>
           <dl className="detail-grid">
@@ -138,6 +139,7 @@ export function CommitmentDetail({ id, canWrite, onClose, onAction }: {
               Este compromiso ya tiene pagos registrados. No se puede modificar ni anular.
             </p>
           )}
+          <CommitmentMovements id={record.id} currency={record.moneda} />
           <div className={styles.detailActions}>
             {canWrite && eligible && (
               <>

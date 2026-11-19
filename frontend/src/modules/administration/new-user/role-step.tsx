@@ -7,7 +7,15 @@ import { rolePillClass } from "../users/user-format";
 import { specialtyLabel } from "./new-user-format";
 import { CheckIcon, StepCard } from "./step-parts";
 import styles from "./new-user.module.css";
-const STUDENT_ROLES = ["ALUMNO", "ESTUDIANTE"];
+const YEAR = new Date().getFullYear();
+/** Ejemplo del código que generará el sistema para cada rol. */
+const CODE_EXAMPLES: Record<string, string> = {
+  ADMINISTRADOR: `ADM${YEAR}0001`,
+  DOCENTE: `DOC${YEAR}0001`,
+  ALUMNO: `EST${YEAR}0001`,
+  ESTUDIANTE: `EST${YEAR}0001`,
+  APODERADO: `APO${YEAR}0001`,
+};
 /** Qué podrá hacer cada rol; si llega uno nuevo se usa la descripción del backend. */
 const ROLE_DESCRIPTIONS: Record<string, string> = {
   ADMINISTRADOR: "Gestiona usuarios, configuración académica y auditoría.",
@@ -81,13 +89,6 @@ export function RoleStep({
         <div className={styles.subsection}>
           <div className="form-grid">
             <Field
-              label="Código docente"
-              name="codigoDocente"
-              maxLength={30}
-              required
-              placeholder="DOC-2025-001"
-            />
-            <Field
               label="Fecha de ingreso"
               name="fechaIngreso"
               type="date"
@@ -110,16 +111,11 @@ export function RoleStep({
           </div>
         </div>
       )}
-      {STUDENT_ROLES.includes(role) && needsProfile && (
-        <div className={styles.subsection}>
-          <Field
-            label="Código de estudiante"
-            name="codigoAlumno"
-            required
-            maxLength={30}
-            placeholder="EST-2025-001"
-          />
-        </div>
+      {role && needsProfile && (
+        <p className={styles.note}>
+          El código institucional del perfil se genera al guardar (por
+          ejemplo, {CODE_EXAMPLES[role] ?? "EST20260001"}).
+        </p>
       )}
       {role && !needsProfile && (
         <p className={styles.note}>
