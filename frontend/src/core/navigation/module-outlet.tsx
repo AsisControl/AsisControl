@@ -6,7 +6,7 @@ import { useSessionUser } from "@/core/layout/session-user";
 import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
-import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
+import { AttendanceAdmin, TeacherAttendance } from "@/modules/attendance";
 import { Enrollments, GuardianEnrollmentPortal } from "@/modules/enrollment";
 import {
   Evaluations,
@@ -69,7 +69,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   ADMINISTRADOR: {
     Asistencia: ({ user }) => (
-      <CheckInPoint
+      <AttendanceAdmin
         canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
       />
     ),

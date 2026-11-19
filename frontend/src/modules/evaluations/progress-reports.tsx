@@ -62,7 +62,7 @@ export function ProgressReports() {
       {detail && <div className="user-table-wrap" style={{ marginTop: 24 }}><table className="user-table">
         <thead><tr>{["Competencia", "Evaluación", "Fecha", "Nivel", "Peso", "Observación"].map(t => <th key={t}>{t}</th>)}</tr></thead>
         <tbody>{detail.filas.map((row, i) => <tr key={i}>
-          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha}</td>
+          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha?.split("-").reverse().join("/")}</td>
           <td>{row.resultado}</td><td>{row.ponderacion}</td><td>{row.observacion}</td>
         </tr>)}</tbody>
       </table></div>}

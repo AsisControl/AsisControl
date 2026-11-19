@@ -1,173 +1,93 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { message } from "@/core/api/client";
-import { listarDocentes, QR_VIGENCIA_SEGUNDOS } from "./services/asistencia-docente-service";
-import type { DocenteOption } from "./types";
+import { QR_VIGENCIA_SEGUNDOS } from "./services/asistencia-docente-service";
+import { markingLink } from "./format";
 import { useDynamicQr } from "./use-dynamic-qr";
 import styles from "./teacher-check-in.module.css";
 
-import { Loading } from "@/shared/ui";
 /**
- * Punto de marcación (administrador): muestra el QR dinámico que el docente
- * escanea desde su sesión. El código lo genera y valida el backend.
+ * Punto de marcación (administración): un único QR para toda la institución, pensado para una
+ * pantalla en la entrada. El docente lo escanea con su celular y marca con su propia cuenta.
  */
 export function CheckInPoint({ canWrite }: { canWrite: boolean }) {
-  const [teachers, setTeachers] = useState<DocenteOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<DocenteOption | null>(null);
   const qr = useDynamicQr();
+  const [enlarged, setEnlarged] = useState(false);
+  const { start } = qr;
 
   useEffect(() => {
-    if (!canWrite) return;
-    let alive = true;
-    listarDocentes()
-      .then((list) => alive && setTeachers(list))
-      .catch((problem) => alive && setLoadError(message(problem)))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [canWrite]);
+    if (canWrite) void start();
+  }, [canWrite, start]);
 
-  const visible = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return term ? teachers.filter((t) => t.label.toLowerCase().includes(term)) : teachers;
-  }, [teachers, query]);
+  useEffect(() => {
+    if (!enlarged) return;
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setEnlarged(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [enlarged]);
 
-  function choose(teacher: DocenteOption) {
-    setSelected(teacher);
-    void qr.start(teacher.id);
+  if (!canWrite) {
+    return (
+      <section className={`panel ${styles.card}`}>
+        <h2 className={styles.cardTitle}>Punto de marcación</h2>
+        <p className={styles.muted}>Tu usuario no tiene permiso para emitir códigos de asistencia.</p>
+      </section>
+    );
   }
 
-  function next() {
-    qr.stop();
-    setSelected(null);
-  }
+  const link = qr.code ? markingLink(window.location.origin, qr.code.token) : "";
 
   return (
-    <>
-      <div className="page-title">
-        <div>
-          <h1>Asistencia</h1>
-          <p>Punto de marcación docente con QR dinámico</p>
-        </div>
-      </div>
-
-      {!canWrite ? (
-        <article className="role-message">
-          <span className="message-mark">!</span>
-          <div>
-            <p className="eyebrow">PUNTO DE MARCACIÓN</p>
-            <h2>Tu usuario no tiene permiso para emitir códigos de asistencia.</h2>
+    <section className={`panel ${styles.card} ${styles.qrCard}`} aria-labelledby="qr-title">
+      <h2 id="qr-title" className={styles.cardTitle}>
+        Punto de marcación
+      </h2>
+      {qr.status === "emitting" && <p className={styles.muted}>Generando código…</p>}
+      {qr.status === "active" && qr.code && (
+        <>
+          <div className={styles.qrFrame}>
+            <QRCodeSVG value={link} size={512} level="M" marginSize={2} className={styles.qrImage} />
           </div>
-        </article>
-      ) : (
-        <div className={styles.layout}>
-          <section className={`panel ${styles.card}`} aria-labelledby="docentes-title">
-            <h2 id="docentes-title" className={styles.cardTitle}>
-              1. Docente que marca
-            </h2>
-            <label className={styles.field}>
-              <span>Buscar docente</span>
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Nombre o documento"
-              />
-            </label>
-            {loading ? (
-              <Loading variant="inline">Cargando docentes…</Loading>
-            ) : loadError ? (
-              <p role="alert" className={styles.error}>
-                {loadError}
-              </p>
-            ) : visible.length === 0 ? (
-              <p className={styles.muted}>No hay docentes que coincidan.</p>
-            ) : (
-              <ul className={styles.teacherList}>
-                {visible.map((teacher) => (
-                  <li key={teacher.id}>
-                    <button
-                      type="button"
-                      className={styles.teacherButton}
-                      aria-pressed={selected?.id === teacher.id}
-                      onClick={() => choose(teacher)}
-                    >
-                      {teacher.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className={`panel ${styles.card} ${styles.qrCard}`} aria-labelledby="qr-title">
-            <h2 id="qr-title" className={styles.cardTitle}>
-              2. Código QR
-            </h2>
-            {qr.status === "idle" && (
-              <p className={styles.muted}>Selecciona un docente para mostrar su código QR.</p>
-            )}
-            {qr.status === "emitting" && <p className={styles.muted}>Generando código…</p>}
-            {qr.status === "active" && qr.code && (
-              <>
-                <p className={styles.teacherName}>{selected?.label}</p>
-                <div className={styles.qrFrame}>
-                  <QRCodeSVG value={qr.code.token} size={260} level="M" marginSize={2} />
-                </div>
-                <p className={styles.countdown}>
-                  Vence en <strong>{qr.remaining} s</strong> · se renueva automáticamente
-                </p>
-                <progress
-                  className={styles.progress}
-                  max={QR_VIGENCIA_SEGUNDOS}
-                  value={Math.min(qr.remaining, QR_VIGENCIA_SEGUNDOS)}
-                  aria-label="Tiempo restante del código"
-                />
-                <p className={styles.muted}>
-                  El docente debe escanearlo desde <strong>Asistencia</strong> en su sesión.
-                </p>
-                <details className={styles.manual}>
-                  <summary>Código para ingreso manual</summary>
-                  <code>{qr.code.token}</code>
-                </details>
-                <button type="button" className={styles.secondaryButton} onClick={next}>
-                  Cerrar código
-                </button>
-              </>
-            )}
-            {qr.status === "used" && (
-              <div role="status" className={styles.success}>
-                <p className={styles.bigMark}>✓</p>
-                <p>
-                  Asistencia registrada para <strong>{selected?.label}</strong>.
-                </p>
-                <button type="button" className="primary-action" onClick={next}>
-                  Atender a otro docente
-                </button>
-              </div>
-            )}
-            {qr.status === "error" && (
-              <div role="alert" className={styles.errorBox}>
-                <p>{qr.error}</p>
-                {selected && (
-                  <button
-                    type="button"
-                    className="primary-action"
-                    onClick={() => void qr.start(selected.id)}
-                  >
-                    Reintentar
-                  </button>
-                )}
-              </div>
-            )}
-          </section>
+          <p className={styles.countdown}>
+            Se renueva en <strong>{qr.remaining} s</strong>
+          </p>
+          <progress
+            className={styles.progress}
+            max={QR_VIGENCIA_SEGUNDOS}
+            value={Math.min(qr.remaining, QR_VIGENCIA_SEGUNDOS)}
+            aria-label="Tiempo restante del código"
+          />
+          <button type="button" className="primary-action" onClick={() => setEnlarged(true)}>
+            Ampliar para la entrada
+          </button>
+          <details className={styles.manual}>
+            <summary>Código para ingreso manual</summary>
+            <code>{qr.code.token}</code>
+          </details>
+        </>
+      )}
+      {qr.status === "error" && (
+        <div role="alert" className={styles.errorBox}>
+          <p>{qr.error}</p>
+          <button type="button" className="primary-action" onClick={() => void start()}>
+            Reintentar
+          </button>
         </div>
       )}
-    </>
+
+      {enlarged && qr.code && (
+        <div className={styles.entrance} role="dialog" aria-modal="true" aria-label="Código QR de marcación">
+          <div className={styles.entranceQr}>
+            <QRCodeSVG value={link} size={1024} level="M" marginSize={2} className={styles.qrImage} />
+          </div>
+          <p className={styles.entranceTitle}>Escanea con la cámara de tu celular</p>
+          <p className={styles.entranceHint}>Inicia sesión como docente para registrar tu asistencia</p>
+          <p className={styles.entranceHint}>Se renueva en {qr.remaining} s</p>
+          <button type="button" className={styles.secondaryButton} onClick={() => setEnlarged(false)}>
+            Cerrar
+          </button>
+        </div>
+      )}
+    </section>
   );
 }

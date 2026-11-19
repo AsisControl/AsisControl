@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ESTADO_LABEL, dateOf, timeOf, todayInLima } from "./format";
+import { useCallback, useEffect, useEffectEvent, useState, type FormEvent } from "react";
+import { ESTADO_LABEL, VERIFICACION_LABEL, dateOf, timeOf, todayInLima, tokenFromScan } from "./format";
 import { checkInErrorMessage } from "./messages";
 import { QrScanner } from "./qr-scanner";
 import {
@@ -44,7 +44,7 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
   }, []);
 
   async function checkIn(rawToken: string) {
-    const token = rawToken.trim();
+    const token = tokenFromScan(rawToken);
     if (!token || sending) return;
     setScanning(false);
     setSending(true);
@@ -68,6 +68,22 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
       setSending(false);
     }
   }
+
+  // Al escanear el QR del punto de marcación con la cámara del celular, el enlace trae el código.
+  const checkInLinked = useEffectEvent((token: string) => void checkIn(token));
+  useEffect(() => {
+    if (!canWrite) return;
+    const linked = new URLSearchParams(window.location.search).get("codigo");
+    if (!linked) return;
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("codigo");
+      const rest = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+      checkInLinked(linked);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [canWrite]);
 
   function submitManual(event: FormEvent) {
     event.preventDefault();
@@ -180,6 +196,7 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
                     <th scope="col">Jornada</th>
                     <th scope="col">Hora</th>
                     <th scope="col">Estado</th>
+                    <th scope="col">Clase</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -188,6 +205,7 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
                       <td>{dateOf(item.fechaJornada)}</td>
                       <td>{timeOf(item.fechaHoraMarcada)}</td>
                       <td>{ESTADO_LABEL[item.estado] ?? item.estado}</td>
+                      <td>{VERIFICACION_LABEL[item.verificacion] ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

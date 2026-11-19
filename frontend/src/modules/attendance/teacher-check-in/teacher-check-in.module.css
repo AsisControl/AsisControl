@@ -232,3 +232,180 @@
   border-bottom-color: #2563eb;
   color: #1d4ed8;
 }
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.metric strong {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.metric .pendingNumber {
+  color: #b45309;
+}
+
+.adminLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .adminLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.reviewHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.inlineField {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.inlineField input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.filter[aria-pressed="true"] {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
+.rowButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: #1d4ed8;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pending,
+.confirmed {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.confirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.detail {
+  background: #f8fafc;
+}
+
+.classList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.classList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.qrImage {
+  display: block;
+  width: min(100%, 300px);
+  height: auto;
+}
+
+.entrance {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: #fff;
+  text-align: center;
+}
+
+.entranceQr {
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 2px 12px rgb(15 23 42 / 0.2);
+}
+
+.entranceQr .qrImage {
+  width: min(70vh, 85vw);
+}
+
+.entranceTitle {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.entranceHint {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #475569;
+}

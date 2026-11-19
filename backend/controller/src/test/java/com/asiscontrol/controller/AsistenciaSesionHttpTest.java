@@ -3,6 +3,7 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsistenciaAlumno;
+import com.asiscontrol.entity.AsistenciaDocente;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Horario;
@@ -17,6 +18,7 @@ import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
+import com.asiscontrol.entity.enums.EstadoVerificacionClase;
 import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
 import com.asiscontrol.entity.enums.TipoAula;
 import com.asiscontrol.service.asistencia.AsistenciaSesionService;
@@ -100,6 +102,23 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         long version = docente("GET", ruta(id), null, 200).path("version").asLong();
         return docente("POST", ruta(id) + "/finalizar",
                 data("marcas", List.of(marca(student, "PRESENTE"), marca(otro, "INASISTENCIA")), "version", version), 200);
+    }
+
+    @Test void finalizarLaListaConfirmaLaMarcacionObservadaDelDocente() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        var marcacion = new AsistenciaDocente();
+        marcacion.setDocente(teacher); marcacion.setSesionClase(em.find(SesionClase.class, id));
+        marcacion.setFechaJornada(hoy); marcacion.setFechaHoraMarcada(LocalDateTime.now());
+        marcacion.setEstado(EstadoAsistencia.PRESENTE); marcacion.setContingencia(false);
+        marcacion.setVerificacion(EstadoVerificacionClase.OBSERVADA); marcacion.setActivo(true);
+        em.persist(marcacion); em.flush();
+
+        finalizarTodos(id);
+        em.flush();
+        em.clear();
+
+        assertThat(em.find(AsistenciaDocente.class, marcacion.getId()).getVerificacion())
+                .isEqualTo(EstadoVerificacionClase.CONFIRMADA);
     }
 
     @Test void guardaBorradorYFinalizaCuandoTodosTienenEstado() throws Exception {

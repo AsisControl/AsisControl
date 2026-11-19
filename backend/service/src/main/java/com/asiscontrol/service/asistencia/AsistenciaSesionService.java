@@ -12,18 +12,21 @@ import com.asiscontrol.dto.asistencia.AsistenciaSesionDtos.SesionAsistenciaRespo
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AsistenciaAlumno;
+import com.asiscontrol.entity.AsistenciaDocente;
 import com.asiscontrol.entity.JustificacionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistenciaDetalle;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoVerificacionClase;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
+import com.asiscontrol.repository.AsistenciaDocenteRepository;
 import com.asiscontrol.repository.JustificacionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaDetalleRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaRepository;
@@ -77,6 +80,7 @@ public class AsistenciaSesionService {
     private final AuditoriaService auditoria;
     private final ModuloAccessGuard accessGuard;
     private final CalendarioSesionService calendarioService;
+    private final AsistenciaDocenteRepository asistenciaDocenteRepository;
     private final Clock reloj;
 
     public AsistenciaSesionService(
@@ -89,6 +93,7 @@ public class AsistenciaSesionService {
             AuditoriaService auditoria,
             ModuloAccessGuard accessGuard,
             CalendarioSesionService calendarioService,
+            AsistenciaDocenteRepository asistenciaDocenteRepository,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
         this.asistenciaRepository = asistenciaRepository;
@@ -99,6 +104,7 @@ public class AsistenciaSesionService {
         this.auditoria = auditoria;
         this.accessGuard = accessGuard;
         this.calendarioService = calendarioService;
+        this.asistenciaDocenteRepository = asistenciaDocenteRepository;
         this.reloj = reloj;
     }
 
@@ -133,6 +139,14 @@ public class AsistenciaSesionService {
         return mapear(sesion, filas);
     }
 
+    /** La lista de alumnos ya existe: la marcación del docente en esta sesión deja de estar observada. */
+    private void confirmarMarcacionDocente(Long sesionId) {
+        for (AsistenciaDocente marcacion : asistenciaDocenteRepository.findAllBySesionClaseIdAndActivoTrue(sesionId)) {
+            marcacion.setVerificacion(EstadoVerificacionClase.CONFIRMADA);
+            asistenciaDocenteRepository.save(marcacion);
+        }
+    }
+
     /** Finaliza en una sola transacción; si algo falla no queda una asistencia a medias (R10, R11). */
     @Transactional
     public SesionAsistenciaResponse finalizar(Long sesionId, FinalizarAsistenciaRequest request) {
@@ -158,6 +172,7 @@ public class AsistenciaSesionService {
         sesion.setDocenteRegistrador(sesion.getAsignacionCurso().getDocente());
         sesion.setFechaHoraFinalizacion(LocalDateTime.now(reloj));
         sesionRepository.saveAndFlush(sesion);
+        confirmarMarcacionDocente(sesionId);
         auditoria.registrar("FINALIZAR_ASISTENCIA", ModuloAuditoria.ASISTENCIA, "SesionClase",
                 sesionId.toString(), ResultadoAuditoria.EXITOSO, null, null, describir(marcas));
         return mapear(sesion, filas);

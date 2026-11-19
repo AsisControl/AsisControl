@@ -14,6 +14,8 @@ public interface DocenteRepository extends JpaRepository<Docente, Long> {
 
     Optional<Docente> findByIdAndActivoTrue(Long id);
 
+    long countByActivoTrue();
+
     boolean existsByPersonaId(Long personaId);
 
     Optional<Docente> findByCodigoDocenteIgnoreCase(String codigoDocente);

@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 const abrirModal = async () => {
-  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del 28 Ago 2026" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del 28/08/2026" }));
   return screen.findByRole("dialog");
 };
 
