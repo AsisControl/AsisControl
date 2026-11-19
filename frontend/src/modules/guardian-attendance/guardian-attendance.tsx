@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { message } from "@/core/api/client";
 import type { Page } from "@/shared/types/api";
 import { Feedback, Pager, StatusPill, Loading } from "@/shared/ui";
+import { DateField } from "./date-field";
 import { JustifyDialog } from "./justify-dialog";
 import { detalleFila, etiquetaMes, fechaCorta, presentarEstado, puedeJustificar, resumir } from "./lib";
 import { listarAsistencias, listarEstudiantes } from "./services/asistencia-apoderado-service";
@@ -90,9 +91,9 @@ export function GuardianAttendance() {
           <p>{estudiante ? `${estudiante.nombreCompleto} · ` : ""}Consulta y justificación de inasistencias</p>
         </div>
         {estudiantes && estudiantes.length > 0 && (
-          <label className={styles.selector}>
+          <label className={`${styles.selector} ${styles.etiqueta}`}>
             <span>Estudiante:</span>
-            <select value={alumnoId ?? ""} onChange={(event) => cambiarEstudiante(Number(event.target.value))}>
+            <select className={styles.control} value={alumnoId ?? ""} onChange={(event) => cambiarEstudiante(Number(event.target.value))}>
               {estudiantes.map((item) => (
                 <option key={item.id} value={item.id}>{item.nombreCompleto}</option>
               ))}
@@ -109,29 +110,23 @@ export function GuardianAttendance() {
       {!error && alumnoId !== null && !asistencias && <Loading>Cargando asistencia…</Loading>}
       {asistencias && (
         <>
-          <div className={styles.filtros}>
-            <label>
+          <div className={styles.filtros} key={alumnoId}>
+            <label className={styles.etiqueta}>
               <span>Mes</span>
-              <select value={filtros.mes} onChange={(event) => filtrar({ mes: event.target.value })}>
+              <select className={styles.control} value={filtros.mes} onChange={(event) => filtrar({ mes: event.target.value })}>
                 <option value="">Todos</option>
                 {meses.map((mes) => <option key={mes} value={mes}>{etiquetaMes(mes)}</option>)}
               </select>
             </label>
-            <label>
+            <label className={styles.etiqueta}>
               <span>Curso</span>
-              <select value={filtros.curso} onChange={(event) => filtrar({ curso: event.target.value })}>
+              <select className={styles.control} value={filtros.curso} onChange={(event) => filtrar({ curso: event.target.value })}>
                 <option value="">Todos los cursos</option>
                 {cursos.map((curso) => <option key={curso} value={curso}>{curso}</option>)}
               </select>
             </label>
-            <label>
-              <span>Desde</span>
-              <input type="date" value={filtros.desde} onChange={(event) => filtrar({ desde: event.target.value })} />
-            </label>
-            <label>
-              <span>Hasta</span>
-              <input type="date" value={filtros.hasta} onChange={(event) => filtrar({ hasta: event.target.value })} />
-            </label>
+            <DateField label="Desde" onChange={(desde) => filtrar({ desde })} />
+            <DateField label="Hasta" onChange={(hasta) => filtrar({ hasta })} />
           </div>
           <div className={styles.totales}>
             <div><strong className={styles.presencias}>{presencias}</strong><span>Presencias</span></div>
