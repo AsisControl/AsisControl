@@ -20,7 +20,7 @@ No se agrega una entidad Familia.
 ## Compatibilidad de parentesco
 
 El aprovisionamiento de acceso ya utiliza NO_DECLARADO cuando no se ha solicitado
-un parentesco. V21 amplía el ENUM de MySQL para aceptar ese valor Java existente,
+un parentesco. V22 amplía el ENUM de MySQL para aceptar ese valor Java existente,
 conservando los cuatro valores anteriores. No asigna MADRE, PADRE u otro parentesco
 por inferencia y no modifica las migraciones ya aplicadas. Se mantiene la lista
 de parentescos explícitos de las plantillas de importación.
@@ -37,5 +37,5 @@ de parentescos explícitos de las plantillas de importación.
   de los parentescos registrados, ejecutado con H2 en modo MySQL.
 
 Estas pruebas no sustituyen ejecutar Flyway y un recorrido de aceptación contra
-una instancia MySQL del entorno de destino. V21 debe aplicarse antes de usar
+una instancia MySQL del entorno de destino. V22 debe aplicarse antes de usar
 el aprovisionamiento de vínculos sin parentesco declarado en ese entorno.

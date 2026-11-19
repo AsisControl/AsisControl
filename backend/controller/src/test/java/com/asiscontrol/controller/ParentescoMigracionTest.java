@@ -14,7 +14,7 @@ class ParentescoMigracionTest {
             sql.execute("INSERT INTO AlumnoApoderado VALUES (1,'MADRE'),(2,'PADRE'),(3,'TUTOR_LEGAL'),(4,'OTRO_FAMILIAR')");
             assertThatThrownBy(() -> sql.execute("INSERT INTO AlumnoApoderado VALUES (5,'NO_DECLARADO')"))
                     .isInstanceOf(java.sql.SQLException.class);
-            ScriptUtils.executeSqlScript(conexion, new ClassPathResource("db/migration/V21__parentesco_no_declarado.sql"));
+            ScriptUtils.executeSqlScript(conexion, new ClassPathResource("db/migration/V22__parentesco_no_declarado.sql"));
             sql.execute("INSERT INTO AlumnoApoderado VALUES (5,'NO_DECLARADO')");
             try (var filas = sql.executeQuery("SELECT parentesco FROM AlumnoApoderado ORDER BY id")) {
                 var valores = new java.util.ArrayList<String>();
