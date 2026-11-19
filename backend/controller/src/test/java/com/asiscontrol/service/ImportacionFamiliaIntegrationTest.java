@@ -58,7 +58,7 @@ class ImportacionFamiliaIntegrationTest {
     @Test
     void registraLasFilasValidasYReportaLasDemasPorFila() {
         String a = dni(), b = dni(), docente = dni();
-        personas.createDocente(new PersonaDtos.DocenteCreateRequest(
+        var altaDocente = personas.createDocente(new PersonaDtos.DocenteCreateRequest(
                 persona(docente, "Rosa", "Pizarro"), LocalDate.now(),
                 Especialidad.TUTORIA));
 
@@ -84,13 +84,16 @@ class ImportacionFamiliaIntegrationTest {
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple(2, false),
                         org.assertj.core.groups.Tuple.tuple(4, false),
-                        org.assertj.core.groups.Tuple.tuple(5, false),
+                        org.assertj.core.groups.Tuple.tuple(5, true),
                         org.assertj.core.groups.Tuple.tuple(6, true));
         var primera = result.credentials().get(0);
+        var rolAgregado = result.credentials().get(2);
         var repetida = result.credentials().get(3);
         assertThat(primera.temporaryPassword()).isNotBlank();
         assertThat(primera.code()).matches("APO[0-9]{8}");
-        assertThat(primera.username()).startsWith("luis.rojas");
+        assertThat(primera.username()).matches("[0-9]{8}");
+        assertThat(rolAgregado.username()).isEqualTo(altaDocente.credencialAcceso().username());
+        assertThat(rolAgregado.temporaryPassword()).isNull();
         assertThat(primera.expiresAt()).isAfter(java.time.Instant.now().plus(java.time.Duration.ofDays(13)));
         assertThat(repetida.temporaryPassword()).isNull();
         assertThat(repetida.username()).isEqualTo(primera.username());

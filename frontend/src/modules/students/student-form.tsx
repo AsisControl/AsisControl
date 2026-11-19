@@ -75,6 +75,7 @@ export function StudentForm({
             bindField={bindField}
             changeField={changeField}
             validateFieldOnBlur={validateFieldOnBlur}
+            documentRequired={!student}
           />
           <StudentContactFields bindField={bindField} />
           {sensitive && (

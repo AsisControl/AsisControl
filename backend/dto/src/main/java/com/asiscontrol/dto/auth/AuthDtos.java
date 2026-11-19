@@ -11,7 +11,7 @@ public final class AuthDtos {
     private AuthDtos() {}
 
     public record LoginRequest(
-            @NotBlank(message = "El usuario o correo es obligatorio") @Size(max = 150)
+            @NotBlank(message = "El identificador institucional es obligatorio") @Size(max = 150)
                     String identifier,
             @NotBlank(message = "La contrasena es obligatoria") @Size(max = 72) String password) {}
 
@@ -26,7 +26,13 @@ public final class AuthDtos {
             String nombreCompleto,
             String rol,
             List<String> permisos,
-            boolean requiereCambioContrasena) {}
+            boolean requiereCambioContrasena,
+            List<String> rolesDisponibles,
+            Long sesionId,
+            long versionContexto) {}
+
+    public record RolActivoRequest(
+            @NotBlank(message = "Selecciona un rol válido.") @Size(max = 30) String rol) {}
 
     public record ChangePasswordRequest(
             @NotBlank(message = "La contrasena actual es obligatoria") String currentPassword,

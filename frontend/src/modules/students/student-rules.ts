@@ -228,18 +228,17 @@ function documentNumberError(documentType: string): string {
   return "El pasaporte debe tener de 8 a 12 letras o números, sin espacios ni guiones.";
 }
 
-function validateDocument(draft: StudentDraft): StudentErrors {
+function validateDocument(draft: StudentDraft, required: boolean): StudentErrors {
   const errors: StudentErrors = {};
   const documentType = draft.tipoDocumento;
   const documentNumber = draft.numeroDocumento.trim();
   const rule =
     STUDENT_DOCUMENT_RULES[documentType as keyof typeof STUDENT_DOCUMENT_RULES];
-  if (!documentType && documentNumber) {
-    errors.tipoDocumento = "Selecciona el tipo del documento informado.";
+  if (!documentType && (documentNumber || required)) {
+    errors.tipoDocumento = "Selecciona el tipo de documento.";
   }
-  if (documentType && !documentNumber) {
-    errors.numeroDocumento =
-      "Completa el número o deja ambos campos sin documento.";
+  if (!documentNumber && (documentType || required)) {
+    errors.numeroDocumento = "Ingresa el número de documento.";
   }
   if (documentType && !rule) {
     errors.tipoDocumento = "Selecciona un tipo de documento válido.";
@@ -277,7 +276,7 @@ export function validateStudent(
   const errors: StudentErrors = {
     ...validateNames(draft),
     ...validateBirthDate(draft.fechaNacimiento, today),
-    ...validateDocument(draft),
+    ...validateDocument(draft, !original),
     ...validateContact(draft),
   };
   if (draft.sexo && !STUDENT_SEX_OPTIONS.includes(draft.sexo)) {

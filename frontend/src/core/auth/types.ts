@@ -9,10 +9,17 @@ export type AuthenticatedUser = {
   requiresPasswordChange?: boolean;
 };
 
+export type SessionUser = Omit<AuthenticatedUser, "role"> & {
+  role: UserRole | null;
+  availableRoles: UserRole[];
+  sessionId: string;
+  contextVersion: number;
+};
+
 export type AuthSession = {
   accessToken: string;
   expiresAt?: string;
-  user: AuthenticatedUser;
+  user: SessionUser;
 };
 
 export type LoginCredentials = {
@@ -24,12 +31,9 @@ export type LoginResult =
   | { ok: true; session: AuthSession }
   | { ok: false; message: string };
 
-/**
- * Contrato que consumirá la interfaz. Cuando el backend esté disponible,
- * reemplazar MockAuthService por una implementación basada en HTTP.
- */
 export interface AuthService {
   login(credentials: LoginCredentials): Promise<LoginResult>;
+  switchRole(role: UserRole): Promise<AuthSession>;
   logout(): Promise<void>;
   /** Sesión nueva desde la cookie de renovación; null si no hay sesión que renovar. */
   refresh(): Promise<AuthSession | null>;

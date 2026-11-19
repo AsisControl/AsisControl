@@ -220,7 +220,7 @@ export function RolesMatrix() {
               Los cuatro roles y sus permisos son configuración controlada del
               servidor y no se modifican desde la aplicación. Tener un permiso
               no concede acceso a registros de otras personas; una persona con
-              varios roles usa accesos separados.
+              varios roles elige uno cada vez en su cuenta institucional.
             </p>
           </section>
         </div>

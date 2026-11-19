@@ -19,7 +19,8 @@ import { StudentForm } from "./student-form";
 import { StudentDetail } from "./student-detail";
 import { studentName } from "./student-rules";
 import { FamilyImportDialog } from "./import-dialog";
-import type { Student } from "./types";
+import { NewAccountCredentials } from "./access-credentials";
+import type { AccessCredential, Student } from "./types";
 import styles from "./students.module.css";
 
 export function Students() {
@@ -36,6 +37,7 @@ function StudentManagement() {
   const list = usePaged<Student>("/api/alumnos", query);
   const [detail, setDetail] = useState<Student | null>(null);
   const [formMode, setFormMode] = useState(false);
+  const [credential, setCredential] = useState<AccessCredential | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -62,7 +64,8 @@ function StudentManagement() {
       if (current === request.current) setOpening(false);
     }
   }
-  function saved(student: Student) {
+  function saved({ credencialAcceso, ...student }: Student) {
+    if (credencialAcceso?.temporaryPassword) setCredential(credencialAcceso);
     setDetail(student);
     setFormMode(false);
     list.refresh();
@@ -83,6 +86,9 @@ function StudentManagement() {
     );
   return (
     <section className="panel" aria-label="Estudiantes">
+      {credential && (
+        <NewAccountCredentials credential={credential} onClose={() => setCredential(null)} />
+      )}
       <PanelHeading
         title="Estudiantes"
         summary={

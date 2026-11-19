@@ -41,6 +41,13 @@ public class SesionAcceso {
     @JoinColumn(name = "id_acceso_usuario", nullable = false)
     private AccesoUsuario usuario;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_rol_activo")
+    private Rol rolActivo;
+
+    @Column(name = "version_contexto", nullable = false)
+    private long versionContexto;
+
     @Column(name = "token_hash", nullable = false, length = 64)
     private String tokenHash;
 

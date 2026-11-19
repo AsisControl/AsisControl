@@ -124,7 +124,7 @@ public class RecuperacionService {
         users.save(user);
         tokens.revocar(uid, now);
         sessions.revokeAllByUsuarioId(uid, EstadoSesion.REVOCADA, now);
-        audit.registrarAcceso("RECUPERAR_CONTRASENA", user, ResultadoAuditoria.EXITOSO);
+        audit.registrarAcceso("RECUPERAR_CONTRASENA", user, null, ResultadoAuditoria.EXITOSO);
     }
 
     private boolean elegible(AccesoUsuario u) {
