@@ -60,7 +60,7 @@ $demoTemporal = Read-Host "Contraseña de los usuarios demo (mayúscula, minúsc
 $env:DEMO_PASSWORD = [System.Net.NetworkCredential]::new("", $demoTemporal).Password
 ```
 
-Luego inicia el backend como en la sección anterior. Los usuarios son `demo.docente1`, `demo.docente2`, `demo.alumno` y `demo.apoderado`, y todos usan esa contraseña. Sin `DEMO_PASSWORD` el backend no arranca. Si ya existe un año activo o el año actual, no se escribe nada, por lo que reiniciar no duplica los datos. La asistencia se toma solo el día de la sesión, y no hay clases los sábados ni domingos.
+Luego inicia el backend como en la sección anterior. Los usuarios son `demo.docente1`, `demo.docente2`, `demo.alumno` y `demo.apoderado`, y todos usan esa contraseña. Los estudiantes, los docentes y el apoderado reciben códigos institucionales como en un alta real (por ejemplo `EST20260001`, `DOC20260001` y `APO20260001`), y las matrículas el formato `MAT-{año}-XXXXXXXX`. Sin `DEMO_PASSWORD` el backend no arranca. Si ya existe un año activo o el año actual, no se escribe nada, por lo que reiniciar no duplica los datos. La asistencia se toma solo el día de la sesión, y no hay clases los sábados ni domingos.
 
 No uses este perfil en producción.
 

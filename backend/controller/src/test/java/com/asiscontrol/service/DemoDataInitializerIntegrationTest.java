@@ -64,6 +64,7 @@ class DemoDataInitializerIntegrationTest {
     @Autowired RolRepository roles;
     @Autowired NacionalidadRepository nacionalidades;
     @Autowired PasswordEncoder passwordEncoder;
+    @Autowired com.asiscontrol.repository.ApoderadoRepository apoderados;
     @Autowired Clock reloj;
 
     private DemoDataInitializer inicializador;
@@ -112,9 +113,30 @@ class DemoDataInitializerIntegrationTest {
 
         List<AsignacionCurso> delDemo = asignacionesDemo();
         assertThat(delDemo).hasSize(4);
-        assertThat(delDemo).extracting(a -> a.getDocente().getCodigoDocente())
-                .containsOnly("DOC-DEMO-1", "DOC-DEMO-2");
         assertThat(matriculasDemo()).isEqualTo(12);
+    }
+
+    /** Los códigos siguen el formato institucional de develop, como un alta hecha desde la aplicación. */
+    @Test
+    void usaLosCodigosInstitucionalesDeUnAltaReal() {
+        inicializador.cargar();
+
+        int anio = LocalDate.now(reloj).getYear();
+        List<AsignacionCurso> delDemo = asignacionesDemo();
+        assertThat(delDemo).extracting(a -> a.getDocente().getCodigoDocente())
+                .hasSize(4)
+                .allMatch(codigo -> codigo.matches("DOC" + anio + "\\d{4}"));
+        assertThat(delDemo.stream().map(a -> a.getDocente().getCodigoDocente()).distinct()).hasSize(2);
+        var delAnio = matriculas.findAll().stream().filter(m -> m.getAnioAcademico() == anio).toList();
+        assertThat(delAnio).hasSize(12).allSatisfy(matricula -> {
+            assertThat(matricula.getCodigoMatricula()).matches("MAT-" + anio + "-[0-9A-F]{8}");
+            assertThat(matricula.getAlumno().getCodigoAlumno()).matches("EST" + anio + "\\d{4}");
+        });
+        assertThat(delAnio.stream().map(m -> m.getAlumno().getCodigoAlumno()).distinct()).hasSize(12);
+        var apoderado = usuarios.findActiveByIdentifier("demo.apoderado").orElseThrow().getPersona();
+        assertThat(apoderados.findAll().stream().filter(a -> a.getPersona().getId().equals(apoderado.getId())))
+                .singleElement()
+                .satisfies(a -> assertThat(a.getCodigoApoderado()).matches("APO" + anio + "\\d{4}"));
     }
 
     /** Las mismas reglas que HorarioService exige al crear un bloque a mano. */
@@ -188,7 +210,7 @@ class DemoDataInitializerIntegrationTest {
     /** Solo usa el repositorio de años y el reloj: llega a la validacion sin tocar nada mas. */
     private DemoDataInitializer conContrasena(String contrasena) {
         return new DemoDataInitializer(anios, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null, null, null, null, reloj, contrasena);
+                null, null, null, null, null, null, null, null, null, null, reloj, contrasena);
     }
 
     private List<AsignacionCurso> asignacionesDemo() {

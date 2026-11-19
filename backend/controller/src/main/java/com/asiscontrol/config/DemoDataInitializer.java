@@ -48,6 +48,8 @@ import com.asiscontrol.repository.SolicitudMatriculaRepository;
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository;
 import com.asiscontrol.security.PasswordPolicy;
+import com.asiscontrol.service.CodigoInstitucionalService;
+import com.asiscontrol.service.CodigoInstitucionalService.Prefijo;
 import com.asiscontrol.service.asistencia.CalendarioSesionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,10 +67,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Datos de demostracion para horarios y asistencia: un año activo con dos secciones, dos cursos,
- * dos docentes con horario de lunes a viernes y estudiantes matriculados. Solo existe con el
+ * dos docentes con horario de lunes a viernes y estudiantes matriculados. Los códigos de
+ * estudiantes, docentes y apoderados salen de {@link CodigoInstitucionalService}, igual que en un
+ * alta real (por ejemplo EST20260001), y las matrículas usan el formato MAT-{año}-XXXXXXXX. Solo existe con el
  * perfil {@code demo} y nunca es una migracion, para que no llegue a una base real por accidente.
  *
  * <p>Corre al quedar lista la aplicacion, despues de {@link BootstrapDataInitializer}, que crea
@@ -123,6 +129,7 @@ public class DemoDataInitializer {
     private final RolRepository roles;
     private final NacionalidadRepository nacionalidades;
     private final CalendarioSesionService calendario;
+    private final CodigoInstitucionalService codigos;
     private final PasswordEncoder passwordEncoder;
     private final Clock reloj;
     private final String contrasena;
@@ -149,6 +156,7 @@ public class DemoDataInitializer {
             RolRepository roles,
             NacionalidadRepository nacionalidades,
             CalendarioSesionService calendario,
+            CodigoInstitucionalService codigos,
             PasswordEncoder passwordEncoder,
             Clock reloj,
             @Value("${app.demo.password:}") String contrasena) {
@@ -171,6 +179,7 @@ public class DemoDataInitializer {
         this.roles = roles;
         this.nacionalidades = nacionalidades;
         this.calendario = calendario;
+        this.codigos = codigos;
         this.passwordEncoder = passwordEncoder;
         this.reloj = reloj;
         this.contrasena = contrasena;
@@ -198,9 +207,9 @@ public class DemoDataInitializer {
         Aula aula102 = crearAula("DEMO-102", "Aula 102");
 
         Docente docenteMatematica = crearDocente(
-                "DOC-DEMO-1", "Rosa", "Aguirre", "Delgado", Especialidad.MATEMATICA, "demo.docente1");
+                "Rosa", "Aguirre", "Delgado", Especialidad.MATEMATICA, "demo.docente1");
         Docente docenteComunicacion = crearDocente(
-                "DOC-DEMO-2", "Carlos", "Benites", "Ochoa", Especialidad.COMUNICACION, "demo.docente2");
+                "Carlos", "Benites", "Ochoa", Especialidad.COMUNICACION, "demo.docente2");
 
         crearHorarioSemanal(seccionA, aula101, true,
                 asignar(matematica, seccionA, docenteMatematica), asignar(comunicacion, seccionA, docenteComunicacion));
@@ -284,12 +293,11 @@ public class DemoDataInitializer {
     }
 
     private Docente crearDocente(
-            String codigo, String nombres, String paterno, String materno, Especialidad especialidad,
-            String usuario) {
+            String nombres, String paterno, String materno, Especialidad especialidad, String usuario) {
         Persona persona = crearPersona(nombres, paterno, materno, LocalDate.of(1985, 4, 15), usuario);
         Docente docente = new Docente();
         docente.setPersona(persona);
-        docente.setCodigoDocente(codigo);
+        docente.setCodigoDocente(codigo(Prefijo.DOC));
         docente.setFechaIngreso(LocalDate.now(reloj).minusYears(3));
         docente.setEspecialidad(especialidad);
         docentes.save(docente);
@@ -339,7 +347,7 @@ public class DemoDataInitializer {
                     LocalDate.of(LocalDate.now(reloj).getYear() - 12, 3, i + 1), "alumno" + clave);
             Alumno alumno = new Alumno();
             alumno.setPersona(persona);
-            alumno.setCodigoAlumno("EST-DEMO-" + clave);
+            alumno.setCodigoAlumno(codigo(Prefijo.EST));
             alumnos.save(alumno);
 
             SolicitudMatricula solicitud = new SolicitudMatricula();
@@ -352,7 +360,7 @@ public class DemoDataInitializer {
             matricula.setAlumno(alumno);
             matricula.setSeccion(seccion);
             matricula.setSolicitudMatricula(solicitud);
-            matricula.setCodigoMatricula("MAT-DEMO-" + clave);
+            matricula.setCodigoMatricula(codigoMatricula(seccion.getAnioAcademico()));
             matricula.setAnioAcademico(seccion.getAnioAcademico());
             matricula.setFechaMatricula(Instant.now(reloj));
             matricula.setEstado(EstadoMatricula.ACTIVA);
@@ -369,6 +377,7 @@ public class DemoDataInitializer {
         Persona persona = crearPersona("Patricia", "Paredes", "Linares", LocalDate.of(1983, 9, 20), "demo.apoderado");
         Apoderado apoderado = new Apoderado();
         apoderado.setPersona(persona);
+        apoderado.setCodigoApoderado(codigo(Prefijo.APO));
         apoderados.save(apoderado);
         crearAcceso(persona, "APODERADO", "demo.apoderado");
 
@@ -378,6 +387,16 @@ public class DemoDataInitializer {
         vinculo.setParentesco(Parentesco.MADRE);
         vinculo.setPrincipal(true);
         vinculos.save(vinculo);
+    }
+
+    /** Código institucional del año de la demo, con la misma secuencia que un alta real. */
+    private String codigo(Prefijo prefijo) {
+        return codigos.siguiente(prefijo, LocalDate.now(reloj).getYear());
+    }
+
+    /** Mismo formato que asigna MatriculaService al finalizar una matrícula. */
+    private static String codigoMatricula(int anio) {
+        return "MAT-" + anio + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
     }
 
     private Persona crearPersona(
