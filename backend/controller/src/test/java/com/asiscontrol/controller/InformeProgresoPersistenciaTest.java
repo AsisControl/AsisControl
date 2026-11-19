@@ -17,7 +17,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 
-/** Ejecuta el SQL de V10 en H2/MySQL y persiste con los mapeos JPA reales. */
+/** Ejecuta el SQL de V20 en H2/MySQL y persiste con los mapeos JPA reales. */
 @TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:informe_migracion_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
@@ -29,7 +29,7 @@ class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
                 statement.execute("DROP TABLE InformeProgreso");
             }
             ScriptUtils.executeSqlScript(connection,
-                    new ClassPathResource("db/migration/V10__informes_progreso.sql"));
+                    new ClassPathResource("db/migration/V20__informes_progreso.sql"));
         });
 
         var periodo = new PeriodoAcademico();
