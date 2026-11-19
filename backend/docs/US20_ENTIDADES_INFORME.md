@@ -30,12 +30,18 @@ reproducir nombres historicos no estan incluidos en esta implementacion.
 
 ## Base de datos
 
-Script: `controller/src/main/resources/db/migration/V10__informes_progreso.sql`.
-Flyway lo aplica despues de V9 al iniciar con las migraciones habilitadas.
+Las versiones V16 a V19 se conservan exactamente como en origin/develop.
+V16 corresponde a codigos institucionales (checksum -1423649557), ya aplicada
+en la base compartida. La migracion de informes usa V20 para evitar colisiones.
+No se requiere reparar ni modificar el historial de Flyway.
+
+
+Script: `controller/src/main/resources/db/migration/V20__informes_progreso.sql`.
+Flyway lo aplica despues de V19 al iniciar con las migraciones habilitadas.
 El perfil `mysql` ya habilita Flyway y valida el esquema con Hibernate; no
 requiere cambiar esa configuracion. El perfil `local` utiliza H2 y crea el
 esquema desde las entidades, sin ejecutar Flyway.
-No modificar scripts ya aplicados ni ejecutar V10 manualmente antes de Flyway:
+No modificar scripts ya aplicados ni ejecutar V20 manualmente antes de Flyway:
 eso crearia las tablas fuera de su historial y provocaria un conflicto.
 No requiere borrar datos ni modificar las tablas anteriores.
 

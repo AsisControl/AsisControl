@@ -1,7 +1,7 @@
 # US-20: libretas persistidas y PDF de progreso
 
 El flujo utiliza InformeProgreso y DetalleInformeProgreso, sin cambiar sus campos
-ni la migracion V10. El PDF se renderiza al descargarlo; sus resultados proceden
+ni la migracion V20. El PDF se renderiza al descargarlo; sus resultados proceden
 de la ultima version PUBLICADA, no de las calificaciones vigentes.
 
 ## Flujo de uso
@@ -81,6 +81,6 @@ Pruebas HTTP/H2: permisos, vinculos revocados, matricula/año, fechas inclusivas
 niveles incompletos, regeneracion, conservacion del resultado, version nueva,
 repeticion de publicacion y descarga PDF. ReporteAvanceTest renderiza un PDF real
 con varias paginas y observaciones largas. InformeProgresoPersistenciaTest
-comprueba el esquema V10 y sus restricciones. No sustituye una prueba en MySQL.
+comprueba el esquema V20 y sus restricciones. No sustituye una prueba en MySQL.
 
 Desde frontend: `npm test -- src/modules/evaluations/tests` y `npx tsc --noEmit`.
