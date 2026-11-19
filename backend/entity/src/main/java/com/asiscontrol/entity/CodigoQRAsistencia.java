@@ -36,8 +36,9 @@ public class CodigoQRAsistencia extends AuditableEntity {
     @Column(name = "id_codigo_qr")
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_docente", nullable = false)
+    /** Vacío en el QR institucional del punto de marcación. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_docente")
     private Docente docente;
 
     @Column(name = "token_hash", nullable = false, length = 64)

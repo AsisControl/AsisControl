@@ -5,22 +5,32 @@ import type { AsistenciaEstudiante } from "./types";
 export const MOTIVOS = ["Cita médica", "Enfermedad", "Trámite documentario", "Asunto familiar", "Otro"];
 export const MAX_OBSERVACIONES = 1900;
 
-const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const MESES_LARGOS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
-
-/** "2026-09-08" → "08 Sep 2026". */
+/** "2026-09-08" → "08/09/2026". */
 export function fechaCorta(iso: string) {
   const [anio, mes, dia] = iso.split("-");
-  return `${dia} ${MESES[Number(mes) - 1]} ${anio}`;
+  return `${dia}/${mes}/${anio}`;
 }
 
-/** "2026-09" → "Septiembre 2026". */
+/** "2026-09" → "09/2026". */
 export function etiquetaMes(mes: string) {
   const [anio, numero] = mes.split("-");
-  return `${MESES_LARGOS[Number(numero) - 1]} ${anio}`;
+  return `${numero}/${anio}`;
+}
+
+/** Deja solo dígitos y los agrupa como dd/mm/aaaa mientras se escribe ("0809" → "08/09"). */
+export function enmascararFecha(texto: string) {
+  const digitos = texto.replace(/\D/g, "").slice(0, 8);
+  return [digitos.slice(0, 2), digitos.slice(2, 4), digitos.slice(4)].filter(Boolean).join("/");
+}
+
+/** "08/09/2026" → "2026-09-08"; null si el texto no es una fecha de calendario completa y real. */
+export function parsearFecha(texto: string) {
+  const coincide = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+  if (!coincide) return null;
+  const [dia, mes, anio] = coincide.slice(1).map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  const real = fecha.getUTCFullYear() === anio && fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === dia;
+  return real && anio >= 1900 ? `${coincide[3]}-${coincide[2]}-${coincide[1]}` : null;
 }
 
 const esInasistencia = (fila: AsistenciaEstudiante) =>

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, PageHeader, PanelHeading } from "@/shared/ui";
+import { Feedback, PageHeader, PanelHeading, Loading } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import type { ScheduleBlock } from "../types";
 import styles from "../schedules.module.css";
@@ -80,7 +80,7 @@ export function StudentSchedule() {
         />
         <Feedback error={setupError || loadError} />
         {enrollments === null ? (
-          !setupError && <p role="status">Cargando tu horario…</p>
+          !setupError && <Loading skeleton="timetable">Cargando tu horario…</Loading>
         ) : !enrollments.length ? (
           <p className="empty">No tienes una matrícula activa con horario disponible.</p>
         ) : (
@@ -99,12 +99,12 @@ export function StudentSchedule() {
               </div>
             )}
             {!blocks ? (
-              !loadError && <p role="status">Cargando tu horario…</p>
+              !loadError && <Loading skeleton="timetable">Cargando tu horario…</Loading>
             ) : (
               <TimetableGrid
                 blocks={blocks}
                 label="Mi horario semanal"
-                emptyMessage={`Aún no hay bloques de horario para tu sección en ${year}.`}
+                emptyMessage={`Sin horarios asignados: tu sección aún no tiene clases programadas en ${year}.`}
                 sectionOf={sectionOf}
                 onOpen={setDetail}
               />

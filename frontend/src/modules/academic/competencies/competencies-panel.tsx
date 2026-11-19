@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, RowMenu, PanelHeading } from "@/shared/ui";
+import { Feedback, FormDialog, Pager, RowMenu, PanelHeading, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Competency, CourseCompetency } from "../types";
 import styles from "../academic.module.css";
@@ -147,7 +147,7 @@ export function CompetenciesPanel({ canWrite }: { canWrite: boolean }) {
         <p className="hint">No se pudieron consultar los cursos asociados.</p>
       )}
       {competencies.loading ? (
-        <p role="status">Cargando competencias…</p>
+        <Loading>Cargando competencias…</Loading>
       ) : competencies.data?.content.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>

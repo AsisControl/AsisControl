@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { countLabel } from "@/shared/lib/formatters";
 import type { Page } from "@/shared/types/api";
-import { Feedback, Pager, StatusPill } from "@/shared/ui";
+import { Feedback, Pager, StatusPill, Loading } from "@/shared/ui";
 import { fechaSesion, horaSesion } from "./lib";
 import { listarCursosDocente, listarSesiones } from "./services/asistencia-service";
 import { AlertIcon, Breadcrumb, CalendarIcon, ChevronIcon } from "./session-ui";
@@ -97,7 +97,7 @@ export function SessionHistory({ asignacionId }: { asignacionId: number }) {
           </button>
         </div>
       )}
-      {!error && !datos && <p role="status">Cargando sesiones…</p>}
+      {!error && !datos && <Loading>Cargando sesiones…</Loading>}
       {!error && datos && sesiones.length === 0 && (
         <p className={styles.vacio}>Este curso todavía no tiene sesiones programadas.</p>
       )}

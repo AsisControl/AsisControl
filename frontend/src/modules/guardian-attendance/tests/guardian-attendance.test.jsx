@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { enmascararFecha, etiquetaMes, parsearFecha } from "../lib";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
@@ -30,7 +31,7 @@ beforeEach(() => {
 });
 
 const abrirModal = async () => {
-  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del 28 Ago 2026" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del 28/08/2026" }));
   return screen.findByRole("dialog");
 };
 
@@ -128,4 +129,33 @@ test("Avisa cuando el apoderado no tiene estudiantes", async () => {
   fakeBackend({ [ESTUDIANTES]: [] });
   render(<GuardianAttendance />);
   expect(await screen.findByText("No tienes estudiantes asociados.")).toBeTruthy();
+});
+
+test("Enmascara, valida y convierte a ISO la fecha escrita", () => {
+  expect(enmascararFecha("0809")).toBe("08/09");
+  expect(enmascararFecha("08092026999")).toBe("08/09/2026");
+  expect(enmascararFecha("8a")).toBe("8");
+  expect(parsearFecha("08/09/2026")).toBe("2026-09-08");
+  expect(parsearFecha("29/02/2024")).toBe("2024-02-29");
+  expect(parsearFecha("29/02/2026")).toBeNull();
+  expect(parsearFecha("31/04/2026")).toBeNull();
+  expect(parsearFecha("08/13/2026")).toBeNull();
+  expect(parsearFecha("08/09/26")).toBeNull();
+  expect(etiquetaMes("2026-09")).toBe("09/2026");
+});
+
+test("Desde y Hasta se escriben como dd/mm/aaaa y filtran la tabla", async () => {
+  fakeBackend({ [ESTUDIANTES]: [luis], [ASISTENCIAS]: page(FILAS) });
+  render(<GuardianAttendance />);
+  await screen.findByText("57%");
+  const desde = screen.getByLabelText("Desde");
+  expect(desde.getAttribute("type")).toBe("text");
+  await userEvent.type(desde, "01092026");
+  expect(desde.value).toBe("01/09/2026");
+  expect(screen.queryByRole("cell", { name: "28/08/2026" })).toBeNull();
+  expect(screen.getAllByRole("cell", { name: "08/09/2026" }).length).toBeGreaterThan(0);
+  await userEvent.type(screen.getByLabelText("Hasta"), "31022026");
+  expect(screen.getByRole("alert").textContent).toBe("Fecha no válida");
+  await userEvent.clear(desde);
+  expect(screen.getByText("28/08/2026")).toBeTruthy();
 });

@@ -11,6 +11,7 @@ import type {
 } from "./types";
 import styles from "./evaluations.module.css";
 
+import { Loading } from "@/shared/ui";
 type Correction = CorrectionEntry & { competencia: string };
 type Progress = { levels: ConsolidatedLevel[]; corrections: Correction[] };
 
@@ -64,7 +65,7 @@ export function StudentProgress({
       {error ? (
         <p className="hint">No se pudo cargar el detalle: {error}</p>
       ) : !progress ? (
-        <p role="status">Cargando detalle…</p>
+        <Loading skeleton="detail">Cargando detalle…</Loading>
       ) : (
         <>
           {progress.levels.length ? (

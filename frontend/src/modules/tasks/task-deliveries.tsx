@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { message } from "./task-error-copy";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { Feedback, PageHeader, Pager, StatusPill, type StatusTone } from "@/shared/ui";
+import { Feedback, PageHeader, Pager, StatusPill, type StatusTone, Loading } from "@/shared/ui";
 import { obtenerContextoAsignacion, obtenerTarea } from "./services/tarea-service";
 import { entregasPath } from "./services/entrega-service";
 import { useDeliveryStudents } from "./use-delivery-students";
@@ -53,7 +53,7 @@ export function TaskDeliveries({ taskId, canWrite }: { taskId: number; canWrite:
       actions={<Link className={styles.backLink} href="/tareas"><span aria-hidden="true">← </span>Volver a tareas</Link>} />
     {!task ? <section className={`panel ${styles.card}`}>
       <Feedback error={error} />
-      {checking ? <p role="status">Cargando tarea…</p> : <button type="button" onClick={refreshTask}>Reintentar carga</button>}
+      {checking ? <Loading skeleton="detail" rows={4}>Cargando tarea…</Loading> : <button type="button" onClick={refreshTask}>Reintentar carga</button>}
     </section> : task.estado === "BORRADOR" ? <section className={`panel ${styles.card}`}>
       <Feedback error={error} />
       <p>El seguimiento está disponible para tareas publicadas, cerradas o archivadas.</p>
@@ -92,7 +92,7 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
       {retired && task.estado !== "ARCHIVADA" && <p className="hint">Ya no estás asignado a este curso y sección: consulta de solo lectura.</p>}
       <TaskRoster taskId={task.id} reload={rosterReload} />
       <Feedback error={error} />
-      {checking || deliveries.loading ? <p role="status">Cargando entregas…</p> : error ? null : deliveries.data?.content.length ? (
+      {checking || deliveries.loading ? <Loading>Cargando entregas…</Loading> : error ? null : deliveries.data?.content.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table} ${styles.deliveryTable}`}>
             <caption className={styles.srOnly}>Entregas recibidas de {task.nombre}</caption>

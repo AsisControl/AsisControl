@@ -46,7 +46,7 @@ export function ChangePassword({
   }
   if (done)
     return (
-      <AuthFormLayout label="Contraseña actualizada" icon="check">
+      <AuthFormLayout label="Contraseña actualizada" icon="check" compact={mandatory}>
         <h1>Contraseña actualizada</h1>
         <p className={styles.description}>
           Inicia sesión nuevamente con tu contraseña nueva.
@@ -57,7 +57,7 @@ export function ChangePassword({
       </AuthFormLayout>
     );
   return (
-    <AuthFormLayout label="Cambio de contraseña" icon="lock">
+    <AuthFormLayout label="Cambio de contraseña" icon="lock" compact={mandatory}>
       <h1>Cambiar contraseña</h1>
       <p className={styles.description}>
         {mandatory

@@ -91,8 +91,14 @@ export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number) 
   );
 }
 export async function listarAsignacionesPropias() {
-  const page = await api<Page<OwnAssignment>>("/api/asignaciones-cursos/mias?size=100");
-  return normalizePage(page).content;
+  const items: OwnAssignment[] = [];
+  for (let number = 0; ; number++) {
+    const page = normalizePage(await api<Page<OwnAssignment>>(
+      `/api/asignaciones-cursos/mias?size=100&page=${number}`,
+    ));
+    items.push(...page.content);
+    if (page.last) return items;
+  }
 }
 /** El backend no filtra las asociaciones por curso: se filtran aquí. */
 export async function listarCompetenciasDelCurso(cursoId: number) {

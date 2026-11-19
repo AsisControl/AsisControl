@@ -74,4 +74,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verificar construccion de imagen
-        run: docker build --tag asiscontrol-${{ matrix.component }}:ci ./${{ matrix.component }}
+        env:
+          COMPONENT: ${{ matrix.component }}
+        # Maven Central a veces responde 429 (Too Many Requests) a los runners compartidos:
+        # se reintenta con espera creciente antes de dar el build por fallido.
+        run: |
+          for intento in 1 2 3; do
+            docker build --tag "asiscontrol-$COMPONENT:ci" "./$COMPONENT" && exit 0
+            if [ "$intento" -lt 3 ]; then
+              echo "::warning::Fallo el intento $intento de construir $COMPONENT; se reintenta en $((intento * 60)) s"
+              sleep $((intento * 60))
+            fi
+          done
+          exit 1

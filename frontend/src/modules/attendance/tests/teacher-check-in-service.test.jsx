@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/core/api/client";
 import {
   cancelarQr,
+  clasesDelDia,
   consultarQr,
   emitirQr,
   listarDocentes,
+  listarMarcacionesDocentes,
   listarMisMarcaciones,
   marcarAsistencia,
   renovarQr,
+  resumenMarcaciones,
   toDocenteOption,
 } from "../teacher-check-in/services/asistencia-docente-service";
 
@@ -27,17 +30,29 @@ describe("US-15 · contrato con /api/asistencias/docentes", () => {
   });
 
   it("emite, renueva, consulta y cancela el QR", async () => {
-    await emitirQr(7);
+    await emitirQr();
     expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/qr", {
       method: "POST",
-      body: JSON.stringify({ docenteId: 7, vigenciaSegundos: 60 }),
+      body: JSON.stringify({ vigenciaSegundos: 90 }),
     });
     await renovarQr(3);
-    expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/qr/3/renovar?vigenciaSegundos=60", { method: "POST" });
+    expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/qr/3/renovar?vigenciaSegundos=90", { method: "POST" });
     await consultarQr(3);
     expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/qr/3");
     await cancelarQr(3);
     expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/qr/3/cancelar", { method: "POST" });
+  });
+
+  it("pide el resumen, las marcaciones de un día y las clases del docente", async () => {
+    await resumenMarcaciones("2026-11-18");
+    expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/resumen?fecha=2026-11-18");
+    api.mockResolvedValue(page([]));
+    await listarMarcacionesDocentes({ fecha: "2026-11-18", verificacion: "OBSERVADA" });
+    expect(api).toHaveBeenLastCalledWith(
+      "/api/asistencias/docentes?page=0&size=50&sort=fechaHoraMarcada%2Cdesc&verificacion=OBSERVADA&fecha=2026-11-18",
+    );
+    await clasesDelDia(7, "2026-11-18");
+    expect(api).toHaveBeenLastCalledWith("/api/asistencias/docentes/7/clases?fecha=2026-11-18");
   });
 
   it("lista las marcaciones propias", async () => {

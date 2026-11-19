@@ -3,13 +3,19 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AuthenticatedUser, UserRole } from "@/core/auth/types";
 import { useSessionUser } from "@/core/layout/session-user";
+import { HomeQuickActions } from "@/core/layout/home-quick-actions";
 import { Academic } from "@/modules/academic";
 import { Administration } from "@/modules/administration";
-import { CheckInPoint, TeacherAttendance } from "@/modules/attendance";
-import { Enrollments, GuardianEnrollment } from "@/modules/enrollment";
-import { Evaluations } from "@/modules/evaluations";
+import { AttendanceAdmin, TeacherAttendance } from "@/modules/attendance";
+import { Enrollments, GuardianEnrollmentPortal } from "@/modules/enrollment";
+import {
+  Evaluations,
+  ProgressPreview,
+  ProgressReports,
+} from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { StudentTasks } from "@/modules/student-tasks";
 import { TasksModule } from "@/modules/tasks";
@@ -31,11 +37,13 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
+    Progreso: () => <ProgressReports />,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
   },
   DOCENTE: {
-    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} />,
+    Progreso: () => <ProgressPreview />,
+    Inicio: ({ user }) => <TeacherHome fullName={user.fullName} quickActions={<HomeQuickActions user={user} embedded />} />,
     "Mis cursos": ({ subpath }) => <TeacherCoursesModule subpath={subpath} />,
     Asistencia: ({ user, subpath: [tab] }) => (
       <TeacherAttendance
@@ -61,11 +69,17 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   },
   ADMINISTRADOR: {
     Asistencia: ({ user }) => (
-      <CheckInPoint
+      <AttendanceAdmin
         canWrite={(user.permissions ?? []).includes("ASISTENCIA_ESCRIBIR")}
       />
     ),
-    Matrícula: ({ subpath: [tab, view] }) => <Enrollments tab={tab} view={view} />,
+    Matrícula: ({ user, subpath: [tab, view] }) => (
+      <Enrollments
+        tab={tab}
+        view={view}
+        canManageRenewals={(user.permissions ?? []).includes("MATRICULA_ESCRIBIR")}
+      />
+    ),
     Finanzas: ({ user }) => (
       <Finance canWrite={(user.permissions ?? []).includes("PAGOS_ESCRIBIR")} />
     ),
@@ -87,7 +101,13 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
-    Matrícula: () => <GuardianEnrollment />,
+    Pagos: () => <GuardianPayments />,
+    Matrícula: ({ user, subpath: [tab] }) => (
+      <GuardianEnrollmentPortal
+        tab={tab}
+        canWrite={(user.permissions ?? []).includes("SOLICITUDES_ESCRIBIR")}
+      />
+    ),
     Asistencia: () => <GuardianAttendance />,
   },
 };
@@ -147,6 +167,7 @@ function PendingModule({ nav }: { nav: string }) {
           </p>
         </div>
       </article>
+      {nav === HOME_NAV && <HomeQuickActions user={user} />}
     </>
   );
 }

@@ -4,17 +4,16 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "ContadorCodigoAlumno")
+@Table(name = "ContadorCodigoCompromiso")
 @Getter
 @Setter
 @NoArgsConstructor
-public class ContadorCodigoAlumno {
+public class ContadorCodigoCompromiso {
     @Id
     @Column(name = "id_contador")
     private Integer id;

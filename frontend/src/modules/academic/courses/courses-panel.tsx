@@ -7,6 +7,7 @@ import {
   Pager,
   RowMenu,
   PanelHeading,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Course, CourseCompetency } from "../types";
@@ -127,7 +128,7 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
         </p>
       )}
       {courses.loading ? (
-        <p role="status">Cargando cursos…</p>
+        <Loading>Cargando cursos…</Loading>
       ) : courses.data?.content.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>

@@ -51,6 +51,7 @@ export const roleDetails: Record<UserRole, RolePresentation> = {
       "Mis cursos",
       "Asistencia",
       "Evaluaciones",
+      "Progreso",
       "Tareas",
       "Horario",
     ],

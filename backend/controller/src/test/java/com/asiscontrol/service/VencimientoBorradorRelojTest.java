@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
+import com.asiscontrol.repository.AsistenciaDocenteRepository;
 import com.asiscontrol.repository.JustificacionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaDetalleRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaRepository;
@@ -39,6 +40,7 @@ class VencimientoBorradorRelojTest {
                 mock(AuditoriaService.class),
                 mock(ModuloAccessGuard.class),
                 mock(CalendarioSesionService.class),
+                mock(AsistenciaDocenteRepository.class),
                 Clock.fixed(Instant.parse(instante), ZoneId.of("America/Lima")));
     }
 

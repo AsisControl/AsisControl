@@ -11,5 +11,7 @@ public interface AdministradorRepository extends JpaRepository<Administrador, Lo
 
     boolean existsByPersonaId(Long personaId);
 
+    boolean existsByCodigoAdministradorIgnoreCase(String codigo);
+
     Optional<Administrador> findByPersonaIdAndActivoTrue(Long personaId);
 }

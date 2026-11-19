@@ -10,23 +10,24 @@ import java.util.Map;
 
 /**
  * Plantillas de apoderados y parentescos para preparar la carga de familias. Los ejemplos
- * coinciden con el de la plantilla de alumnos (EST-0001) para que las tres se lean juntas:
- * los parentescos unen el codigo del alumno con el documento del apoderado.
+ * coinciden con el de la plantilla de alumnos para que las tres se lean juntas: los parentescos
+ * unen el documento del alumno con el del apoderado, porque los códigos los genera el sistema.
  */
 @Service
 public class PlantillaFamiliaService {
 
     static final List<String> GUARDIAN_HEADERS = List.of(
             "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-            "apellidoMaterno", "sexo", "fechaNacimiento", "telefono", "correo", "direccion");
+            "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "telefono", "correo",
+            "direccion");
     private static final List<String> GUARDIAN_EXAMPLE = List.of(
-            "DNI", "40000001", "Rosa", "Flores", "Vega", "FEMENINO", "1985-03-14",
+            "DNI", "40000001", "Rosa", "Flores", "Vega", "FEMENINO", "1985-03-14", "Peruana",
             "999888777", "rosa.flores@ejemplo.com", "Lima");
     static final List<String> RELATIONSHIP_HEADERS = List.of(
-            "codigoAlumno", "tipoDocumentoApoderado", "numeroDocumentoApoderado",
-            "parentesco", "principal");
+            "tipoDocumentoAlumno", "numeroDocumentoAlumno", "tipoDocumentoApoderado",
+            "numeroDocumentoApoderado", "parentesco", "principal");
     private static final List<String> RELATIONSHIP_EXAMPLE = List.of(
-            "EST-0001", "DNI", "40000001", "MADRE", "SI");
+            "DNI", "70000001", "DNI", "40000001", "MADRE", "SI");
 
     public byte[] generateGuardianTemplate() {
         return PlantillaExcel.build(
@@ -42,6 +43,7 @@ public class PlantillaFamiliaService {
                 RELATIONSHIP_HEADERS,
                 RELATIONSHIP_EXAMPLE,
                 Map.of(
+                        "tipoDocumentoAlumno", names(TipoDocumento.values()),
                         "tipoDocumentoApoderado", names(TipoDocumento.values()),
                         "parentesco",
                         names(ImportacionFamiliaService.PARENTESCOS_IMPORTABLES

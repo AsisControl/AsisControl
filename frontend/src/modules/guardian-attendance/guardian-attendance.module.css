@@ -30,6 +30,68 @@
   font-weight: 600;
   gap: 8px;
 }
+.etiqueta {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 4px;
+}
+.selector.etiqueta {
+  display: flex;
+  font-size: 13px;
+}
+.control {
+  appearance: none;
+  background-color: #fff;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  color: #0f172a;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  height: 38px;
+  min-width: 150px;
+  padding: 0 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+select.control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231e3a8a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 10px center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  padding-right: 34px;
+}
+textarea.control {
+  font-weight: 400;
+  height: auto;
+  padding: 8px 12px;
+}
+.control::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+.control:hover:not(:disabled) {
+  border-color: var(--blue);
+}
+.control:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #bfdbfe;
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+.control[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+.control:disabled {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+.errorCampo {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+}
 .aviso {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -54,13 +116,6 @@
   gap: 12px 16px;
   margin-bottom: 16px;
   padding: 12px 16px;
-}
-.filtros label {
-  color: var(--muted);
-  display: grid;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 4px;
 }
 .totales {
   display: grid;
@@ -127,14 +182,24 @@
   overflow-wrap: anywhere;
 }
 .accion {
-  background: #fff;
+  background: #eff6ff;
   border: 1px solid var(--blue);
   border-radius: 6px;
   color: var(--blue);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  padding: 5px 12px;
+  padding: 6px 14px;
+  transition: background-color 0.15s, color 0.15s;
+}
+.accion:hover:not(:disabled) {
+  background: var(--blue);
+  color: #fff;
+}
+.accion:focus-visible {
+  box-shadow: 0 0 0 3px #bfdbfe;
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
 .accion:disabled {
   cursor: not-allowed;
@@ -182,8 +247,6 @@
 }
 .campo select,
 .campo textarea {
-  font: inherit;
-  font-weight: 400;
   width: 100%;
 }
 .sustento {

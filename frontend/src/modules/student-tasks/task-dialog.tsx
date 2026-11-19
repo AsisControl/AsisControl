@@ -143,7 +143,7 @@ export function TaskDialog({ task, onClose, onSaved }: {
       </>}
       {!creating && !entrega && <p>Esta tarea no está recibiendo entregas.</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
-      {conflict && <button type="button" disabled={busy} onClick={startEditing}>Recargar entrega</button>}
+      {conflict && <button type="button" className="secondary-action" disabled={busy} onClick={startEditing}>Recargar entrega</button>}
       {editable ? <form className={editing ? styles.editForm : undefined} onSubmit={submit}>
         {tarea.maxArchivosEntrega > 0 ? <>
           <div className={styles.filePicker}>

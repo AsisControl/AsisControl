@@ -29,7 +29,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -47,6 +46,7 @@ public class PagoService {
     private final AdministradorRepository administradorRepository;
     private final ArchivoAdjuntoRepository archivoAdjuntoRepository;
     private final AuditoriaService auditoria;
+    private final SaldoCompromisoService saldos;
 
     public PagoService(
             CompromisoPagoRepository compromisoPagoRepository,
@@ -55,8 +55,10 @@ public class PagoService {
             ApoderadoRepository apoderadoRepository,
             AdministradorRepository administradorRepository,
             ArchivoAdjuntoRepository archivoAdjuntoRepository,
-            AuditoriaService auditoria
+            AuditoriaService auditoria,
+            SaldoCompromisoService saldos
     ) {
+        this.saldos = saldos;
         this.compromisoPagoRepository = compromisoPagoRepository;
         this.transaccionPagoRepository = transaccionPagoRepository;
         this.comprobanteRepository = comprobanteRepository;
@@ -76,7 +78,32 @@ public class PagoService {
                         idCompromisoPago,
                         personaApoderadoId,
                         pageable)
-                .map(this::toTransaccionResponse);
+                .map(PagoService::toTransaccionResponse);
+    }
+
+    /** Transacciones filtradas por estudiante, estado y fecha de la transacción (días en hora de Lima). */
+    @Transactional(readOnly = true)
+    public Page<PagoDto.TransaccionResponse> consultarTransacciones(
+            Long idCompromisoPago,
+            Long idAlumno,
+            EstadoTransaccionPago estado,
+            java.time.LocalDate desde,
+            java.time.LocalDate hasta,
+            String busqueda,
+            Long personaApoderadoId,
+            Pageable pageable
+    ) {
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            throw new BusinessRuleException("RANGO_FECHAS_INVALIDO",
+                    "La fecha inicial no puede ser posterior a la fecha final.", "fechaDesde");
+        }
+        var zona = EstadoFinancieroCompromiso.ZONA_NEGOCIO;
+        return transaccionPagoRepository.buscarFiltradas(
+                        idCompromisoPago, idAlumno, estado,
+                        desde == null ? null : desde.atStartOfDay(zona).toInstant(),
+                        hasta == null ? null : hasta.plusDays(1).atStartOfDay(zona).toInstant(),
+                        limpiar(busqueda), personaApoderadoId, pageable)
+                .map(PagoService::toTransaccionResponse);
     }
 
     @Transactional(readOnly = true)
@@ -106,11 +133,13 @@ public class PagoService {
                         "COMPROMISO_PAGO_NO_ENCONTRADO",
                         "No se encontro el compromiso de pago con id " + request.idCompromisoPago()
                 ));
-        if (compromiso.getEstadoAdministrativo() == com.asiscontrol.entity.enums.EstadoAdministrativoCompromiso.ANULADO
-                || compromiso.getEstado() == EstadoCompromisoPago.PAGADO) {
+        EstadoCompromisoPago estadoActual = EstadoFinancieroCompromiso.visible(compromiso, EstadoFinancieroCompromiso.hoy());
+        if (estadoActual == EstadoCompromisoPago.ANULADO
+                || estadoActual == EstadoCompromisoPago.PAGADO
+                || estadoActual == EstadoCompromisoPago.EXONERADO) {
             throw new BusinessRuleException(
                     "COMPROMISO_NO_ADMITE_PAGOS",
-                    "El compromiso se encuentra " + compromiso.getEstado()
+                    "El compromiso se encuentra " + estadoActual
             );
         }
         if (request.idApoderado() == null && request.idAdministrador() == null) {
@@ -161,8 +190,8 @@ public class PagoService {
         String compromisoAnterior = "compromisoId=" + compromiso.getId()
                 + ",montoPagado=" + compromiso.getMontoPagado()
                 + ",estado=" + compromiso.getEstado();
-        compromiso.setMontoPagado(dinero(compromiso.getMontoPagado().add(monto)));
-        compromiso.setEstado(calcularEstado(compromiso));
+        // Lo pagado se deriva de las transacciones aprobadas, incluida la que se acaba de registrar.
+        saldos.recalcular(compromiso);
         compromisoPagoRepository.save(compromiso);
         auditoria.registrar(
                 "REGISTRAR_TRANSACCION",
@@ -189,7 +218,7 @@ public class PagoService {
             Pageable pageable
     ) {
         return comprobanteRepository.buscarVisibles(personaApoderadoId, pageable)
-                .map(this::toComprobanteResponse);
+                .map(PagoService::toComprobanteResponse);
     }
 
     @Transactional(readOnly = true)
@@ -368,27 +397,11 @@ public class PagoService {
                 && Objects.equals(idAdministrador, request.idAdministrador());
     }
 
-    private EstadoCompromisoPago calcularEstado(CompromisoPago compromiso) {
-        if (compromiso.getEstado() == EstadoCompromisoPago.ANULADO) {
-            return EstadoCompromisoPago.ANULADO;
-        }
-        if (saldo(compromiso).signum() == 0) {
-            return EstadoCompromisoPago.PAGADO;
-        }
-        if (compromiso.getFechaVencimiento().isBefore(LocalDate.now(java.time.ZoneId.of("America/Lima")))) {
-            return EstadoCompromisoPago.VENCIDO;
-        }
-        if (compromiso.getMontoPagado().signum() > 0) {
-            return EstadoCompromisoPago.PARCIAL;
-        }
-        return EstadoCompromisoPago.PENDIENTE;
-    }
-
     private BigDecimal saldo(CompromisoPago compromiso) {
-        return dinero(compromiso.getMontoTotal().subtract(compromiso.getMontoPagado()));
+        return EstadoFinancieroCompromiso.saldo(compromiso);
     }
 
-    private PagoDto.TransaccionResponse toTransaccionResponse(TransaccionPago transaccion) {
+    static PagoDto.TransaccionResponse toTransaccionResponse(TransaccionPago transaccion) {
         return new PagoDto.TransaccionResponse(
                 transaccion.getId(),
                 transaccion.getCompromisoPago().getId(),
@@ -400,11 +413,16 @@ public class PagoService {
                 transaccion.getEstado(),
                 transaccion.getFechaTransaccion(),
                 transaccion.getObservacion(),
-                transaccion.getFechaCreacion()
+                transaccion.getFechaCreacion(),
+                transaccion.getCompromisoPago().getMatricula().getAlumno().getId(),
+                transaccion.getCompromisoPago().getMatricula().getAlumno().getPersona().nombreCompleto(),
+                transaccion.getCompromisoPago().getMatricula().getAlumno().getCodigoAlumno(),
+                transaccion.getCompromisoPago().getCodigoCompromiso(),
+                transaccion.getCompromisoPago().getConcepto()
         );
     }
 
-    private PagoDto.ComprobanteResponse toComprobanteResponse(Comprobante comprobante) {
+    static PagoDto.ComprobanteResponse toComprobanteResponse(Comprobante comprobante) {
         return new PagoDto.ComprobanteResponse(
                 comprobante.getId(),
                 comprobante.getTransaccionPago().getId(),

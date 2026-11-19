@@ -32,6 +32,12 @@ export function NewUserSuccess({
           <dt>Rol</dt>
           <dd>{roleLabel(account.rol)}</dd>
         </div>
+        {account.codigoPerfil && (
+          <div>
+            <dt>Código</dt>
+            <dd>{account.codigoPerfil}</dd>
+          </div>
+        )}
         <div>
           <dt>Usuario</dt>
           <dd>{account.username}</dd>

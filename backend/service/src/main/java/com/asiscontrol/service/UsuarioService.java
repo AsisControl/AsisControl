@@ -45,6 +45,8 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
     private final PerfilAccesoService perfiles;
+    private final CredencialesInstitucionales credenciales;
+    private final VigenciaContrasenaTemporal vigencia;
 
     public UsuarioService(
             AccesoUsuarioRepository usuarioRepository,
@@ -54,7 +56,9 @@ public class UsuarioService {
             SesionAccesoRepository sesionRepository,
             PasswordEncoder passwordEncoder,
             AuditoriaService auditoriaService,
-            PerfilAccesoService perfiles) {
+            PerfilAccesoService perfiles,
+            CredencialesInstitucionales credenciales,
+            VigenciaContrasenaTemporal vigencia) {
         this.usuarioRepository = usuarioRepository;
         this.personaRepository = personaRepository;
         this.rolRepository = rolRepository;
@@ -63,6 +67,8 @@ public class UsuarioService {
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
         this.perfiles = perfiles;
+        this.credenciales = credenciales;
+        this.vigencia = vigencia;
     }
 
     @Transactional(readOnly = true)
@@ -105,17 +111,25 @@ public class UsuarioService {
         if (usuarioRepository.existsByPersonaIdAndRolId(persona.getId(), role.getId()))
             throw new ConflictException(
                     "ACCESO_DUPLICADO", "La persona ya tiene un acceso para este rol");
-        com.asiscontrol.security.PasswordPolicy.validate(request.password(), request.username());
-        ensureUniqueCredentials(request.username(), request.correo(), null);
+        String username =
+                blank(request.username())
+                        ? credenciales.username(persona)
+                        : request.username().trim();
+        String correo =
+                blank(request.correo())
+                        ? credenciales.correo(codigoPerfil(persona, role))
+                        : request.correo().trim();
+        com.asiscontrol.security.PasswordPolicy.validate(request.password(), username);
+        ensureUniqueCredentials(username, correo, null);
 
         AccesoUsuario usuario = new AccesoUsuario();
         usuario.setPersona(persona);
         usuario.setRol(role);
-        usuario.setUsername(request.username().trim());
-        usuario.setCorreo(request.correo().trim().toLowerCase());
+        usuario.setUsername(username);
+        usuario.setCorreo(correo.toLowerCase(java.util.Locale.ROOT));
         usuario.setContrasenaHash(passwordEncoder.encode(request.password()));
         usuario.setRequiereCambioContrasena(true);
-        usuario.setContrasenaTemporalExpira(Instant.now().plus(java.time.Duration.ofHours(24)));
+        usuario.setContrasenaTemporalExpira(vigencia.expiraDesde(Instant.now()));
         usuario.setEstado(EstadoAcceso.ACTIVO);
         usuario.setCorreoVerificado(Boolean.TRUE.equals(request.correoVerificado()));
         AccesoUsuario saved = usuarioRepository.save(usuario);
@@ -142,8 +156,8 @@ public class UsuarioService {
                         new UsuarioDtos.CreateRequest(
                                 persona.getId(),
                                 role.getId(),
-                                request.username(),
-                                request.correo(),
+                                null,
+                                null,
                                 request.password(),
                                 true,
                                 request.correoVerificado()));
@@ -202,7 +216,7 @@ public class UsuarioService {
                         "CONTRASENA_REPETIDA", "Use una contraseña temporal diferente");
             usuario.setContrasenaHash(passwordEncoder.encode(request.temporaryPassword()));
             usuario.setRequiereCambioContrasena(true);
-            usuario.setContrasenaTemporalExpira(Instant.now().plus(java.time.Duration.ofHours(24)));
+            usuario.setContrasenaTemporalExpira(vigencia.expiraDesde(Instant.now()));
         }
         if (cambioCorreo
                 || request.estado() != EstadoAcceso.ACTIVO
@@ -273,7 +287,7 @@ public class UsuarioService {
         if (passwordEncoder.matches(request.temporaryPassword(), usuario.getContrasenaHash()))
             throw new ConflictException(
                     "CONTRASENA_REPETIDA", "Use una contraseña temporal diferente");
-        usuario.setContrasenaTemporalExpira(Instant.now().plus(java.time.Duration.ofHours(24)));
+        usuario.setContrasenaTemporalExpira(vigencia.expiraDesde(Instant.now()));
         recuperaciones.revocar(id, Instant.now());
         usuario.setContrasenaHash(passwordEncoder.encode(request.temporaryPassword()));
         usuario.setRequiereCambioContrasena(true);
@@ -386,6 +400,19 @@ public class UsuarioService {
                         });
     }
 
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String codigoPerfil(Persona persona, Rol role) {
+        String codigo = perfiles.codigoPerfil(persona.getId(), role.getNombre(), true);
+        if (codigo == null)
+            throw new ConflictException(
+                    "PERFIL_REQUERIDO",
+                    "La persona necesita un perfil habilitado compatible con el rol");
+        return codigo;
+    }
+
     private String requestEmail(String email) {
         return email.trim().toLowerCase(java.util.Locale.ROOT);
     }
@@ -424,7 +451,9 @@ public class UsuarioService {
                 usuario.getUltimoAcceso(),
                 usuario.getFechaCreacion(),
                 usuario.isCorreoVerificado(),
-                usuario.getContrasenaTemporalExpira());
+                usuario.getContrasenaTemporalExpira(),
+                perfiles.codigoPerfil(
+                        usuario.getPersona().getId(), usuario.getRol().getNombre(), false));
     }
 
     private UsuarioDtos.RolResponse toRoleResponse(Rol role) {

@@ -5,22 +5,22 @@ import { qrErrorMessage } from "./messages";
 import {
   QR_VIGENCIA_SEGUNDOS,
   cancelarQr,
-  consultarQr,
   emitirQr,
   renovarQr,
 } from "./services/asistencia-docente-service";
 import type { CodigoQR } from "./types";
 
-/** Segundos antes del vencimiento en que se pide el código siguiente. */
-export const RENEW_MARGIN_SECONDS = 10;
-/** Cada cuánto se consulta si el docente ya escaneó el código. */
-export const USED_POLL_MS = 3000;
+/**
+ * Segundos antes del vencimiento en que se pide el código siguiente. El anterior sigue valiendo
+ * hasta expirar, así quien lo escaneó justo antes del cambio todavía alcanza a marcar.
+ */
+export const RENEW_MARGIN_SECONDS = 30;
 
-export type DynamicQrStatus = "idle" | "emitting" | "active" | "used" | "error";
+export type DynamicQrStatus = "idle" | "emitting" | "active" | "error";
 
 /**
- * Mantiene un QR vigente para un docente: lo emite, lo renueva antes de que
- * venza y detecta cuándo fue utilizado. El backend genera y valida el token.
+ * Mantiene vigente el QR del punto de marcación: lo emite, lo renueva antes de que venza y lo
+ * cierra al salir de la pantalla. El backend genera y valida el código.
  */
 export function useDynamicQr() {
   const [code, setCode] = useState<CodigoQR | null>(null);
@@ -41,31 +41,28 @@ export function useDynamicQr() {
     setError("");
   }, []);
 
-  /** Cierra el código actual sin esperar: si ya venció o se usó, no importa. */
+  /** Cierra el código actual sin esperar: si ya venció, no importa. */
   const release = useCallback(() => {
     const current = codeRef.current;
     codeRef.current = null;
     if (current) void cancelarQr(current.id).catch(() => undefined);
   }, []);
 
-  const start = useCallback(
-    async (docenteId: number) => {
-      release();
-      busy.current = true;
-      setCode(null);
-      setError("");
-      setStatus("emitting");
-      try {
-        activate(await emitirQr(docenteId));
-      } catch (problem) {
-        setStatus("error");
-        setError(qrErrorMessage(problem));
-      } finally {
-        busy.current = false;
-      }
-    },
-    [activate, release],
-  );
+  const start = useCallback(async () => {
+    release();
+    busy.current = true;
+    setCode(null);
+    setError("");
+    setStatus("emitting");
+    try {
+      activate(await emitirQr());
+    } catch (problem) {
+      setStatus("error");
+      setError(qrErrorMessage(problem));
+    } finally {
+      busy.current = false;
+    }
+  }, [activate, release]);
 
   const stop = useCallback(() => {
     release();
@@ -87,17 +84,11 @@ export function useDynamicQr() {
         .then((next) => {
           if (codeRef.current?.id === current.id) activate(next);
         })
-        .catch(async (problem) => {
-          if (codeRef.current?.id !== current.id) return;
-          // El docente pudo escanear justo antes de la renovación.
-          const latest = await consultarQr(current.id).catch(() => null);
+        .catch((problem) => {
           if (codeRef.current?.id !== current.id) return;
           codeRef.current = null;
-          if (latest?.estado === "UTILIZADO") setStatus("used");
-          else {
-            setStatus("error");
-            setError(qrErrorMessage(problem));
-          }
+          setStatus("error");
+          setError(qrErrorMessage(problem));
         })
         .finally(() => {
           busy.current = false;
@@ -105,23 +96,6 @@ export function useDynamicQr() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, [status, activate]);
-
-  // Detecta que el docente ya marcó con el código mostrado.
-  useEffect(() => {
-    if (status !== "active") return;
-    const timer = window.setInterval(() => {
-      const current = codeRef.current;
-      if (!current || busy.current) return;
-      consultarQr(current.id)
-        .then((latest) => {
-          if (codeRef.current?.id !== current.id || latest?.estado !== "UTILIZADO") return;
-          codeRef.current = null;
-          setStatus("used");
-        })
-        .catch(() => undefined);
-    }, USED_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [status]);
 
   // Al salir de la pantalla no se deja un código vigente.
   useEffect(() => release, [release]);

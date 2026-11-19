@@ -31,25 +31,25 @@ public class ImportacionAlumnoService {
 
     private static final long MAX_IMPORT_SIZE = 5L * 1024L * 1024L;
     private static final List<String> TEMPLATE_HEADERS = List.of(
-            "codigoAlumno", "nombres", "apellidoPaterno", "apellidoMaterno",
-            "tipoDocumento", "numeroDocumento", "sexo", "fechaNacimiento",
+            "nombres", "apellidoPaterno", "apellidoMaterno",
+            "tipoDocumento", "numeroDocumento", "sexo", "fechaNacimiento", "nacionalidad",
             "telefono", "correo", "direccion");
     private static final List<String> TEMPLATE_EXAMPLE = List.of(
-            "EST-0001", "Maria", "Quispe", "Flores", "DNI", "70000001",
-            "FEMENINO", "2012-05-15", "999999999", "familia@ejemplo.com", "Lima");
+            "Maria", "Quispe", "Flores", "DNI", "70000001",
+            "FEMENINO", "2012-05-15", "Peruana", "999999999", "familia@ejemplo.com", "Lima");
+    /** El código del estudiante lo genera el sistema; una columna codigoAlumno se ignora. */
     private static final List<String> REQUIRED_HEADERS = List.of(
-            "codigoAlumno",
             "nombres",
             "apellidoPaterno",
             "apellidoMaterno",
             "tipoDocumento",
             "numeroDocumento",
             "sexo",
-            "fechaNacimiento",
-            "correo"
+            "fechaNacimiento"
     );
 
     private final PersonaService personaService;
+    private final AccesoImportacionService accesos;
     private final jakarta.validation.Validator validator;
     private final AuditoriaService auditoria;
     private final DataFormatter formatter = new DataFormatter(Locale.ROOT);
@@ -57,8 +57,10 @@ public class ImportacionAlumnoService {
     public ImportacionAlumnoService(
             PersonaService personaService,
             jakarta.validation.Validator validator,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria,
+            AccesoImportacionService accesos) {
         this.personaService = personaService;
+        this.accesos = accesos;
         this.validator = validator;
         this.auditoria = auditoria;
     }
@@ -66,6 +68,7 @@ public class ImportacionAlumnoService {
     public PersonaDtos.ImportResult importStudents(MultipartFile file) {
         validateFile(file);
         List<PersonaDtos.ImportIssue> issues = new ArrayList<>();
+        List<PersonaDtos.CredencialAcceso> credenciales = new ArrayList<>();
         int imported = 0;
         int total = 0;
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
@@ -88,7 +91,8 @@ public class ImportacionAlumnoService {
                                 .map(jakarta.validation.ConstraintViolation::getMessage)
                                 .sorted().collect(java.util.stream.Collectors.joining("; ")));
                     }
-                    personaService.createAlumno(request);
+                    // El estudiante y su acceso se registran juntos, o ninguno de los dos.
+                    credenciales.add(accesos.alumno(rowIndex + 1, request));
                     imported++;
                 } catch (RuntimeException exception) {
                     issues.add(new PersonaDtos.ImportIssue(
@@ -108,8 +112,10 @@ public class ImportacionAlumnoService {
             throw new BusinessRuleException(
                     "ARCHIVO_NO_LEGIBLE", "El archivo no es un Excel válido sin contraseña");
         }
-        auditarImportacion(file, total, imported, issues);
-        return new PersonaDtos.ImportResult(total, imported, total - imported, List.copyOf(issues));
+        auditarImportacion(file, total, imported, issues, credenciales);
+        return new PersonaDtos.ImportResult(
+                total, imported, total - imported, List.copyOf(issues),
+                List.copyOf(credenciales), List.of());
     }
 
     /**
@@ -117,7 +123,12 @@ public class ImportacionAlumnoService {
      * el mismo correlacionId que este resumen, asi que se pueden relacionar.
      */
     private void auditarImportacion(
-            MultipartFile file, int total, int imported, List<PersonaDtos.ImportIssue> issues) {
+            MultipartFile file,
+            int total,
+            int imported,
+            List<PersonaDtos.ImportIssue> issues,
+            List<PersonaDtos.CredencialAcceso> credenciales) {
+        long creados = credenciales.stream().filter(c -> !c.existing()).count();
         String filasConError = issues.stream()
                 .map(issue -> String.valueOf(issue.row()))
                 .collect(java.util.stream.Collectors.joining(","));
@@ -132,7 +143,9 @@ public class ImportacionAlumnoService {
                 "archivo=" + file.getOriginalFilename()
                         + ",filas=" + total
                         + ",importados=" + imported
-                        + ",fallidos=" + (total - imported));
+                        + ",fallidos=" + (total - imported)
+                        + ",accesosCreados=" + creados
+                        + ",accesosExistentes=" + (credenciales.size() - creados));
     }
 
     public byte[] generateTemplate() {
@@ -140,7 +153,6 @@ public class ImportacionAlumnoService {
     }
 
     private PersonaDtos.AlumnoCreateRequest toRequest(Row row, Map<String, Integer> columns) {
-        String code = value(row, columns, "codigoAlumno");
         String names = value(row, columns, "nombres");
         String paternalSurname = value(row, columns, "apellidoPaterno");
         String maternalSurname = value(row, columns, "apellidoMaterno");
@@ -150,11 +162,15 @@ public class ImportacionAlumnoService {
                 "tipoDocumento"
         );
         String documentNumber = value(row, columns, "numeroDocumento");
-        Long nationalityId = parseOptionalLong(optionalValue(row, columns, "nacionalidadId"));
+        // nacionalidad por nombre; nacionalidadId se mantiene para plantillas anteriores.
+        String nationalityName = optionalValue(row, columns, "nacionalidad");
+        Long nationalityId = nationalityName != null
+                ? personaService.nacionalidadPorNombre(nationalityName)
+                : parseOptionalLong(optionalValue(row, columns, "nacionalidadId"));
         Sexo sex = parseEnum(Sexo.class, value(row, columns, "sexo"), "sexo");
         LocalDate birthDate = readDate(row.getCell(columns.get("fechaNacimiento")));
         String phone = optionalValue(row, columns, "telefono");
-        String email = value(row, columns, "correo");
+        String email = optionalValue(row, columns, "correo");
         String address = optionalValue(row, columns, "direccion");
         PersonaDtos.PersonaRequest person = new PersonaDtos.PersonaRequest(
                 names,
@@ -169,7 +185,7 @@ public class ImportacionAlumnoService {
                 email,
                 address
         );
-        return new PersonaDtos.AlumnoCreateRequest(person, code);
+        return new PersonaDtos.AlumnoCreateRequest(person);
     }
 
     private Map<String, Integer> readHeaders(Row headerRow) {

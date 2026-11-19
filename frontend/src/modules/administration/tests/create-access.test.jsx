@@ -44,8 +44,9 @@ const created = {
   id: 90,
   nombreCompleto: "Patricia Morales",
   rol: "DOCENTE",
-  username: "pmorales",
-  correo: "pmorales@colegio.edu.pe",
+  username: "patricia.morales",
+  correo: "doc20260001@asiscontrol.edu.pe",
+  codigoPerfil: "DOC20260001",
 };
 
 function backend(overrides = {}) {
@@ -64,8 +65,6 @@ const renderForm = () =>
 const summary = () => screen.getByRole("complementary");
 
 async function fillAccess(user, password = "Temporal2026") {
-  await user.type(screen.getByLabelText(/^Usuario/), "pmorales");
-  await user.type(screen.getByLabelText(/^Correo del acceso/), "pmorales@colegio.edu.pe");
   await user.type(screen.getByLabelText(/^Contraseña temporal/), password);
 }
 
@@ -97,8 +96,10 @@ test.each(["PASAPORTE", "CARNET_EXTRANJERIA"])(
 
     expect(selector.value).toBe(documentType);
     expect(within(summary()).getByText("Ana Prueba Local")).toBeTruthy();
-    expect(within(summary()).getByText("pmorales")).toBeTruthy();
-    expect(within(summary()).getByText("pmorales@colegio.edu.pe")).toBeTruthy();
+    // El usuario y el correo los genera el sistema al guardar.
+    expect(within(summary()).getByText("Se generan al guardar")).toBeTruthy();
+    expect(screen.queryByLabelText(/^Usuario/)).toBeNull();
+    expect(screen.queryByLabelText(/^Correo del acceso/)).toBeNull();
     await user.click(screen.getByText("Crear usuario"));
     await screen.findByText("Usuario creado");
     expect(calls.find((call) => call.method === "POST").body.persona).toMatchObject({
@@ -112,7 +113,7 @@ test("Crea un acceso docente para una persona registrada sin ese perfil", async 
   const calls = backend();
   const user = userEvent.setup();
   renderForm();
-  expect(within(summary()).getByText(/Falta: persona, rol, usuario, correo, contraseña/)).toBeTruthy();
+  expect(within(summary()).getByText(/Falta: persona, rol, contraseña/)).toBeTruthy();
   await user.click(await screen.findByText("Patricia Morales"));
   expect(within(summary()).getByText("Patricia Morales")).toBeTruthy();
   const teacher = await screen.findByRole("radio", { name: /Docente/ });
@@ -120,25 +121,23 @@ test("Crea un acceso docente para una persona registrada sin ese perfil", async 
   expect(screen.queryByRole("radio", { name: /TESORERIA/ })).toBeNull();
   await user.click(teacher);
   expect(within(summary()).getByText("Se creará el perfil de docente")).toBeTruthy();
-  await user.type(screen.getByLabelText(/Código docente/), "DOC-2026-001");
+  expect(screen.queryByLabelText(/Código docente/)).toBeNull();
+  expect(screen.getByText(/El código institucional del perfil se genera al guardar/)).toBeTruthy();
   await user.type(screen.getByLabelText(/Fecha de ingreso/), "2026-03-01");
   await user.selectOptions(screen.getByLabelText(/Especialidad/), "CIENCIA_Y_TECNOLOGIA");
   await fillAccess(user);
-  await user.click(screen.getByRole("checkbox"));
   await user.click(screen.getByText("Crear usuario"));
   const success = await screen.findByRole("status");
   expect(within(success).getByText("Usuario creado")).toBeTruthy();
   expect(within(success).getByText("Docente")).toBeTruthy();
+  expect(within(success).getByText("DOC20260001")).toBeTruthy();
+  expect(within(success).getByText("patricia.morales")).toBeTruthy();
+  expect(within(success).getByText("doc20260001@asiscontrol.edu.pe")).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toEqual({
     personaId: 70,
     persona: null,
     rolId: 2,
-    username: "pmorales",
-    correo: "pmorales@colegio.edu.pe",
-    correoVerificado: true,
     password: "Temporal2026",
-    codigoAlumno: null,
-    codigoDocente: "DOC-2026-001",
     fechaIngreso: "2026-03-01",
     especialidad: "CIENCIA_Y_TECNOLOGIA",
     alumnoIds: [],
@@ -155,11 +154,11 @@ test("Reutiliza el perfil de estudiante que la persona ya tiene", async () => {
   renderForm();
   await user.click(await screen.findByText("Patricia Morales"));
   await user.click(await screen.findByRole("radio", { name: /Estudiante/ }));
-  expect(screen.queryByLabelText(/Código de estudiante/)).toBeNull();
+  expect(screen.queryByText(/se genera al guardar \(por/)).toBeNull();
   expect(screen.getByText(/Se utilizará el perfil de estudiante/)).toBeTruthy();
   expect(within(summary()).getByText("Se reutiliza el perfil existente")).toBeTruthy();
   await user.click(screen.getByText("Rosa Quispe"));
-  expect(screen.getByLabelText(/Código de estudiante/)).toBeTruthy();
+  expect(screen.getByText(/se genera al guardar \(por ejemplo, EST\d{8}\)/)).toBeTruthy();
 });
 
 test("Registra una persona nueva como apoderado con estudiantes asociados", async () => {
@@ -236,24 +235,15 @@ test("Rechaza una contraseña débil y acepta la generada", async () => {
   expect(calls.find((c) => c.method === "POST").body.password).toBe(generated);
 });
 
-test("Revalida la contraseña al cambiar usuario o contraseña y limpia el error", async () => {
-  const calls = backend();
+test("Revalida la contraseña al cambiarla y limpia el error", async () => {
+  backend();
   const user = userEvent.setup();
   renderForm();
   await user.click(await screen.findByText("Rosa Quispe"));
   await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
   await fillAccess(user);
   const passwordInput = screen.getByLabelText(/^Contraseña temporal/);
-  const username = screen.getByLabelText(/^Usuario/);
   expect(passwordInput.validity.valid).toBe(true);
-  await user.clear(username);
-  await user.type(username, "temporal2026");
-  expect(passwordInput.validity.customError).toBe(true);
-  await user.click(screen.getByText("Crear usuario"));
-  expect(calls.some((c) => c.method === "POST")).toBe(false);
-  await user.clear(username);
-  await user.type(username, "otro_usuario");
-  expect(passwordInput.validationMessage).toBe("");
   await user.clear(passwordInput);
   await user.type(passwordInput, "sinmayuscula1");
   expect(passwordInput.validity.customError).toBe(true);

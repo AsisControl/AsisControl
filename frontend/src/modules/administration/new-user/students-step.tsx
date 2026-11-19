@@ -1,5 +1,5 @@
 "use client";
-import { Feedback, Pager } from "@/shared/ui";
+import { Feedback, Pager, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import type { Student } from "@/modules/students";
 import { initialsOf } from "../users/user-format";
@@ -62,7 +62,7 @@ export function StudentsStep({
       </div>
       <Feedback error={students.error} />
       {students.loading ? (
-        <p role="status">Cargando estudiantes…</p>
+        <Loading>Cargando estudiantes…</Loading>
       ) : students.data?.content.length ? (
         <div className={styles.choiceList}>
           {students.data.content.map((student) => (

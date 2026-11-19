@@ -63,9 +63,7 @@ class LoginCredencialesIntegrationTest {
                 TipoDocumento.PASAPORTE, key, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1990, 1, 1), null, key + "@example.test", null);
         var usuario = usuarios.provision(new UsuarioDtos.ProvisionRequest(null, persona,
-                roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId(), "usr" + key,
-                "login" + key + "@example.test", "Temporal123!", "EST" + key,
-                null, null, null, Set.of()));
+                roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId(), "Temporal123!", null, null, Set.of()));
 
         login(usuario.username(), "Incorrecta123!")
                 .andExpect(status().isUnauthorized())

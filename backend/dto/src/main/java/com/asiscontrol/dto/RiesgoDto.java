@@ -4,10 +4,8 @@ import com.asiscontrol.entity.enums.EstadoAlerta;
 import com.asiscontrol.entity.enums.IndicadorRiesgo;
 import com.asiscontrol.entity.enums.NivelRiesgo;
 import com.asiscontrol.entity.enums.OperadorComparacion;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -25,9 +23,14 @@ public final class RiesgoDto {
             @Size(max = 600) String descripcion,
             @NotNull IndicadorRiesgo indicador,
             @NotNull OperadorComparacion operador,
-            @NotNull @DecimalMin("0.00") BigDecimal umbral,
-            @NotNull NivelRiesgo nivelRiesgo
+            @NotNull @DecimalMin("0.00") @jakarta.validation.constraints.Digits(integer = 8, fraction = 4) BigDecimal umbral,
+            @NotNull NivelRiesgo nivelRiesgo,
+            @jakarta.validation.constraints.Min(1) Integer minimoDatos
     ) {
+        public CriterioRequest(String nombre, String descripcion, IndicadorRiesgo indicador,
+                OperadorComparacion operador, BigDecimal umbral, NivelRiesgo nivelRiesgo) {
+            this(nombre, descripcion, indicador, operador, umbral, nivelRiesgo, 1);
+        }
     }
 
     public record CriterioResponse(
@@ -39,21 +42,27 @@ public final class RiesgoDto {
             BigDecimal umbral,
             NivelRiesgo nivelRiesgo,
             Instant fechaCreacion,
-            Instant fechaActualizacion
+            Instant fechaActualizacion,
+            int minimoDatos
     ) {
     }
 
-    public record IndicadorValor(
-            @NotNull IndicadorRiesgo indicador,
-            @NotNull @DecimalMin("0.00") BigDecimal valor
-    ) {
-    }
+    public record RecalculoRequest(@NotNull Long idAlumno, @NotNull Long idPeriodo) {}
 
-    public record EvaluacionRequest(
-            @NotNull Long idAlumno,
-            @NotEmpty List<@Valid IndicadorValor> indicadores
-    ) {
-    }
+    public enum Resultado { EN_RIESGO, SIN_RIESGO, DATOS_INSUFICIENTES }
+
+    public record ResultadoRegla(Long idCriterio, String nombreCriterio, NivelRiesgo nivel,
+            IndicadorRiesgo indicador, Resultado resultado,
+            BigDecimal valor, BigDecimal umbral, OperadorComparacion operador,
+            int cantidadDatos, int minimoDatos, String motivo, List<String> evidencias, Long idAlerta) {}
+
+    public record EvaluacionResponse(Long idAlumno, Long idPeriodo, Resultado resultado,
+            List<ResultadoRegla> reglas) {}
+
+    public record HistorialResponse(Long id, Instant fecha, ResultadoRegla evaluacion) {}
+
+    public record ResumenResponse(Long idPeriodo, Integer grado, Long idSeccion, String seccion,
+            IndicadorRiesgo causa, NivelRiesgo nivel, long cantidadAlertas, long cantidadEstudiantes) {}
 
     public record EstadoAlertaRequest(
             @NotNull EstadoAlerta estado,
@@ -75,7 +84,11 @@ public final class RiesgoDto {
             String observacion,
             Instant fechaDeteccion,
             Instant fechaAtencion,
-            Instant fechaActualizacion
+            Instant fechaActualizacion,
+            Long idPeriodo,
+            String periodo,
+            OperadorComparacion operador,
+            boolean determinable
     ) {
     }
 }

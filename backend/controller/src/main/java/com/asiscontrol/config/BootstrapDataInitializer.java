@@ -47,6 +47,8 @@ public class BootstrapDataInitializer implements ApplicationRunner {
     private final AdministradorRepository administradorRepository;
     private final AccesoUsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.asiscontrol.service.CodigoInstitucionalService codigos;
+    private final com.asiscontrol.service.VigenciaContrasenaTemporal vigencia;
     private final String adminDocument;
     private final String adminEmail;
     private final String adminPassword;
@@ -61,6 +63,8 @@ public class BootstrapDataInitializer implements ApplicationRunner {
             AdministradorRepository administradorRepository,
             AccesoUsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
+            com.asiscontrol.service.CodigoInstitucionalService codigos,
+            com.asiscontrol.service.VigenciaContrasenaTemporal vigencia,
             @Value("${app.bootstrap.admin-document:}") String adminDocument,
             @Value("${app.bootstrap.admin-email:}") String adminEmail,
             @Value("${app.bootstrap.admin-password:}") String adminPassword,
@@ -74,6 +78,8 @@ public class BootstrapDataInitializer implements ApplicationRunner {
         this.administradorRepository = administradorRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.codigos = codigos;
+        this.vigencia = vigencia;
         this.adminDocument = adminDocument;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
@@ -236,6 +242,8 @@ public class BootstrapDataInitializer implements ApplicationRunner {
                 .orElseGet(() -> {
                     Administrador created = new Administrador();
                     created.setPersona(person);
+                    created.setCodigoAdministrador(codigos.siguiente(
+                            com.asiscontrol.service.CodigoInstitucionalService.Prefijo.ADM));
                     return administradorRepository.save(created);
                 });
         AccesoUsuario user = new AccesoUsuario();
@@ -247,7 +255,7 @@ public class BootstrapDataInitializer implements ApplicationRunner {
         user.setEstado(EstadoAcceso.ACTIVO);
         com.asiscontrol.security.PasswordPolicy.validate(adminPassword.trim(), adminUsername.trim());
         user.setRequiereCambioContrasena(true);
-        user.setContrasenaTemporalExpira(java.time.Instant.now().plus(java.time.Duration.ofHours(24)));
+        user.setContrasenaTemporalExpira(vigencia.expiraDesde(java.time.Instant.now()));
         usuarioRepository.save(user);
         LOGGER.info("Administrador inicial creado; debe cambiar su contrasena en el primer acceso");
     }

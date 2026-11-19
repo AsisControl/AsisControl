@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useId, useState } from "react";
 import { api, message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
+import { Feedback, Loading } from "@/shared/ui";
 import { formatDate } from "../lib/format-date";
 import { PendingBadge } from "../pending/pending-badge";
 import styles from "../academic-config.module.css";
@@ -127,7 +127,7 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
                 {loading && !days.length && (
                   <tr>
                     <td colSpan={3} className={styles.emptyCell}>
-                      Cargando días no lectivos…
+                      <Loading variant="inline">Cargando días no lectivos…</Loading>
                     </td>
                   </tr>
                 )}
