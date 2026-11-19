@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useEffectEvent, useState, type FormEvent } from "react";
 import { ESTADO_LABEL, VERIFICACION_LABEL, dateOf, timeOf, todayInLima, tokenFromScan } from "./format";
 import { checkInErrorMessage } from "./messages";
 import { QrScanner } from "./qr-scanner";
@@ -70,17 +70,19 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
   }
 
   // Al escanear el QR del punto de marcación con la cámara del celular, el enlace trae el código.
-  const checkInRef = useRef(checkIn);
-  checkInRef.current = checkIn;
+  const checkInLinked = useEffectEvent((token: string) => void checkIn(token));
   useEffect(() => {
     if (!canWrite) return;
-    const params = new URLSearchParams(window.location.search);
-    const linked = params.get("codigo");
+    const linked = new URLSearchParams(window.location.search).get("codigo");
     if (!linked) return;
-    params.delete("codigo");
-    const rest = params.toString();
-    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
-    void checkInRef.current(linked);
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("codigo");
+      const rest = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+      checkInLinked(linked);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [canWrite]);
 
   function submitManual(event: FormEvent) {

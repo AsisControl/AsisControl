@@ -19,6 +19,9 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 
 class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
+
+    /** Los códigos QR vencen según el reloj de la institución, no la zona horaria del servidor. */
+    @org.springframework.beans.factory.annotation.Autowired java.time.Clock reloj;
     private Rol rol(String nombre) {
         return em.createQuery("from Rol r where r.nombre=:n",Rol.class).setParameter("n",nombre).getSingleResult();
     }
@@ -185,7 +188,7 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
     @Test void admiteContingenciaYRecuperaQrExpirado() throws Exception {
         var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
         long id=qr.path("id").asLong();
-        em.find(CodigoQRAsistencia.class,id).setFechaHoraExpiracion(LocalDateTime.now().minusSeconds(1)); em.flush();
+        em.find(CodigoQRAsistencia.class,id).setFechaHoraExpiracion(LocalDateTime.now(reloj).minusSeconds(1)); em.flush();
         assertThat(getOk("/api/asistencias/docentes/qr/"+id).path("estado").asText()).isEqualTo("EXPIRADO");
         var renewed=request("POST","/api/asistencias/docentes/qr/"+id+"/renovar",null,200);
         request("POST","/api/asistencias/docentes/qr/"+renewed.path("id").asLong()+"/cancelar",null,204);

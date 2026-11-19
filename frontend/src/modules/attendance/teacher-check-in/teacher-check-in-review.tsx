@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { Loading } from "@/shared/ui";
-import { ESTADO_LABEL, SESION_LABEL, VERIFICACION_LABEL, dateOf, hourOf, timeOf } from "./format";
+import { ESTADO_LABEL, SESION_LABEL, VERIFICACION_LABEL, hourOf, timeOf } from "./format";
 import { clasesDelDia, listarMarcacionesDocentes } from "./services/asistencia-docente-service";
 import type { AsistenciaDocente, ClaseDia } from "./types";
 import styles from "./teacher-check-in.module.css";

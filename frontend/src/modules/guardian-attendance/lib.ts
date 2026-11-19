@@ -5,7 +5,6 @@ import type { AsistenciaEstudiante } from "./types";
 export const MOTIVOS = ["Cita médica", "Enfermedad", "Trámite documentario", "Asunto familiar", "Otro"];
 export const MAX_OBSERVACIONES = 1900;
 
-const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const MESES_LARGOS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
