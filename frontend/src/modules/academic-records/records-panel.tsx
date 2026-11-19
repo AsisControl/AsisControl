@@ -25,7 +25,7 @@ export function RecordsPanel<T>({
   noun: [string, string];
   searchLabel: string;
   columns: string[];
-  renderRows: (items: T[]) => ReactNode;
+  renderRows: (items: T[], refresh: () => void) => ReactNode;
   emptyText: string;
   actions?: (refresh: () => void) => ReactNode;
 }) {
@@ -95,7 +95,7 @@ export function RecordsPanel<T>({
                   ))}
                 </tr>
               </thead>
-              <tbody>{renderRows(list.data.content)}</tbody>
+              <tbody>{renderRows(list.data.content, list.refresh)}</tbody>
             </table>
           </div>
           <Pager
@@ -112,24 +112,5 @@ export function RecordsPanel<T>({
         </p>
       )}
     </section>
-  );
-}
-
-/** Botón de una acción que el backend o la pantalla todavía no ofrecen. */
-export function PendingAction({
-  label,
-  hint,
-  className,
-}: {
-  label: string;
-  hint: string;
-  className?: string;
-}) {
-  return (
-    <button type="button" className={className} disabled title={hint}>
-      {label}
-      <span className={styles.pendingBadge}>Próximamente</span>
-      <span className={styles.srOnly}>: {hint}</span>
-    </button>
   );
 }

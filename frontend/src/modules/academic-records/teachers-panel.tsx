@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { PersonCell, StatusPill } from "@/shared/ui";
 import { specialtyLabel } from "@/shared/lib/formatters";
-import { PendingAction, RecordsPanel } from "./records-panel";
+import { RecordsPanel } from "./records-panel";
+import { TeacherFormDialog } from "./teacher-form-dialog";
 import { TeacherImportDialog } from "./teacher-import-dialog";
 import type { Teacher } from "./types";
 import { TeacherDetail } from "./record-details";
@@ -19,6 +20,19 @@ function TeacherImportAction({ onImported }: { onImported: () => void }) {
           onImported={onImported}
         />
       )}
+    </>
+  );
+}
+
+/** "+ Registrar docente": abre el formulario y refresca el listado al guardar. */
+function TeacherRegisterAction({ onSaved }: { onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="primary-action" onClick={() => setOpen(true)}>
+        + Registrar docente
+      </button>
+      {open && <TeacherFormDialog onClose={() => setOpen(false)} onSaved={onSaved} />}
     </>
   );
 }
@@ -44,11 +58,7 @@ export function TeachersPanel() {
         actions={(refresh) => (
           <>
             <TeacherImportAction onImported={refresh} />
-            <PendingAction
-              className="primary-action"
-              label="+ Registrar docente"
-              hint="El formulario de docentes se habilitará en una próxima entrega."
-            />
+            <TeacherRegisterAction onSaved={refresh} />
           </>
         )}
         renderRows={(teachers) =>

@@ -56,5 +56,7 @@ const SPECIALTY_LABELS: Record<string, string> = {
   ARTE_Y_CULTURA: "Arte y Cultura",
   TUTORIA: "Tutoría",
 };
+/** Especialidades que acepta el backend, en el orden en que se ofrecen en los formularios. */
+export const specialtyOptions = Object.keys(SPECIALTY_LABELS);
 export const specialtyLabel = (specialty: string) =>
   SPECIALTY_LABELS[specialty] ?? specialty.replaceAll("_", " ");

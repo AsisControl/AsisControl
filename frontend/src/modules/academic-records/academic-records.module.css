@@ -101,3 +101,36 @@
 .templateDownload svg {
   flex: none;
 }
+
+.picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 0.5rem;
+}
+
+.pickerSearch {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pickerSearch input {
+  flex: 1;
+}
+
+.pickerResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pickerResults button {
+  width: 100%;
+  text-align: left;
+}

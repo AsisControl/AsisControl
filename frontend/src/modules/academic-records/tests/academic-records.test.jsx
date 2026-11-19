@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { usePathname } from "next/navigation";
@@ -99,7 +99,7 @@ test("Apoderados lista a sus estudiantes a cargo y busca en el backend", async (
   expect(inactive.cells[0].textContent).toBe("—");
   expect(within(inactive).getByText("Sin correo de contacto")).toBeTruthy();
   expect(screen.getByText("2 apoderados", { exact: false })).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Registrar apoderado/ }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: /Registrar apoderado/ }).disabled).toBe(false);
   await user.type(screen.getByLabelText("Buscar por nombre o documento"), "40112233");
   await user.click(screen.getByText("Buscar"));
   await waitFor(() => expect(calls.at(-1).query.search).toBe("40112233"));
@@ -163,7 +163,7 @@ test("Parentescos muestra una fila por vínculo y avisa si falta el apoderado", 
   ]);
   const missing = screen.getByText("Mario Díaz").closest("tr");
   expect(within(missing).getByText("Sin apoderado registrado")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Vincular apoderado/ }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "+ Vincular apoderado" }).disabled).toBe(false);
 });
 
 test("La carga masiva se abre desde apoderados y parentescos", async () => {
@@ -186,7 +186,7 @@ test("Docentes muestra código, especialidad y estado", async () => {
   expect(within(row).getByText("DOC-001")).toBeTruthy();
   expect(within(row).getByText("41222333")).toBeTruthy();
   expect(within(row).getByText("Ciencia y Tecnología")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Registrar docente/ }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: /Registrar docente/ }).disabled).toBe(false);
 });
 
 test("La ficha del docente muestra código, especialidad e ingreso", async () => {
@@ -215,4 +215,121 @@ test("Si el listado falla se puede reintentar", async () => {
   render(<RecordsScreen />);
   await user.click(await screen.findByText("Reintentar carga"));
   expect(await screen.findByText("Rosa Pizarro")).toBeTruthy();
+});
+
+async function fillPerson(user, dialog) {
+  await user.type(within(dialog).getByLabelText(/^Nombres/), "Elena");
+  await user.type(within(dialog).getByLabelText(/^Apellido paterno/), "Quispe");
+  await user.type(within(dialog).getByLabelText(/^Apellido materno/), "Rojas");
+  await user.type(within(dialog).getByLabelText(/^Número de documento/), "45678901");
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha de nacimiento/), { target: { value: "1985-04-12" } });
+}
+
+test("Registra un apoderado, muestra su código y actualiza el listado", async () => {
+  const calls = fakeBackend({
+    "GET /api/apoderados": page([carmen]),
+    "POST /api/apoderados": () => ({ ...carmen, id: 20, codigoApoderado: "APO20260020", persona: persona("Elena Quispe Rojas", "45678901"), alumnos: [] }),
+  });
+  setUrl(`${BASE}/apoderados`);
+  const user = userEvent.setup();
+  render(<RecordsScreen />);
+  await screen.findByText("Carmen Flores Vega");
+  await user.click(screen.getByRole("button", { name: /Registrar apoderado/ }));
+  const dialog = screen.getByRole("dialog");
+  await fillPerson(user, dialog);
+  await user.click(within(dialog).getByRole("button", { name: "Registrar apoderado" }));
+  expect(await screen.findByText("APO20260020")).toBeTruthy();
+  const sent = calls.find((call) => call.method === "POST").body;
+  expect(sent.persona).toMatchObject({
+    nombres: "Elena", apellidoPaterno: "Quispe", apellidoMaterno: "Rojas",
+    tipoDocumento: "DNI", numeroDocumento: "45678901", fechaNacimiento: "1985-04-12",
+  });
+  expect(calls.filter((call) => call.method === "GET" && call.path === "/api/apoderados").length).toBeGreaterThan(1);
+});
+
+test("Muestra el error del backend al registrar un apoderado sin cerrar el formulario", async () => {
+  fakeBackend({
+    "GET /api/apoderados": page([]),
+    "POST /api/apoderados": reply(409, { message: "Ya existe una persona con ese documento" }),
+  });
+  setUrl(`${BASE}/apoderados`);
+  const user = userEvent.setup();
+  render(<RecordsScreen />);
+  await screen.findByText("Todavía no hay apoderados registrados.");
+  await user.click(screen.getByRole("button", { name: /Registrar apoderado/ }));
+  const dialog = screen.getByRole("dialog");
+  await fillPerson(user, dialog);
+  await user.click(within(dialog).getByRole("button", { name: "Registrar apoderado" }));
+  expect(await within(dialog).findByText("Ya existe una persona con ese documento")).toBeTruthy();
+});
+
+test("Registra un docente con su fecha de ingreso y especialidad", async () => {
+  const calls = fakeBackend({
+    "GET /api/docentes": page([docente]),
+    "POST /api/docentes": { ...docente, id: 30, codigoDocente: "DOC20260030", persona: persona("Elena Quispe Rojas", "45678901") },
+  });
+  setUrl(`${BASE}/docentes`);
+  const user = userEvent.setup();
+  render(<RecordsScreen />);
+  await screen.findByText("Rosa Pizarro");
+  await user.click(screen.getByRole("button", { name: /Registrar docente/ }));
+  const dialog = screen.getByRole("dialog");
+  await fillPerson(user, dialog);
+  fireEvent.change(within(dialog).getByLabelText(/^Fecha de ingreso/), { target: { value: "2026-03-01" } });
+  await user.selectOptions(within(dialog).getByLabelText(/^Especialidad/), "INGLES");
+  await user.click(within(dialog).getByRole("button", { name: "Registrar docente" }));
+  expect(await screen.findByText("DOC20260030")).toBeTruthy();
+  const sent = calls.find((call) => call.method === "POST").body;
+  expect(sent).toMatchObject({ fechaIngreso: "2026-03-01", especialidad: "INGLES" });
+  expect(sent.persona.nombres).toBe("Elena");
+});
+
+test("Vincula un apoderado a un estudiante con su parentesco", async () => {
+  const calls = fakeBackend({
+    "GET /api/alumnos": page([lucia, mario]),
+    "GET /api/apoderados": page([carmen]),
+    "POST /api/alumnos/:id/apoderados": { id: 5, apoderadoId: 7, nombreCompleto: "Carmen Flores Vega", parentesco: "PADRE", principal: true },
+  });
+  setUrl(`${BASE}/parentescos`);
+  const user = userEvent.setup();
+  render(<RecordsScreen />);
+  await screen.findByText("Mario Díaz");
+  await user.click(screen.getByRole("button", { name: "+ Vincular apoderado" }));
+  const dialog = screen.getByRole("dialog");
+  await user.type(within(dialog).getByLabelText(/^Estudiante/), "Mario");
+  await user.click(within(dialog).getByRole("button", { name: "Buscar estudiante" }));
+  await user.click(await within(dialog).findByRole("button", { name: "Mario Díaz · EST-043" }));
+  await user.type(within(dialog).getByLabelText(/^Apoderado/), "Carmen");
+  await user.click(within(dialog).getByRole("button", { name: "Buscar apoderado" }));
+  await user.click(await within(dialog).findByRole("button", { name: /Carmen Flores Vega/ }));
+  await user.selectOptions(within(dialog).getByLabelText(/^Parentesco/), "PADRE");
+  await user.click(within(dialog).getByLabelText(/apoderado principal/));
+  await user.click(within(dialog).getByRole("button", { name: "Vincular" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(calls.find((call) => call.method === "POST")).toMatchObject({
+    path: "/api/alumnos/4/apoderados",
+    body: { apoderadoId: 7, parentesco: "PADRE", principal: true },
+  });
+});
+
+test("Desde la fila de un estudiante sin apoderado el estudiante ya viene elegido", async () => {
+  fakeBackend({ "GET /api/alumnos": page([lucia, mario]) });
+  setUrl(`${BASE}/parentescos`);
+  const user = userEvent.setup();
+  render(<RecordsScreen />);
+  await user.click(await screen.findByRole("button", { name: "Vincular apoderado a Mario Díaz" }));
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByText("Mario Díaz · EST-043")).toBeTruthy();
+});
+
+test("No vincula sin elegir al estudiante y al apoderado", async () => {
+  const calls = fakeBackend({ "GET /api/alumnos": page([]) });
+  setUrl(`${BASE}/parentescos`);
+  const user = userEvent.setup();
+  render(<RecordsScreen />);
+  await screen.findByText("Todavía no hay estudiantes registrados.");
+  await user.click(screen.getByRole("button", { name: "+ Vincular apoderado" }));
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Vincular" }));
+  expect(await screen.findByText("Elige al estudiante y al apoderado para vincularlos.")).toBeTruthy();
+  expect(calls.some((call) => call.method === "POST")).toBe(false);
 });
