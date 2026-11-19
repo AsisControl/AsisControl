@@ -48,6 +48,46 @@ test("sin notas publicadas no ofrece períodos", async () => {
   expect(screen.queryByRole("combobox")).toBeNull();
 });
 
+test("el estudiante cambia de período y consulta los niveles y comentarios de la libreta correspondiente", async () => {
+  const primerInforme = {
+    idAlumno: 8, alumno: "Ana", idAsignacionCurso: 3, curso: "Matemática",
+    anio: 2026, idPeriodoAcademico: 4, periodo: "Bimestre 1",
+  };
+  const calls = fakeBackend({
+    "GET /api/calificaciones/informes-disponibles": [
+      primerInforme, { ...primerInforme, idPeriodoAcademico: 5, periodo: "Bimestre 2" },
+    ],
+    "GET /api/calificaciones/avance": ({ query }) => ({
+      filas: [{
+        competencia: "Resuelve problemas de cantidad",
+        resultado: query.idPeriodoAcademico === "4" ? "B" : "AD",
+        observacion: query.idPeriodoAcademico === "4" ? "Practicar fracciones" : "Explica su procedimiento",
+      }],
+    }),
+  });
+  render(<ProgressReports />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: "Bimestre 1 · 2026" });
+  expect(screen.queryByLabelText("Estudiante")).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-4");
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
+  await user.click(screen.getByRole("button", { name: "Ver notas" }));
+  await screen.findByRole("cell", { name: "Practicar fracciones" });
+  expect(screen.getByRole("cell", { name: "B", exact: true })).toBeTruthy();
+
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-5");
+  expect(screen.queryByText("Practicar fracciones")).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
+  await user.click(screen.getByRole("button", { name: "Ver notas" }));
+  await screen.findByRole("cell", { name: "Explica su procedimiento" });
+  expect(screen.getByRole("cell", { name: "AD", exact: true })).toBeTruthy();
+  expect(screen.getByRole("cell", { name: "Resuelve problemas de cantidad" })).toBeTruthy();
+  expect(calls.filter(call => call.path.endsWith("/avance")).map(call => call.query)).toEqual([
+    { idAlumno: "8", idAsignacionCurso: "3", idPeriodoAcademico: "4" },
+    { idAlumno: "8", idAsignacionCurso: "3", idPeriodoAcademico: "5" },
+  ]);
+});
+
 test("el apoderado cambia de hijo y solo consulta los cursos publicados del seleccionado", async () => {
   const ana = {idAlumno:8,alumno:"Ana",idAsignacionCurso:3,curso:"Matemática",anio:2026,idPeriodoAcademico:4,periodo:"Bimestre 1"};
   const calls = fakeBackend({
