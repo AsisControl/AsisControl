@@ -30,9 +30,10 @@ test("progreso muestra notas y descarga el informe elegido", async () => {
   URL.createObjectURL = vi.fn(() => "blob:pdf"); URL.revokeObjectURL = vi.fn();
   vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(() => {});
   render(<ProgressReports />);
-  await screen.findByText(/Ana · Matematica/);
+  await screen.findByRole("option", { name: /Bimestre 1/ });
   const user = userEvent.setup();
-  await user.selectOptions(screen.getByRole("combobox"), "0");
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-4");
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
   await user.click(screen.getByText("Ver notas"));
   await screen.findByText("Buen avance");
   expect(screen.getByText("Sin registrar")).toBeTruthy();
@@ -40,11 +41,85 @@ test("progreso muestra notas y descarga el informe elegido", async () => {
   expect(calls.find(c => c.path.endsWith("reporte-avance")).query).toEqual({idAlumno:"8",idAsignacionCurso:"3",idPeriodoAcademico:"4"});
 });
 
-test("sin notas publicadas no ofrece alumnos", async () => {
+test("sin notas publicadas no ofrece períodos", async () => {
   fakeBackend({ "GET /api/calificaciones/informes-disponibles": [] });
   render(<ProgressReports />);
   await screen.findByText(/Todavía no hay libretas publicadas/);
   expect(screen.queryByRole("combobox")).toBeNull();
+});
+
+test("el estudiante cambia de período y consulta los niveles y comentarios de la libreta correspondiente", async () => {
+  const primerInforme = {
+    idAlumno: 8, alumno: "Ana", idAsignacionCurso: 3, curso: "Matemática",
+    anio: 2026, idPeriodoAcademico: 4, periodo: "Bimestre 1",
+  };
+  const calls = fakeBackend({
+    "GET /api/calificaciones/informes-disponibles": [
+      primerInforme, { ...primerInforme, idPeriodoAcademico: 5, periodo: "Bimestre 2" },
+    ],
+    "GET /api/calificaciones/avance": ({ query }) => ({
+      filas: [{
+        competencia: "Resuelve problemas de cantidad",
+        resultado: query.idPeriodoAcademico === "4" ? "B" : "AD",
+        observacion: query.idPeriodoAcademico === "4" ? "Practicar fracciones" : "Explica su procedimiento",
+      }],
+    }),
+  });
+  render(<ProgressReports />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: "Bimestre 1 · 2026" });
+  expect(screen.queryByLabelText("Estudiante")).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-4");
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
+  await user.click(screen.getByRole("button", { name: "Ver notas" }));
+  await screen.findByRole("cell", { name: "Practicar fracciones" });
+  expect(screen.getByRole("cell", { name: "B", exact: true })).toBeTruthy();
+
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-5");
+  expect(screen.queryByText("Practicar fracciones")).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
+  await user.click(screen.getByRole("button", { name: "Ver notas" }));
+  await screen.findByRole("cell", { name: "Explica su procedimiento" });
+  expect(screen.getByRole("cell", { name: "AD", exact: true })).toBeTruthy();
+  expect(screen.getByRole("cell", { name: "Resuelve problemas de cantidad" })).toBeTruthy();
+  expect(calls.filter(call => call.path.endsWith("/avance")).map(call => call.query)).toEqual([
+    { idAlumno: "8", idAsignacionCurso: "3", idPeriodoAcademico: "4" },
+    { idAlumno: "8", idAsignacionCurso: "3", idPeriodoAcademico: "5" },
+  ]);
+});
+
+test("el apoderado cambia de hijo y solo consulta los cursos publicados del seleccionado", async () => {
+  const ana = {idAlumno:8,alumno:"Ana",idAsignacionCurso:3,curso:"Matemática",anio:2026,idPeriodoAcademico:4,periodo:"Bimestre 1"};
+  const calls = fakeBackend({
+    "GET /api/familia/estudiantes": [{id:8,nombreCompleto:"Ana"},{id:9,nombreCompleto:"Luis"},{id:10,nombreCompleto:"Rosa"}],
+    "GET /api/calificaciones/informes-disponibles": [
+      ana,
+      {...ana,idAsignacionCurso:5,curso:"Ciencia"},
+      {...ana,idAlumno:9,alumno:"Luis",idAsignacionCurso:6,curso:"Historia"},
+    ],
+    "GET /api/calificaciones/avance": {filas:[{resultado:"AD",observacion:"Buen avance"}]},
+  });
+  render(<ProgressReports guardian />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: "Ana" });
+  await user.selectOptions(screen.getByLabelText("Estudiante"), "8");
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-4");
+  expect(screen.getByRole("option", { name: "Ciencia" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Historia" })).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
+  await user.click(screen.getByRole("button", { name: "Ver notas" }));
+  await screen.findByText("Buen avance");
+  expect(calls.find(c => c.path.endsWith("/avance")).query)
+    .toEqual({idAlumno:"8",idAsignacionCurso:"3",idPeriodoAcademico:"4"});
+
+  await user.selectOptions(screen.getByLabelText("Estudiante"), "9");
+  expect(screen.queryByText("Buen avance")).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-4");
+  expect(screen.getByRole("option", { name: "Historia" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Matemática" })).toBeNull();
+
+  await user.selectOptions(screen.getByLabelText("Estudiante"), "10");
+  expect(screen.getByText(/Todavía no hay libretas publicadas/)).toBeTruthy();
 });
 
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, apiBlob, message } from "@/core/api/client";
 import { Feedback, PageHeader, Loading } from "@/shared/ui";
+import { saveBlob } from "@/shared/lib/save-blob";
 import type { OwnAssignment } from "./types";
 
 type Option = { idAlumno: number; alumno: string; idAsignacionCurso: number; curso: string;
@@ -12,61 +13,94 @@ type Detail = { periodo?: string; filas: { competencia: string; evaluacion: stri
 const query = (item: Option) => new URLSearchParams({ idAlumno: String(item.idAlumno),
   idAsignacionCurso: String(item.idAsignacionCurso), idPeriodoAcademico: String(item.idPeriodoAcademico) });
 
-/** Opciones autorizadas de libretas persistidas y publicadas. */
-export function ProgressReports() {
+type FamilyStudent = { id: number; nombreCompleto: string };
+const periodKey = (item: Option) => `${item.anio}-${item.idPeriodoAcademico}`;
+
+/** Consulta de libretas publicadas para el estudiante y su familia. */
+export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
   const [items, setItems] = useState<Option[] | null>(null);
+  const [students, setStudents] = useState<FamilyStudent[]>([]);
+  const [student, setStudent] = useState("");
+  const [period, setPeriod] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    api<Option[]>("/api/calificaciones/informes-disponibles")
-      .then(data => { if (active) setItems(data); })
-      .catch(e => { if (active) setError(message(e)); });
+    Promise.all([
+      api<Option[]>("/api/calificaciones/informes-disponibles"),
+      guardian ? api<FamilyStudent[]>("/api/familia/estudiantes") : Promise.resolve([]),
+    ]).then(([reports, family]) => {
+      if (!active) return;
+      setItems(reports);
+      setStudents(family);
+      if (family.length === 1) setStudent(String(family[0].id));
+    }).catch(e => { if (active) setError(message(e)); });
     return () => { active = false; };
-  }, []);
-  const option = selected === "" ? undefined : items?.[Number(selected)];
+  }, [guardian]);
+  const visible = (items ?? []).filter(item => !guardian || String(item.idAlumno) === student);
+  const periods = [...new Map(visible.map(item => [periodKey(item), item])).values()];
+  const courses = visible.filter(item => periodKey(item) === period);
+  const option = courses.find(item => String(item.idAsignacionCurso) === selected);
+
+  function changeCourse(value: string) {
+    setSelected(value);
+    setDetail(null);
+    setError("");
+  }
+
   async function open(download: boolean) {
     if (!option) return;
     setBusy(true); setError("");
     try {
       if (download) {
         const blob = await apiBlob(`/api/calificaciones/reporte-avance?${query(option)}`, { timeoutMs: 60000 });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a"); anchor.href = url;
-        anchor.download = `avance-${option.idAlumno}-${option.idAsignacionCurso}-${option.idPeriodoAcademico}.pdf`;
-        document.body.appendChild(anchor); anchor.click(); anchor.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        saveBlob(blob, `avance-${option.idAlumno}-${option.idAsignacionCurso}-${option.idPeriodoAcademico}.pdf`);
       } else setDetail(await api<Detail>(`/api/calificaciones/avance?${query(option)}`));
     } catch (e) { setError(message(e)); }
     finally { setBusy(false); }
   }
   return <section>
-    <PageHeader title="Progreso" description="Consulta las libretas publicadas por el docente y descarga tu informe por período." />
+    <PageHeader title="Progreso" description="Consulta las libretas publicadas por período y curso." />
     <Feedback error={error} />
     {!items && !error && <Loading skeleton="list" rows={3}>Cargando informes disponibles.</Loading>}
-    {items?.length === 0 && <p>Todavía no hay notas publicadas para consultar.</p>}
-    {!!items?.length && <>
-      <label className="field">Alumno, curso y período
-        <select value={selected} disabled={busy} onChange={e => { setSelected(e.target.value); setDetail(null); setError(""); }}>
-          <option value="">Selecciona un informe</option>
-          {items.map((item, index) => <option key={`${item.idAlumno}-${item.idAsignacionCurso}-${item.idPeriodoAcademico}`} value={index}>
-            {item.alumno} · {item.curso} · {item.periodo} · {item.anio}
-          </option>)}
+    {items && guardian && (students.length === 0 ? <p>No tienes estudiantes asociados.</p> :
+      <label className="field">Estudiante
+        <select value={student} disabled={busy} onChange={e => {
+          setStudent(e.target.value);
+          setPeriod("");
+          changeCourse("");
+        }}>
+          <option value="">Selecciona un estudiante</option>
+          {students.map(item => <option key={item.id} value={item.id}>{item.nombreCompleto}</option>)}
         </select>
-      </label>
-      <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>Ver notas</button>{" "}
-      <button className="primary-action" disabled={!option || busy} onClick={() => open(true)}>Descargar PDF</button>
+      </label>)}
+    {items && (!guardian || student) && (visible.length === 0 ?
+      <p>Todavía no hay libretas publicadas para consultar.</p> : <>
+        <label className="field">Período académico
+          <select value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); changeCourse(""); }}>
+            <option value="">Selecciona un período</option>
+            {periods.map(item => <option key={periodKey(item)} value={periodKey(item)}>{item.periodo} · {item.anio}</option>)}
+          </select>
+        </label>
+        {period && <label className="field">Curso
+          <select value={selected} disabled={busy} onChange={e => changeCourse(e.target.value)}>
+            <option value="">Selecciona un curso</option>
+            {courses.map(item => <option key={item.idAsignacionCurso} value={item.idAsignacionCurso}>{item.curso}</option>)}
+          </select>
+        </label>}
+        <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>Ver notas</button>{" "}
+        <button className="primary-action" disabled={!option || busy} onClick={() => open(true)}>Descargar PDF</button>
+      </>)}
       {busy && <p role="status">Preparando informe.</p>}
       {detail && <div className="user-table-wrap" style={{ marginTop: 24 }}><p>{detail.periodo}</p><table className="user-table">
         <thead><tr>{["Competencia", "Evaluación", "Fecha", "Nivel", "Peso", "Observación"].map(t => <th key={t}>{t}</th>)}</tr></thead>
         <tbody>{detail.filas.map((row, i) => <tr key={i}>
-          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha?.split("-").reverse().join("/")}</td>
+          <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha}</td>
           <td>{row.resultado}</td><td>{row.ponderacion}</td><td>{row.observacion}</td>
         </tr>)}</tbody>
       </table></div>}
-    </>}
   </section>;
 }
 
