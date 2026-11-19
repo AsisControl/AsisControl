@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,6 +54,20 @@ describe("punto de marcación institucional con QR dinámico", () => {
     expect(container.querySelector("svg")).toBeTruthy();
     expect(screen.getByText("60 s")).toBeTruthy();
     expect(screen.getByText("token-1")).toBeTruthy();
+  });
+
+  it("si React abre el punto dos veces, usa solo la última respuesta y no muestra el conflicto", async () => {
+    let finishFirst;
+    emitirQr
+      .mockReturnValueOnce(new Promise((resolve) => { finishFirst = resolve; }))
+      .mockResolvedValueOnce(code(2))
+      .mockRejectedValue(new ApiError("El registro cambió; actualice los datos antes de continuar", 409));
+    render(<StrictMode><CheckInPoint canWrite /></StrictMode>);
+    expect(await screen.findByText("token-2")).toBeTruthy();
+    await act(async () => finishFirst(code(1)));
+    expect(screen.getByText("token-2")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(cancelarQr).toHaveBeenCalledWith(1);
   });
 
   it("renueva el código antes de que venza", async () => {
