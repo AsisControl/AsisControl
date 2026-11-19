@@ -1,0 +1,4 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed Nov 18 21:22:54 PET 2026
+@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1795054974723
+https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact net.sf.jasperreports\:jasperreports\:pom\:7.0.6 from/to central (https\://repo.maven.apache.org/maven2)\: Host desconocido (repo.maven.apache.org)

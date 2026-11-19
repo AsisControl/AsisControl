@@ -63,7 +63,28 @@ public class CalificacionController {
         return reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
     }
 
-    /** US-20: consulta y descarga de notas publicadas, sin persistir informes. */
+    @PostMapping("/informes/generar")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public ReporteAvanceService.ResultadoPeriodo generarInformes(
+            @Valid @RequestBody com.asiscontrol.dto.EvaluacionDto.PublicarPeriodoRequest request) {
+        return reporteAvanceService.generarPeriodo(request.idAsignacionCurso(), request.idPeriodoAcademico());
+    }
+
+    @PostMapping("/informes/publicar")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public ReporteAvanceService.ResultadoPeriodo publicarInformes(
+            @Valid @RequestBody com.asiscontrol.dto.EvaluacionDto.PublicarPeriodoRequest request) {
+        return reporteAvanceService.publicarPeriodo(request.idAsignacionCurso(), request.idPeriodoAcademico());
+    }
+
+    @GetMapping("/informes/borrador")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public com.asiscontrol.dto.ReporteAvanceDto consultarBorrador(@RequestParam Long idAlumno,
+            @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico) {
+        return reporteAvanceService.prepararBorrador(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+    }
+
+    /** US-20: el PDF utiliza exclusivamente los detalles de la ultima version publicada. */
     @GetMapping(value = "/reporte-avance", produces = "application/pdf")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
     public ResponseEntity<byte[]> descargarReporteAvance(

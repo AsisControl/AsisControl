@@ -1,7 +1,7 @@
 # US-20: modelo persistente de informes
 
-Esta etapa incorpora las entidades y el esquema. El flujo actual de consulta,
-publicacion y PDF todavia no utiliza estas tablas.
+Las entidades y el esquema estan conectados a generacion, publicacion y PDF.
+El flujo y sus limites se describen en US20_PDF_AVANCE.md.
 
 ## Modelo
 
@@ -18,16 +18,15 @@ publicacion y PDF todavia no utiliza estas tablas.
 JPA. La clave alumno/asignacion/periodo/numeroVersion no se puede duplicar.
 
 El nivel y la calificacion de origen pueden estar vacios en un borrador.
-Esto NO elimina la restriccion de notas completas para publicar. En la etapa
-del servicio se validara tambien que todas las relaciones correspondan al
-mismo alumno, curso y periodo y que una version publicada no pueda editarse.
+Esto NO elimina la restriccion de notas completas para publicar. El servicio valida tambien que todas las relaciones correspondan al
+mismo alumno, curso y periodo y mantiene las versiones publicadas sin editar sus detalles.
 Las FK no tienen eliminacion en cascada.
 
 Los detalles mantienen la granularidad del PDF actual (evaluacion/competencia);
 no introducen una regla nueva de consolidacion. Las referencias a calificacion
 y evaluacion identifican el origen, pero no implementan por si solas la consulta
 de evidencias autorizadas. Ese acceso y la copia de los datos de cabecera para
-reproducir nombres historicos quedan para la adaptacion del servicio.
+reproducir nombres historicos no estan incluidos en esta implementacion.
 
 ## Base de datos
 
