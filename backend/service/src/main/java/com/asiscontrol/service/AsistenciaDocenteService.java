@@ -296,15 +296,8 @@ public class AsistenciaDocenteService {
 
     private void invalidarCodigosVigentes() {
         LocalDateTime ahora = LocalDateTime.now(reloj);
-        for (CodigoQRAsistencia codigo : codigoRepository.findAllByEstadoAndActivoTrue(EstadoCodigoQR.VIGENTE)) {
-            if (ahora.isAfter(codigo.getFechaHoraExpiracion())) {
-                codigo.setEstado(EstadoCodigoQR.EXPIRADO);
-            } else {
-                codigo.setEstado(EstadoCodigoQR.INVALIDADO);
-                codigo.setFechaHoraCancelacion(ahora);
-            }
-            codigoRepository.save(codigo);
-        }
+        codigoRepository.invalidarVigentes(ahora, EstadoCodigoQR.VIGENTE, EstadoCodigoQR.INVALIDADO);
+        codigoRepository.expirarVencidos(ahora, EstadoCodigoQR.VIGENTE, EstadoCodigoQR.EXPIRADO);
     }
 
     /**

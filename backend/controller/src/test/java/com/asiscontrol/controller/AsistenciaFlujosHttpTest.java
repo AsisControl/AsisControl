@@ -185,6 +185,15 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
         assertThat(getOk("/api/asistencias/docentes/"+teacher.getId()+"/clases").isArray()).isTrue();
     }
 
+    @Test void abrirElPuntoVariasVecesSeguidasDejaUnSoloCodigoVigente() throws Exception {
+        var primero=postOk("/api/asistencias/docentes/qr",null);
+        var segundo=postOk("/api/asistencias/docentes/qr",null);
+        var tercero=postOk("/api/asistencias/docentes/qr",null);
+        assertThat(getOk("/api/asistencias/docentes/qr/"+primero.path("id").asLong()).path("estado").asText()).isEqualTo("INVALIDADO");
+        assertThat(getOk("/api/asistencias/docentes/qr/"+segundo.path("id").asLong()).path("estado").asText()).isEqualTo("INVALIDADO");
+        assertThat(getOk("/api/asistencias/docentes/qr/"+tercero.path("id").asLong()).path("estado").asText()).isEqualTo("VIGENTE");
+    }
+
     @Test void admiteContingenciaYRecuperaQrExpirado() throws Exception {
         var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
         long id=qr.path("id").asLong();
