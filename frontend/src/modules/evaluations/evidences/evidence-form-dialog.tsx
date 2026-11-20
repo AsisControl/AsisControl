@@ -3,10 +3,11 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { FILE_ACCEPT, fileError, subirArchivo } from "@/modules/tasks";
 import { FormDialog } from "@/shared/ui";
 import { sectionOf } from "../lib/labels";
-import type { CourseCompetency, OwnAssignment } from "../types";
+import type { OwnAssignment } from "../types";
+import { competencyLabel } from "./lib/format";
 import { evidenceError } from "./lib/messages";
 import { crearEvidencia, editarEvidencia } from "./services/evidence-service";
-import type { Evidence, EvidencePeriod, EvidenceStudent } from "./types";
+import type { Evidence, EvidenceCompetency, EvidencePeriod, EvidenceStudent } from "./types";
 import styles from "./evidences.module.css";
 
 export const MAX_DESCRIPTION = 1000;
@@ -25,7 +26,7 @@ export function EvidenceFormDialog({
 }: {
   assignment: OwnAssignment;
   student: EvidenceStudent;
-  competencies: CourseCompetency[];
+  competencies: EvidenceCompetency[];
   periods: EvidencePeriod[];
   /** Filtros activos del listado, para no volver a elegirlos. */
   competenciaId?: string;
@@ -98,7 +99,7 @@ export function EvidenceFormDialog({
           <option value="">Selecciona una competencia</option>
           {competencies.map((item) => (
             <option key={item.competenciaId} value={item.competenciaId}>
-              {item.competenciaNombre}
+              {competencyLabel(item)}
             </option>
           ))}
         </select>

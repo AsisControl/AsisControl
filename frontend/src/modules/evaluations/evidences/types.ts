@@ -1,3 +1,7 @@
+import type { CourseCompetency } from "../types";
+
+/** CursoCompetenciaResponse trae el código de la competencia (p. ej. "MAT-C1"). */
+export type EvidenceCompetency = CourseCompetency & { competenciaCodigo?: string };
 /** Contratos de EvidenciaPedagogicaDto. */
 export type EvidenceFile = {
   id: number;

@@ -22,7 +22,7 @@ test("No consulta evidencias hasta elegir estudiante y filtra por curso, estudia
   expect(screen.getByRole("cell", { name: "II Bimestre" })).toBeTruthy();
   expect(listCalls(calls)[0].query).toMatchObject({ asignacionId: "5", alumnoId: "1", page: "0", size: "20" });
   expect(listCalls(calls)[0].query.competenciaId).toBeUndefined();
-  await user.selectOptions(screen.getByLabelText("Competencia"), "Razona en geometría");
+  await user.selectOptions(screen.getByLabelText("Competencia"), "Razona en geometría (MAT-C2)");
   await user.selectOptions(screen.getByLabelText("Período"), "II Bimestre");
   await waitFor(() => expect(listCalls(calls).at(-1).query).toMatchObject({ competenciaId: "2", periodoId: "4", alumnoId: "1" }));
   expect(listCalls(calls).every((call) => call.query.alumnoId === "1")).toBe(true);
@@ -148,7 +148,7 @@ test("El registro nuevo aparece en el listado y sin permiso de escritura no hay 
   const user = await chooseStudent();
   await user.click(screen.getByRole("button", { name: "+ Nueva evidencia" }));
   const dialog = await screen.findByRole("dialog", { name: /Nueva evidencia/ });
-  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas");
+  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas (MAT-C1)");
   await user.selectOptions(within(dialog).getByLabelText(/Período/), "I Bimestre");
   await user.type(within(dialog).getByLabelText(/Descripción/), "Texto");
   await user.click(within(dialog).getByRole("button", { name: "Guardar evidencia" }));
@@ -179,4 +179,23 @@ test("Muestra la fecha de un instante UTC con microsegundos en hora de Lima y to
   expect(await screen.findByText("19/11/2026")).toBeTruthy();
   expect(screen.queryByText(/Invalid Date/)).toBeNull();
   expect(screen.getAllByRole("cell", { name: "—" }).length).toBeGreaterThanOrEqual(2);
+});
+
+test("Distingue competencias de igual nombre mostrando el código en selectores y tabla", async () => {
+  backend({
+    "GET /api/cursos-competencias": page([
+      { cursoId: 100, competenciaId: 1, competenciaCodigo: "MAT-C1", competenciaNombre: "Matemática", orden: 1, activo: true },
+      { cursoId: 100, competenciaId: 2, competenciaCodigo: "MAT-C2", competenciaNombre: "Matemática", orden: 2, activo: true },
+    ]),
+    "GET /api/evidencias-pedagogicas": page([evidence({ competenciaId: 2 })]),
+  });
+  open();
+  const user = await chooseStudent();
+  expect(await screen.findByRole("cell", { name: "Matemática (MAT-C2)" })).toBeTruthy();
+  expect(screen.getByRole("option", { name: "Matemática (MAT-C1)" })).toBeTruthy();
+  expect(screen.getByRole("option", { name: "Matemática (MAT-C2)" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: /Nueva evidencia/ }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("option", { name: "Matemática (MAT-C1)" })).toBeTruthy();
+  expect(within(dialog).getByRole("option", { name: "Matemática (MAT-C2)" })).toBeTruthy();
 });

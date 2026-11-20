@@ -9,7 +9,7 @@ const post = (calls, path) => calls.filter((call) => call.method === "POST" && c
 async function fillDialog(user, { description = "", file } = {}) {
   await user.click(screen.getByRole("button", { name: "+ Nueva evidencia" }));
   const dialog = await screen.findByRole("dialog", { name: /Nueva evidencia/ });
-  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas");
+  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas (MAT-C1)");
   await user.selectOptions(within(dialog).getByLabelText(/Período/), "I Bimestre");
   if (description) await user.type(within(dialog).getByLabelText(/Descripción/), description);
   if (file) fireEvent.change(screen.getByLabelText("Archivo de evidencia"), { target: { files: [file] } });

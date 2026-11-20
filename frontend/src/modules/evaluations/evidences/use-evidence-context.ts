@@ -2,14 +2,14 @@
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { listarCompetenciasDelCurso } from "../services/evaluation-service";
-import type { CourseCompetency, OwnAssignment } from "../types";
+import type { OwnAssignment } from "../types";
 import { listarEstudiantes, listarPeriodos } from "./services/evidence-service";
-import type { EvidencePeriod, EvidenceStudent } from "./types";
+import type { EvidenceCompetency, EvidencePeriod, EvidenceStudent } from "./types";
 
 type Loaded = {
   assignmentId: number;
   periods: EvidencePeriod[];
-  competencies: CourseCompetency[];
+  competencies: EvidenceCompetency[];
   /** `null`: la asignación no tiene evaluaciones y el backend no ofrece otra fuente. */
   students: EvidenceStudent[] | null;
 };

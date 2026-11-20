@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Feedback, Loading, PanelHeading } from "@/shared/ui";
 import { sectionOf } from "../lib/labels";
 import type { OwnAssignment } from "../types";
+import { competencyLabel } from "./lib/format";
 import { EvidenceFormDialog } from "./evidence-form-dialog";
 import { EvidenceList } from "./evidence-list";
 import { useEvidenceContext } from "./use-evidence-context";
@@ -86,7 +87,7 @@ export function Evidences({
             <option value="">Todas las competencias</option>
             {context?.competencies.map((item) => (
               <option key={item.competenciaId} value={item.competenciaId}>
-                {item.competenciaNombre}
+                {competencyLabel(item)}
               </option>
             ))}
           </select>

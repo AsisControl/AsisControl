@@ -4,12 +4,12 @@ import { descargarArchivo } from "@/modules/tasks";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel } from "@/shared/lib/formatters";
 import { Feedback, FormDialog, Loading, Pager, PanelHeading, RowMenu } from "@/shared/ui";
-import type { CourseCompetency, OwnAssignment } from "../types";
+import type { OwnAssignment } from "../types";
 import { EvidenceFormDialog } from "./evidence-form-dialog";
-import { evidenceDate } from "./lib/format";
+import { competencyLabel, evidenceDate } from "./lib/format";
 import { evidenceError } from "./lib/messages";
 import { EVIDENCIAS_PATH, evidenceFilters, inactivarEvidencia } from "./services/evidence-service";
-import type { Evidence, EvidencePeriod, EvidenceStudent } from "./types";
+import type { Evidence, EvidenceCompetency, EvidencePeriod, EvidenceStudent } from "./types";
 import styles from "./evidences.module.css";
 
 /** Evidencias de un estudiante en una asignación, filtradas por competencia y período. */
@@ -25,7 +25,7 @@ export function EvidenceList({
 }: {
   assignment: OwnAssignment;
   student: EvidenceStudent;
-  competencies: CourseCompetency[];
+  competencies: EvidenceCompetency[];
   periods: EvidencePeriod[];
   competenciaId: string;
   periodoId: string;
@@ -49,8 +49,10 @@ export function EvidenceList({
   const [dialogError, setDialogError] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const competencyName = (id: number) =>
-    competencies.find((item) => item.competenciaId === id)?.competenciaNombre ?? `Competencia ${id}`;
+  const competencyName = (id: number) => {
+    const found = competencies.find((item) => item.competenciaId === id);
+    return found ? competencyLabel(found) : `Competencia ${id}`;
+  };
   const periodName = (id: number) => periods.find((item) => item.id === id)?.nombre ?? `Período ${id}`;
   async function download(file: NonNullable<Evidence["archivo"]>) {
     setError("");

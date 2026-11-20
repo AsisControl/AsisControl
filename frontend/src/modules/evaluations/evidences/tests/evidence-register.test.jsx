@@ -21,7 +21,7 @@ test("Registra la evidencia en dos pasos: sube el archivo y crea con su id", asy
   const user = await chooseStudent();
   const dialog = await openDialog(user);
   expect(within(dialog).queryByRole("option", { name: "Otro curso" })).toBeNull();
-  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas");
+  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas (MAT-C1)");
   await user.selectOptions(within(dialog).getByLabelText(/Período/), "I Bimestre");
   await user.type(within(dialog).getByLabelText(/Descripción/), "  Maqueta del sistema solar ");
   attach(pdf());
@@ -48,7 +48,7 @@ test("Al reintentar tras un error no vuelve a subir el archivo", async () => {
   open();
   const user = await chooseStudent();
   const dialog = await openDialog(user);
-  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas");
+  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas (MAT-C1)");
   await user.selectOptions(within(dialog).getByLabelText(/Período/), "I Bimestre");
   attach(pdf());
   await user.click(within(dialog).getByRole("button", { name: "Guardar evidencia" }));
@@ -64,7 +64,7 @@ test("Sin descripción ni archivo no envía nada", async () => {
   open();
   const user = await chooseStudent();
   const dialog = await openDialog(user);
-  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas");
+  await user.selectOptions(within(dialog).getByLabelText(/Competencia/), "Resuelve problemas (MAT-C1)");
   await user.selectOptions(within(dialog).getByLabelText(/Período/), "I Bimestre");
   await user.click(within(dialog).getByRole("button", { name: "Guardar evidencia" }));
   expect(await within(dialog).findByText("Escribe una descripción o adjunta un archivo.")).toBeTruthy();
@@ -122,7 +122,7 @@ test("El tamaño excedido del servidor (413) se explica y los filtros precargan 
   });
   open();
   const user = await chooseStudent();
-  await user.selectOptions(screen.getByLabelText("Competencia"), "Razona en geometría");
+  await user.selectOptions(screen.getByLabelText("Competencia"), "Razona en geometría (MAT-C2)");
   await user.selectOptions(screen.getByLabelText("Período"), "II Bimestre");
   const dialog = await openDialog(user);
   expect(within(dialog).getByLabelText(/Competencia/).value).toBe("2");

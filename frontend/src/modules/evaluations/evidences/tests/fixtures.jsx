@@ -27,8 +27,8 @@ export function backend(routes = {}) {
     "GET /api/evaluaciones/:id/planilla": { evaluacion: evaluation, alumnos: students },
     "GET /api/evaluaciones/periodos-informe": [{ id: 3, nombre: "I Bimestre" }, { id: 4, nombre: "II Bimestre" }],
     "GET /api/cursos-competencias": page([
-      { cursoId: 100, competenciaId: 1, competenciaNombre: "Resuelve problemas", orden: 1, activo: true },
-      { cursoId: 100, competenciaId: 2, competenciaNombre: "Razona en geometría", orden: 2, activo: true },
+      { cursoId: 100, competenciaId: 1, competenciaCodigo: "MAT-C1", competenciaNombre: "Resuelve problemas", orden: 1, activo: true },
+      { cursoId: 100, competenciaId: 2, competenciaCodigo: "MAT-C2", competenciaNombre: "Razona en geometría", orden: 2, activo: true },
       { cursoId: 200, competenciaId: 3, competenciaNombre: "Otro curso", orden: 1, activo: true },
     ]),
     "GET /api/evidencias-pedagogicas": page([]),
