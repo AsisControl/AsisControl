@@ -255,11 +255,10 @@ export function useAuth() {
       setIsEndingSession(false);
     }
   }
-  const session =
-    state.session && !isExpired(state.session) ? state.session : null;
   return {
-    session,
-    isRestoringSession: state.status === "checking" && !session,
+    session: state.session,
+    isSessionExpired: state.session !== null && isExpired(state.session),
+    isRestoringSession: state.status === "checking" && !state.session,
     isEndingSession,
     sessionValidationError: state.status === "error" ? state.error : "",
     retrySession: revalidateSession,

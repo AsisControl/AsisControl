@@ -5,7 +5,7 @@ import { fakeBackend, inOneHour, page, reply, signIn, signOut } from "../../../t
 import { currentUrl, setUrl } from "../../../tests/support/navigation.js";
 import { AppShell } from "@/core/layout/app-shell";
 import { ModuleOutlet } from "@/core/navigation/module-outlet";
-import { setSessionStatus } from "@/core/auth/session-storage";
+import { readSession, setSessionStatus } from "@/core/auth/session-storage";
 import AppLayout from "@/app/(app)/layout";
 import AppPage from "@/app/(app)/[[...ruta]]/page";
 
@@ -407,6 +407,8 @@ test("Volver a la pestaña revalida la sesión y la actividad la mantiene", asyn
   sessionFor();
   renderApp();
   await screen.findByRole("heading", { name: "Panel de administración", exact: true });
+  const menu = screen.getByLabelText("Abrir menú de usuario");
+  await userEvent.click(menu);
   const before = calls.filter((c) => c.path === "/api/auth/me").length;
   await act(async () => {
     document.dispatchEvent(new Event("visibilitychange"));
@@ -415,6 +417,9 @@ test("Volver a la pestaña revalida la sesión y la actividad la mantiene", asyn
   await waitFor(() =>
     expect(calls.filter((c) => c.path === "/api/auth/me").length).toBeGreaterThan(before),
   );
+  expect(calls.some((call) => call.path === "/api/auth/refresh")).toBe(false);
+  expect(screen.getByLabelText("Abrir menú de usuario")).toBe(menu);
+  expect(menu.getAttribute("aria-expanded")).toBe("true");
 });
 
 test("El menú móvil se abre y se cierra con Escape, clic fuera o al ensanchar", async () => {
@@ -600,16 +605,25 @@ test("Si la renovación es rechazada, el 401 devuelve al login", async () => {
 });
 
 test("Un token vencido al volver a la pestaña se renueva en lugar de cerrar la sesión", async () => {
-  backend({ "POST /api/auth/refresh": authResponse("renovado") });
-  sessionFor();
+  let finishRefresh;
+  backend({ "POST /api/auth/refresh": () => new Promise(resolve => { finishRefresh = resolve; }) });
+  sessionFor({ expiresAt: undefined });
   renderApp();
+  await waitFor(() => expect(fetchCalls("/api/auth/me")).toHaveLength(1));
   await screen.findByRole("heading", { name: "Panel de administración", exact: true });
-  sessionFor().expiresAt = "2000-01-01T00:00:00Z";
+  const menu = screen.getByLabelText("Abrir menú de usuario");
+  await userEvent.click(menu);
+  readSession().expiresAt = "2000-01-01T00:00:00Z";
   await act(async () => {
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   expect(fetchCalls("/api/auth/refresh")).toHaveLength(1);
+  expect(screen.getByText("Cargando sesión…")).toBeTruthy();
+  expect(menu.closest("[hidden]")).not.toBeNull();
+  await act(async () => finishRefresh(authResponse("renovado")));
+  expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
+  expect(screen.getByLabelText("Abrir menú de usuario")).toBe(menu);
+  expect(menu.getAttribute("aria-expanded")).toBe("true");
 });
 
 test("Con Web Locks las pestañas renuevan por turnos", async () => {

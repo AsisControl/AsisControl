@@ -203,6 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const {
     session,
+    isSessionExpired,
     isRestoringSession,
     isEndingSession,
     sessionValidationError,
@@ -223,18 +224,32 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     );
   if (!session) return <LoginScreen onLogin={login} />;
-  if (session.user.requiresPasswordChange)
-    return <ChangePassword onLogout={logoutToHome} />;
   return (
-    <SessionUserProvider value={session.user}>
-      <Dashboard
-        user={session.user}
-        onLogout={logoutToHome}
-        validationError={sessionValidationError}
-        onRetryValidation={retrySession}
-      >
-        {children}
-      </Dashboard>
-    </SessionUserProvider>
+    <>
+      {isSessionExpired && (
+        <main className="app-loading">
+          {sessionValidationError ? (
+            <div className={styles.sessionAlert} role="alert">
+              <span>{sessionValidationError}</span>
+              <button type="button" onClick={() => void retrySession()}>Reintentar</button>
+            </div>
+          ) : <Loading variant="screen">Cargando sesión…</Loading>}
+        </main>
+      )}
+      <div hidden={isSessionExpired} inert={isSessionExpired} className={isSessionExpired ? undefined : "contents"}>
+        <SessionUserProvider key={`${session.user.id}:${session.user.role}`} value={session.user}>
+          {session.user.requiresPasswordChange ? <ChangePassword onLogout={logoutToHome} /> : (
+            <Dashboard
+              user={session.user}
+              onLogout={logoutToHome}
+              validationError={sessionValidationError}
+              onRetryValidation={retrySession}
+            >
+              {children}
+            </Dashboard>
+          )}
+        </SessionUserProvider>
+      </div>
+    </>
   );
 }
