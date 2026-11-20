@@ -23,6 +23,7 @@ import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
 import com.asiscontrol.entity.enums.TipoAula;
 import com.asiscontrol.service.asistencia.AsistenciaSesionService;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -338,6 +339,15 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         assertThat(corregida.path("estado").asText()).isEqualTo("TOMADA");
     }
 
+    /**
+     * Estas pruebas crean clases a las 00:00 y 00:01 de hoy y suponen que ya pasó la segunda. En el
+     * primer minuto del día (hora de Lima) el plazo de la primera sigue abierto, así que no aplican.
+     */
+    private static void despuesDeLas0001() {
+        Assumptions.assumeTrue(!LocalTime.now(ZoneId.of("America/Lima")).isBefore(LocalTime.of(0, 1)),
+                "Antes de las 00:01 de Lima el plazo de la clase de las 00:00 sigue abierto");
+    }
+
     private long sesionALas(LocalDate fecha, EstadoSesionClase estado, LocalTime inicio) {
         var sesion = new SesionClase(); sesion.setAsignacionCurso(assignment); sesion.setHorario(horario);
         sesion.setFecha(fecha); sesion.setHoraInicio(inicio); sesion.setHoraFin(inicio.plusMinutes(1));
@@ -374,6 +384,7 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void laSiguienteClaseDelMismoCursoCierraElPlazoDeLaAnterior() throws Exception {
+        despuesDeLas0001();
         long primera = sesionALas(hoy, EstadoSesionClase.PENDIENTE, LocalTime.of(0, 0));
         long segunda = sesionALas(hoy, EstadoSesionClase.PENDIENTE, LocalTime.of(0, 1));
 
@@ -396,6 +407,7 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void unaAsistenciaTomadaSoloSeCorrigeDentroDeSuPlazo() throws Exception {
+        despuesDeLas0001();
         long primera = sesionALas(hoy, EstadoSesionClase.TOMADA, LocalTime.of(0, 0));
         sesionALas(hoy, EstadoSesionClase.PENDIENTE, LocalTime.of(0, 1));
         marcaGuardada(primera, student, EstadoAsistencia.PRESENTE);
