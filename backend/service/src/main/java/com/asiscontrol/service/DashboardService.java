@@ -26,9 +26,11 @@ import java.time.Year;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -115,14 +117,9 @@ public class DashboardService {
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas de riesgo activas",
                 contar("""
                         SELECT COUNT(a) FROM AlertaRiesgo a
-                        WHERE a.activo = true AND not exists (select r.id from RegistroAuditoria r
-                            where r.entidad = 'AlertaRiesgo' and r.registroId = cast(a.id as string)
-                            and r.modulo = 'RIESGO' and r.accion = 'EVALUAR_CRITERIO_RIESGO'
-                            and r.motivo = 'DATOS_INSUFICIENTES'
-                            and r.id = (select max(u.id) from RegistroAuditoria u
-                                where u.entidad = r.entidad and u.registroId = r.registroId
-                                and u.modulo = r.modulo and u.accion = r.accion)) AND a.estado IN :estados
-                        """, Map.of("estados", EnumSet.of(EstadoAlerta.ACTIVA, EstadoAlerta.EN_SEGUIMIENTO))),
+                        WHERE a.activo = true AND a.id NOT IN :sinDatos AND a.estado IN :estados
+                        """, Map.of("estados", EnumSet.of(EstadoAlerta.ACTIVA, EstadoAlerta.EN_SEGUIMIENTO),
+                        "sinDatos", alertasConDatosInsuficientes())),
                 TONO_PELIGRO, "/alertas-riesgo"));
         return result;
     }
@@ -277,18 +274,12 @@ public class DashboardService {
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas activas",
                 contar("""
                         SELECT COUNT(a) FROM AlertaRiesgo a
-                        WHERE a.activo = true AND not exists (select r.id from RegistroAuditoria r
-                            where r.entidad = 'AlertaRiesgo' and r.registroId = cast(a.id as string)
-                            and r.modulo = 'RIESGO' and r.accion = 'EVALUAR_CRITERIO_RIESGO'
-                            and r.motivo = 'DATOS_INSUFICIENTES'
-                            and r.id = (select max(u.id) from RegistroAuditoria u
-                                where u.entidad = r.entidad and u.registroId = r.registroId
-                                and u.modulo = r.modulo and u.accion = r.accion))
+                        WHERE a.activo = true AND a.id NOT IN :sinDatos
                           AND a.alumno.persona.id = :personaId
                           AND a.estado IN :estados
                         """, parametros(persona, "estados", EnumSet.of(
                         EstadoAlerta.ACTIVA,
-                        EstadoAlerta.EN_SEGUIMIENTO))),
+                        EstadoAlerta.EN_SEGUIMIENTO), "sinDatos", alertasConDatosInsuficientes())),
                 TONO_PELIGRO, "/alertas-riesgo"));
         return result;
     }
@@ -338,22 +329,43 @@ public class DashboardService {
         result.add(indicador("ALERTAS_ACTIVAS", "Alertas activas",
                 contar("""
                         SELECT COUNT(a) FROM AlertaRiesgo a, AlumnoApoderado v
-                        WHERE v.activo = true AND not exists (select r.id from RegistroAuditoria r
-                            where r.entidad = 'AlertaRiesgo' and r.registroId = cast(a.id as string)
-                            and r.modulo = 'RIESGO' and r.accion = 'EVALUAR_CRITERIO_RIESGO'
-                            and r.motivo = 'DATOS_INSUFICIENTES'
-                            and r.id = (select max(u.id) from RegistroAuditoria u
-                                where u.entidad = r.entidad and u.registroId = r.registroId
-                                and u.modulo = r.modulo and u.accion = r.accion))
+                        WHERE v.activo = true AND a.id NOT IN :sinDatos
                           AND v.apoderado.persona.id = :personaId
                           AND a.activo = true
                           AND a.alumno.id = v.alumno.id
                           AND a.estado IN :estados
                         """, parametros(persona, "estados", EnumSet.of(
                         EstadoAlerta.ACTIVA,
-                        EstadoAlerta.EN_SEGUIMIENTO))),
+                        EstadoAlerta.EN_SEGUIMIENTO), "sinDatos", alertasConDatosInsuficientes())),
                 TONO_PELIGRO, "/alertas-riesgo"));
         return result;
+    }
+
+    /**
+     * Alertas cuya última evaluación fue DATOS_INSUFICIENTES. Se resuelven aparte y se excluyen por id:
+     * comparar registroId (texto) con un cast del id dentro de la consulta mezcla colaciones en MySQL
+     * ("Illegal mix of collations") cuando la tabla de auditoría y la conexión no coinciden.
+     * Se incluye un id inexistente para que la lista nunca quede vacía.
+     */
+    private Set<Long> alertasConDatosInsuficientes() {
+        List<String> registros = entityManager.createQuery("""
+                SELECT r.registroId FROM RegistroAuditoria r
+                WHERE r.entidad = 'AlertaRiesgo' AND r.modulo = 'RIESGO'
+                  AND r.accion = 'EVALUAR_CRITERIO_RIESGO' AND r.motivo = 'DATOS_INSUFICIENTES'
+                  AND r.id = (SELECT MAX(u.id) FROM RegistroAuditoria u
+                      WHERE u.entidad = r.entidad AND u.registroId = r.registroId
+                        AND u.modulo = r.modulo AND u.accion = r.accion)
+                """, String.class).getResultList();
+        Set<Long> ids = new HashSet<>();
+        ids.add(-1L);
+        for (String registro : registros) {
+            try {
+                ids.add(Long.valueOf(registro.trim()));
+            } catch (NumberFormatException ignorado) {
+                // Un registroId que no es numérico no corresponde a una alerta.
+            }
+        }
+        return ids;
     }
 
     private long contar(String jpql, Map<String, Object> parametros) {

@@ -30,6 +30,8 @@ export function useDynamicQr() {
   const codeRef = useRef<CodigoQR | null>(null);
   const deadline = useRef(0);
   const busy = useRef(false);
+  /** Cada apertura del punto lleva un número: solo vale la última (React puede abrirlo dos veces). */
+  const generation = useRef(0);
 
   const activate = useCallback((next: CodigoQR) => {
     const lifetime = qrLifetimeMs(next, QR_VIGENCIA_SEGUNDOS);
@@ -49,22 +51,31 @@ export function useDynamicQr() {
   }, []);
 
   const start = useCallback(async () => {
+    const mine = ++generation.current;
     release();
     busy.current = true;
     setCode(null);
     setError("");
     setStatus("emitting");
     try {
-      activate(await emitirQr());
+      const emitted = await emitirQr();
+      if (mine !== generation.current) {
+        // Otra apertura tomó el relevo mientras esta respondía: este código ya no se usa.
+        void cancelarQr(emitted.id).catch(() => undefined);
+        return;
+      }
+      activate(emitted);
     } catch (problem) {
+      if (mine !== generation.current) return;
       setStatus("error");
       setError(qrErrorMessage(problem));
     } finally {
-      busy.current = false;
+      if (mine === generation.current) busy.current = false;
     }
   }, [activate, release]);
 
   const stop = useCallback(() => {
+    generation.current += 1;
     release();
     setCode(null);
     setError("");

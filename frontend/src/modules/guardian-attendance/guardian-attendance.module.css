@@ -557,3 +557,81 @@ textarea.control {
     grid-template-columns: 1fr;
   }
 }
+
+.elegir {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px #0000000d;
+  display: grid;
+  gap: 6px;
+  padding: 28px 24px;
+}
+.elegir h3 {
+  font-size: 18px;
+  margin: 0;
+}
+.elegir > p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.estudiantes {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.estudiante {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 4px 12px;
+  grid-template-columns: auto 1fr;
+  padding: 14px 16px;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  width: 100%;
+}
+.estudiante:hover {
+  background: #fff;
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px #1e3a8a1f;
+}
+.estudiante:focus-visible {
+  outline: 3px solid #38bdf8;
+  outline-offset: 2px;
+}
+.avatar {
+  align-items: center;
+  background: var(--blue);
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.estudianteDatos {
+  display: grid;
+  gap: 2px;
+}
+.estudianteDatos small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.estudianteAccion {
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  grid-column: 1 / -1;
+}
