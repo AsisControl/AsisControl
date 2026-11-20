@@ -18,6 +18,10 @@
   --role-border: #bfdbfe;
   --role-accent-on-brand: #38bdf8;
 }
+[data-role-palette] {
+  /* La tarjeta de administrador usa un azul más claro que el encabezado institucional. */
+  --role-card-background: var(--role-brand, #2747a3);
+}
 .role-home[data-role="DOCENTE"],
 [data-role-palette="DOCENTE"] {
   --role-brand: #047857;

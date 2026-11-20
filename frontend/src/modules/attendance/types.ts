@@ -67,6 +67,9 @@ export type CorreccionAsistencia = {
   docenteId: number;
   docente: string;
   motivo: string;
+  actorIdentificador?: string | null;
+  actorNombre?: string | null;
+  actorRol?: string | null;
   cambios: {
     alumnoId: number;
     nombreCompleto: string;

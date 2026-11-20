@@ -107,7 +107,7 @@ class FichaAlumnoValidationIntegrationTest {
                                                         "EST[0-9]{8}")))
                         .andExpect(jsonPath("$.persona.apellidoMaterno").isEmpty())
                         .andExpect(jsonPath("$.persona.tipoDocumento").value("DNI"))
-                        .andExpect(jsonPath("$.credencialAcceso.username")
+                        .andExpect(jsonPath("$.credencialAcceso.accessCode")
                                 .value(org.hamcrest.Matchers.matchesPattern("[0-9]{8}")))
                         .andExpect(jsonPath("$.persona.nombreCompleto").value("Diego Ibarra"))
                         .andReturn()
@@ -152,9 +152,9 @@ class FichaAlumnoValidationIntegrationTest {
             var primero = firstResult.get(20, java.util.concurrent.TimeUnit.SECONDS);
             var segundo = secondResult.get(20, java.util.concurrent.TimeUnit.SECONDS);
             assertThat(primero.path("codigoAlumno").asText()).isNotEqualTo(segundo.path("codigoAlumno").asText());
-            assertThat(primero.path("credencialAcceso").path("username").asText())
+            assertThat(primero.path("credencialAcceso").path("accessCode").asText())
                     .matches("[0-9]{8}")
-                    .isNotEqualTo(segundo.path("credencialAcceso").path("username").asText());
+                    .isNotEqualTo(segundo.path("credencialAcceso").path("accessCode").asText());
         }
     }
 

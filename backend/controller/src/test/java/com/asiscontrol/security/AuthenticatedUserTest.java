@@ -41,7 +41,7 @@ class AuthenticatedUserTest {
         usuario.setPersona(new Persona());
         usuario.setEstado(EstadoAcceso.ACTIVO);
         usuario.setContrasenaHash("hash");
-        usuario.setUsername("alumno");
+        usuario.setUsername("alumno"); usuario.setCodigo("alumno");
         return usuario;
     }
 }

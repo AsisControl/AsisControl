@@ -54,7 +54,7 @@ abstract class ApiIntegrationSupport {
         authorities.add(new SimpleGrantedAuthority("TAREAS_ENTREGAR"));
         var role = em.createQuery("from Rol r where r.nombre='ADMINISTRADOR'", Rol.class).getSingleResult();
         admin = new AccesoUsuario(); admin.setPersona(person());
-        admin.setUsername("admin" + key()); admin.setCorreo(key() + "@example.test");
+        admin.setUsername("admin" + key()); admin.setCodigo(admin.getUsername()); admin.setCorreo(key() + "@example.test");
         admin.setContrasenaHash("hash-exclusivo-de-prueba"); admin.setEstado(EstadoAcceso.ACTIVO);
         admin.setRequiereCambioContrasena(false); em.persist(admin);
         asignarRol(admin, role);
@@ -134,7 +134,7 @@ abstract class ApiIntegrationSupport {
     protected void deleteOk(String path) throws Exception { request("DELETE",path,null,204); }
 
     protected org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor asAdmin() {
-        return jwt().jwt(j -> j.subject(admin.getUsername()).claim("personaId",admin.getPersona().getId())
+        return jwt().jwt(j -> j.subject(admin.getCodigo()).claim("personaId",admin.getPersona().getId())
                 .claim("usuarioId",admin.getId()).claim("rol", "ADMINISTRADOR")
                 .claim("requiereCambioContrasena",false)).authorities(authorities);
     }

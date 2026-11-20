@@ -72,14 +72,13 @@ public class AuthService {
     @Transactional(noRollbackFor = AuthenticationException.class)
     public AuthDtos.AuthResponse login(AuthDtos.LoginRequest request) {
         String identifier = request.identifier().trim();
-        AccesoUsuario locked = identifier.matches("[0-9]{8}")
-                ? usuarioRepository.bloquearPorIdentificador(identifier).orElse(null) : null;
+        AccesoUsuario locked = usuarioRepository.bloquearPorIdentificador(identifier).orElse(null);
         boolean bloqueado =
                 locked != null
                         && locked.getBloqueadoHasta() != null
                         && locked.getBloqueadoHasta().isAfter(Instant.now());
         try {
-            if (bloqueado || !identifier.matches("[0-9]{8}")
+            if (bloqueado
                     || request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
                 throw new BadCredentialsException("Credenciales invalidas");
             }
@@ -184,7 +183,7 @@ public class AuthService {
                                         new BadCredentialsException(
                                                 "La cuenta ya no esta disponible"));
         com.asiscontrol.security.PasswordPolicy.validate(
-                request.newPassword(), usuario.getUsername());
+                request.newPassword(), usuario.getCodigo());
         if (request.currentPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
                 || !passwordEncoder.matches(
                         request.currentPassword(), usuario.getContrasenaHash())) {

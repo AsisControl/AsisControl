@@ -115,7 +115,7 @@ public class CodigoInstitucionalService {
             case DOC -> codigo -> docentes.findByCodigoDocenteIgnoreCase(codigo).isPresent();
             case APO -> apoderados::existsByCodigoApoderadoIgnoreCase;
             case ADM -> administradores::existsByCodigoAdministradorIgnoreCase;
-            case CTA -> cuentas::existsByUsernameIgnoreCase;
+            case CTA -> cuentas::existsByCodigo;
         };
     }
 }

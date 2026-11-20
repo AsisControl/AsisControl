@@ -54,6 +54,8 @@ export type AccessCredential = {
   fullName: string;
   role: string;
   code: string | null;
+  /** Código permanente de la cuenta (AAAANNNN): sirve para iniciar sesión. */
+  accessCode?: string | null;
   username: string;
   email: string;
   /** Solo se devuelve cuando se crea la cuenta. */

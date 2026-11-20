@@ -67,9 +67,9 @@ class ContextoRolHttpTest {
         var cuenta = crear("DOCENTE");
         var otraAsignacion = usuarios.provision(solicitud("APODERADO", cuenta.personaId()));
         assertThat(otraAsignacion.id()).isEqualTo(cuenta.id());
-        String inicial = completarCambio(cuenta.username());
+        String inicial = completarCambio(cuenta.codigo());
 
-        JsonNode seleccion = respuesta(ingresar(cuenta.username(), PERSONAL)
+        JsonNode seleccion = respuesta(ingresar(cuenta.codigo(), PERSONAL)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.rol").value(nullValue()))
                 .andExpect(jsonPath("$.user.rolesDisponibles", containsInAnyOrder("APODERADO", "DOCENTE")))
@@ -98,8 +98,8 @@ class ContextoRolHttpTest {
     @Test
     void asignacionUnicaSeActivaAlEntrarYRevocacionDejaLaCuentaSinModulos() throws Exception {
         var cuenta = crear("APODERADO");
-        completarCambio(cuenta.username());
-        JsonNode ingreso = respuesta(ingresar(cuenta.username(), PERSONAL)
+        completarCambio(cuenta.codigo());
+        JsonNode ingreso = respuesta(ingresar(cuenta.codigo(), PERSONAL)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.rol").value("APODERADO")));
         var rol = roles.findByNombreIgnoreCase("APODERADO").orElseThrow();
@@ -111,7 +111,7 @@ class ContextoRolHttpTest {
         });
 
         consultarObligaciones(token(ingreso)).andExpect(status().isUnauthorized());
-        String sinRol = token(respuesta(ingresar(cuenta.username(), PERSONAL)
+        String sinRol = token(respuesta(ingresar(cuenta.codigo(), PERSONAL)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.user.rol").value(nullValue()))
                 .andExpect(jsonPath("$.user.rolesDisponibles").isEmpty())));

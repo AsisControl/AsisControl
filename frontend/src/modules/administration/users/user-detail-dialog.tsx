@@ -38,6 +38,10 @@ export function UserDetailDialog({
       <p className={styles.sectionTitle}>Cuenta</p>
       <dl className="detail-grid">
         <div>
+          <dt>Código de acceso</dt>
+          <dd>{account.codigo}</dd>
+        </div>
+        <div>
           <dt>Usuario</dt>
           <dd>{account.username}</dd>
         </div>

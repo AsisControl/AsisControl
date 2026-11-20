@@ -24,7 +24,8 @@ public interface AccesoUsuarioRepository extends JpaRepository<AccesoUsuario, Lo
             jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query(
             "select u from AccesoUsuario u where u.activo=true and"
-                + " (lower(u.username)=lower(:identifier) or lower(u.correo)=lower(:identifier))")
+                + " (u.codigo=:identifier or lower(u.username)=lower(:identifier)"
+                + " or lower(u.correo)=lower(:identifier))")
     Optional<AccesoUsuario> bloquearPorIdentificador(@Param("identifier") String identifier);
 
     Optional<AccesoUsuario> findByPersonaId(Long personaId);
@@ -39,7 +40,8 @@ public interface AccesoUsuarioRepository extends JpaRepository<AccesoUsuario, Lo
     @Query(
             """
             select u from AccesoUsuario u
-            where u.activo = true and (lower(u.username) = lower(:identifier)
+            where u.activo = true and (u.codigo = :identifier
+                or lower(u.username) = lower(:identifier)
                 or lower(u.correo) = lower(:identifier))
             """)
     Optional<AccesoUsuario> findActiveByIdentifier(@Param("identifier") String identifier);
@@ -55,6 +57,14 @@ public interface AccesoUsuarioRepository extends JpaRepository<AccesoUsuario, Lo
 
     boolean existsByUsernameIgnoreCase(String username);
 
+    boolean existsByCodigo(String codigo);
+
+    Optional<AccesoUsuario> findByCodigo(String codigo);
+
+    /** Cuentas migradas cuyo usuario todavía es su código y no un nombre.apellido generado. */
+    @Query("select u from AccesoUsuario u where u.username = u.codigo order by u.id")
+    java.util.List<AccesoUsuario> pendientesDeUsername();
+
     boolean existsByCorreoIgnoreCase(String correo);
 
     @Query(
@@ -66,6 +76,7 @@ public interface AccesoUsuarioRepository extends JpaRepository<AccesoUsuario, Lo
                    select a.id from AccesoUsuarioRol a
                    where a.usuario.id = u.id and a.rol.id = :roleId and a.activo = true))
               and (:search is null or lower(u.username) like lower(concat('%', :search, '%'))
+                   or u.codigo like concat('%', :search, '%')
                    or lower(u.correo) like lower(concat('%', :search, '%'))
                    or lower(p.nombres) like lower(concat('%', :search, '%'))
                    or lower(p.apellidoPaterno) like lower(concat('%', :search, '%')))

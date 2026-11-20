@@ -41,7 +41,8 @@ public class AuthenticatedUser implements UserDetails {
 
     @Override
     public String getUsername() {
-        return usuario.getUsername();
+        // Nombre del principal: el código permanente de la cuenta, que no cambia nunca.
+        return usuario.getCodigo();
     }
 
     @Override

@@ -148,12 +148,21 @@ public class AsistenciaDocenteService {
                     "ASISTENCIA_DOCENTE_DUPLICADA", "El docente ya registró asistencia para la jornada actual");
         }
 
+        var sesiones = sesionRepository
+                .findAllByAsignacionCursoDocenteIdAndFechaAndActivoTrueOrderByHoraInicioAsc(docente.getId(), jornada);
+        var ventana = asistenciaRepository.buscarJornada(docente.getId(), jornada)
+                .map(j -> new VentanaMarcacionDocente(j.getApertura(), j.getLimitePuntualidad(), j.getCierre()))
+                .orElseGet(() -> VentanaMarcacionDocente.de(sesiones));
+        EstadoAsistencia estado = ventana.clasificar(ahora);
         AsistenciaDocente asistencia = new AsistenciaDocente();
         asistencia.setDocente(docente);
         asistencia.setCodigoQR(codigo);
         asistencia.setFechaJornada(jornada);
         asistencia.setFechaHoraMarcada(ahora);
-        asistencia.setEstado(EstadoAsistencia.PRESENTE);
+        asistencia.setEstado(estado);
+        asistencia.setVentanaApertura(ventana.apertura());
+        asistencia.setLimitePuntualidad(ventana.limitePuntualidad());
+        asistencia.setVentanaCierre(ventana.cierre());
         asistencia.setContingencia(false);
         asistencia.setActivo(true);
         cruzarConSesion(asistencia);
@@ -161,7 +170,7 @@ public class AsistenciaDocenteService {
         AsistenciaDocenteResponse response = mapResponse(asistenciaRepository.save(asistencia));
         auditoria.registrar("MARCAR_ASISTENCIA_DOCENTE", ModuloAuditoria.ASISTENCIA, "AsistenciaDocente",
                 response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
-                "docente=" + docente.getId() + ",estado=PRESENTE,verificacion=" + asistencia.getVerificacion());
+                "docente=" + docente.getId() + ",estado=" + estado + ",verificacion=" + asistencia.getVerificacion());
         return response;
     }
 

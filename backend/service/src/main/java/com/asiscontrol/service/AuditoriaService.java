@@ -103,7 +103,7 @@ public class AuditoriaService {
         RegistroAuditoria audit =
                 nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
                         valorAnterior, nuevoValor);
-        audit.setActorIdentificador(actor.getUsername());
+        audit.setActorIdentificador(actor.getCodigo());
         audit.setRolActor(rolActivo);
         auditoriaRepository.save(audit);
     }
@@ -167,7 +167,7 @@ public class AuditoriaService {
         RegistroAuditoria audit =
                 nuevoRegistro(accion, ModuloAuditoria.SEGURIDAD, "AccesoUsuario",
                         actor.getId().toString(), resultado, null, null, null);
-        audit.setActorIdentificador(actor.getUsername());
+        audit.setActorIdentificador(actor.getCodigo());
         audit.setRolActor(rolActivo);
         auditoriaRepository.save(audit);
     }
@@ -242,7 +242,7 @@ public class AuditoriaService {
                                 registro.getActorIdentificador(),
                                 identificador ->
                                         usuarioRepository
-                                                .findByUsernameIgnoreCase(identificador)
+                                                .findByCodigo(identificador)
                                                 .map(AccesoUsuario::getPersona)
                                                 .or(() -> usuarioRepository
                                                         .buscarPersonaPorIdentificadorLegado(identificador))

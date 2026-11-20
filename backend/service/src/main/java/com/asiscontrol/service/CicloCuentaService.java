@@ -99,19 +99,21 @@ public class CicloCuentaService {
         boolean existente = cuenta != null;
         String temporal = null;
         if (cuenta == null) {
-            String username = codigos.siguiente(CodigoInstitucionalService.Prefijo.CTA);
-            temporal = password == null ? temporales.generar(username) : password;
-            String email = correo == null ? correoDisponible(username)
+            String codigo = codigos.siguiente(CodigoInstitucionalService.Prefijo.CTA);
+            String username = credenciales.username(identidad);
+            temporal = password == null ? temporales.generar(codigo) : password;
+            String email = correo == null ? correoDisponible(codigo)
                     : correo.trim().toLowerCase(Locale.ROOT);
             if (cuentas.existsByCorreoIgnoreCase(email)) {
                 throw new ConflictException("CORREO_DUPLICADO", "El correo de acceso ya está registrado");
             }
-            PasswordPolicy.validate(temporal, username);
+            PasswordPolicy.validate(temporal, codigo);
             cuenta = new AccesoUsuario();
             cuenta.setPersona(identidad);
+            cuenta.setCodigo(codigo);
             cuenta.setUsername(username);
             cuenta.setCorreo(email);
-            cuenta.setCorreoVerificado(correo != null && correoVerificado);
+            cuenta.setCorreoVerificado(correoVerificado);
             cuenta.setContrasenaHash(encoder.encode(temporal));
             cuenta.setRequiereCambioContrasena(true);
             cuenta.setContrasenaTemporalExpira(vigencia.expiraDesde(Instant.now()));
@@ -124,7 +126,8 @@ public class CicloCuentaService {
         }
         return new CredencialAcceso(
                 0, identidad.nombreCompleto(), rol, codigoPerfil, cuenta.getUsername(), cuenta.getCorreo(),
-                temporal, existente ? null : cuenta.getContrasenaTemporalExpira(), existente);
+                temporal, existente ? null : cuenta.getContrasenaTemporalExpira(), existente,
+                cuenta.getCodigo());
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -187,10 +190,11 @@ public class CicloCuentaService {
         auditar(cuenta, "ASIGNAR_ROL", motivo, null, "rol=" + rol.getNombre() + ",activo=true");
     }
 
-    private String correoDisponible(String username) {
-        String correo = credenciales.correo(username);
+    /** Correo a{código}@dominio; el código es único, el sufijo solo cubre un correo ya tomado a mano. */
+    private String correoDisponible(String codigo) {
+        String correo = credenciales.correoDeCuenta(codigo);
         for (int sufijo = 2; cuentas.existsByCorreoIgnoreCase(correo); sufijo++) {
-            correo = credenciales.correo(username + "-" + sufijo);
+            correo = credenciales.correoDeCuenta(codigo + "-" + sufijo);
         }
         return correo;
     }

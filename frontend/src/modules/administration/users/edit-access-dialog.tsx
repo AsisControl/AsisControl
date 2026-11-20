@@ -29,7 +29,7 @@ export function EditAccessDialog({
       REACTIVABLE_STATES.includes(account.estado) &&
       form.get("estado") === "ACTIVO";
     if (activating) {
-      const policy = passwordError(password, account.username);
+      const policy = passwordError(password, account.codigo);
       if (policy) {
         setError(policy);
         return;
@@ -55,7 +55,7 @@ export function EditAccessDialog({
     <Dialog title="Editar acceso" onClose={onClose} busy={busy}>
       <form onSubmit={save}>
         <p>
-          {account.nombreCompleto} · {account.username}
+          {account.nombreCompleto} · {account.codigo}
         </p>
         <Feedback error={error} />
         <Field

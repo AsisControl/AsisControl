@@ -36,7 +36,7 @@ public class UsuarioService {
     private com.asiscontrol.repository.TokenRecuperacionRepository recuperaciones;
 
     private static final Set<String> SORT_FIELDS =
-            Set.of("username", "correo", "estado", "fechaCreacion");
+            Set.of("codigo", "username", "correo", "estado", "fechaCreacion");
 
     private final AccesoUsuarioRepository usuarioRepository;
     private final AccesoUsuarioRolRepository asignaciones;
@@ -109,7 +109,8 @@ public class UsuarioService {
         var credencial = ciclo.altaDesdeFicha(persona, "ADMINISTRADOR", codigoPerfil);
         AccesoUsuario cuenta = usuarioRepository.findByPersonaId(persona.getId()).orElseThrow();
         return new UsuarioDtos.RegistroAdministradorResponse(
-                cuenta.getId(), cuenta.getUsername(), cuenta.getCorreo(), persona.nombreCompleto(),
+                cuenta.getId(), cuenta.getCodigo(), cuenta.getUsername(), cuenta.getCorreo(),
+                persona.nombreCompleto(),
                 credencial.temporaryPassword(), credencial.expiresAt());
     }
 
@@ -158,8 +159,8 @@ public class UsuarioService {
     private UsuarioDtos.Response altaConfigurada(
             Persona persona, Rol rol, String correo, String password, boolean verificado) {
         String codigo = codigoPerfil(persona, rol);
-        String destino = correo == null && verificado ? credenciales.correo(codigo) : correo;
-        ciclo.altaConfigurada(persona, rol.getNombre(), codigo, destino, password, verificado);
+        // Sin correo indicado, el ciclo de cuentas genera a{código de cuenta}@dominio.
+        ciclo.altaConfigurada(persona, rol.getNombre(), codigo, correo, password, verificado);
         return toResponse(usuarioRepository.findByPersonaId(persona.getId()).orElseThrow());
     }
 
@@ -198,7 +199,7 @@ public class UsuarioService {
                         && request.estado() == EstadoAcceso.ACTIVO;
         if (reactivar) {
             com.asiscontrol.security.PasswordPolicy.validate(
-                    request.temporaryPassword(), usuario.getUsername());
+                    request.temporaryPassword(), usuario.getCodigo());
             if (passwordEncoder.matches(request.temporaryPassword(), usuario.getContrasenaHash()))
                 throw new ConflictException(
                         "CONTRASENA_REPETIDA", "Use una contraseña temporal diferente");
@@ -250,7 +251,7 @@ public class UsuarioService {
             throw new com.asiscontrol.exception.BusinessRuleException(
                     "IDENTIDAD_REQUERIDA", "Verifique la identidad y registre el motivo");
         com.asiscontrol.security.PasswordPolicy.validate(
-                request.temporaryPassword(), usuario.getUsername());
+                request.temporaryPassword(), usuario.getCodigo());
         if (passwordEncoder.matches(request.temporaryPassword(), usuario.getContrasenaHash()))
             throw new ConflictException(
                     "CONTRASENA_REPETIDA", "Use una contraseña temporal diferente");
@@ -328,7 +329,7 @@ public class UsuarioService {
     private void protegerCuentaPropia(AccesoUsuario usuario) {
         var actor = org.springframework.security.core.context.SecurityContextHolder.getContext()
                 .getAuthentication();
-        if (actor != null && actor.getName().equalsIgnoreCase(usuario.getUsername())) {
+        if (actor != null && actor.getName().equalsIgnoreCase(usuario.getCodigo())) {
             throw new ConflictException(
                     "AUTO_DESACTIVACION", "No puede desactivar su propio acceso");
         }
@@ -379,6 +380,7 @@ public class UsuarioService {
         return new UsuarioDtos.Response(
                 usuario.getId(),
                 usuario.getPersona().getId(),
+                usuario.getCodigo(),
                 usuario.getUsername(),
                 usuario.getCorreo(),
                 usuario.getPersona().nombreCompleto(),

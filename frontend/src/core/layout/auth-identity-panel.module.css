@@ -91,8 +91,7 @@
   padding: 0;
 }
 .roleCard {
-  /* El administrador no tiene --role-brand: su tarjeta usa un azul algo más claro que el panel. */
-  background: var(--role-brand, #2747a3);
+  background: var(--role-card-background);
   border: 1px solid color-mix(in srgb, var(--role-accent-on-brand) 45%, transparent);
   border-radius: 12px;
   box-shadow: 0 6px 16px #0f172a33, inset 0 3px 0 var(--role-accent-on-brand);

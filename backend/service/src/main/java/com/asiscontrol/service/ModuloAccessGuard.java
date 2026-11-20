@@ -55,7 +55,25 @@ public class ModuloAccessGuard {
         verificarAsignacionDocente(asignacion);
     }
 
-    // asistencia alumnos: solo el docente asignado registra o corrige (R01); el administrador no
+    public boolean esAdministradorAsistencia() {
+        return tieneRol("ADMINISTRADOR") && autenticacionActual().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ASISTENCIA_ESCRIBIR"));
+    }
+
+    /** US-32 amplía solo la corrección, no la toma inicial ni la finalización. */
+    public void verificarCorreccionAsistencia(AsignacionCurso asignacion) {
+        if (esAdministradorAsistencia()) return;
+        verificarDocenteTitular(asignacion);
+    }
+
+    public String identificadorActual() { return autenticacionActual().getName(); }
+
+    public String nombrePersonaActual() {
+        var persona = entityManager.find(com.asiscontrol.entity.Persona.class, personaIdActual());
+        return persona == null ? identificadorActual() : persona.nombreCompleto();
+    }
+
+    // Solo el docente asignado registra y finaliza la asistencia inicial.
     public void verificarDocenteTitular(AsignacionCurso asignacion) {
         if (!tieneRol("DOCENTE")
                 || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {

@@ -12,7 +12,7 @@ import java.util.Locale;
 /**
  * Usuario y correo de acceso generados. El usuario es primer nombre + "." + apellido paterno,
  * sin tildes ni signos (María José Quispe → maria.quispe); si ya existe, se agrega 2, 3, … El
- * correo es el código del perfil en minúsculas con el dominio institucional configurado.
+ * correo de la cuenta es "a" + su código (a20260001@dominio institucional configurado).
  */
 @Component
 public class CredencialesInstitucionales {
@@ -44,6 +44,16 @@ public class CredencialesInstitucionales {
             candidato = conSufijo(base, ++sufijo);
         }
         return candidato;
+    }
+
+    /** Correo de la cuenta: "a" + código de la cuenta (AAAANNNN) en el dominio institucional. */
+    public String correoDeCuenta(String codigoCuenta) {
+        return correo("a" + codigoCuenta);
+    }
+
+    /** El correo es del dominio institucional (generado), no uno personal escrito a mano. */
+    public boolean esCorreoInstitucional(String correo) {
+        return correo != null && correo.trim().toLowerCase(Locale.ROOT).endsWith("@" + dominio);
     }
 
     public String correo(String codigoPerfil) {

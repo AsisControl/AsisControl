@@ -54,7 +54,7 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(resultado.files().get("estudiantes").result().credentials())
                 .singleElement()
                 .satisfies(c -> {
-                    assertThat(c.username()).matches("[0-9]{8}");
+                    assertThat(c.accessCode()).matches("[0-9]{8}");
                     assertThat(c.temporaryPassword()).isNull();
                 });
         assertThat(resultado.files().get("apoderados").result().credentials())
@@ -141,7 +141,7 @@ class CargaMasivaFamiliasIntegrationTest {
         assertThat(resultado.files().get("apoderados").result().credentials()).hasSize(1);
         var persona = personaRepository
                 .findByTipoDocumentoAndNumeroDocumento(TipoDocumento.DNI, madre).orElseThrow();
-        assertThat(accesos.findByPersonaId(persona.getId()).orElseThrow().getUsername())
+        assertThat(accesos.findByPersonaId(persona.getId()).orElseThrow().getCodigo())
                 .matches("[0-9]{8}");
     }
 

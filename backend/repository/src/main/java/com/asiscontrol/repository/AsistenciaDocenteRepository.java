@@ -14,6 +14,10 @@ import java.util.Optional;
 
 public interface AsistenciaDocenteRepository extends JpaRepository<AsistenciaDocente, Long> {
 
+    @Query("select j from JornadaMarcacionDocente j where j.docente.id = :docenteId and j.fecha = :fecha and j.activo = true")
+    Optional<com.asiscontrol.entity.JornadaMarcacionDocente> buscarJornada(
+            @Param("docenteId") Long docenteId, @Param("fecha") LocalDate fecha);
+
     Optional<AsistenciaDocente> findByIdAndActivoTrue(Long id);
 
     Page<AsistenciaDocente> findAllByActivoTrue(Pageable pageable);
