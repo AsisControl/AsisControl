@@ -378,7 +378,7 @@ public class SolicitudMatriculaService {
                 alumnoId, anio, com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA)) {
             throw new ConflictException(
                     "ALUMNO_YA_MATRICULADO",
-                    "El alumno ya tiene una matricula para ese anio academico");
+                    "El alumno ya tiene una matrícula para ese año académico");
         }
     }
 
