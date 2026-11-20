@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { api, message } from "@/core/api/client";
+import { api, apiBlob, message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { saveBlob } from "@/shared/lib/save-blob";
 import { Feedback, Loading, Pager, PanelHeading } from "@/shared/ui";
 import type { AcademicYear } from "@/modules/academic-config";
 import type { Course } from "./types";
@@ -18,16 +19,37 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
   const years = usePaged<AcademicYear>("/api/configuracion-academica/anios");
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   const year = years.data?.content.find(item => String(item.anio) === selectedYear);
+
+  async function downloadPlan(anio: number) {
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      const pdf = await apiBlob(`/api/planes-estudios/${anio}/pdf`, { timeoutMs: 60000 });
+      saveBlob(pdf, `Plan_de_Estudios_AsisControl_${anio}.pdf`);
+    } catch (cause) {
+      setDownloadError(message(cause));
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <section className="panel">
-      <PanelHeading title="Plan de estudios" summary="Define los cursos que se dictan por grado y año académico." />
-      <Feedback error={years.error} />
+      <PanelHeading title="Plan de estudios" summary="Define los cursos que se dictan por grado y año académico."
+        actions={<button type="button" className="secondary-action" disabled={!year || downloading || years.loading}
+          onClick={() => year && void downloadPlan(year.anio)}>
+          Descargar plan de estudios (PDF)
+        </button>} />
+      <Feedback error={years.error || downloadError} />
+      {downloading && <p role="status">Preparando el PDF del año académico…</p>}
       {years.loading ? <Loading skeleton="fields">Cargando años académicos…</Loading> : <label className="field">Año académico
         <select value={selectedYear} onChange={event => {
           setSelectedYear(event.target.value);
           setSelectedGrade("");
+          setDownloadError("");
         }}>
           <option value="">Selecciona un año</option>
           {years.data?.content.map(item => <option key={item.id} value={item.anio}>{item.anio}</option>)}
@@ -36,6 +58,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
       <Pager data={years.data} loading={years.loading} setPage={page => {
         setSelectedYear("");
         setSelectedGrade("");
+        setDownloadError("");
         years.setPage(page);
       }} />
       {year && <label className="field">Grado

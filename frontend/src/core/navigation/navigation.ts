@@ -59,7 +59,7 @@ export const roleDetails: Record<UserRole, RolePresentation> = {
   ESTUDIANTE: {
     initials: "LG",
     title: "Bienvenido, Luis García",
-    nav: ["Inicio", "Tareas", "Progreso", "Asistencia", "Horario"],
+    nav: ["Inicio", "Mis cursos", "Tareas", "Progreso", "Asistencia", "Horario"],
   },
   APODERADO: {
     initials: "MR",

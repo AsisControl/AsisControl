@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { clearSession, saveSession } from "@/core/auth/session-storage";
 
 /** Respuesta con un código distinto de 200: `reply(409, { message: "..." })`. */
-export const reply = (status, body = null) => ({ status, body, isReply: true });
+export const reply = (status, body = null, headers) => ({ status, body, headers, isReply: true });
 
 /** Página de Spring con los campos que normaliza shared/lib/pagination. */
 export const page = (content, totalPages = 1) => ({
@@ -12,8 +12,9 @@ export const page = (content, totalPages = 1) => ({
   totalPages,
 });
 
-const toResponse = ({ status, body }) => ({
+const toResponse = ({ status, body, headers }) => ({
   status,
+  headers: new Headers(headers),
   ok: status >= 200 && status < 300,
   json: async () => body,
   blob: async () => new Blob(["archivo"]),

@@ -88,7 +88,7 @@ Para actualizar elegir otro SHA publicado/aprobado, actualizar archivos deploy d
 
 Si falla la aplicacion, volver al SHA anterior en archivos e IMAGE_TAG y repetir el despliegue SOLO si el esquema sigue siendo compatible. Volver una imagen no revierte migraciones: una base incompatible requiere el plan de recuperacion acordado. No hay rollback automatico.
 
-No usar `docker compose down -v`: elimina volumenes con certificados y adjuntos. Los volumenes no son un respaldo; falta configurar copias externas y el modulo S3 previsto en la arquitectura. No detener/eliminar el RDS compartido para ahorrar sin coordinar con el equipo. Revisar credito y ciclo de vida de AWS Academy.
+No usar `docker compose down -v`: elimina volumenes con certificados y adjuntos. Los volumenes no son un respaldo; falta configurar copias externas. El almacenamiento S3 es optativo: ver [configuración, permisos y activación](../backend/docs/ALMACENAMIENTO_S3.md). Mantener el volumen `archivos` incluso al activar S3, para leer adjuntos anteriores. No detener/eliminar el RDS compartido para ahorrar sin coordinar con el equipo. Revisar credito y ciclo de vida de AWS Academy.
 
 ## 8. Limites actuales
 

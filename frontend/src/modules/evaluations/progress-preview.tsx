@@ -1,46 +1,31 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { message } from "@/core/api/client";
-import { Feedback, PageHeader, Loading } from "@/shared/ui";
+import { useState } from "react";
+import { PageHeader, TabNav } from "@/shared/ui";
 import { listarAsignacionesPropias, obtenerPlanilla } from "./services/evaluation-service";
 import { evaluationDate, LEVEL_SCALE, PERIODS, sectionOf } from "./lib/labels";
 import type { Evaluation, GradeSheetData, GradeSheetStudent, OwnAssignment } from "./types";
 import styles from "./evaluations.module.css";
 import { listProgressEvaluations, listStudentGrades, type ProgressGrade } from "./services/progress-service";
-
-/** Cada contexto se monta con una key nueva: nunca conserva datos del estudiante anterior. */
-function ReadPanel<T>({ load, children }: { load: () => Promise<T>; children: (data: T) => ReactNode }) {
-  const [result, setResult] = useState<{ data: T } | { error: string } | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let active = true;
-    load().then(
-      (data) => { if (active) setResult({ data }); },
-      (error) => { if (active) setResult({ error: message(error) }); },
-    );
-    return () => { active = false; };
-  }, [load, attempt]);
-  if (!result) return <Loading>Cargando progreso…</Loading>;
-  if ("error" in result) return <div className="panel">
-    <Feedback error={result.error} />
-    <button type="button" className="secondary-action" onClick={() => {
-      setResult(null);
-      setAttempt((value) => value + 1);
-    }}>Reintentar</button>
-  </div>;
-  return children(result.data);
-}
+import { Empty, ReadPanel } from "./progress-read-panel";
+import { PeriodProgress } from "./period-progress";
 
 export function ProgressPreview() {
+  const [mode, setMode] = useState("evaluation");
   return <section>
     <PageHeader title="Progreso por competencias" description="Consulta los resultados disponibles de cada estudiante." />
-    <p className={styles.notice}>Vista preliminar por evaluación. Los resultados pueden cambiar; esta consulta no constituye una libreta publicada ni un consolidado del período.</p>
-    <ReadPanel load={listarAsignacionesPropias}>{(items) => <AssignmentSelector assignments={items} />}</ReadPanel>
+    <TabNav label="Modo de consulta de progreso" current={mode} onSelect={setMode} tabs={[
+      { id: "evaluation", label: "Consulta por evaluación" },
+      { id: "period", label: "Informe por período" },
+    ]} />
+    <p className={styles.notice}>{mode === "evaluation"
+      ? "Vista preliminar por evaluación. Los resultados pueden cambiar; esta consulta no constituye una libreta publicada ni un consolidado del período."
+      : "Consulta la última versión publicada de la libreta de cada estudiante."}</p>
+    <ReadPanel key={mode} load={listarAsignacionesPropias}>{(items) => <AssignmentSelector assignments={items} mode={mode} />}</ReadPanel>
   </section>;
 }
 
-function AssignmentSelector({ assignments }: { assignments: OwnAssignment[] }) {
+function AssignmentSelector({ assignments, mode }: { assignments: OwnAssignment[]; mode: string }) {
   const [id, setId] = useState("");
   const assignment = assignments.find((item) => String(item.id) === id);
   if (!assignments.length) return <Empty>No tienes cursos y secciones asignados.</Empty>;
@@ -53,7 +38,10 @@ function AssignmentSelector({ assignments }: { assignments: OwnAssignment[] }) {
         </select>
       </label>
     </div>
-    {assignment ? <AssignmentProgress key={assignment.id} assignment={assignment} /> : <Empty>Selecciona un curso y sección para consultar sus evaluaciones.</Empty>}
+    {assignment ? mode === "period"
+      ? <PeriodProgress key={assignment.id} assignmentId={assignment.id} />
+      : <AssignmentProgress key={assignment.id} assignment={assignment} />
+      : <Empty>Selecciona un curso y sección para consultar su progreso.</Empty>}
   </>;
 }
 
@@ -139,8 +127,4 @@ function Results({ evaluation, student, grades }: { evaluation: Evaluation; stud
       </table></div>
     </>}
   </article>;
-}
-
-function Empty({ children }: { children: ReactNode }) {
-  return <div className={`panel ${styles.emptyState}`}>{children}</div>;
 }

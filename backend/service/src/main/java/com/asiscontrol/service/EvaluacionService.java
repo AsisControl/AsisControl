@@ -100,9 +100,13 @@ public class EvaluacionService {
         }
         var borradores = evaluacionRepository.borradoresParaPublicar(idAsignacionCurso,
                 periodo.getFechaInicio(), periodo.getFechaFin());
-        for (var evaluacion : borradores) validarTransicion(evaluacion, EstadoEvaluacion.PUBLICADA);
+        validarPublicacion(borradores);
         for (var evaluacion : borradores) cambiarEstado(evaluacion.getId(), EstadoEvaluacion.PUBLICADA);
         return borradores.size();
+    }
+
+    void validarPublicacion(List<Evaluacion> borradores) {
+        for (var evaluacion : borradores) validarTransicion(evaluacion, EstadoEvaluacion.PUBLICADA);
     }
 
     @Transactional(readOnly = true)
