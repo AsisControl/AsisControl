@@ -130,8 +130,10 @@ export async function api<T>(
 export async function apiBlob(
   path: string,
   options: ApiOptions = {},
+  onHeaders?: (headers: Headers) => void,
 ): Promise<Blob> {
   const response = await request(path, options, true, "*/*");
+  onHeaders?.(response.headers);
   return response.blob();
 }
 export const message = (error: unknown) =>

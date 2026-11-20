@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, message } from "@/core/api/client";
+import { ApiError, api, message } from "@/core/api/client";
 import { Feedback, Loading, PageHeader } from "@/shared/ui";
 import type { OwnAssignment } from "./types";
 import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-types";
-import { generateReportDrafts, getProgressReportDraft, publishPeriodReports, getProgressReport, getProgressReportPdf, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
-import { ReportContent } from "./report-content";
+import { generateReportDrafts, getProgressReportDraft, publishPeriodReports, getProgressReport, getProgressReportPdf, getReportPeriodStatus, type ReportPeriodStatus, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
+import styles from "./evaluations.module.css";
+import { ReportContent, ReportBadge } from "./report-content";
 
 
 type FamilyStudent = { id: number; nombreCompleto: string };
@@ -21,7 +22,9 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
   const [detail, setDetail] = useState<ProgressReport | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [missing, setMissing] = useState(false);
+  const [pending, setPending] = useState<"notes" | "pdf" | null>(null);
+  const busy = pending !== null;
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -44,52 +47,76 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
     setSelected(value);
     setDetail(null);
     setError("");
+    setMissing(false);
   }
 
   async function open(download: boolean) {
-    if (!option) return;
-    setBusy(true); setError("");
+    if (!option || busy) return;
+    setPending(download ? "pdf" : "notes"); setError(""); setMissing(false);
     try {
       if (download) {
         const blob = await getProgressReportPdf(option);
-        saveProgressReportPdf(blob, option);
+        saveProgressReportPdf(blob);
       } else setDetail(await getProgressReport(option));
-    } catch (e) { setError(message(e)); }
-    finally { setBusy(false); }
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "INFORME_NO_ENCONTRADO") {
+        setDetail(null);
+        setMissing(true);
+      } else {
+        setError(download ? `No se pudo descargar el PDF. ${message(e)}` : message(e));
+      }
+    }
+    finally { setPending(null); }
   }
   return <section>
     <PageHeader title="Progreso" description="Consulta las libretas publicadas por período y curso." />
     <Feedback error={error} />
     {!items && !error && <Loading skeleton="list" rows={3}>Cargando informes disponibles.</Loading>}
-    {items && guardian && (students.length === 0 ? <p>No tienes estudiantes asociados.</p> :
-      <label className="field">Estudiante
-        <select value={student} disabled={busy} onChange={e => {
-          setStudent(e.target.value);
-          setPeriod("");
-          changeCourse("");
-        }}>
-          <option value="">Selecciona un estudiante</option>
-          {students.map(item => <option key={item.id} value={item.id}>{item.nombreCompleto}</option>)}
-        </select>
-      </label>)}
-    {items && (!guardian || student) && (visible.length === 0 ?
-      <p>Todavía no hay libretas publicadas para consultar.</p> : <>
-        <label className="field">Período académico
-          <select value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); changeCourse(""); }}>
-            <option value="">Selecciona un período</option>
-            {periods.map(item => <option key={periodKey(item)} value={periodKey(item)}>{item.periodo} · {item.anio}</option>)}
-          </select>
-        </label>
-        {period && <label className="field">Curso
-          <select value={selected} disabled={busy} onChange={e => changeCourse(e.target.value)}>
-            <option value="">Selecciona un curso</option>
-            {courses.map(item => <option key={item.idAsignacionCurso} value={item.idAsignacionCurso}>{item.curso}</option>)}
-          </select>
-        </label>}
-        <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>Ver notas</button>{" "}
-        <button className="primary-action" disabled={!option || busy} onClick={() => open(true)}>Descargar PDF</button>
-      </>)}
-    {busy && <p role="status">Preparando informe.</p>}
+
+    {items && <>
+      {(guardian && students.length > 0 || visible.length > 0) && <div className={`panel ${styles.reportPanel}`}>
+        <div className={styles.reportFilters}>
+          {guardian && <label className="field">Estudiante
+            <select value={student} disabled={busy} onChange={e => {
+              setStudent(e.target.value); setPeriod(""); changeCourse("");
+            }}>
+              <option value="">Selecciona un estudiante</option>
+              {students.map(item => <option key={item.id} value={item.id}>{item.nombreCompleto}</option>)}
+            </select>
+          </label>}
+          {visible.length > 0 && <>
+            <label className="field">Período académico
+              <select value={period} disabled={busy} onChange={e => { setPeriod(e.target.value); changeCourse(""); }}>
+                <option value="">Selecciona un período</option>
+                {periods.map(item => <option key={periodKey(item)} value={periodKey(item)}>{item.periodo} · {item.anio}</option>)}
+              </select>
+            </label>
+            {period && <label className="field">Curso
+              <select value={selected} disabled={busy} onChange={e => changeCourse(e.target.value)}>
+                <option value="">Selecciona un curso</option>
+                {courses.map(item => <option key={item.idAsignacionCurso} value={item.idAsignacionCurso}>{item.curso}</option>)}
+              </select>
+            </label>}
+          </>}
+        </div>
+        {visible.length > 0 && <div className={styles.reportActions}>
+          <button className="primary-action" disabled={!option || busy} onClick={() => open(false)}>
+            {pending === "notes" ? "Consultando…" : "Ver notas"}
+          </button>
+          <button className="secondary-action" disabled={!option || busy} onClick={() => open(true)}>
+            {pending === "pdf" ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : "Descargar PDF"}
+          </button>
+        </div>}
+        {pending && <span className={styles.reportSrOnly} role="status">{pending === "pdf" ? "Generando PDF…" : "Consultando libreta…"}</span>}
+      </div>}
+      {!detail && !busy && !error && <p className={styles.reportNotice}>
+        {missing ? "No hay una libreta publicada para este período y curso."
+          : guardian && !students.length ? "No tienes estudiantes asociados."
+          : (!guardian || student) && !visible.length ? "Todavía no hay libretas publicadas para consultar."
+          : guardian ? "Selecciona un estudiante, período y curso para consultar su libreta publicada."
+          : "Selecciona un período y curso para consultar tu libreta publicada."}
+      </p>}
+    </>}
     {detail && <ReportContent report={detail} />}
   </section>;
 }
@@ -102,12 +129,11 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [drafts, setDrafts] = useState<AvailableReport[]>([]);
-  const [published, setPublished] = useState<AvailableReport[] | null>(null);
-  const [publishedError, setPublishedError] = useState("");
+  const [status, setStatus] = useState<ReportPeriodStatus | null>(null);
+  const [statusError, setStatusError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [preview, setPreview] = useState<{ report: ProgressReport; draft: boolean } | null>(null);
-  const [student, setStudent] = useState("");
+
   useEffect(() => {
     if (!assignment) return;
     let active = true;
@@ -115,36 +141,43 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
       .then(data => { if (active) setPeriods(data); }).catch(e => { if (active) setError(message(e)); });
     return () => { active = false; };
   }, [assignment]);
+
   useEffect(() => {
     if (!assignment || !period) return;
     let active = true;
-    listAvailableReports()
-      .then(items => {
-        if (active) setPublished(items.filter(item =>
-          String(item.idAsignacionCurso) === assignment && String(item.idPeriodoAcademico) === period));
-      })
-      .catch(e => { if (active) setPublishedError(message(e)); });
+    getReportPeriodStatus(Number(assignment), Number(period))
+      .then(data => { if (active) setStatus(data); })
+      .catch(e => { if (active) setStatusError(message(e)); });
     return () => { active = false; };
   }, [assignment, period, refresh]);
 
-  const draftsByStudent = new Map(drafts.map(item => [item.idAlumno, item]));
-  const publishedByStudent = new Map((published ?? []).map(item => [item.idAlumno, item]));
-  const students = [...new Map([...publishedByStudent, ...draftsByStudent]).values()];
   const selectedAssignment = assignments.find(item => String(item.id) === assignment);
   const selectedPeriod = periods.find(item => String(item.id) === period);
+  const hasDrafts = status?.alumnos.some(item => item.borrador) ?? false;
+  const allPublished = Boolean(!hasDrafts && status?.alumnos.length && status.alumnos.every(item => item.publicada));
+  let periodNotice = "";
+  if (status) {
+    if (hasDrafts) {
+      periodNotice = status.publicable
+        ? "Hay un borrador pendiente con los cambios actuales. Revísalo y publícalo cuando esté listo."
+        : "Hay borradores pendientes. Revísalos antes de publicar.";
+    } else if (status.desactualizada) {
+      periodNotice = "Las evaluaciones o notas cambiaron. Genera un nuevo borrador para actualizar la libreta.";
+    } else if (allPublished) {
+      periodNotice = "Todas las libretas del período están publicadas y actualizadas.";
+    }
+  }
 
-  function reloadPublished() {
-    setPublished(null);
-    setPublishedError("");
+  function reloadStatus() {
+    setStatus(null);
+    setStatusError("");
     setRefresh(value => value + 1);
   }
 
   function changePeriod(value: string) {
     setPeriod(value);
-    setDrafts([]);
-    setPublished(null);
-    setPublishedError("");
-    setStudent("");
+    setStatus(null);
+    setStatusError("");
     setPreview(null);
     setConfirm(false);
     setSuccess("");
@@ -152,84 +185,101 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
   }
 
   async function generate() {
-    setBusy(true); setError(""); setSuccess(""); setPreview(null); setConfirm(false); setStudent(""); setDrafts([]);
+    setBusy(true); setError(""); setSuccess(""); setPreview(null); setConfirm(false);
     try {
       const result = await generateReportDrafts(Number(assignment), Number(period));
-      setDrafts(result.informes);
       setSuccess(`Se generaron ${result.informesProcesados} borradores. Revisa los resultados antes de publicar.`);
+      reloadStatus();
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
-  async function review(item: AvailableReport, draft: boolean) {
+
+  async function review(idAlumno: number, draft: boolean) {
+    const context = { idAlumno, idAsignacionCurso: Number(assignment), idPeriodoAcademico: Number(period) };
     setBusy(true); setError(""); setPreview(null);
     try {
-      const report = await (draft ? getProgressReportDraft(item) : getProgressReport(item));
+      const report = await (draft ? getProgressReportDraft(context) : getProgressReport(context));
       setPreview({ report, draft });
-    }
-    catch (e) { setError(message(e)); } finally { setBusy(false); }
+    } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
+
   async function publish() {
-    if (!canWrite || !selectedAssignment || !selectedPeriod) return;
+    if (!canWrite || !selectedAssignment || !selectedPeriod || !status?.publicable) return;
     setBusy(true); setError(""); setSuccess("");
     try {
       const result = await publishPeriodReports(selectedAssignment.id, selectedPeriod.id);
-      setSuccess(result.informesProcesados ? `Se publicaron ${result.informesProcesados} libretas. Los estudiantes y sus apoderados pueden consultar sus notas y descargar su informe.` : "No hay nuevas libretas para publicar. Genera borradores para preparar una nueva versión.");
-      setConfirm(false); setPreview(null); setDrafts([]); setStudent("");
-      reloadPublished();
-    } catch (e) { setError(message(e)); } finally { setBusy(false); }
+      setSuccess(result.informesProcesados ? `Se publicaron ${result.informesProcesados} libretas.` : "No hay nuevas libretas para publicar.");
+      setPreview(null);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setConfirm(false);
+      reloadStatus();
+      setBusy(false);
+    }
   }
-  return <section className="panel" style={{ padding: 24 }}>
-    <h2>Libretas del período</h2>
-    <p>Publica las libretas de los estudiantes de la sección para el curso y período seleccionados. Revisa los borradores antes de publicar. Si cambian las notas, vuelve a generar los borradores. Todas las libretas pendientes deben estar completas.</p>
-    <Feedback error={error} />{success && <p role="status">{success}</p>}
-    <label className="field">Curso y sección<select value={assignment} disabled={busy} onChange={e => {
-      setAssignment(e.target.value); setPeriods([]); changePeriod("");
-    }}><option value="">Selecciona un curso</option>{assignments.map(a => <option key={a.id} value={a.id}>{a.curso} · {a.seccion} · {a.anioAcademico}</option>)}</select></label>
-    <label className="field">Período académico<select value={period} disabled={busy || !periods.length} onChange={e => changePeriod(e.target.value)}>
-      <option value="">Selecciona un período</option>{periods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-    </select></label>
-    {canWrite && <button className="primary-action" disabled={!period || busy} onClick={generate}>Generar borradores</button>}{" "}
+
+  return <section className={styles.reportStack}>
+    <header className={styles.reportHeading}>
+      <h2>Libretas del período</h2>
+      <p>Genera, revisa y publica las libretas de la sección para el curso y período elegidos.</p>
+    </header>
+    <Feedback error={error} success={success} />
+    <div className={`panel ${styles.reportPanel}`}>
+      <div className={styles.reportFilters}>
+        <label className="field">Curso y sección
+          <select value={assignment} disabled={busy} onChange={e => {
+            setAssignment(e.target.value); setPeriods([]); changePeriod("");
+          }}>
+            <option value="">Selecciona un curso</option>
+            {assignments.map(a => <option key={a.id} value={a.id}>{a.curso} · {a.seccion} · {a.anioAcademico}</option>)}
+          </select>
+        </label>
+        <label className="field">Período académico
+          <select value={period} disabled={busy || !periods.length} onChange={e => changePeriod(e.target.value)}>
+            <option value="">Selecciona un período</option>
+            {periods.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select>
+        </label>
+      </div>
+      {canWrite && <div className={styles.reportActions}>
+        <button className="secondary-action" disabled={!period || busy} onClick={generate}>Generar borradores</button>
+        {status?.publicable && !confirm && <button className="primary-action" disabled={busy} onClick={() => setConfirm(true)}>Publicar libretas</button>}
+      </div>}
+      {confirm && status?.publicable && <div className={styles.reportNotice}>
+        <p>¿Confirmas la publicación de las libretas pendientes de {selectedAssignment?.curso}, sección {selectedAssignment?.seccion}, para {selectedPeriod?.nombre}?</p>
+        <div className={styles.reportActions}>
+          <button className="primary-action" disabled={busy} onClick={publish}>{busy ? "Publicando…" : "Confirmar publicación"}</button>
+          <button className="secondary-action" disabled={busy} onClick={() => setConfirm(false)}>Cancelar</button>
+        </div>
+      </div>}
+    </div>
     {busy && <Loading variant="inline">Procesando libretas…</Loading>}
-    {period && !published && !publishedError && <Loading variant="inline">Consultando libretas publicadas…</Loading>}
-    {publishedError && <>
-      <Feedback error={`No se pudo consultar el estado de las libretas publicadas. ${publishedError}`} />
-      <button type="button" disabled={busy} onClick={reloadPublished}>Reintentar consulta</button>
-    </>}
-    {period && published && !students.length && <p>No hay libretas publicadas para este curso y período.</p>}
-    {!!students.length && <div className="user-table-wrap">
-      <table className="user-table">
+    {period && !status && !statusError && <Loading variant="inline">Consultando estado de las libretas…</Loading>}
+    {statusError && <div>
+      <Feedback error={`No se pudo consultar el estado de las libretas. ${statusError}`} />
+      <button className="secondary-action" disabled={busy} onClick={reloadStatus}>Reintentar consulta</button>
+    </div>}
+    {periodNotice && <p className={status?.desactualizada && !hasDrafts
+      ? `${styles.reportNotice} ${styles.reportWarning}`
+      : styles.reportNotice} role="status">{periodNotice}</p>}
+    {status && !status.alumnos.some(item => item.borrador || item.publicada) && <p className={styles.reportNotice}>Todavía no hay libretas para este curso y período. Genera los borradores para empezar.</p>}
+    {status && status.alumnos.some(item => item.borrador || item.publicada) && <div className={`panel ${styles.reportPanel}`}>
+      <table className={styles.reportRoster}>
         <caption>Libretas por estudiante</caption>
-        <thead><tr><th scope="col">Estudiante</th><th scope="col">Estado</th><th scope="col">Consulta</th></tr></thead>
-        <tbody>{students.map(item => {
-          const hasDraft = draftsByStudent.has(item.idAlumno);
-          const publishedReport = publishedByStudent.get(item.idAlumno);
-          return <tr key={item.idAlumno}>
-            <th scope="row">{item.alumno}</th>
-            <td>{hasDraft && "BORRADOR"}{hasDraft && publishedReport && " · "}{publishedReport && "PUBLICADA"}</td>
-            <td>{publishedReport && <button type="button" disabled={busy} onClick={() => review(publishedReport, false)}>
-              Ver libreta publicada de {item.alumno}
-            </button>}</td>
-          </tr>;
-        })}</tbody>
+        <thead><tr><th scope="col">Estudiante</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
+        <tbody>{status.alumnos.filter(item => item.borrador || item.publicada).map(item => <tr key={item.idAlumno}>
+          <th scope="row">{item.alumno}</th>
+          <td><div className={styles.reportActions}>
+            {item.borrador && <ReportBadge status="BORRADOR" />}
+            {item.publicada && <ReportBadge status="PUBLICADA" />}
+          </div></td>
+          <td><div className={styles.reportActions}>
+            {item.borrador && <button className="secondary-action" aria-label={`Revisar borrador de ${item.alumno}`} disabled={busy} onClick={() => review(item.idAlumno, true)}>Revisar</button>}
+            {item.publicada && <button className="secondary-action" aria-label={`Ver libreta de ${item.alumno}`} disabled={busy} onClick={() => review(item.idAlumno, false)}>Ver libreta</button>}
+          </div></td>
+        </tr>)}</tbody>
       </table>
     </div>}
-    {!!drafts.length && <div>
-      <label className="field">Alumno para revisar<select value={student} disabled={busy} onChange={e => { setStudent(e.target.value); setPreview(null); }}>
-        <option value="">Selecciona un alumno</option>{drafts.map(d => <option key={d.idAlumno} value={d.idAlumno}>{d.alumno}</option>)}
-      </select></label>
-      <button disabled={!student || busy} onClick={() => {
-        const item = draftsByStudent.get(Number(student));
-        if (item) void review(item, true);
-      }}>Revisar borrador</button>
-    </div>}
     {preview && <ReportContent report={preview.report} draft={preview.draft} />}
-    {canWrite && (!confirm ? <button className="primary-action" disabled={!selectedPeriod || busy} onClick={() => setConfirm(true)}>
-      Publicar libretas
-    </button> : <div>
-      <p>¿Confirmas la publicación de las libretas pendientes de {selectedAssignment?.curso}, sección {selectedAssignment?.seccion}, para {selectedPeriod?.nombre}? Los alumnos y apoderados vinculados podrán consultarlas y descargar su PDF.</p>
-      <button className="primary-action" disabled={busy} onClick={publish}>
-        {busy ? "Publicando…" : "Confirmar publicación"}
-      </button>{" "}
-      <button disabled={busy} onClick={() => setConfirm(false)}>Cancelar</button>
-    </div>)}
   </section>;
 }

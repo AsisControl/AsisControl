@@ -1,4 +1,5 @@
 import { api, apiBlob } from "@/core/api/client";
+import { saveBlob } from "@/shared/lib/save-blob";
 import type { AvailableReport, ProgressReport, ReportContext, ReportPeriod } from "../report-types";
 
 function reportQuery(context: ReportContext) {
@@ -21,23 +22,30 @@ export function getProgressReport(context: ReportContext) {
   return api<ProgressReport>(`/api/calificaciones/avance?${reportQuery(context)}`);
 }
 
-export function getProgressReportPdf(context: ReportContext) {
-  return apiBlob(`/api/calificaciones/reporte-avance?${reportQuery(context)}`, { timeoutMs: 60000 });
+export async function getProgressReportPdf(context: ReportContext) {
+  let filename = "Avance.pdf";
+  const blob = await apiBlob(`/api/calificaciones/reporte-avance?${reportQuery(context)}`, { timeoutMs: 60000 }, headers => {
+    const candidate = headers.get("Content-Disposition")?.match(/filename="(Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/)?.[1];
+    if (candidate) filename = candidate;
+  });
+  return { blob, filename };
 }
 
 /** Se invoca solo si el contexto de la descarga sigue seleccionado. */
-export function saveProgressReportPdf(blob: Blob, context: ReportContext) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  try {
-    anchor.href = url;
-    anchor.download = `avance-${context.idAlumno}-${context.idAsignacionCurso}-${context.idPeriodoAcademico}.pdf`;
-    document.body.appendChild(anchor);
-    anchor.click();
-  } finally {
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
+export function saveProgressReportPdf({ blob, filename }: Awaited<ReturnType<typeof getProgressReportPdf>>) {
+  saveBlob(blob, filename);
+}
+
+export type ReportPeriodStatus = {
+  alumnos: { idAlumno: number; alumno: string; borrador: boolean; publicada: boolean }[];
+  publicable: boolean;
+  desactualizada: boolean;
+  impedimento: string | null;
+};
+
+export function getReportPeriodStatus(idAsignacionCurso: number, idPeriodoAcademico: number) {
+  const query = new URLSearchParams({ idAsignacionCurso: String(idAsignacionCurso), idPeriodoAcademico: String(idPeriodoAcademico) });
+  return api<ReportPeriodStatus>(`/api/calificaciones/informes/estado?${query}`);
 }
 
 export function getProgressReportDraft(context: ReportContext) {

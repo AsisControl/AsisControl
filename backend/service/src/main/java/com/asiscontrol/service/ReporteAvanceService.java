@@ -44,6 +44,54 @@ public class ReporteAvanceService {
     }
 
     public record ResultadoPeriodo(int informesProcesados, List<InformeDisponibleDto> informes) { }
+    public record EstadoAlumno(Long idAlumno, String alumno, boolean borrador, boolean publicada) { }
+    public record EstadoPeriodo(List<EstadoAlumno> alumnos, boolean publicable, boolean desactualizada,
+                                String impedimento) { }
+
+    @Transactional(readOnly = true)
+    public EstadoPeriodo estadoPeriodo(Long curso, Long periodoId) {
+        var asignacion = asignacion(curso);
+        acceso.verificarAsignacionDocente(asignacion);
+        var periodo = periodo(periodoId, asignacion);
+        var alumnosPeriodo = new ArrayList<EstadoAlumno>();
+        boolean desactualizada = false;
+        boolean tieneBorradores = false;
+        String impedimento = null;
+        for (var alumno : estudiantes(asignacion)) {
+            var actual = ultimo(alumno.getId(), curso, periodoId, false).orElse(null);
+            var publicada = ultimo(alumno.getId(), curso, periodoId, true).orElse(null);
+            boolean borrador = actual != null && actual.getEstado() == EstadoInformeProgreso.BORRADOR;
+            alumnosPeriodo.add(new EstadoAlumno(alumno.getId(), nombre(alumno.getPersona()), borrador, publicada != null));
+            if (publicada != null && !desactualizada) {
+                try {
+                    validarVigencia(detalles(publicada), asignacion, periodo);
+                } catch (BusinessRuleException e) {
+                    desactualizada = true;
+                }
+            }
+            if (borrador) {
+                tieneBorradores = true;
+                try {
+                    validarBorrador(actual, asignacion, periodo);
+                } catch (BusinessRuleException e) {
+                    if (impedimento == null) impedimento = e.getMessage();
+                }
+            }
+        }
+        if (tieneBorradores && impedimento == null) {
+            if (alumnosPeriodo.stream().anyMatch(a -> !a.borrador() && !a.publicada())) {
+                impedimento = "Genera borradores para todos los estudiantes antes de publicar.";
+            } else {
+                try {
+                    evaluaciones.validarPublicacion(evaluacionesDelPeriodo(asignacion, periodo).stream()
+                            .filter(e -> e.getEstado() == EstadoEvaluacion.BORRADOR).toList());
+                } catch (BusinessRuleException e) {
+                    impedimento = e.getMessage();
+                }
+            }
+        }
+        return new EstadoPeriodo(alumnosPeriodo, tieneBorradores && impedimento == null, desactualizada, impedimento);
+    }
 
     /** Genera o reemplaza solamente borradores. Una version publicada nunca se modifica. */
     @Transactional
@@ -74,12 +122,7 @@ public class ReporteAvanceService {
             var informe = ultimo(alumno.getId(), curso, periodoId, false)
                     .orElseGet(() -> generar(alumno, asignacion, periodo));
             if (informe.getEstado() == EstadoInformeProgreso.PUBLICADA) continue;
-            var filas = detalles(informe);
-            if (filas.isEmpty() || filas.stream().anyMatch(d -> d.getNivelLogro() == null || d.getCalificacion() == null)) {
-                throw new BusinessRuleException("INFORME_INCOMPLETO",
-                        "Completa los niveles de logro y vuelve a generar los borradores antes de publicar");
-            }
-            validarVigencia(filas, asignacion, periodo);
+            validarBorrador(informe, asignacion, periodo);
             pendientes.add(informe);
         }
         // Mantiene las validaciones existentes de las planillas y publica sus evaluaciones.
@@ -90,6 +133,15 @@ public class ReporteAvanceService {
             informe.setFechaPublicacion(fecha);
         }
         return new ResultadoPeriodo(pendientes.size(), List.of());
+    }
+
+    private void validarBorrador(InformeProgreso informe, AsignacionCurso asignacion, PeriodoAcademico periodo) {
+        var filas = detalles(informe);
+        if (filas.isEmpty() || filas.stream().anyMatch(d -> d.getNivelLogro() == null || d.getCalificacion() == null)) {
+            throw new BusinessRuleException("INFORME_INCOMPLETO",
+                    "Completa los niveles de logro y vuelve a generar los borradores antes de publicar");
+        }
+        validarVigencia(filas, asignacion, periodo);
     }
 
     private List<Alumno> estudiantes(AsignacionCurso asignacion) {

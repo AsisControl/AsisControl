@@ -76,7 +76,7 @@ function ReportWithDownload({ context, report }: { context: AvailableReport; rep
     setError("");
     try {
       const blob = await getProgressReportPdf(context);
-      if (active.current) saveProgressReportPdf(blob, context);
+      if (active.current) saveProgressReportPdf(blob);
     } catch (e) {
       if (active.current) setError(message(e));
     } finally {
@@ -89,9 +89,9 @@ function ReportWithDownload({ context, report }: { context: AvailableReport; rep
     <div className={`panel ${styles.sheet}`}>
       <Feedback error={error} />
       <button type="button" className="primary-action" disabled={busy} onClick={download}>
-        {busy ? "Preparando PDF…" : error ? "Reintentar descarga PDF" : "Descargar PDF"}
+        {busy ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : error ? "Reintentar descarga PDF" : "Descargar PDF"}
       </button>
-      {busy && <p role="status">Preparando el PDF del estudiante seleccionado.</p>}
+      {busy && <span role="status" className={styles.reportSrOnly}>Generando PDF…</span>}
       <p className="hint">El PDF corresponde a la última versión publicada disponible al descargarlo.</p>
     </div>
   </>;

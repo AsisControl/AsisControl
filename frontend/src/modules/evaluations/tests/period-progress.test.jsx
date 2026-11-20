@@ -14,7 +14,7 @@ function backend(routes = {}) {
     "GET /api/evaluaciones/periodos-informe": periods,
     "GET /api/calificaciones/informes-disponibles": [availableReport, otherStudent],
     "GET /api/calificaciones/avance": ({ query }) => query.idAlumno === "11" ? progressReport : { ...progressReport, alumno: "Luis Díaz", filas: [] },
-    "GET /api/calificaciones/reporte-avance": {},
+    "GET /api/calificaciones/reporte-avance": reply(200, {}, { "Content-Disposition": 'attachment; filename="Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf"' }),
     ...routes,
   });
 }
@@ -49,7 +49,7 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   expect(calls.find((call) => call.path.endsWith("avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
   await interaction.click(screen.getByRole("button", { name: "Descargar PDF" }));
   await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
-  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toBe("avance-11-5-40.pdf");
+  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toBe("Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf");
   expect(calls.find((call) => call.path.endsWith("reporte-avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
   expect(calls.every((call) => call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: /publicar|generar/i })).toBeNull();
@@ -137,7 +137,7 @@ test("Cambiar período durante una descarga evita guardar un PDF del contexto an
   render(<ProgressPreview />); const interaction = await openPeriod();
   await interaction.click(await screen.findByRole("button", { name: "Descargar PDF" }));
   await waitFor(() => expect(resolvePdf).toBeTypeOf("function"));
-  expect(screen.getByRole("button", { name: "Preparando PDF…" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Generando PDF…" }).disabled).toBe(true);
   await interaction.selectOptions(screen.getByLabelText("Período académico"), "41");
   await act(async () => resolvePdf({}));
   expect(URL.createObjectURL).not.toHaveBeenCalled();

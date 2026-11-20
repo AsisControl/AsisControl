@@ -77,6 +77,13 @@ public class CalificacionController {
         return reporteAvanceService.publicarPeriodo(request.idAsignacionCurso(), request.idPeriodoAcademico());
     }
 
+    @GetMapping("/informes/estado")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public ReporteAvanceService.EstadoPeriodo estadoInformes(@RequestParam Long idAsignacionCurso,
+            @RequestParam Long idPeriodoAcademico) {
+        return reporteAvanceService.estadoPeriodo(idAsignacionCurso, idPeriodoAcademico);
+    }
+
     @GetMapping("/informes/borrador")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
     public com.asiscontrol.dto.ReporteAvanceDto consultarBorrador(@RequestParam Long idAlumno,
@@ -95,9 +102,18 @@ public class CalificacionController {
         byte[] pdf = generadorReporteAvance.generar(datos);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header("Content-Disposition", "attachment; filename=\"avance-" + idAlumno + "-" + idAsignacionCurso + "-" + idPeriodoAcademico + ".pdf\"")
+                .header("Content-Disposition", "attachment; filename=\"" + nombrePdf(datos) + "\"")
                 .cacheControl(CacheControl.noStore())
                 .body(pdf);
+    }
+
+    private static String nombrePdf(com.asiscontrol.dto.ReporteAvanceDto datos) {
+        var version = java.util.regex.Pattern.compile(" \\| Version ([0-9]+) \\| PUBLICADA$").matcher(datos.periodo());
+        if (!version.find()) return "Avance.pdf";
+        String base = String.join("_", datos.alumno(), datos.curso(), datos.periodo().substring(0, version.start()));
+        String limpio = java.text.Normalizer.normalize(base, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replaceAll("[^A-Za-z0-9]+", "_").replaceAll("^_+|_+$", "");
+        return "Avance_" + limpio.substring(0, Math.min(limpio.length(), 160)) + "_V" + version.group(1) + ".pdf";
     }
 
     @GetMapping

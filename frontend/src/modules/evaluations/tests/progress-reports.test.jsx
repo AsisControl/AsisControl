@@ -5,15 +5,22 @@ import { ProgressReports, PublishPeriod } from "../progress-reports";
 import { fakeBackend, reply } from "../../../../tests/support/backend.js";
 import { progressReport } from "./report-fixture";
 
+const updatedReports = "Todas las libretas del período están publicadas y actualizadas.";
+const staleReports = "Todos los estudiantes tienen una libreta publicada, pero existen cambios pendientes de actualizar.";
+const staleWarning = "Las evaluaciones o notas cambiaron. Genera un nuevo borrador para actualizar la libreta.";
+const pendingDraft = "Hay un borrador pendiente con los cambios actuales. Revísalo y publícalo cuando esté listo.";
+const blockedDraft = "Hay borradores pendientes. Revísalos antes de publicar.";
+const staleDraftImpediment = "Las evaluaciones o notas cambiaron. Vuelve a generar y revisar los borradores antes de publicar.";
+
 test("publicar requiere confirmar y envia curso y periodo", async () => {
   const ana = { idAlumno: 8, alumno: "Ana", idAsignacionCurso: 3, idPeriodoAcademico: 4 };
   const luis = { ...ana, idAlumno: 9, alumno: "Luis" };
-  const otroCurso = { ...ana, idAlumno: 10, alumno: "Otro curso", idAsignacionCurso: 99 };
+  let generated = false;
   let published = false;
   const calls = fakeBackend({
     "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
-    "GET /api/calificaciones/informes-disponibles": () => published ? [ana, luis, otroCurso] : [otroCurso],
-    "POST /api/calificaciones/informes/generar": { informesProcesados: 2, informes: [ana, luis] },
+    "GET /api/calificaciones/informes/estado": () => ({ alumnos: [ana, luis].map(item => ({...item, borrador: generated && !published, publicada: published})), publicable: generated && !published, desactualizada: false }),
+    "POST /api/calificaciones/informes/generar": () => { generated = true; return { informesProcesados: 2, informes: [ana, luis] }; },
     "POST /api/calificaciones/informes/publicar": () => {
       published = true;
       return { informesProcesados: 2 };
@@ -25,27 +32,80 @@ test("publicar requiere confirmar y envia curso y periodo", async () => {
   await user.selectOptions(screen.getByLabelText("Curso y sección"), "3");
   await screen.findByRole("option", {name:"Bimestre 1"});
   await user.selectOptions(screen.getByLabelText("Período académico"), "4");
-  await screen.findByText(/No hay libretas publicadas para este curso/);
+  await screen.findByText(/Todavía no hay libretas para este curso/);
+  expect(screen.queryByRole("button", {name:"Publicar libretas"})).toBeNull();
   await user.click(screen.getByRole("button", {name:"Generar borradores"}));
   expect(await screen.findAllByRole("cell", {name:"BORRADOR"})).toHaveLength(2);
+  expect(screen.getByText(pendingDraft)).toBeTruthy();
   await user.click(screen.getByRole("button", {name:"Publicar libretas"}));
   expect(calls.some(c => c.path.endsWith("/publicar"))).toBe(false);
   await user.click(screen.getByRole("button", {name:"Confirmar publicación"}));
   await screen.findByText(/Se publicaron 2 libretas/);
   expect(calls.find(c => c.path.endsWith("/publicar")).body).toEqual({idAsignacionCurso:3,idPeriodoAcademico:4});
   expect(await screen.findAllByRole("cell", {name:"PUBLICADA"})).toHaveLength(2);
-  expect(screen.queryByRole("rowheader", {name:"Otro curso"})).toBeNull();
+  expect(screen.getByText(updatedReports)).toBeTruthy();
+  expect(screen.queryByText(staleWarning)).toBeNull();
+  expect(screen.queryByRole("button", {name:"Publicar libretas"})).toBeNull();
   expect(screen.queryByRole("cell", {name:"BORRADOR"})).toBeNull();
-  await user.click(screen.getByRole("button", {name:"Ver libreta publicada de Luis"}));
-  await screen.findByText(/Version 2 \| PUBLICADA/);
+  await user.click(screen.getByRole("button", {name:"Ver libreta de Luis"}));
+  await screen.findByText("Versión 2");
   expect(calls.find(c => c.path.endsWith("/avance")).query).toEqual({idAlumno:"9",idAsignacionCurso:"3",idPeriodoAcademico:"4"});
+});
+
+test("una publicación desactualizada cambia de aviso al generar el borrador y queda actualizada al publicar", async () => {
+  const ana = { idAlumno: 8, alumno: "Ana", publicada: true };
+  let generated = false;
+  let published = false;
+  fakeBackend({
+    "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
+    "GET /api/calificaciones/informes/estado": () => ({
+      alumnos: [{ ...ana, borrador: generated && !published }],
+      publicable: generated && !published,
+      desactualizada: !published,
+    }),
+    "POST /api/calificaciones/informes/generar": () => { generated = true; return { informesProcesados: 1 }; },
+    "POST /api/calificaciones/informes/publicar": () => { published = true; return { informesProcesados: 1 }; },
+    "GET /api/calificaciones/avance": () => ({
+      ...progressReport, periodo: `Bimestre 1 | Version ${published ? 2 : 1} | PUBLICADA`,
+    }),
+  });
+  render(<PublishPeriod canWrite assignments={[{ id: 3, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]} />);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByLabelText("Curso y sección"), "3");
+  await screen.findByRole("option", { name: "Bimestre 1" });
+  await user.selectOptions(screen.getByLabelText("Período académico"), "4");
+  expect(await screen.findByText(staleWarning)).toBeTruthy();
+  expect(screen.queryByText(staleReports)).toBeNull();
+  expect(screen.queryByText(pendingDraft)).toBeNull();
+  expect(screen.queryByText(blockedDraft)).toBeNull();
+  expect(screen.queryByText(updatedReports)).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Ver libreta de Ana" }));
+  await screen.findByText("Versión 1");
+  await user.click(screen.getByRole("button", { name: "Generar borradores" }));
+  await screen.findByText(pendingDraft);
+  expect(screen.queryByText(staleWarning)).toBeNull();
+  expect(screen.queryByText(blockedDraft)).toBeNull();
+  expect(screen.queryByText(updatedReports)).toBeNull();
+  expect(screen.getByRole("cell", { name: /BORRADOR.*PUBLICADA/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Revisar borrador de Ana" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Ver libreta de Ana" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Publicar libretas" }));
+  await user.click(screen.getByRole("button", { name: "Confirmar publicación" }));
+  await screen.findByText(updatedReports);
+  expect(screen.queryByText(pendingDraft)).toBeNull();
+  expect(screen.queryByText(staleWarning)).toBeNull();
+  expect(screen.queryByText(blockedDraft)).toBeNull();
+  expect(screen.getByRole("cell", { name: "PUBLICADA" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Revisar borrador de Ana" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Ver libreta de Ana" }));
+  await screen.findByText("Versión 2");
 });
 
 test("publicar una sección solo envía el curso elegido y muestra su error de validación", async () => {
   const first = { id: 3, curso: "Matemática", seccion: "A", seccionId: 11, anioAcademico: 2026 };
   const calls = fakeBackend({
     "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
-    "GET /api/calificaciones/informes-disponibles": [],
+    "GET /api/calificaciones/informes/estado": { alumnos: [{idAlumno: 8, alumno: "Ana", borrador: true, publicada: false}], publicable: true },
     "POST /api/calificaciones/informes/publicar": reply(422, { message: "Completa los niveles de logro" }),
   });
   render(<PublishPeriod canWrite assignments={[
@@ -58,7 +118,7 @@ test("publicar una sección solo envía el curso elegido y muestra su error de v
   await screen.findByRole("option", { name: "Bimestre 1" });
   await user.selectOptions(screen.getByLabelText("Período académico"), "4");
   expect(screen.queryByRole("button", { name: "Publicar mis cursos de esta sección" })).toBeNull();
-  await user.click(screen.getByRole("button", { name: "Publicar libretas" }));
+  await user.click(await screen.findByRole("button", { name: "Publicar libretas" }));
   expect(screen.getByText(/libretas pendientes de Matemática, sección A, para Bimestre 1/)).toBeTruthy();
   expect(calls.some(call => call.method === "POST")).toBe(false);
   await user.click(screen.getByRole("button", { name: "Confirmar publicación" }));
@@ -174,7 +234,7 @@ test("el apoderado cambia de hijo y solo consulta los cursos publicados del sele
 test("genera y revisa un borrador antes de publicar", async () => {
   const calls = fakeBackend({
     "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
-    "GET /api/calificaciones/informes-disponibles": [],
+    "GET /api/calificaciones/informes/estado": { alumnos: [{idAlumno:8, alumno:"Ana", borrador:true, publicada:true}], publicable:false, impedimento:staleDraftImpediment, desactualizada:true },
     "POST /api/calificaciones/informes/generar": { informesProcesados: 1, informes: [{idAlumno:8,alumno:"Ana",idAsignacionCurso:3,curso:"Matematica",anio:2026,idPeriodoAcademico:4,periodo:"Bimestre 1"}] },
     "GET /api/calificaciones/informes/borrador": {...progressReport, periodo:"Bimestre 1 | Version 2 | BORRADOR",filas:[{competencia:"Cantidad",evaluacion:"Practica",fecha:"01/03/2026",resultado:"Sin registrar",ponderacion:"30 %",observacion:"Sin observaciones"}]},
   });
@@ -185,10 +245,17 @@ test("genera y revisa un borrador antes de publicar", async () => {
   await user.selectOptions(screen.getByLabelText("Período académico"), "4");
   await user.click(screen.getByRole("button", {name:"Generar borradores"}));
   await screen.findByText(/Se generaron 1 borradores/);
-  await user.selectOptions(screen.getByLabelText("Alumno para revisar"), "8");
-  await user.click(screen.getByRole("button", {name:"Revisar borrador"}));
+  await user.click(await screen.findByRole("button", {name:"Revisar borrador de Ana"}));
+  expect(screen.getByText(blockedDraft)).toBeTruthy();
+  expect(screen.queryByText(staleDraftImpediment)).toBeNull();
+  expect(screen.queryByText(staleWarning)).toBeNull();
+  expect(screen.queryByText(pendingDraft)).toBeNull();
+  expect(screen.queryByText(updatedReports)).toBeNull();
+  expect(screen.queryByText(staleReports)).toBeNull();
+  expect(screen.getByRole("button", {name:"Ver libreta de Ana"})).toBeTruthy();
+  expect(screen.queryByRole("button", {name:"Publicar libretas"})).toBeNull();
   await screen.findByText("Sin registrar");
-  expect(screen.getByText(/Version 2/)).toBeTruthy();
+  expect(screen.getByText("Versión 2")).toBeTruthy();
   expect(calls.filter(c => c.method === "POST")).toHaveLength(1);
   expect(calls.find(c => c.path.endsWith("borrador")).query).toEqual({idAlumno:"8",idAsignacionCurso:"3",idPeriodoAcademico:"4"});
 });
