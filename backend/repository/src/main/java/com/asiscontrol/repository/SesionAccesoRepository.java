@@ -23,16 +23,27 @@ public interface SesionAccesoRepository extends JpaRepository<SesionAcceso, Long
     @Query(
             """
 update SesionAcceso s set s.ultimaActividad=:ahora
-where s.tokenHash=:hash and s.estado=com.asiscontrol.entity.enums.EstadoSesion.VIGENTE
+where s.id=:sesionId and s.versionContexto=:version
+and s.estado=com.asiscontrol.entity.enums.EstadoSesion.VIGENTE
 and s.fechaExpiracion>:ahora and s.ultimaActividad>:limite
 and s.usuario.activo=true and s.usuario.estado=com.asiscontrol.entity.enums.EstadoAcceso.ACTIVO
-and s.usuario.persona.activo=true and s.usuario.rol.activo=true
+and s.usuario.persona.activo=true
       and (s.usuario.requiereCambioContrasena=false or s.usuario.contrasenaTemporalExpira>:ahora)
 """)
     int registrarActividad(
-            @Param("hash") String hash,
+            @Param("sesionId") Long sesionId,
+            @Param("version") long version,
             @Param("ahora") Instant ahora,
             @Param("limite") Instant limite);
+
+    @Modifying
+    @Query("""
+            update SesionAcceso s
+            set s.rolActivo = null, s.versionContexto = s.versionContexto + 1
+            where s.usuario.id = :usuarioId and s.rolActivo.id = :rolId
+              and s.estado = com.asiscontrol.entity.enums.EstadoSesion.VIGENTE
+            """)
+    int invalidarRolActivo(@Param("usuarioId") Long usuarioId, @Param("rolId") Long rolId);
 
     @Modifying
     @Query(

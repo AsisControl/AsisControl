@@ -81,8 +81,13 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/pagos/qr/{token}/confirmar")
                                         .permitAll()
+                                        .requestMatchers(
+                                                "/api/auth/me",
+                                                "/api/auth/change-password",
+                                                "/api/auth/rol-activo")
+                                        .authenticated()
                                         .anyRequest()
-                                        .authenticated())
+                                        .hasAnyRole("ADMINISTRADOR", "DOCENTE", "ALUMNO", "APODERADO"))
                 .oauth2ResourceServer(
                         oauth2 ->
                                 oauth2.jwt(

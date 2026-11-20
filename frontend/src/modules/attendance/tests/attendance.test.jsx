@@ -132,11 +132,11 @@ test("Solo lectura muestra auditoría y abre la justificación sin salir de la s
     [JUSTIFICACION]: justificacion({ estado: "APROBADA", fechaHoraRevision: "2026-08-18T10:15:00" }),
   });
   render(<SessionDetail asignacionId={42} sesionId={7} />);
-  expect(await screen.findByText("Registrada por Patricia Morales · 17-08-2026 a las 09:40")).toBeTruthy();
-  expect(await screen.findByText("Corregida por Patricia Morales · 18-08-2026 a las 08:15")).toBeTruthy();
+  expect(await screen.findByText("Registrada por Patricia Morales · 17/08/2026 a las 09:40")).toBeTruthy();
+  expect(await screen.findByText("Corregida por Patricia Morales · 18/08/2026 a las 08:15")).toBeTruthy();
   expect(screen.getByText("Motivo: Error de digitación").getAttribute("title")).toBe("Error de digitación");
   expect(screen.getAllByText("Tomada")).toHaveLength(1);
-  expect(screen.getAllByText(/17-08-2026 · 07:30 AM/)).toHaveLength(1);
+  expect(screen.getAllByText(/17\/08\/2026 · 07:30 AM/)).toHaveLength(1);
   expect(screen.getByText("Presente")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Editar asistencia" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Guardar borrador" })).toBeNull();

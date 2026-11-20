@@ -26,6 +26,10 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Long> 
     Optional<SesionClase> findByAsignacionCursoIdAndFechaAndHoraInicio(
             Long asignacionCursoId, LocalDate fecha, LocalTime horaInicio);
 
+    /** Sesiones activas que el docente dicta en una fecha, por hora de inicio. */
+    List<SesionClase> findAllByAsignacionCursoDocenteIdAndFechaAndActivoTrueOrderByHoraInicioAsc(
+            Long docenteId, LocalDate fecha);
+
     /** Bloquea la sesión para escritura al finalizar o corregir su asistencia. */
     // asistencia alumnos: plazo de edición (siguiente clase del mismo curso ese día) y cierre automático
     Optional<SesionClase> findFirstByAsignacionCursoIdAndFechaAndHoraInicioGreaterThanAndActivoTrueOrderByHoraInicioAsc(

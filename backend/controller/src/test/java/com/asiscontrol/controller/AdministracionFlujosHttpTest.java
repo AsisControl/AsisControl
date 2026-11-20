@@ -61,7 +61,7 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
         assertThat(result.path("content").size()).isGreaterThanOrEqualTo(1);
         putOk("/api/auditoria/errores/"+error.getId(),data("estado","EN_SEGUIMIENTO","observacionSeguimiento","Investigando causa","version",0));
         assertThat(getOk("/api/auditoria/errores/"+error.getId()+"/seguimientos")).hasSize(1);
-        var notification=notificaciones.create(admin.getId(),"Aviso","Mensaje institucional",TipoNotificacion.values()[0],"/inicio");
+        var notification=notificaciones.create(admin.getId(),"Aviso","Mensaje institucional",TipoNotificacion.values()[0],"/inicio","ADMINISTRADOR");
         assertThat(getOk("/api/notificaciones/resumen").path("noLeidas").asInt()).isGreaterThanOrEqualTo(0);
         getOk("/api/notificaciones");
         assertThat(putOk("/api/notificaciones/"+notification.id()+"/leida",null).path("leida").asBoolean()).isTrue();
@@ -77,6 +77,16 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(student.getId()));
         mvc.perform(get("/api/familia/oferta").with(authentication))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].anio").value(2090));
+    }
+
+    @Test void familiaConPermisoDeProgresoConsultaVinculosSinAccesoAMatricula() throws Exception {
+        var autenticacion = jwt().jwt(j -> j.subject("apoderado-progreso")
+                        .claim("personaId", guardian.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_APODERADO"),
+                        new SimpleGrantedAuthority("CALIFICACIONES_LEER"));
+        mvc.perform(get("/api/familia/estudiantes").with(autenticacion))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(student.getId()));
+        mvc.perform(get("/api/familia/oferta").with(autenticacion)).andExpect(status().isForbidden());
     }
 
     @Test void subeConsultaDescargaYDesactivaUnArchivoDesdeHttp() throws Exception {

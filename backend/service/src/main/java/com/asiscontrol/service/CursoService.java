@@ -17,6 +17,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
+import java.util.Objects;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -43,7 +46,7 @@ public class CursoService {
         validarCodigoUnico(request.codigo(), null);
         Curso curso = new Curso();
         aplicar(curso, request.codigo(), request.nombre(), request.descripcion(), request.horasSemanales());
-        curso.setGradoAcademico(gradoDisponible(request.gradoAcademicoId()));
+        if (request.gradoAcademicoId() != null) curso.setGradoAcademico(gradoDisponible(request.gradoAcademicoId()));
         curso.setActivo(true);
         Curso saved = cursoRepository.save(curso);
         auditoria.registrar("CREAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
@@ -75,9 +78,14 @@ public class CursoService {
         return cursoRepository.buscar(criterio, anio, grado, pageable).map(this::mapear);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void eliminar(Long id) {
-        Curso curso = obtenerEntidad(id);
+        Curso curso = cursoRepository.bloquearTodos(Set.of(id)).stream().filter(Curso::isActivo).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "CURSO_NO_ENCONTRADO", "No existe un curso activo con id " + id));
+        if (gradoRepository.existsByCursosPlanId(id) || asignacionRepository.existsByCursoIdAndActivoTrue(id)) {
+            throw new ConflictException("CURSO_EN_USO", "El curso pertenece a un plan o tiene asignaciones activas");
+        }
         curso.setActivo(false);
         cursoRepository.save(curso);
         auditoria.registrar("ELIMINAR_CURSO", ModuloAuditoria.ACADEMICO, "Curso",
@@ -110,7 +118,7 @@ public class CursoService {
      */
     private void cambiarGrado(Curso curso, Long gradoId) {
         GradoAcademico actual = curso.getGradoAcademico();
-        if (actual != null && actual.getId().equals(gradoId)) {
+        if (Objects.equals(actual == null ? null : actual.getId(), gradoId)) {
             return;
         }
         if (actual != null && asignacionRepository.existsByCursoIdAndActivoTrue(curso.getId())) {
@@ -118,7 +126,7 @@ public class CursoService {
                     "CURSO_CON_ASIGNACIONES",
                     "El curso ya está asignado a secciones; no se puede cambiar su año o grado");
         }
-        curso.setGradoAcademico(gradoDisponible(gradoId));
+        curso.setGradoAcademico(gradoId == null ? null : gradoDisponible(gradoId));
     }
 
     private String describir(Curso curso) {

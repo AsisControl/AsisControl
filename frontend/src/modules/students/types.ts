@@ -21,6 +21,7 @@ export type Student = {
   fechaCreacion?: string | null;
   fechaActualizacion?: string | null;
   version?: number;
+  credencialAcceso?: AccessCredential;
   // BE2 debe exponerlas después de implementar el ciclo de vida seguro (OBS-039).
   accionesPermitidas?: {
     editar?: boolean;
@@ -55,10 +56,10 @@ export type AccessCredential = {
   code: string | null;
   username: string;
   email: string;
-  /** Solo al guardar la carga; no se vuelve a mostrar. */
+  /** Solo se devuelve cuando se crea la cuenta. */
   temporaryPassword: string | null;
   expiresAt: string | null;
-  /** Ya tenía acceso para ese rol: no se creó otro. */
+  /** Ya tenía una cuenta institucional. */
   existing: boolean;
 };
 export type FamilyImportSlot = "estudiantes" | "apoderados" | "parentescos";

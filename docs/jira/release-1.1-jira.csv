@@ -1,0 +1,822 @@
+"ID de actividad","ID principal","Tipo de actividad","Resumen","Descripción","Prioridad","Estimación de puntos de historia","Etiquetas","Etiquetas","Etiquetas","Etiquetas"
+"1","","Épica","Gobierno institucional, configuración y servicios transversales","Reúne la parametrización necesaria para iniciar operaciones: años, períodos, grados, secciones, perfiles docentes y cargas iniciales.","","","gobierno","","",""
+"2","","Épica","Identidad, seguridad, auditoría y observabilidad","Agrupa accesos, roles, permisos, sesiones, auditoría y registro técnico de errores.","","","seguridad","","",""
+"3","","Épica","Admisión, matrícula y gestión financiera","Comprende el ciclo desde el registro del estudiante y solicitud de matrícula hasta compromisos, pagos y morosidad.","","","matricula-finanzas","","",""
+"4","","Épica","Control y seguimiento de asistencia","Incluye asistencia de estudiantes y docentes, correcciones, consultas, reportes e indicadores.","","","asistencia","","",""
+"5","","Épica","Gestión curricular, evaluación y aprendizaje","Agrupa cursos, competencias, evidencias, evaluaciones AD/A/B/C, consolidación, libretas, riesgo y tareas.","","","curricular","","",""
+"6","","Épica","Planificación académica, recursos y horarios","Reúne aulas, asignaciones docentes, horarios, cruces, capacidad y seguimiento de modificaciones.","","","horarios","","",""
+"7","2","Historia","US-01 · Autenticarme con mi identificador institucional y contraseña y recuperar el acceso mediante un restablecimiento administrado cuando la olvide","h3. Historia de usuario
+Como usuario con un acceso activo, quiero autenticarme con mi identificador institucional y contraseña y recuperar el acceso mediante un restablecimiento administrado cuando la olvide, para ingresar de forma segura a la experiencia correspondiente a mi rol.
+h3. Criterios de aceptación
+# Dado un usuario con acceso activo y credenciales correctas, cuando envía el formulario de autenticación, entonces el sistema crea una sesión y lo dirige a la experiencia correspondiente a su rol.
+# Dado un identificador inexistente o una contraseña incorrecta, cuando se intenta iniciar sesión, entonces el sistema rechaza el ingreso con un mensaje genérico que no revela cuál dato falló.
+# Dado un acceso desactivado, cuando se presentan credenciales que anteriormente fueron válidas, entonces el sistema rechaza el ingreso sin reactivar el acceso.
+# Dado un acceso que alcanza el límite configurado de intentos fallidos, cuando se registra el intento que alcanza el límite, entonces el sistema aplica un bloqueo temporal y rechaza nuevos intentos durante su vigencia.
+# Dado un usuario autenticado, cuando intenta acceder a una función protegida, entonces el sistema permite o rechaza la operación según US-03 y no confía únicamente en la interfaz.
+# Dado un usuario que olvidó su contraseña y cuya identidad fue verificada por el procedimiento institucional, cuando el administrador ejecuta el restablecimiento desde US-02, entonces el sistema genera una contraseña temporal sin utilizar correo, SMS ni servicios externos.
+# Dado un restablecimiento confirmado, cuando se intenta reutilizar la contraseña anterior o una sesión previa, entonces el sistema rechaza ambas y conserva únicamente la credencial temporal vigente.
+# Dado un usuario autenticado con contraseña temporal, cuando intenta continuar hacia funciones protegidas, entonces el sistema lo dirige obligatoriamente a US-59.
+# Dado un intento de autenticación o recuperación, cuando se revisan mensajes, logs y auditoría, entonces no se encuentran contraseñas, hashes ni tokens expuestos.
+# Dado una persona sin acceso institucional, cuando intenta crear una cuenta desde la aplicación, entonces el sistema no ofrece autorregistro y exige que el acceso sea provisionado por la institución.
+h3. Trazabilidad
+* Backlog: US-01 / SEG-01
+* MoSCoW: Must · Iteración: I1
+* Dependencias: —
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","8","seguridad","us-01","implementado","validacion-po"
+"8","2","Historia","US-02 · Crear, consultar, activar, desactivar y restablecer la contraseña de accesos institucionales asociados a uno de los cuatro roles definidos","h3. Historia de usuario
+Como administrador autorizado, quiero crear, consultar, activar, desactivar y restablecer la contraseña de accesos institucionales asociados a uno de los cuatro roles definidos, para controlar quién puede iniciar sesión sin eliminar su información histórica.
+h3. Criterios de aceptación
+# Dado un administrador autorizado, un identificador no utilizado y uno de los cuatro roles, cuando confirma la creación, entonces el sistema registra el acceso con contraseña temporal y estado Pendiente o Activo según el flujo institucional.
+# Dado un identificador institucional existente, cuando se intenta crear otro acceso con el mismo valor, entonces el sistema rechaza la operación.
+# Dado un nuevo acceso, cuando el administrador selecciona su rol, entonces el sistema solo permite Administrador, Docente, Estudiante o Apoderado y asocia exactamente uno.
+# Dado una persona que cumple dos roles, cuando se provisionan sus credenciales, entonces el sistema mantiene accesos independientes para cada rol.
+# Dado accesos en distintos estados, cuando el administrador consulta el catálogo, entonces el sistema muestra identificador, rol, estado y fechas administrativas sin revelar contraseñas.
+# Dado un acceso desactivado o pendiente que puede habilitarse, cuando el administrador confirma la activación, entonces el sistema cambia su estado a Activo.
+# Dado un acceso activo que puede deshabilitarse, cuando el administrador registra un motivo y confirma, entonces el sistema lo desactiva, revoca sus sesiones y conserva el historial.
+# Dado el último acceso Administrador activo, cuando se intenta desactivarlo, entonces el sistema rechaza la operación para evitar que la institución quede sin administración.
+# Dado un administrador autenticado, cuando intenta desactivar su propio acceso, entonces el sistema rechaza la operación.
+# Dado un acceso activo cuya identidad fue verificada, cuando el administrador confirma el restablecimiento, entonces el sistema revoca sesiones, invalida la contraseña anterior y genera una contraseña temporal.
+# Dado un acceso creado, cuando se intenta eliminar mediante las funciones ordinarias, entonces el sistema rechaza la eliminación y permite únicamente cambiar su estado.
+# Dado un acceso y un perfil habilitado del mismo rol, cuando el administrador confirma la vinculación, entonces el sistema relaciona exactamente ese perfil con el acceso.
+# Dado una creación, activación, desactivación o restablecimiento confirmado, cuando se completa la operación, entonces el sistema genera un evento de US-04 sin registrar la contraseña.
+# Dado un perfil cuyo tipo no corresponde con el rol del acceso, cuando se intenta vincular, entonces el sistema rechaza la operación.
+# Dado un acceso ya vinculado, cuando se intenta asociar simultáneamente con otro perfil, entonces el sistema rechaza la duplicidad o exige reemplazar la relación mediante una operación controlada.
+h3. Trazabilidad
+* Backlog: US-02 / SEG-02
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-01
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","seguridad","us-02","implementado","validacion-po"
+"9","2","Historia","US-03 · Consultar la matriz predefinida de permisos de los cuatro roles","h3. Historia de usuario
+Como administrador autorizado, quiero consultar la matriz predefinida de permisos de los cuatro roles, para verificar que cada acceso solo ejecute operaciones y consulte información dentro del alcance que le corresponde.
+h3. Criterios de aceptación
+# Dado un administrador autorizado, cuando consulta los permisos, entonces el sistema muestra los cuatro roles y sus operaciones permitidas sin exponer controles técnicos sensibles.
+# Dado la configuración inicial, cuando se intenta crear o eliminar un rol desde las funciones ordinarias, entonces el sistema rechaza la operación.
+# Dado un acceso orientado a un rol, cuando se intenta asignarle un permiso excepcional, entonces el sistema rechaza la personalización y aplica la matriz del rol.
+# Dado una operación sin permiso explícito, cuando un usuario intenta ejecutarla, entonces el backend rechaza la solicitud.
+# Dado un usuario autenticado, cuando ingresa a su experiencia, entonces la interfaz oculta o deshabilita funciones no permitidas sin sustituir la validación del servidor.
+# Dado un docente autenticado, cuando consulta o modifica información académica, entonces solo puede operar cursos, secciones y estudiantes asignados.
+# Dado un estudiante autenticado, cuando consulta información personal o académica, entonces solo puede acceder a sus propios registros autorizados.
+# Dado un apoderado autenticado, cuando consulta información familiar, entonces solo puede acceder a estudiantes con una asociación activa.
+# Dado un administrador autorizado, cuando opera un módulo institucional, entonces el sistema aplica las acciones habilitadas para Administrador.
+# Dado un usuario sin permiso que conoce una ruta o identificador, cuando envía directamente la solicitud al backend, entonces el sistema rechaza la operación sin revelar datos.
+# Dado una persona con accesos separados para distintos roles, cuando inicia sesión con uno de ellos, entonces solo obtiene la experiencia y permisos del acceso utilizado.
+# Dado una operación sensible rechazada por autorización, cuando se registra el resultado técnico, entonces el sistema conserva evidencia suficiente sin crear un cambio de negocio inexistente.
+h3. Trazabilidad
+* Backlog: US-03 / SEG-03
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-01, US-02
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","8","seguridad","us-03","implementado","validacion-po"
+"10","2","Historia","US-04 · Que el sistema registre automáticamente las operaciones críticas realizadas sobre información sensible","h3. Historia de usuario
+Como administrador autorizado, quiero que el sistema registre automáticamente las operaciones críticas realizadas sobre información sensible, para contar con evidencia inalterable de quién hizo qué, cuándo y sobre qué registro.
+h3. Criterios de aceptación
+# Dado una operación incluida en el catálogo crítico, cuando se confirma correctamente, entonces el sistema genera el evento sin depender de una acción manual del usuario.
+# Dado un evento de auditoría, cuando se consulta su estructura, entonces contiene identificador, fecha, actor, rol, acción, módulo, entidad, registro, resultado y correlación cuando corresponda.
+# Dado una modificación crítica, cuando se confirma el cambio, entonces el evento conserva los valores anterior y nuevo de los campos auditables.
+# Dado una corrección, anulación, desactivación sensible o cambio equivalente, cuando se intenta confirmar sin motivo, entonces el sistema rechaza la operación.
+# Dado un evento histórico, cuando se intenta editarlo o eliminarlo desde funciones ordinarias, entonces la operación es rechazada y el evento permanece intacto.
+# Dado una operación crítica cuya auditoría no puede registrarse, cuando se intenta confirmar, entonces el sistema revierte el cambio de negocio y registra el fallo técnico en US-28.
+# Dado una autenticación o restablecimiento de contraseña, cuando se revisa el evento, entonces no contiene contraseña, hash, token ni secreto.
+# Dado una solicitud no autorizada, cuando el backend la rechaza, entonces el sistema no registra un cambio exitoso inexistente y conserva el resultado en el registro técnico correspondiente.
+# Dado un lote con varios registros, cuando se procesa, entonces el sistema conserva un resumen y eventos individuales relacionados por un identificador de correlación.
+# Dado un cambio producido por una tarea automática, cuando se registra el evento, entonces el actor queda identificado como SISTEMA junto con el origen disponible.
+# Dado un registro de negocio que después se inactiva, cuando se consulta su auditoría, entonces los eventos anteriores continúan disponibles para usuarios autorizados.
+h3. Trazabilidad
+* Backlog: US-04 / SEG-04
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","8","seguridad","us-04","implementado","validacion-po"
+"11","1","Historia","US-05 · Configurar y administrar los años académicos, períodos y días no lectivos","h3. Historia de usuario
+Como administrador autorizado, quiero configurar y administrar los años académicos, períodos y días no lectivos, para que los procesos funcionen dentro del contexto temporal correspondiente desde el inicio de operaciones del colegio.
+h3. Criterios de aceptación
+# Dado un administrador autorizado y un código de año no registrado, cuando ingresa fechas válidas y confirma, entonces el sistema registra el año en estado Borrador.
+# Dado un año académico existente, cuando se intenta registrar otro con el mismo código, entonces el sistema rechaza la operación.
+# Dado un año o período cuya fecha final es anterior a la inicial, cuando se intenta guardar, entonces el sistema rechaza la operación e identifica las fechas por corregir.
+# Dado un período cuyas fechas quedan fuera del año, cuando se intenta guardar, entonces el sistema rechaza la operación.
+# Dado un período existente, cuando se intenta guardar otro que comparte una o más fechas, entonces el sistema rechaza la operación e identifica los períodos involucrados.
+# Dado dos períodos válidos sin solapamiento y con días libres entre ellos, cuando se confirma la configuración, entonces el sistema permite guardarlos.
+# Dado un año en Borrador con al menos un período válido y sin solapamientos, cuando se solicita activarlo y no existe otro año activo, entonces el sistema lo convierte en el contexto vigente.
+# Dado un año académico activo, cuando se intenta activar otro, entonces el sistema rechaza la operación.
+# Dado un período planificado perteneciente al año activo, cuando se solicita activarlo y no existe otro período activo, entonces el sistema cambia su estado a Activo.
+# Dado un período activo, cuando se intenta activar otro, entonces el sistema rechaza la operación.
+# Dado la ausencia de un año o período activo, cuando un usuario intenta registrar una operación que requiere contexto, entonces el sistema la rechaza sin afectar consultas permitidas.
+# Dado un año o período con información asociada, cuando se intenta eliminar o cambiar sus fechas ordinariamente, entonces el sistema rechaza la operación.
+# Dado un año con todos sus períodos cerrados, cuando se confirma el cierre, entonces el sistema cambia el año a Cerrado y conserva su historia.
+# Dado un año con un período planificado o activo, cuando se intenta cerrar, entonces el sistema rechaza la operación e identifica los pendientes.
+# Dado un año o período cerrado, cuando un usuario autorizado selecciona el contexto, entonces el sistema muestra la información sin cambiar el contexto activo ni permitir modificaciones ordinarias.
+# Dado una creación, modificación, activación o cierre, cuando se confirma correctamente, entonces el sistema registra el evento conforme a US-04.
+h3. Trazabilidad
+* Backlog: US-05 / GOB-01
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-01, US-03, US-04
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","gobierno","us-05","implementado","validacion-po"
+"12","1","Historia","US-06 · Configurar para cada año académico los grados ofrecidos, sus secciones y la capacidad máxima de cada sección","h3. Historia de usuario
+Como administrador autorizado, quiero configurar para cada año académico los grados ofrecidos, sus secciones y la capacidad máxima de cada sección, para organizar la oferta académica y controlar las vacantes durante la matrícula.
+h3. Criterios de aceptación
+# Dado un año en Borrador o Activo y un grado aún no ofrecido, cuando el administrador configura el grado con capacidad válida, entonces el sistema registra la oferta anual.
+# Dado un grado configurado para un año, cuando se intenta registrarlo nuevamente, entonces el sistema rechaza la operación.
+# Dado un grado configurado y una cantidad válida, cuando se solicita generar secciones, entonces el sistema propone registros individuales con nombres únicos y capacidad predeterminada.
+# Dado secciones propuestas con datos válidos, cuando se confirma la creación, entonces cada sección queda registrada individualmente.
+# Dado una sección existente dentro de un grado y año, cuando se intenta registrar otra con el mismo nombre normalizado, entonces el sistema rechaza la operación.
+# Dado una sección A de un grado o año, cuando se registra una sección A en otro grado o año, entonces el sistema permite la operación.
+# Dado una capacidad vacía, decimal, igual a cero o negativa, cuando se intenta guardar, entonces el sistema rechaza la operación.
+# Dado secciones generadas con una capacidad predeterminada, cuando se modifica una de ellas antes de confirmar, entonces el sistema permite registrarla con una capacidad diferente.
+# Dado un grado con varias secciones habilitadas, cuando se consulta la configuración, entonces el sistema muestra la suma de sus capacidades.
+# Dado una sección habilitada, cuando se aumenta su capacidad, entonces el sistema actualiza el valor sin modificar matrículas y audita el cambio.
+# Dado una sección con estudiantes que ocupan vacante, cuando se reduce la capacidad a un valor igual o superior a la ocupación, entonces el sistema permite el cambio y recalcula vacantes.
+# Dado una sección con estudiantes que ocupan vacante, cuando se reduce la capacidad por debajo de la ocupación, entonces el sistema rechaza la operación.
+# Dado un año activo y un grado habilitado, cuando se registra una nueva sección con motivo, entonces el sistema la crea y audita la operación.
+# Dado una sección de un año en Borrador sin relaciones, cuando se confirma su eliminación, entonces el sistema elimina el registro y audita la acción.
+# Dado una sección con matrículas, horarios u otras relaciones, cuando se intenta eliminar, entonces el sistema rechaza la operación.
+# Dado una sección con estudiantes matriculados vigentes, cuando se intenta inhabilitar, entonces el sistema rechaza la operación.
+# Dado una sección inhabilitada, cuando se intenta utilizarla en una nueva matrícula, horario o asignación, entonces el sistema rechaza la operación y conserva la historia.
+# Dado un año académico cerrado, cuando se intenta modificar sus grados o secciones, entonces el sistema rechaza la operación y permite solo consulta.
+# Dado una sección con capacidad y matrículas que ocupan vacante, cuando se consulta la disponibilidad, entonces el sistema calcula la diferencia conforme a US-11 y no permite editarla.
+# Dado una creación, modificación, habilitación, inhabilitación o cambio de capacidad, cuando se confirma correctamente, entonces el sistema registra actor, fecha, acción, motivo y valores anterior y nuevo.
+h3. Trazabilidad
+* Backlog: US-06 / GOB-02
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04, US-05
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","gobierno","us-06","implementado","validacion-po"
+"13","6","Historia","US-07 · Registrar y mantener el catálogo institucional de aulas con su identificación, ubicación, capacidad física y estado de habilitación","h3. Historia de usuario
+Como administrador autorizado, quiero registrar y mantener el catálogo institucional de aulas con su identificación, ubicación, capacidad física y estado de habilitación, para disponer de espacios válidos al organizar los horarios de las secciones.
+h3. Criterios de aceptación
+# Dado el catálogo de aulas, cuando se registra una nueva, el sistema exige una capacidad numérica válida (mayor a cero y entera) y rechaza códigos o nombres de aulas ya existentes.
+# Dado aulas registradas, cuando un usuario autorizado consulta el catálogo, entonces el sistema muestra código, nombre, ubicación, capacidad y estado. Datos descriptivos:
+# Dado un aula registrada, cuando se modifica su nombre o ubicación, entonces el sistema actualiza los datos sin alterar referencias históricas.
+# Dado un aula utilizada en un horario o clase, cuando se intenta modificar su código, entonces el sistema rechaza la operación.
+# Dado un aula que ya tiene clases asignadas en el horario, cuando se intenta inhabilitarla, eliminarla o reducir su capacidad por debajo del número de alumnos de la sección asignada, entonces el sistema bloquea la acción y alerta sobre los horarios afectados. Comparación de capacidad:
+# Dado un aula y una sección con capacidades conocidas, cuando se evalúa su compatibilidad, entonces el sistema indica suficiencia cuando el aula es igual o mayor que la capacidad máxima de la sección.
+h3. Trazabilidad
+* Backlog: US-07 / PLA-01
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","3","horarios","us-07","implementado","validacion-po"
+"14","5","Historia","US-08 · Registrar y mantener el catálogo institucional de competencias curriculares","h3. Historia de usuario
+Como administrador autorizado, quiero registrar y mantener el catálogo institucional de competencias curriculares, para disponer de definiciones válidas que puedan asociarse con los cursos y utilizarse consistentemente en evaluaciones, evidencias e informes de progreso.
+h3. Criterios de aceptación
+# Dado el catálogo de aulas, cuando se registra una nueva, el sistema exige una capacidad numérica válida (mayor a cero y entera) y rechaza códigos o nombres de aulas ya existentes.
+# Dado aulas registradas, cuando un usuario autorizado consulta el catálogo, entonces el sistema muestra código, nombre, ubicación, capacidad y estado. Datos descriptivos:
+# Dado un aula registrada, cuando se modifica su nombre o ubicación, entonces el sistema actualiza los datos sin alterar referencias históricas.
+# Dado un aula utilizada en un horario o clase, cuando se intenta modificar su código, entonces el sistema rechaza la operación.
+# Dado un aula que ya tiene clases asignadas en el horario, cuando se intenta inhabilitarla, eliminarla o reducir su capacidad por debajo del número de alumnos de la sección asignada, entonces el sistema bloquea la acción y alerta sobre los horarios afectados. Comparación de capacidad:
+# Dado un aula y una sección con capacidades conocidas, cuando se evalúa su compatibilidad, entonces el sistema indica suficiencia cuando el aula es igual o mayor que la capacidad máxima de la sección.
+h3. Trazabilidad
+* Backlog: US-08 / PLA-01
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","3","curricular","us-08","implementado","validacion-po"
+"15","3","Historia","US-09 · Registrar y mantener una ficha institucional única por estudiante, separada de su acceso, vínculos familiares y matrículas","h3. Historia de usuario
+Como administrador autorizado, quiero registrar y mantener una ficha institucional única por estudiante, separada de su acceso, vínculos familiares y matrículas, para que los procesos académicos y administrativos utilicen información confiable sin duplicar personas.
+h3. Criterios de aceptación
+# .
+# Dado un administrador autorizado y datos válidos sin ficha coincidente, cuando confirma el registro, entonces el sistema crea una ficha Habilitada con identificador y código únicos.
+# Dado datos obligatorios completos y ausencia de documento, cuando se confirma la creación, entonces el sistema registra la ficha con el documento pendiente según la política institucional.
+# Dado solo el tipo o solo el número de documento, cuando se intenta guardar, entonces el sistema rechaza la operación.
+# Dado una ficha con el mismo tipo y número, cuando se intenta crear otra, entonces el sistema rechaza la operación y muestra la coincidencia al usuario autorizado.
+# Dado una fecha de nacimiento posterior a la actual, cuando se intenta guardar, entonces el sistema rechaza la operación.
+# Dado una ficha con los mismos nombres, apellidos y nacimiento, cuando se intenta registrar otra, entonces el sistema muestra una advertencia y solicita revisar coincidencias.
+# Dado una advertencia sin coincidencia de documento, cuando el administrador confirma que se trata de otra persona, entonces el sistema registra la ficha y audita la confirmación.
+# Dado fichas registradas, cuando un administrador autorizado consulta una, entonces el sistema muestra código, datos permitidos, documento, estado y fechas administrativas.
+# Dado un conjunto de fichas, cuando se busca por código, documento o nombre, entonces el sistema muestra coincidencias dentro del alcance autorizado.
+# Dado una ficha existente, cuando se actualizan datos permitidos, entonces el sistema conserva la identidad institucional y muestra la información actualizada.
+# Dado una ficha creada, cuando se intenta modificar el código institucional, entonces el sistema rechaza la operación.
+# Dado una modificación de documento, nombres, nacimiento o estado, cuando se intenta confirmar sin motivo, entonces el sistema rechaza la operación.
+# Dado una corrección de identidad y un motivo, cuando se confirma el cambio, entonces el sistema actualiza y audita actor, motivo y valores protegidos.
+# Dado una ficha sin matrícula vigente ni operaciones incompatibles, cuando se registra un motivo y se inactiva, entonces el sistema cambia el estado y conserva la historia.
+# Dado una ficha con matrícula vigente, cuando se intenta inactivar, entonces el sistema rechaza la operación.
+# Dado una ficha Inactiva, cuando se intenta utilizar en una nueva matrícula u operación, entonces el sistema rechaza la operación y mantiene consultas históricas.
+# Dado una ficha Inactiva, cuando se registra un motivo y se reactiva, entonces el sistema cambia a Habilitada y audita la operación.
+# Dado una ficha creada por error sin relaciones, cuando se confirma la eliminación, entonces el sistema elimina el registro y audita la acción.
+# Dado una ficha con accesos, vínculos, matrículas u otra información, cuando se intenta eliminar, entonces el sistema rechaza la operación.
+# Dado una ficha recién creada, cuando se consulta su seguridad, entonces el sistema no ha creado credenciales automáticamente.
+# Dado una ficha recién creada, cuando se consulta su trayectoria, entonces el sistema no ha creado una matrícula automática.
+# Dado un docente, estudiante o apoderado autenticado, cuando consulta una ficha, entonces el sistema muestra únicamente los datos y estudiantes permitidos por su rol y relación.
+# Dado una operación sobre una ficha, cuando se revisan logs y mensajes de error, entonces no aparecen documentos completos ni datos personales innecesarios.
+# Dado una creación, modificación, inactivación, reactivación o eliminación, cuando se confirma correctamente, entonces el sistema registra actor, fecha, acción, motivo y valores protegidos.
+h3. Trazabilidad
+* Backlog: US-09 / MAT-01
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","matricula-finanzas","us-09","implementado","validacion-po"
+"16","3","Historia","US-10 · Registrar perfiles de apoderado y asociarlos individualmente con uno o más estudiantes","h3. Historia de usuario
+Como administrador autorizado, quiero registrar perfiles de apoderado y asociarlos individualmente con uno o más estudiantes, para que cada responsable autorizado pueda acompañar sus procesos académicos y administrativos sin acceder a estudiantes no vinculados.
+h3. Criterios de aceptación
+# Dado un administrador autorizado y datos sin perfil coincidente, cuando confirma el registro, entonces el sistema crea un perfil Habilitado con identificador y código únicos.
+# Dado solo el tipo o solo el número de documento, cuando se intenta guardar, entonces el sistema rechaza la operación.
+# Dado un perfil con el mismo tipo y número, cuando se intenta registrar otro, entonces el sistema rechaza la operación.
+# Dado un perfil recién creado, cuando se consulta su información de seguridad, entonces el sistema no ha creado credenciales automáticamente.
+# Dado un apoderado y un estudiante habilitados sin asociación activa, cuando se confirma la relación, entonces el sistema registra una asociación Activa con fecha y actor.
+# Dado un apoderado habilitado y varios estudiantes, cuando se registra cada asociación, entonces el perfil queda autorizado para consultar a todos los asociados.
+# Dado un estudiante con un apoderado asociado, cuando se asocia otro apoderado, entonces el sistema permite la relación sin compartir credenciales.
+# Dado una asociación Activa, cuando se intenta registrar nuevamente, entonces el sistema rechaza la operación.
+# Dado un apoderado y estudiante habilitados, cuando se crea la asociación, entonces el sistema no exige padre, madre u otro parentesco.
+# Dado una ficha de estudiante Inactiva, cuando se intenta crear una asociación, entonces el sistema rechaza la operación.
+# Dado un perfil de apoderado Inactivo, cuando se intenta asociar, entonces el sistema rechaza la operación.
+# Dado un apoderado autenticado con asociación Activa, cuando consulta información permitida, entonces el sistema permite la operación conforme a su rol.
+# Dado un apoderado sin asociación Activa, cuando intenta consultar un estudiante, entonces el sistema rechaza el acceso sin revelar datos.
+# Dado una asociación Activa, cuando se registra un motivo y se finaliza, entonces el sistema cambia a Finalizada e impide nuevas consultas.
+# Dado una asociación Finalizada con operaciones previas, cuando un administrador consulta el historial, entonces el sistema muestra fechas, actor y estado sin restablecer acceso.
+# Dado una asociación Finalizada y perfiles habilitados, cuando se registra un motivo y se reactiva, entonces el sistema cambia a Activa y audita el evento.
+# Dado un apoderado con asociaciones activas, cuando se intenta inactivar su perfil, entonces el sistema rechaza la operación e identifica las asociaciones.
+# Dado un apoderado sin asociaciones activas, cuando se registra un motivo y se inactiva, entonces el sistema cambia el perfil a Inactivo.
+# Dado un apoderado autenticado sin asociaciones activas, cuando ingresa a su experiencia, entonces el sistema muestra un estado vacío sin datos de estudiantes.
+# Dado una persona que es docente y apoderado, cuando utiliza su acceso de apoderado, entonces el sistema muestra solo funciones familiares y audita el rol utilizado.
+# Dado un perfil creado por error sin accesos ni asociaciones, cuando se confirma la eliminación, entonces el sistema elimina el registro y audita la acción.
+# Dado un apoderado con accesos, asociaciones u operaciones, cuando se intenta eliminar, entonces el sistema rechaza la operación.
+# Dado una operación sobre un perfil o asociación, cuando se revisan logs y mensajes de error, entonces no aparecen documentos, teléfonos o correos completos innecesarios.
+# Dado una creación, modificación, inactivación, reactivación o mantenimiento de asociación, cuando se confirma correctamente, entonces el sistema registra actor, fecha, acción, motivo y valores protegidos.
+h3. Trazabilidad
+* Backlog: US-10 / MAT-02
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-02, US-03, US-04, US-09
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","matricula-finanzas","us-10","implementado","validacion-po"
+"17","3","Historia","US-11 · Procesar y finalizar solicitudes de matrícula asignando grado y sección con control de vacantes","h3. Historia de usuario
+Como administrador autorizado, quiero procesar y finalizar solicitudes de matrícula asignando grado y sección con control de vacantes, para mantener una matrícula válida por estudiante y año académico.
+h3. Criterios de aceptación
+# Dado que existen solicitudes enviadas, cuando el administrador consulta el módulo, entonces el sistema muestra estudiante, año, grado solicitado, estado y fecha.
+# Dado una solicitud en revisión y una sección habilitada del grado solicitado, cuando el administrador selecciona la sección, entonces el sistema muestra capacidad, ocupación y vacantes actuales.
+# Dado una solicitud válida y una sección con vacante, cuando el administrador confirma la matrícula, entonces el sistema crea la matrícula vigente y reduce en una la vacante calculada.
+# Dado una solicitud todavía no finalizada, cuando se consulta la ocupación de la sección, entonces el sistema no cuenta la solicitud como vacante ocupada.
+# Dado una sección cuya ocupación alcanzó su capacidad, cuando se intenta finalizar otra matrícula, entonces el sistema rechaza la operación sin crear matrícula.
+# Dado dos administradores intentan ocupar simultáneamente la última vacante, cuando ambos confirman, entonces el sistema finaliza como máximo una matrícula y rechaza la otra.
+# Dado el estudiante ya tiene matrícula vigente en el año, cuando se intenta finalizar otra, entonces el sistema rechaza la duplicidad.
+# Dado el estudiante, grado o sección está inhabilitado, cuando se intenta finalizar, entonces el sistema rechaza la operación e identifica la condición inválida.
+# Dado una solicitud válida sin pago registrado, cuando el administrador finaliza la matrícula, entonces el sistema permite la operación.
+# Dado una solicitud en revisión, cuando el administrador registra un motivo y la rechaza, entonces el sistema cambia el estado a Rechazada y conserva el motivo.
+# Dado una solicitud en revisión, cuando se intenta rechazarla sin motivo, entonces el sistema rechaza el cambio de estado.
+# Dado una matrícula vigente, cuando se intenta eliminar físicamente, entonces el sistema rechaza la eliminación y ofrece únicamente el flujo controlado de anulación.
+# Dado que existen secciones configuradas, cuando el administrador consulta un grado, entonces el sistema muestra capacidad, ocupación y vacantes calculadas por sección.
+# Dado una matrícula finalizada, rechazada o anulada, cuando se completa la operación, entonces el sistema registra actor, fecha, estado, sección y motivo cuando corresponda.
+h3. Trazabilidad
+* Backlog: US-11 / MAT-03
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-05, US-06, US-09, US-10, US-40
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","8","matricula-finanzas","us-11","implementado","validacion-po"
+"18","3","Historia","US-12 · Emitir, consultar y anular compromisos de pago en soles asociados a una matrícula","h3. Historia de usuario
+Como administrador autorizado, quiero emitir, consultar y anular compromisos de pago en soles asociados a una matrícula, para conocer y controlar las obligaciones económicas de cada estudiante.
+h3. Criterios de aceptación
+# Dado una matrícula vigente y datos válidos, cuando el administrador confirma la emisión, entonces el sistema crea un compromiso Activo en soles asociado al estudiante y año.
+# Dado un compromiso sin concepto, monto, cuota o vencimiento, cuando se intenta emitir, entonces el sistema rechaza la operación e identifica los campos faltantes.
+# Dado un monto igual a cero o negativo, cuando se intenta emitir, entonces el sistema rechaza la operación.
+# Dado un estudiante sin matrícula vigente para el año, cuando se intenta emitir un compromiso, entonces el sistema rechaza la operación.
+# Dado existe un compromiso Activo con igual estudiante, año, concepto y cuota, cuando se intenta emitir otro, entonces el sistema advierte la coincidencia y bloquea la duplicidad.
+# Dado que existen compromisos, cuando el administrador consulta un estudiante, entonces el sistema muestra concepto, cuota, monto, vencimiento, estado administrativo y estado financiero calculado.
+# Dado un compromiso Activo sin transacciones aprobadas, cuando el administrador modifica monto o vencimiento con motivo, entonces el sistema guarda el cambio y lo audita.
+# Dado un compromiso con al menos una transacción aprobada, cuando se intenta modificar monto, concepto o vencimiento, entonces el sistema rechaza la modificación.
+# Dado un compromiso que puede anularse, cuando el administrador registra un motivo y confirma, entonces el sistema cambia el estado a Anulado y conserva el registro.
+# Dado un compromiso Activo, cuando se intenta anular sin motivo, entonces el sistema rechaza la operación.
+# Dado un compromiso emitido, cuando se intenta eliminarlo desde funciones ordinarias, entonces el sistema rechaza la eliminación.
+# Dado un compromiso Activo, cuando cambian la fecha o sus transacciones, entonces US-44 recalcula su situación sin permitir editarla manualmente.
+# Dado una emisión, modificación o anulación confirmada, cuando finaliza la operación, entonces el sistema registra actor, fecha, motivo y valores anterior y nuevo.
+h3. Trazabilidad
+* Backlog: US-12 / MAT-04
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-04, US-05, US-09, US-11
+* Estado: Opcional para el Sprint 2 (26 oct - 6 nov) si hay capacidad.","Alta","5","matricula-finanzas","us-12","release-1.1-opcional",""
+"19","3","Historia","US-13 · Pagar un compromiso mediante tarjeta o QR en una pasarela simulada","h3. Historia de usuario
+Como apoderado, quiero pagar un compromiso mediante tarjeta o QR en una pasarela simulada, para que la transacción se registre automáticamente y obtener un comprobante interno sin adjuntar evidencias manuales.
+h3. Criterios de aceptación
+# Dado un apoderado autenticado, cuando consulta opciones de pago, entonces el sistema muestra únicamente compromisos con saldo de estudiantes asociados.
+# Dado un compromiso con saldo y un monto válido, cuando el apoderado elige tarjeta, entonces el sistema crea una transacción Pendiente con identificador único y abre el flujo simulado.
+# Dado un compromiso con saldo y un monto válido, cuando el apoderado elige QR, entonces el sistema crea una transacción Pendiente y muestra un QR simulado con vigencia definida.
+# Dado una transacción Pendiente, cuando la pasarela de pruebas devuelve aprobación, entonces el sistema la marca Aprobada, aplica el monto una sola vez y emite un comprobante interno.
+# Dado una transacción Pendiente, cuando la pasarela de pruebas devuelve rechazo, entonces el sistema la marca Rechazada y no modifica el saldo.
+# Dado una transacción QR Pendiente cuya vigencia terminó, cuando el sistema evalúa su estado, entonces la marca Expirada y no modifica el saldo.
+# Dado una confirmación de aprobación ya procesada, cuando la pasarela repite la notificación, entonces el sistema conserva un solo pago y un solo efecto sobre el saldo.
+# Dado un monto igual a cero, negativo o mayor que el saldo permitido, cuando se intenta iniciar el pago, entonces el sistema rechaza la operación.
+# Dado un compromiso Anulado o sin saldo, cuando se intenta iniciar una transacción, entonces el sistema rechaza la operación.
+# Dado un apoderado sin asociación con el estudiante, cuando intenta pagar o consultar el compromiso, entonces el sistema rechaza el acceso sin revelar información.
+# Dado una transacción por tarjeta o QR, cuando se revisan base de datos, logs, auditoría y comprobante, entonces no aparecen número completo de tarjeta, CVV ni secretos.
+# Dado una transacción iniciada y una falla de comunicación, cuando el sistema no recibe resultado definitivo, entonces mantiene un estado seguro sin aplicar el pago y permite consultar o reintentar según la transacción.
+# Dado que cambia el estado de una transacción, cuando se procesa la respuesta, entonces el sistema registra compromiso, monto, medio, estado, fecha y correlación sin datos sensibles.
+h3. Trazabilidad
+* Backlog: US-13 / MAT-05
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-01, US-03, US-04, US-10, US-12
+* Estado: Pendiente para releases posteriores.","Alta","13","matricula-finanzas","us-13","",""
+"20","4","Historia","US-14 · Registrar y finalizar la asistencia de estudiantes por clase o sesión","h3. Historia de usuario
+Como docente, quiero registrar y finalizar la asistencia de estudiantes por clase o sesión, para controlar sus asistencias, inasistencias y tardanzas.
+h3. Criterios de aceptación
+# Dado un docente autenticado, cuando consulta las sesiones del día, entonces el sistema muestra solo los bloques que tiene asignados.
+# Dado una sesión en curso, cuando el docente registra la asistencia, entonces solo puede asignar estados válidos (Presente, Tardanza, Inasistencia), teniendo a disposición una acción para marcar ""Todos Presentes"" y editar excepciones individualmente.
+# Dado una asistencia incompleta, cuando el docente guarda, entonces el sistema conserva el Borrador sin publicarlo como registro definitivo.
+# Dado existe al menos un estudiante sin estado, cuando se intenta finalizar, entonces el sistema rechaza la operación e identifica los pendientes.
+# Dado una sesión sin registro o un estudiante sin estado, cuando termina el bloque, entonces el sistema no crea una Inasistencia automáticamente. Docente no asignado:
+# Dado un docente sin asignación al bloque, cuando intenta abrir o editar la sesión, entonces el sistema rechaza la operación.
+# Dado una asistencia se finaliza, cuando se confirma la operación, entonces el sistema registra docente, sesión, fecha y resumen de estados.
+h3. Trazabilidad
+* Backlog: US-14 / ASI-1
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-05, US-06, US-09, US-11, US-23, US-36, US-58
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","8","asistencia","us-14","release-1.1",""
+"21","20","Subtarea","[Backend] Endpoint para finalizar la sesión de asistencia","Subtarea de US-14 para el Sprint 2 (26 oct - 6 nov).","Alta","","backend","release-1.1","",""
+"22","20","Subtarea","[Backend] Restringir el registro a cursos y secciones asignados al docente","Subtarea de US-14 para el Sprint 2 (26 oct - 6 nov).","Alta","","backend","release-1.1","",""
+"23","20","Subtarea","[Frontend] Pantalla del docente: elegir sesión, marcar y finalizar","Subtarea de US-14 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"24","20","Subtarea","[Pruebas] Pruebas de backend y de la pantalla","Subtarea de US-14 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""
+"25","4","Historia","US-15 · Marcar mi propia asistencia general mediante un QR institucional dinámico","h3. Historia de usuario
+Como docente, quiero marcar mi propia asistencia general mediante un QR institucional dinámico, para que el sistema registre mi hora y determine automáticamente si llegué presente o tarde.
+h3. Criterios de aceptación
+# Dado una jornada habilitada, cuando la institución abre el punto de marcación, entonces el sistema muestra un QR de vigencia limitada.
+# Dado un docente autenticado y un QR vigente, cuando el docente lo escanea dentro del sistema, entonces el sistema registra docente, fecha, jornada y hora del servidor.
+# Dado un escaneo exitoso, cuando el sistema procesa la marcación, entonces ignora la hora del dispositivo y utiliza exclusivamente la hora del servidor para asignar automáticamente ""Presente"" o ""Tardanza"" según las tolerancias configuradas de la jornada.
+# Dado que ya existe una marcación para el docente, fecha y jornada, cuando se vuelve a escanear un QR, entonces el sistema rechaza el duplicado y muestra el registro existente.
+# Dado un QR cuya vigencia terminó, cuando el docente intenta usarlo, entonces el sistema rechaza la marcación.x
+# Dado una persona no autenticada o un perfil docente inhabilitado, cuando intenta marcar, entonces el sistema rechaza la operación.
+# Dado un docente no realizó una marcación válida, cuando termina la ventana, entonces el sistema conserva el estado Sin marcación hasta que se defina o justifique administrativamente.
+h3. Trazabilidad
+* Backlog: US-15 / ASI-2
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-01, US-02, US-03, US-04, US-05, US-37
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","8","asistencia","us-15","release-1.1",""
+"26","25","Subtarea","[Frontend] Pantalla del administrador: QR vigente, renovar y cancelar","Subtarea de US-15 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"27","25","Subtarea","[Frontend] Marcado del docente con el código QR","Subtarea de US-15 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"28","25","Subtarea","[Pruebas] Pruebas de QR vencido, cancelado y marcado tardío","Subtarea de US-15 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""
+"29","4","Historia","US-16 · Consultar informes e indicadores institucionales de inasistencias y tardanzas de estudiantes y docentes","h3. Historia de usuario
+Como administrador autorizado, quiero consultar informes e indicadores institucionales de inasistencias y tardanzas de estudiantes y docentes, para identificar patrones y orientar el seguimiento.
+h3. Criterios de aceptación
+# Dado un administrador en el módulo de reportes, cuando aplica filtros de período, sección o persona(estudiante o docente), entonces el sistema calcula dinámicamente las cantidades y porcentajes de estados (Presente, Tardanza, Inasistencia/Sin marcación), mostrando resultados vacíos si no hay coincidencia.
+# Dado un indicador agregado, cuando el administrador abre su detalle, entonces el sistema muestra los registros que explican el valor.
+# Dado el filtro no tiene registros, cuando se genera el informe, entonces el sistema muestra un resultado vacío sin inventar ceros históricos.
+# Dado una asistencia es corregida por US-32, cuando se vuelve a consultar, entonces el informe refleja la versión vigente y conserva la auditoría aparte. Acceso restringido:
+# Dado un usuario sin permiso institucional, cuando intenta consultar el informe completo, entonces el sistema rechaza el acceso.
+h3. Trazabilidad
+* Backlog: US-16 / ASI-3
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-14, US-15
+* Estado: Pendiente para releases posteriores.","Alta","8","asistencia","us-16","",""
+"30","5","Historia","US-17 · Registrar y clasificar evidencias pedagógicas por estudiante, curso y competencia","h3. Historia de usuario
+Como docente, quiero registrar y clasificar evidencias pedagógicas por estudiante, curso y competencia, para sustentar las evaluaciones de aprendizaje.
+h3. Criterios de aceptación
+# Registro y validación de evidencia:
+# Dado un contexto académico válido, cuando el docente adjunta o describe una evidencia, entonces el sistema valida que estén definidos estudiante, curso, competencia y período, y si son válidos registra la evidencia con sus metadatos y autor; de lo contrario rechaza la operación. Archivo inválido:
+# Dado un archivo que excede el tamaño o tipo permitido, cuando se intenta cargar, entonces el sistema rechaza el archivo de forma segura. Acceso y consulta:
+# Dado un docente asignado al contexto académico, cuando consulta las evidencias de un estudiante filtrando por competencia y período, entonces el sistema muestra los metadatos y contenido permitido; si el docente no está asignado al contexto, rechaza el acceso Protección de evidencia utilizada:
+# Dado una evidencia asociada a una evaluación, cuando se intenta eliminar, entonces el sistema impide la eliminación y conserva la relación. Auditoría:
+# Dado que se crea, actualiza o inactiva una evidencia, cuando finaliza la operación, entonces el sistema registra actor, fecha y referencia sin copiar contenido sensible al log.
+h3. Trazabilidad
+* Backlog: US-17 / GEA-2
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-08, US-09, US-11, US-36, US-57, US-58
+* Estado: Pendiente para releases posteriores.","Alta","5","curricular","us-17","",""
+"31","5","Historia","US-18 · Registrar evaluaciones cualitativas AD, A, B o C por competencia","h3. Historia de usuario
+Como docente, quiero registrar evaluaciones cualitativas AD, A, B o C por competencia, para documentar el nivel de logro de cada estudiante.
+h3. Criterios de aceptación
+# Dado un contexto académico válido, cuando el docente registra una evaluación, entonces el sistema valida que el valor sea AD, A, B o C, que la competencia esté asociada al curso y que el estudiante esté matriculado en la sección y período; si todo es válido, guarda la evaluación en Borrador, de lo contrario rechaza la operación. Evidencia requerida:
+# Dado la política exige sustento y no existe evidencia válida, cuando se intenta publicar, entonces el sistema bloquea la publicación e indica el faltante. Publicación:
+# Dado una evaluación completa en Borrador, cuando el docente confirma, entonces el sistema la publica y la hace disponible para consolidación. Protección publicada:
+# Dado una evaluación Publicada, cuando se intenta editar directamente, entonces el sistema rechaza el cambio y deriva a US-50. Auditoría:
+# Dado una evaluación se publica, cuando finaliza la operación, entonces el sistema registra actor, nivel, competencia, estudiante y fecha.
+h3. Trazabilidad
+* Backlog: US-18 / GEA-3
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-04, US-08, US-09, US-11, US-17, US-36, US-57, US-58
+* Estado: Pendiente para releases posteriores.","Alta","8","curricular","us-18","",""
+"32","5","Historia","US-19 · Configurar y versionar las reglas institucionales de consolidación del logro por competencia","h3. Historia de usuario
+Como administrador autorizado, quiero configurar y versionar las reglas institucionales de consolidación del logro por competencia, para que el sistema calcule resultados consistentes y reproducibles.
+h3. Criterios de aceptación
+# Dado que el administrador está diseñando una regla, cuando la guarda, el sistema la conserva en estado ""Borrador"". Si la regla está incompleta o permite dar como resultado algo distinto a la escala oficial (AD, A, B, C), el sistema prohíbe su publicación. Publicación:
+# Dado una regla válida en Borrador, cuando el administrador confirma su vigencia, entonces el sistema la publica con versión y fecha de aplicación. Aplicación automática:
+# Dado evaluaciones publicadas y una regla vigente, cuando se solicita el consolidado, entonces el sistema calcula AD, A, B o C conforme a esa versión. Datos insuficientes:
+# Dado que faltan evaluaciones requeridas por la regla, cuando se calcula el consolidado, entonces el sistema informa resultado pendiente y explica los faltantes. Reproducibilidad:
+# Dado un consolidado histórico, cuando se consulta su detalle, entonces el sistema muestra entradas y versión de regla que produjeron el resultado. Nueva versión:
+# Dado una regla publicada requiere cambio, cuando el administrador registra una versión nueva, entonces los resultados futuros usan la nueva versión sin alterar los históricos. Auditoría:
+# Dado una regla se publica o deja de estar vigente, cuando finaliza la operación, entonces el sistema registra actor, versión, fecha y motivo.
+h3. Trazabilidad
+* Backlog: US-19 / GEA-4
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-04, US-08, US-18, US-57
+* Estado: Pendiente para releases posteriores.","Alta","8","curricular","us-19","",""
+"33","5","Historia","US-20 · Generar y publicar la libreta o informe de progreso por competencias de cada estudiante","h3. Historia de usuario
+Como docente, quiero generar y publicar la libreta o informe de progreso por competencias de cada estudiante, para comunicar resultados sustentados a estudiantes y apoderados.
+h3. Criterios de aceptación
+# Generación:
+# Dado un estudiante con datos académicos del período, cuando el docente genera el informe, entonces el sistema presenta competencias, resultados y observaciones disponibles. . Trazabilidad de evidencia:
+# Dado una competencia con evidencias permitidas, cuando el docente abre el sustento, entonces el sistema muestra las referencias autorizadas. Publicación:
+# Dado un informe completo en Borrador, cuando el docente confirma, entonces el sistema crea una versión Publicada visible según US-31 y US-46. Aislamiento:
+# Dado un usuario consulta un informe, cuando el sistema valida su identidad y relación, entonces solo muestra el estudiante autorizado. Actualización controlada:
+# Dado una evaluación publicada es corregida, cuando se regenera el informe, entonces el sistema crea una versión coherente sin borrar la publicada anterior.
+h3. Trazabilidad
+* Backlog: US-20 / GEA-5
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-17, US-18, US-19
+* Estado: Pendiente para releases posteriores.","Alta","5","curricular","us-20","",""
+"34","5","Historia","US-21 · Que el sistema detecte y muestre estudiantes en riesgo con sus motivos e indicadores","h3. Historia de usuario
+Como administrador autorizado, quiero que el sistema detecte y muestre estudiantes en riesgo con sus motivos e indicadores, para priorizar el seguimiento académico institucional.
+h3. Criterios de aceptación
+# Detección:
+# Dado un estudiante cumple una regla de riesgo, cuando se recalculan los indicadores, entonces el sistema crea o actualiza una alerta con motivo y período. Sin riesgo:
+# Dado un estudiante no cumple ninguna regla, cuando se ejecuta el cálculo, entonces el sistema no lo marca como en riesgo. Motivo visible:
+# Dado una alerta activa, cuando se consulta su detalle, entonces el sistema muestra los datos y umbrales que la originaron. Resumen institucional:
+# Dado que existen alertas, cuando el administrador consulta indicadores, entonces el sistema agrupa cantidades por grado, sección, causa y nivel. Alcance docente:
+# Dado un docente consulta riesgo, cuando el sistema valida sus asignaciones, entonces solo muestra estudiantes de sus contextos. Actualización:
+# Dado que se corrige una nota o asistencia, cuando se recalcula, entonces la alerta se actualiza o cierra sin borrar su historial. Datos insuficientes:
+# Dado que no existen datos mínimos, cuando se evalúa una regla, entonces el sistema informa que no puede determinar el riesgo y no inventa una clasificación.
+h3. Trazabilidad
+* Backlog: US-21 / GEA-6
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-14, US-18, US-19, US-20
+* Estado: Pendiente para releases posteriores.","Alta","8","curricular","us-21","",""
+"35","5","Historia","US-22 · Crear, publicar y hacer seguimiento de tareas académicas para mis cursos y secciones","h3. Historia de usuario
+Como docente, quiero crear, publicar y hacer seguimiento de tareas académicas para mis cursos y secciones, para organizar las actividades y conocer el estado de entrega de los estudiantes.
+h3. Criterios de aceptación
+# Creación:
+# Dado un contexto docente válido, cuando se registran los datos obligatorios, entonces el sistema guarda la tarea en Borrador. Fechas inválidas:
+# Dado un vencimiento anterior a la publicación, cuando se intenta guardar o publicar, entonces el sistema rechaza la operación. Publicación:
+# Dado una tarea completa en Borrador, cuando el docente confirma, entonces el sistema la hace visible a los estudiantes de la sección. Ámbito docente:
+# Dado un docente no asignado, cuando intenta crear o modificar la tarea, entonces el sistema rechaza el acceso. Seguimiento:
+# Dado una tarea publicada, cuando el docente consulta entregas, entonces el sistema muestra por estudiante el estado y la fecha de presentación. Cambio con entregas:
+# Dado una tarea ya tiene entregas, cuando se intenta cambiar el vencimiento o eliminarla, entonces el sistema exige un motivo y conserva la trazabilidad. Cierre:
+# Dado que terminó la actividad, cuando el docente cierra la tarea, entonces el sistema impide nuevas entregas ordinarias y conserva las existentes.
+h3. Trazabilidad
+* Backlog: US-22 / GEA-7
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-08, US-11, US-36, US-57, US-58
+* Estado: Pendiente para releases posteriores.","Alta","8","curricular","us-22","",""
+"36","6","Historia","US-23 · Asignar manualmente bloques de horario y validar en tiempo real cruces y capacidad del aula","h3. Historia de usuario
+Como administrador autorizado, quiero asignar manualmente bloques de horario y validar en tiempo real cruces y capacidad del aula, para organizar clases válidas sin utilizar generación automática.
+h3. Criterios de aceptación
+# Dado un bloque sin conflictos y un aula suficiente, cuando el administrador confirma, entonces el sistema guarda curso, sección, docente, aula, día y horas.
+# Dado el docente ya tiene un bloque que se superpone, cuando se intenta confirmar, entonces el sistema bloquea la operación e identifica el conflicto.
+# Dado el aula ya está ocupada en el intervalo, cuando se intenta confirmar, entonces el sistema bloquea la operación.
+# Dado un bloque en proceso de guardado, cuando la capacidad máxima de la sección supera la capacidad física registrada del aula seleccionada, el sistema rechaza la asignación e informa de la incompatibilidad de aforo.
+# Dado un docente, aula, curso, sección o período está inhabilitado, cuando se intenta asignar, entonces el sistema rechaza la operación.
+# Dado el administrador modifica día, hora, aula, sección o docente, cuando cambia el dato, entonces el sistema recalcula y muestra conflictos antes de guardar.
+# Dado que dos administradores editan el horario al mismo tiempo, cuando ambos intentan asignar el mismo recurso simultáneamente, el servidor valida el conflicto en el último segundo y rechaza la asignación del segundo usuario.
+h3. Trazabilidad
+* Backlog: US-23 / PLA-02
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-05, US-06, US-07, US-11, US-36, US-58
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","13","horarios","us-23","release-1.1",""
+"37","36","Subtarea","[Frontend] Matriz semanal por sección (solo lectura)","Subtarea de US-23 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"38","36","Subtarea","[Frontend] Ventana Nuevo bloque: crear, editar y eliminar","Subtarea de US-23 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"39","36","Subtarea","[Frontend] Mostrar los conflictos de docente, aula y aforo que devuelve el servidor","Subtarea de US-23 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"40","36","Subtarea","[Pruebas] Pruebas de la matriz y de la ventana de bloque","Subtarea de US-23 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""
+"41","36","Subtarea","[Backend] Regresión de las validaciones de /api/horarios con datos reales","Subtarea de US-23 para el Sprint 2 (26 oct - 6 nov).","Alta","","backend","release-1.1","",""
+"42","6","Historia","US-24 · Visualizar una matriz gráfica de horarios por sección, aula, docente y curso","h3. Historia de usuario
+Como administrador autorizado, quiero visualizar una matriz gráfica de horarios por sección, aula, docente y curso, para consultar la organización de las clases desde distintas perspectivas.
+h3. Criterios de aceptación
+# Dado una sección con horario, cuando se selecciona la sección y período, entonces el sistema distribuye sus bloques por día y hora. Vista por docente:
+# Dado un docente asignado, cuando se selecciona el docente, entonces el sistema muestra únicamente sus bloques vigentes. Vista por curso:
+# Dado un curso con asignaciones, cuando se selecciona el curso, entonces el sistema muestra sus bloques y contextos.
+# Dado un horario visible en la matriz, cuando el usuario hace clic sobre un bloque de clase, el sistema despliega el detalle completo: Curso, Sección, Docente responsable, Aula, día y horas de inicio y fin. Actualización:
+# Dado PLA-02 modifica un bloque, cuando se recarga la matriz, entonces el sistema refleja la versión vigente sin duplicados.
+# Dado el filtro no tiene bloques, cuando se abre la vista, entonces el sistema muestra una matriz vacía y un mensaje claro.
+h3. Trazabilidad
+* Backlog: US-24 / PLA-03
+* MoSCoW: Must · Iteración: I3
+* Dependencias: US-03, US-23
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","8","horarios","us-24","release-1.1",""
+"43","42","Subtarea","[Frontend] Selector de perspectiva: sección, docente, aula y curso","Subtarea de US-24 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"44","42","Subtarea","[Frontend] Detalle del bloque al hacer clic y estado vacío","Subtarea de US-24 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"45","42","Subtarea","[Pruebas] Pruebas de las cuatro perspectivas","Subtarea de US-24 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""
+"46","6","Historia","US-27 · Consultar el historial de cambios de cada bloque de horario","h3. Historia de usuario
+Como administrador autorizado, quiero consultar el historial de cambios de cada bloque de horario, para conocer sus valores anteriores, nuevos, motivo, actor y fecha.
+h3. Criterios de aceptación
+# Dado que se intenta modificar o retirar un bloque de horario ya existente, cuando el administrador confirma la acción, entonces el sistema exige el ingreso obligatorio de un motivo o causa antes de procesar y auditar el cambio.
+# Dado un cambio en la matriz de horarios (creación, edición o eliminación de un bloque), cuando la operación finaliza, entonces el sistema guarda la transacción (fecha, actor, valor anterior y nuevo) de forma permanente, impidiendo que cualquier usuario edite o elimine este historial. Registro de creación:
+# Dado que se crea un bloque, cuando la operación finaliza, entonces el sistema registra el valor inicial, actor y fecha. Registro de modificación:
+# Dado que se cambia un bloque, cuando se confirma con motivo, entonces el sistema guarda valores anterior y nuevo. Registro de retiro:
+# Dado que se retira un bloque, cuando se confirma con motivo, entonces el sistema conserva el último valor y la causa.
+# Dado el panel de auditoría, cuando el usuario aplica filtros (por período, sección, docente, aula o fecha), entonces el sistema lista todas las versiones de los bloques afectados ordenadas cronológicamente para facilitar la trazabilidad.
+# Dado que existen cambios de múltiples contextos, cuando se filtra por período, sección, docente, aula o fecha, entonces el sistema muestra coincidencias.
+# Dado un evento histórico, cuando se intenta editar o eliminar, entonces el sistema rechaza la operación.
+h3. Trazabilidad
+* Backlog: US-27 / PLA-04
+* MoSCoW: Must · Iteración: I3
+* Dependencias: US-04, US-23
+* Estado: Pendiente para releases posteriores.","Alta","5","horarios","us-27","",""
+"47","2","Historia","US-28 · Consultar y dar seguimiento al log de errores técnicos","h3. Historia de usuario
+Como administrador autorizado, quiero consultar y dar seguimiento al log de errores técnicos, para diagnosticar fallas sin exponer información sensible.
+h3. Criterios de aceptación
+# Dado que ocurre una excepción no controlada, cuando el sistema la captura, entonces registra fecha, severidad, componente, mensaje seguro y correlación.
+# Dado una dependencia o validación técnica falla, cuando la operación no puede continuar, entonces el sistema registra el contexto y devuelve un mensaje comprensible al usuario.
+# Dado que existen errores, cuando el administrador abre el log, entonces puede filtrar por fecha, severidad, componente, correlación y estado.
+# Dado que se consulta un error, cuando se muestra su detalle, entonces aparece información diagnóstica suficiente sin secretos ni datos personales innecesarios.
+# Dado un error está pendiente, cuando el administrador registra su estado y observación, entonces el sistema conserva la actualización sin borrar el evento original.
+# Dado un usuario sin permiso, cuando intenta consultar el log, entonces el sistema rechaza el acceso.
+h3. Trazabilidad
+* Backlog: US-28 / SEG-05
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-01, US-03
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","seguridad","us-28","implementado","validacion-po"
+"48","2","Historia","US-29 · Consultar la trazabilidad de operaciones críticas","h3. Historia de usuario
+Como administrador autorizado, quiero consultar la trazabilidad de operaciones críticas, para reconstruir qué ocurrió sobre notas, pagos, horarios y otros registros sensibles.
+h3. Criterios de aceptación
+# Dado que existen eventos, cuando se filtra por actor, fecha, módulo, acción o registro, entonces el sistema muestra las coincidencias autorizadas.
+# Dado un evento seleccionado, cuando se abre, entonces el sistema muestra actor, rol, momento, resultado, motivo y valores anterior/nuevo permitidos.
+# Dado varios eventos comparten registro o correlación, cuando se solicita la trazabilidad, entonces el sistema los ordena para reconstruir la operación.
+# Dado que existen cambios de evaluación y transacciones, cuando se consultan, entonces el sistema permite identificar claramente su origen y efecto.
+# Dado un evento de auditoría, cuando se intenta editar o eliminar, entonces el sistema rechaza la operación.
+# Dado un usuario sin permiso, cuando intenta consultar, entonces el sistema rechaza la solicitud sin revelar eventos.
+h3. Trazabilidad
+* Backlog: US-29 / SEG-06
+* MoSCoW: Must · Iteración: I3
+* Dependencias: US-03, US-04
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","seguridad","us-29","implementado","validacion-po"
+"49","6","Historia","US-30 · Consultar mi horario vigente","h3. Historia de usuario
+Como estudiante, quiero consultar mi horario vigente, para organizar mi participación en las clases asignadas.
+h3. Criterios de aceptación
+# Horario propio:
+# Dado un estudiante matriculado, cuando consulta su horario, entonces el sistema muestra los bloques vigentes de su sección.
+# Dado un bloque visible, cuando el estudiante lo abre, entonces el sistema muestra curso, docente, aula, día y hora.
+# Dado un estudiante conoce un identificador ajeno, cuando intenta consultar otro horario privado, entonces el sistema limita la respuesta a su propio contexto
+# Dado el administrador modifica el horario, cuando el estudiante vuelve a consultar, entonces el sistema muestra la versión vigente.
+# Dado que la sección del estudiante aún no tiene clases programadas, cuando el estudiante abre su vista de horario, entonces el sistema le muestra un mensaje claro (""Sin horarios asignados"") sin autocompletar ni mostrar información falsa.
+h3. Trazabilidad
+* Backlog: US-30 / PLA-05
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-23
+* Estado: Pendiente para releases posteriores.","Media","3","horarios","us-30","",""
+"50","5","Historia","US-31 · Consultar el progreso publicado de un estudiante asociado a mi perfil","h3. Historia de usuario
+Como apoderado, quiero consultar el progreso publicado de un estudiante asociado a mi perfil, para acompañar su trayectoria académica.
+h3. Criterios de aceptación
+# Consulta autorizada y seleccion :
+# Dado un apoderado con una o más asociaciones, cuando consulta un período, entonces el sistema permite seleccionar únicamente entre los estudiantes asociados y muestra su progreso por competencias; si no existe asociación, rechaza el acceso Informe borrador:
+# Dado existe un informe no publicado, cuando el apoderado consulta, entonces el sistema no lo muestra. Versión vigente:
+# Dado que existen varias publicaciones, cuando se consulta el período, entonces el sistema identifica la versión vigente y conserva las anteriores según la política.
+h3. Trazabilidad
+* Backlog: US-31 / GEA-8
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-10, US-20
+* Estado: Pendiente para releases posteriores.","Media","3","curricular","us-31","",""
+"51","4","Historia","US-32 · Corregir un registro finalizado de asistencia de estudiante o docente indicando un motivo","h3. Historia de usuario
+Como administrador autorizado, quiero corregir un registro finalizado de asistencia de estudiante o docente indicando un motivo, para resolver errores sin perder la trazabilidad.
+h3. Criterios de aceptación
+# Dado una asistencia finalizada, cuando el administrador cambia el estado con motivo, entonces el sistema guarda una nueva versión y actualiza los reportes.
+# Dado una marcación docente, cuando el administrador corrige hora o estado con motivo, entonces el sistema guarda la nueva versión.
+# Dado una corrección sin motivo, cuando se intenta confirmar, entonces el sistema rechaza la operación.
+# Dado el nuevo valor coincide con el vigente, cuando se intenta confirmar, entonces el sistema evita una corrección sin cambio.
+# Dado un registro corregido, cuando se consulta su trazabilidad, entonces el sistema muestra valor anterior, nuevo, motivo, actor y fecha.
+# Dado un usuario sin permiso de corrección, cuando intenta modificar un registro final, entonces el sistema rechaza el acceso.
+# Dado una corrección se confirma, cuando finaliza la operación, entonces US-04 registra el evento crítico.
+h3. Trazabilidad
+* Backlog: US-32 / ASI-6
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-14, US-15
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","5","asistencia","us-32","release-1.1",""
+"52","51","Subtarea","[Backend] Corrección de un registro finalizado con motivo obligatorio y auditoría","Subtarea de US-32 para el Sprint 2 (26 oct - 6 nov).","Alta","","backend","release-1.1","",""
+"53","51","Subtarea","[Frontend] Ventana de corrección con valor anterior, nuevo y motivo","Subtarea de US-32 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"54","51","Subtarea","[Pruebas] Pruebas de permisos y auditoría de la corrección","Subtarea de US-32 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""
+"55","3","Historia","US-34 · Cargar masivamente fichas de estudiantes","h3. Historia de usuario
+Como administrador autorizado, quiero cargar masivamente fichas de estudiantes, para registrar múltiples perfiles aplicando las mismas validaciones de la operación individual.
+h3. Criterios de aceptación
+# Dado el administrador solicita el formato, cuando descarga la plantilla, entonces el sistema entrega columnas y catálogo de valores esperados.
+# Dado que se carga un archivo, cuando el sistema lo analiza, entonces muestra filas válidas, inválidas y motivos sin registrar datos todavía.
+# Dado una fila coincide con una ficha existente, cuando se valida, entonces el sistema la marca y no crea un duplicado.
+# Dado que existen filas válidas, cuando el administrador confirma, entonces el sistema crea las fichas permitidas conforme a la política de atomicidad.
+# Dado termina el proceso, cuando se consulta el resumen, entonces el sistema muestra procesadas, creadas, rechazadas y razones.
+# Dado que se confirma una carga, cuando finaliza, entonces el sistema registra lote, actor y detalle correlacionado por fila.
+h3. Trazabilidad
+* Backlog: US-34 / MAT-06
+* MoSCoW: Could · Iteración: I1 si hay capacidad
+* Dependencias: US-03, US-04, US-09
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Baja","8","matricula-finanzas","us-34","implementado","validacion-po"
+"56","5","Historia","US-36 · Registrar y mantener el catálogo de cursos o asignaturas por año y grado","h3. Historia de usuario
+Como administrador autorizado, quiero registrar y mantener el catálogo de cursos o asignaturas por año y grado, para disponer de una oferta curricular vigente.
+h3. Criterios de aceptación
+# Dado el catálogo de aulas, cuando se registra una nueva, el sistema exige una capacidad numérica válida (mayor a cero y entera) y rechaza códigos o nombres de aulas ya existentes.
+# Dado aulas registradas, cuando un usuario autorizado consulta el catálogo, entonces el sistema muestra código, nombre, ubicación, capacidad y estado. Datos descriptivos:
+# Dado un aula registrada, cuando se modifica su nombre o ubicación, entonces el sistema actualiza los datos sin alterar referencias históricas.
+# Dado un aula utilizada en un horario o clase, cuando se intenta modificar su código, entonces el sistema rechaza la operación.
+# Dado un aula que ya tiene clases asignadas en el horario, cuando se intenta inhabilitarla, eliminarla o reducir su capacidad por debajo del número de alumnos de la sección asignada, entonces el sistema bloquea la acción y alerta sobre los horarios afectados. Comparación de capacidad:
+# Dado un aula y una sección con capacidades conocidas, cuando se evalúa su compatibilidad, entonces el sistema indica suficiencia cuando el aula es igual o mayor que la capacidad máxima de la sección.
+h3. Trazabilidad
+* Backlog: US-36 / PLA-01
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04, US-05
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","curricular","us-36","implementado","validacion-po"
+"57","1","Historia","US-37 · Registrar y mantener el perfil institucional de cada docente","h3. Historia de usuario
+Como administrador autorizado, quiero registrar y mantener el perfil institucional de cada docente, para disponer de información válida para sus accesos, asignaciones y asistencia.
+h3. Criterios de aceptación
+# Dado datos válidos sin coincidencia, cuando el administrador confirma, entonces el sistema crea el perfil Habilitado con código único.
+# Dado existe el mismo documento o código, cuando se intenta registrar, entonces el sistema rechaza la operación.
+# Dado que existen docentes, cuando se busca por código, documento o nombre, entonces el sistema muestra coincidencias autorizadas.
+# Dado un perfil existente, cuando se modifican datos permitidos, entonces el sistema conserva la identidad y actualiza la información.
+# Dado un docente que puede inactivarse, cuando se registra un motivo, entonces el sistema lo inactiva sin borrar asignaciones históricas.
+# Dado el docente tiene asignaciones futuras o activas, cuando se intenta inactivar, entonces el sistema bloquea o exige resolver las asignaciones según la política.
+# Dado que se crea el perfil, cuando se consulta su seguridad, entonces el sistema no crea credenciales automáticamente.
+# Dado que se crea, corrige o inactiva el perfil, cuando se confirma, entonces el sistema registra el evento sin exponer datos personales innecesarios.
+h3. Trazabilidad
+* Backlog: US-37 / GOB-03
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","gobierno","us-37","implementado","validacion-po"
+"58","3","Historia","US-40 · Enviar una solicitud de matrícula de un estudiante asociado para un año y grado","h3. Historia de usuario
+Como apoderado, quiero enviar una solicitud de matrícula de un estudiante asociado para un año y grado, para iniciar el proceso que será revisado por la administración.
+h3. Criterios de aceptación
+# Dado un estudiante asociado y convocatoria abierta, cuando el apoderado inicia la solicitud, entonces el sistema guarda un Borrador.
+# Dado una solicitud con datos obligatorios, cuando el apoderado confirma, entonces el sistema la cambia a Enviada y registra la fecha.
+# Dado que faltan datos requeridos, cuando se intenta enviar, entonces el sistema bloquea el envío e identifica los faltantes.
+# Dado existe una solicitud no cancelada para estudiante y año, cuando se intenta crear otra, entonces el sistema rechaza la duplicidad.
+# Dado el apoderado no está asociado al estudiante, cuando intenta solicitar matrícula, entonces el sistema rechaza el acceso.
+# Dado el grado no está habilitado para el año, cuando se intenta enviar, entonces el sistema rechaza la solicitud.
+# Dado una solicitud enviada, cuando el apoderado consulta, entonces el sistema muestra su estado e hitos sin datos internos innecesarios.
+# Dado una solicitud ya fue enviada, cuando se intenta editar datos críticos, entonces el sistema impide la edición ordinaria o exige retirarla según la política.
+h3. Trazabilidad
+* Backlog: US-40 / MAT-07
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-06, US-09, US-10
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","8","matricula-finanzas","us-40","implementado","validacion-po"
+"59","5","Historia","US-41 · Presentar una entrega para una tarea publicada","h3. Historia de usuario
+Como estudiante, quiero presentar una entrega para una tarea publicada, para evidenciar mi trabajo y permitir su seguimiento por el docente.
+h3. Criterios de aceptación
+# Entrega válida:
+# Dado una tarea abierta que corresponde a la sección del estudiante, cuando el estudiante envía una entrega, entonces el sistema valida que contenga el contenido mínimo requerido y registra la entrega con su fecha; si el contenido es insuficiente o la tarea no corresponde a su sección, rechaza la operación. Archivo inválido:
+# Dado un archivo fuera del tipo o tamaño permitido, cuando se intenta cargar, entonces el sistema lo rechaza de forma segura. Entrega tardía:
+# Dado que terminó el plazo y la política admite tardanzas, cuando el estudiante envía, entonces el sistema registra Entregada tarde. Plazo cerrado:
+# Dado que terminó el plazo y no se admiten tardanzas, cuando se intenta enviar, entonces el sistema rechaza la entrega. Reenvío:
+# Dado que ya existe una entrega y la tarea permite reemplazo, cuando el estudiante reenvía antes del cierre, entonces el sistema crea una nueva versión y conserva la anterior. Consulta propia:
+# Dado una entrega registrada, cuando el estudiante la consulta, entonces el sistema muestra contenido, fecha y estado.
+h3. Trazabilidad
+* Backlog: US-41 / GEA-10
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-11, US-22
+* Estado: Pendiente para releases posteriores.","Alta","5","curricular","us-41","",""
+"60","2","Historia","US-43 · Cerrar mi sesión","h3. Historia de usuario
+Como usuario autenticado, quiero cerrar mi sesión, para impedir que otras personas continúen usando mi acceso.
+h3. Criterios de aceptación
+# Dado un usuario autenticado, cuando selecciona Cerrar sesión, entonces el sistema invalida la sesión y lo dirige al ingreso.
+# Dado una sesión cerrada, cuando se intenta abrir una función protegida, entonces el sistema exige autenticación y no muestra información.
+# Dado la sesión ya está cerrada, cuando se vuelve a solicitar el cierre, entonces el sistema responde de forma segura sin reactivar nada.
+# Dado el usuario cierra sesión, cuando finaliza el proceso, entonces la interfaz elimina o invalida datos sensibles temporales que no deben permanecer.
+h3. Trazabilidad
+* Backlog: US-43 / SEG-07
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-01
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","2","seguridad","us-43","implementado","validacion-po"
+"61","3","Historia","US-44 · Consultar compromisos, transacciones e indicadores de morosidad","h3. Historia de usuario
+Como administrador autorizado, quiero consultar compromisos, transacciones e indicadores de morosidad, para que el sistema determine los estados Pendiente, Parcial, Pagado y Vencido.
+h3. Criterios de aceptación
+# Dado un compromiso Activo sin pagos aprobados y no vencido, cuando se calcula su estado, entonces el sistema lo muestra Pendiente.
+# Dado los pagos aprobados son mayores que cero y menores que el monto, cuando se calcula, entonces el sistema lo muestra Parcial con saldo.
+# Dado los pagos aprobados cubren el monto, cuando se calcula, entonces el sistema lo muestra Pagado y saldo cero.
+# Dado que llegó la fecha posterior al vencimiento y existe saldo, cuando se calcula, entonces el sistema lo muestra Vencido.
+# Dado que existen transacciones Pendientes, Rechazadas o Expiradas, cuando se suma lo pagado, entonces el sistema no las aplica al saldo.
+# Dado que existen obligaciones, cuando el administrador filtra por año, grado, sección, estudiante, estado o vencimiento, entonces el sistema muestra compromisos, montos, pagos y saldos.
+# Dado que existen compromisos dentro del filtro, cuando se consulta el resumen, entonces el sistema calcula cantidades y montos por estado.
+# Dado un compromiso tiene transacciones, cuando se abre, entonces el sistema muestra su secuencia y comprobantes internos permitidos.
+# Dado una transacción cambia a Aprobada o una corrección válida la afecta, cuando se consulta nuevamente, entonces el sistema recalcula saldo e indicadores.
+# Dado un administrador intenta cambiar el estado financiero, cuando envía la solicitud, entonces el sistema rechaza la operación.
+h3. Trazabilidad
+* Backlog: US-44 / MAT-08
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-04, US-12, US-13
+* Estado: Pendiente para releases posteriores.","Alta","8","matricula-finanzas","us-44","",""
+"62","4","Historia","US-45 · Consultar mis registros de asistencia","h3. Historia de usuario
+Como estudiante, quiero consultar mis registros de asistencia, para conocer mis asistencias, inasistencias y tardanzas.
+h3. Criterios de aceptación
+# Dado un estudiante autenticado, cuando filtra por período o fecha, entonces el sistema muestra únicamente sus asistencias finalizadas.
+# Dado un registro visible, cuando se abre, entonces el sistema muestra fecha, curso o sesión y estado. Registro ajeno:
+# Dado el estudiante conoce un identificador de otro alumno, cuando intenta consultarlo, entonces el sistema rechaza el acceso.
+h3. Trazabilidad
+* Backlog: US-45 / ASI-4
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-14
+* Estado: Opcional para el Sprint 2 (26 oct - 6 nov) si hay capacidad.","Media","3","asistencia","us-45","release-1.1-opcional",""
+"63","5","Historia","US-46 · Consultar mi progreso académico publicado por competencias","h3. Historia de usuario
+Como estudiante, quiero consultar mi progreso académico publicado por competencias, para conocer mi nivel de logro.
+h3. Criterios de aceptación
+# Consulta propia:
+# Dado un estudiante con informe publicado, cuando selecciona período, entonces el sistema muestra sus niveles por competencia. Borrador protegido:
+# Dado existe un informe en Borrador, cuando el estudiante consulta, entonces el sistema no lo muestra. Informe ajeno:
+# Dado el estudiante conoce un identificador ajeno, cuando intenta consultarlo, entonces el sistema rechaza el acceso. Detalle permitido:
+# Dado un resultado publicado, cuando se abre, entonces el sistema muestra observaciones y sustentos autorizados. Sin publicación:
+# Dado no existe informe publicado, cuando se consulta, entonces el sistema informa que aún no está disponible.
+h3. Trazabilidad
+* Backlog: US-46 / GEA-11
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-20
+* Estado: Pendiente para releases posteriores.","Media","3","curricular","us-46","",""
+"64","4","Historia","US-47 · Consultar la asistencia de un estudiante asociado a mi perfil","h3. Historia de usuario
+Como apoderado, quiero consultar la asistencia de un estudiante asociado a mi perfil, para acompañar su participación escolar.
+h3. Criterios de aceptación
+# Consulta autorizada:
+# Dado un apoderado asociado, cuando selecciona estudiante y período, entonces el sistema muestra registros e indicadores de asistencia.
+# Dado un apoderado que tiene más de un estudiante a cargo, cuando ingresa al módulo, entonces el sistema le exige y permite seleccionar únicamente entre sus estudiantes vinculados antes de cargar cualquier información.
+# Dado no existe vínculo vigente, cuando se intenta consultar, entonces el sistema rechaza el acceso.
+# Dado el historial de asistencia listado en pantalla, cuando el apoderado selecciona un registro en particular, entonces el sistema despliega los detalles exactos de esa clase (fecha, nombre del curso o sesión y el estado de asistencia marcado).
+h3. Trazabilidad
+* Backlog: US-47 / ASI-5
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-10, US-14, US-16
+* Estado: Opcional para el Sprint 2 (26 oct - 6 nov) si hay capacidad.","Media","3","asistencia","us-47","release-1.1-opcional",""
+"65","3","Historia","US-48 · Consultar los compromisos, transacciones y comprobantes internos de un estudiante asociado","h3. Historia de usuario
+Como apoderado, quiero consultar los compromisos, transacciones y comprobantes internos de un estudiante asociado, para dar seguimiento a sus obligaciones económicas.
+h3. Criterios de aceptación
+# Dado un apoderado asociado, cuando consulta obligaciones, entonces el sistema muestra concepto, monto, vencimiento, estado y saldo.
+# Dado un compromiso tiene operaciones, cuando se abre su detalle, entonces el sistema muestra medio, fecha, monto y estado permitido.
+# Dado una transacción está Aprobada, cuando el apoderado solicita el comprobante, entonces el sistema muestra o descarga el comprobante interno.
+# Dado una transacción está Pendiente, Rechazada o Expirada, cuando se consulta, entonces el sistema no la presenta como pago realizado.
+# Dado el apoderado no está asociado, cuando intenta consultar, entonces el sistema rechaza el acceso.
+# Dado que se consulta una transacción, cuando se muestra el detalle, entonces el sistema no expone número completo de tarjeta, CVV ni secretos.
+h3. Trazabilidad
+* Backlog: US-48 / MAT-09
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-10, US-12, US-13, US-44
+* Estado: Pendiente para releases posteriores.","Media","5","matricula-finanzas","us-48","",""
+"66","3","Historia","US-49 · Consultar el estado y el historial de matrícula de un estudiante asociado","h3. Historia de usuario
+Como apoderado, quiero consultar el estado y el historial de matrícula de un estudiante asociado, para conocer la evolución de su solicitud y asignación.
+h3. Criterios de aceptación
+# Dado un apoderado asociado, cuando consulta la matrícula, entonces el sistema muestra año, grado, sección si fue asignada y estado.
+# Dado que existen varios cambios, cuando se abre la línea de tiempo, entonces el sistema muestra fechas y estados en orden.
+# Dado la solicitud aún no fue finalizada, cuando se consulta, entonces el sistema distingue que no existe matrícula ni vacante consumida.
+# Dado el apoderado no está asociado, cuando intenta consultar, entonces el sistema rechaza el acceso.
+# Dado el apoderado tiene varias asociaciones, cuando abre la vista, entonces el sistema permite elegir solo entre ellas.
+h3. Trazabilidad
+* Backlog: US-49 / MAT-10
+* MoSCoW: Should · Iteración: I3
+* Dependencias: US-03, US-10, US-11, US-40
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Media","3","matricula-finanzas","us-49","release-1.1",""
+"67","66","Subtarea","[Backend] Permitir /solicitudes-matricula/{id}/historial al apoderado asociado (403 si no lo está)","Subtarea de US-49 para el Sprint 2 (26 oct - 6 nov).","Media","","backend","release-1.1","",""
+"68","66","Subtarea","[Frontend] Línea de tiempo real en Detalle de mi solicitud","Subtarea de US-49 para el Sprint 2 (26 oct - 6 nov).","Media","","frontend","release-1.1","",""
+"69","66","Subtarea","[Pruebas] Prueba de acceso de un apoderado no asociado","Subtarea de US-49 para el Sprint 2 (26 oct - 6 nov).","Media","","pruebas","release-1.1","",""
+"70","5","Historia","US-50 · Corregir una evaluación indicando un motivo","h3. Historia de usuario
+Como docente responsable, quiero corregir una evaluación indicando un motivo, para resolver un error y actualizar los resultados derivados sin perder trazabilidad.
+h3. Criterios de aceptación
+# Corrección válida:
+# Dado una evaluación publicada propia, cuando el docente registra un nuevo nivel y confirma la corrección, entonces el sistema valida que el docente esté asignado, que el motivo sea obligatorio y que el nivel sea AD, A, B o C; si todo es válido, crea una nueva versión vigente. Historial:
+# Dado una evaluación tiene correcciones, cuando se consulta la trazabilidad, entonces el sistema muestra valores, motivos, autores y fechas. Auditoría:
+# Dado que se confirma una corrección válida, cuando finaliza la operación, entonces el sistema registra la operación como un evento crítico, conservando el actor, fecha y datos relevantes de la corrección.
+h3. Trazabilidad
+* Backlog: US-50 / GEA-12
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-18, US-19, US-20, US-58
+* Estado: Pendiente para releases posteriores.","Alta","8","curricular","us-50","",""
+"71","1","Historia","US-51 · Cargar masivamente perfiles docentes","h3. Historia de usuario
+Como administrador autorizado, quiero cargar masivamente perfiles docentes, para registrar múltiples docentes con las mismas validaciones de la operación individual.
+h3. Criterios de aceptación
+# Dado el administrador solicita el formato, cuando lo descarga, entonces el sistema entrega columnas y valores esperados.
+# Dado que se carga un archivo, cuando se analiza, entonces el sistema muestra filas válidas, inválidas y motivos.
+# Dado una fila repite documento o código, cuando se valida, entonces el sistema la rechaza.
+# Dado que existen filas válidas, cuando el administrador confirma, entonces el sistema crea los perfiles permitidos.
+# Dado termina el lote, cuando se consulta, entonces el sistema muestra creados, rechazados y razones.
+# Dado que se confirma la carga, cuando finaliza, entonces el sistema registra lote y detalle correlacionado.
+h3. Trazabilidad
+* Backlog: US-51 / GOB-04
+* MoSCoW: Could · Iteración: I1 si hay capacidad
+* Dependencias: US-03, US-04, US-37
+* Estado: Pendiente para releases posteriores.","Baja","8","gobierno","us-51","",""
+"72","3","Historia","US-52 · Cargar masivamente perfiles y accesos individuales de apoderado y sus asociaciones con estudiantes","h3. Historia de usuario
+Como administrador autorizado, quiero cargar masivamente perfiles y accesos individuales de apoderado y sus asociaciones con estudiantes, para habilitar varios responsables con validaciones consistentes.
+h3. Criterios de aceptación
+# Dado el administrador solicita el formato, cuando lo descarga, entonces el sistema entrega campos de apoderado, acceso y asociación.
+# Dado que se carga un archivo, cuando se analiza, entonces el sistema muestra errores por fila antes de crear datos.
+# Dado una fila referencia un estudiante desconocido, cuando se valida, entonces el sistema rechaza la fila.
+# Dado una fila usa un identificador institucional existente, cuando se valida, entonces el sistema rechaza la fila.
+# Dado que existen filas válidas, cuando el administrador confirma, entonces el sistema crea perfiles, accesos temporales y asociaciones coherentes.
+# Dado termina la carga, cuando se consulta el resumen, entonces el sistema muestra creados, rechazados y razones sin exponer contraseñas.
+# Dado que se confirma el lote, cuando finaliza, entonces el sistema registra correlación y eventos individuales.
+h3. Trazabilidad
+* Backlog: US-52 / MAT-11
+* MoSCoW: Could · Iteración: I1 si hay capacidad
+* Dependencias: US-02, US-03, US-04, US-09, US-10
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Baja","8","matricula-finanzas","us-52","implementado","validacion-po"
+"73","5","Historia","US-57 · Asociar competencias vigentes con cursos o asignaturas","h3. Historia de usuario
+Como administrador autorizado, quiero asociar competencias vigentes con cursos o asignaturas, para mantener un contexto curricular coherente para evidencias, evaluaciones y reportes.
+h3. Criterios de aceptación
+# Creacion:
+# Dado un curso y una competencia habilitados, cuando el administrador intenta crear una asociación, entonces el sistema valida que ambos estén activos y que la relación no exista; si son válidos, crea la relación vigente, de lo contrario rechaza la operación. Disponibilidad académica:
+# Dado una relación vigente, cuando el docente registra evidencia o evaluación, entonces la competencia aparece en ese curso. Inactivación:
+# Dado una asociación ya utilizada, cuando el administrador la retira con motivo, entonces el sistema la inactiva para nuevos registros y conserva los históricos. Auditoría:
+# Dado que se crea o inactiva una asociación, cuando se confirma, entonces el sistema registra actor, fecha y motivo.
+h3. Trazabilidad
+* Backlog: US-57 / GEA-13
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-03, US-04, US-08, US-36
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","5","curricular","us-57","implementado","validacion-po"
+"74","6","Historia","US-58 · Asignar docentes activos a cursos, secciones y períodos","h3. Historia de usuario
+Como administrador autorizado, quiero asignar docentes activos a cursos, secciones y períodos, para definir quién puede operar cada contexto académico.
+h3. Criterios de aceptación
+# Dado entidades habilitadas y combinación nueva (profesor activo, curso activo, periodo vigente), cuando el administrador confirma, entonces el sistema crea la asignación Activa.
+# Dado existe la misma combinación, cuando se intenta crear, entonces el sistema rechaza la operación.
+# Dado un docente que ingresa al sistema para registrar asistencia o notas, cuando navega por sus módulos, entonces el sistema le permite operar únicamente en las secciones y cursos a los que fue asignado oficialmente, bloqueando el acceso a otros contextos.
+# Dado que se crea o inactiva una relación docente-curso, cuando la operación finaliza, entonces el sistema audita automáticamente quién hizo el cambio, en qué fecha, en qué contexto y el motivo de la inactivación
+# Dado que el administrador intenta inactivar o retirar a un docente de un curso, cuando confirma el motivo, entonces el sistema lo permite solo si el docente no tiene bloques de horario programados a futuro. Si los tiene, el sistema exige que primero se reasignen o eliminen esos bloques en la matriz de horarios.
+h3. Trazabilidad
+* Backlog: US-58 / PLA-06
+* MoSCoW: Must · Iteración: I2
+* Dependencias: US-03, US-04, US-05, US-06, US-36, US-37
+* Estado: Comprometida para el Sprint 2 (26 oct - 6 nov), versión v1.1.0.","Alta","5","horarios","us-58","release-1.1",""
+"75","74","Subtarea","[Backend] Verificar la regla PLA-06: no retirar docente con bloques de horario futuros","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","backend","release-1.1","",""
+"76","74","Subtarea","[Frontend] Pestaña Horarios > Asignaciones docentes: listado y alta","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"77","74","Subtarea","[Frontend] Edición con versión y retiro con motivo","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","frontend","release-1.1","",""
+"78","74","Subtarea","[Pruebas] Pruebas de la pestaña con backend simulado","Subtarea de US-58 para el Sprint 2 (26 oct - 6 nov).","Alta","","pruebas","release-1.1","",""
+"79","2","Historia","US-59 · Establecer una nueva contraseña en mi primer ingreso","h3. Historia de usuario
+Como usuario con una contraseña temporal, quiero establecer una nueva contraseña en mi primer ingreso, para asegurar que solo yo conozca mis credenciales definitivas.
+h3. Criterios de aceptación
+# Dado un usuario autenticado con contraseña temporal, cuando realiza su primer ingreso, entonces el sistema exige cambiarla antes de acceder a funciones protegidas.
+# Dado una nueva contraseña conforme y coincidente, cuando se confirma el cambio, entonces el sistema invalida la contraseña temporal y permite continuar.
+# Dado una contraseña que incumple la política o no coincide, cuando se intenta confirmar, entonces el sistema rechaza la operación y mantiene la obligación de cambio.
+# Dado un cambio obligatorio completado, cuando se intenta autenticar con la contraseña temporal, entonces el sistema rechaza el ingreso.
+# Dado un intento de cambio obligatorio, cuando se revisan mensajes, logs y auditoría, entonces no se exponen contraseñas en texto plano.
+h3. Trazabilidad
+* Backlog: US-59 / SEG-08
+* MoSCoW: Must · Iteración: I1
+* Dependencias: US-01, US-02
+* Estado: Implementado en main (commit c9fe2d2); pendiente de validación del PO.","Alta","3","seguridad","us-59","implementado","validacion-po"
+"80","","Error","Persona nueva: el tipo de documento vuelve a DNI al elegir Pasaporte o Carné","En shared/forms/person-fields.tsx el onInput del formulario vuelve a renderizar el select controlado antes de su onChange. Se reprodujo en las pruebas de Nuevo usuario.","Alta","","release-1.1","calidad","",""
+"81","","Error","Patrones de pasaporte y teléfono inválidos con la bandera v del navegador","[A-Za-z0-9-] y [0-9+() -] no son válidos con la bandera v, así que el navegador ignora el pattern y no valida en el cliente.","Alta","","release-1.1","calidad","",""
+"82","","Error","La sesión se cierra al instante si el token vence en más de 24,8 días","use-auth.ts programa el cierre con setTimeout; un plazo mayor a 2^31-1 ms se ejecuta de inmediato. Limitar el plazo o reprogramar.","Alta","","release-1.1","calidad","",""
+"83","","Tarea","Preparar datos de demo para horarios y asistencia","Año activo con cursos, secciones, aulas, dos docentes con asignaciones y estudiantes matriculados, antes del viernes 30 de octubre.","Media","","release-1.1","scrum","",""
+"84","","Tarea","Validación del PO de las historias implementadas","Demostrar el 6 de noviembre las historias con la etiqueta validacion-po y registrar la aceptación en el backlog.","Media","","release-1.1","scrum","",""
+"85","","Tarea","Estabilización y entrega de la versión v1.1.0","Crear release/v1.1.0 el jueves 5 a las 12:00, regresión con los cuatro roles, PR a main, etiqueta v1.1.0 y notas de versión.","Media","","release-1.1","scrum","",""

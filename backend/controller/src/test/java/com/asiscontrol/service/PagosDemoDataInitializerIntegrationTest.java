@@ -45,12 +45,16 @@ class PagosDemoDataInitializerIntegrationTest {
 
     @Test
     void preparaDosFamiliasSeparadasConSaldosYComprobantesSinRestablecerDatosAlRepetir() {
-        var accesos = em.createQuery("from AccesoUsuario a where a.username like 'demo.pagos.%' order by a.username",
+        var accesos = em.createQuery("from AccesoUsuario a where a.correo like 'demo.pagos.%' order by a.correo",
                 AccesoUsuario.class).getResultList();
         assertThat(accesos).hasSize(2).allSatisfy(acceso -> {
-            assertThat(acceso.getRol().getNombre()).isEqualTo("APODERADO");
+            assertThat(acceso.getUsername()).matches("[0-9]{8}");
+            assertThat(em.createQuery("""
+                    select a.rol.nombre from AccesoUsuarioRol a where a.usuario.id = :id
+                    """, String.class).setParameter("id", acceso.getId()).getResultList())
+                    .containsExactly("APODERADO");
             assertThat(passwords.matches("DemoPago2026Seguro", acceso.getContrasenaHash())).isTrue();
-            assertThat(acceso.isRequiereCambioContrasena()).isFalse();
+            assertThat(acceso.isRequiereCambioContrasena()).isTrue();
         });
         var primera = vinculados(accesos.get(0).getPersona().getId());
         var segunda = vinculados(accesos.get(1).getPersona().getId());
@@ -89,7 +93,7 @@ class PagosDemoDataInitializerIntegrationTest {
         assertThat(anterior.getDireccion()).isEqualTo("Domicilio previo de prueba");
         assertThat(anterior.getFechaCreacion()).isEqualTo(personaPrevia.creadaEn);
         assertThat(anterior.getFechaActualizacion()).isEqualTo(personaPrevia.actualizadaEn);
-        var accesos = em.createQuery("from AccesoUsuario a where a.username like 'demo.pagos.%' order by a.username",
+        var accesos = em.createQuery("from AccesoUsuario a where a.correo like 'demo.pagos.%' order by a.correo",
                 AccesoUsuario.class).getResultList();
         assertThat(accesos).hasSize(2);
         var personasDemo = new java.util.ArrayList<Persona>();

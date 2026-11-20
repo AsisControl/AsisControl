@@ -29,8 +29,7 @@ import java.time.Instant;
         name = "AccesoUsuario",
         uniqueConstraints = {
             @UniqueConstraint(
-                    name = "uk_acceso_usuario_persona_rol",
-                    columnNames = {"id_persona", "id_rol"}),
+                    name = "uk_acceso_usuario_persona", columnNames = "id_persona"),
             @UniqueConstraint(name = "uk_acceso_usuario_username", columnNames = "username"),
             @UniqueConstraint(name = "uk_acceso_usuario_correo", columnNames = "correo")
         })
@@ -45,11 +44,7 @@ public class AccesoUsuario extends AuditableEntity {
     @JoinColumn(name = "id_persona", nullable = false)
     private Persona persona;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "id_rol", nullable = false)
-    private Rol rol;
-
-    @Column(name = "username", nullable = false, length = 80)
+    @Column(name = "username", nullable = false, updatable = false, length = 80)
     private String username;
 
     @Column(name = "correo", nullable = false, length = 150)

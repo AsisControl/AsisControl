@@ -12,9 +12,12 @@ const backendAuth = (role) => ({
   expiresAt: "2099-01-01T00:00:00Z",
   user: {
     id: 42,
-    username: "demo",
+    username: "20260001",
     nombreCompleto: "Persona Prueba",
     rol: role,
+    sesionId: 23,
+    versionContexto: 1,
+    rolesDisponibles: role ? [role] : [],
     permisos: ["MATRICULA_LEER"],
     requiereCambioContrasena: true,
   },
@@ -25,11 +28,11 @@ test("Login usa identifier y transforma ALUMNO a ESTUDIANTE", async () => {
     sent = { url, body: JSON.parse(options.body), credentials: options.credentials };
     return response(200, backendAuth("ALUMNO"));
   });
-  const result = await (await load("src/core/auth/http-auth-service.ts")).httpAuthService.login({ username: " alumno ", password: "Temporal123!" });
+  const result = await (await load("src/core/auth/http-auth-service.ts")).httpAuthService.login({ username: " 20260001 ", password: "Temporal123!" });
   assert.equal(sent.url, "http://api.test/api/auth/login");
   assert.equal(sent.credentials, "include");
   assert.deepEqual(sent.body, {
-    identifier: "alumno",
+    identifier: "20260001",
     password: "Temporal123!",
   });
   assert.equal(result.ok, true);
@@ -100,12 +103,33 @@ test("Logout revoca en servidor y limpia la sesión", async () => {
   assert.deepEqual(called, ["http://api.test/api/auth/logout", "POST", "include"]);
   assert.equal(storage.readSession(), null);
 });
-test("Generación temporal cumple requisitos y varía entre llamadas", async () => {
-  const { temporaryPassword } = (await harness()("src/modules/administration/create-access.tsx"));
-  const values = Array.from({ length: 100 }, temporaryPassword);
-  for (const value of values)
-    assert.match(value, /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])[!-~]{16}$/);
-  assert.equal(new Set(values).size, 100);
+test("Cerrar sesión con un token obsoleto revoca la cookie por separado", async () => {
+  const headers = [];
+  const load = harness(async (_, options) => {
+    headers.push([options.headers.get("Authorization"), options.credentials]);
+    return headers.length === 1 ? response(401, {}) : response(204, null);
+  });
+  const storage = await load("src/core/auth/session-storage.ts");
+  storage.saveSession({ accessToken: "old-role" });
+  await (await load("src/core/auth/http-auth-service.ts")).httpAuthService.logout();
+  assert.deepEqual(headers, [["Bearer old-role", "include"], [null, "include"]]);
+  assert.equal(storage.readSession(), null);
+});
+test("Cambiar a Estudiante envía ALUMNO y conserva los identificadores de contexto del servidor", async () => {
+  let sent;
+  const load = harness(async (url, options) => {
+    sent = [url, options.method, JSON.parse(options.body), options.headers.get("Authorization")];
+    return response(200, backendAuth("ALUMNO"));
+  });
+  (await load("src/core/auth/session-storage.ts")).saveSession({ accessToken: "test-token" });
+  const { httpAuthService } = await load("src/core/auth/http-auth-service.ts");
+  const updated = await httpAuthService.switchRole("ESTUDIANTE");
+  assert.deepEqual(sent, [
+    "http://api.test/api/auth/rol-activo", "PUT", { rol: "ALUMNO" }, "Bearer test-token",
+  ]);
+  assert.equal(updated.user.role, "ESTUDIANTE");
+  assert.equal(updated.user.sessionId, "23");
+  assert.equal(updated.user.contextVersion, 1);
 });
 
 test("Normaliza las tres respuestas paginadas del backend sin perder filas", async () => {
@@ -301,6 +325,35 @@ test("Tras renovar la sesión conserva el código, los detalles y ambos formatos
     storage.registerSessionRenewal(null);
   }
 });
+test("Un archivo que termina de descargarse tras cambiar de rol se descarta", async () => {
+  let receiveBlob;
+  let startedReading;
+  const started = new Promise((resolve) => { startedReading = resolve; });
+  let requests = 0;
+  const load = harness(async () => {
+    requests++;
+    return {
+      ...response(200, null),
+      blob: () => {
+        startedReading();
+        return new Promise((resolve) => { receiveBlob = resolve; });
+      },
+    };
+  });
+  const storage = await load("src/core/auth/session-storage.ts");
+  const client = await load("src/core/api/client.ts");
+  storage.saveSession({ accessToken: "docente", user: { id: "17", sessionId: 1, role: "DOCENTE" } });
+  const download = client.apiBlob("/api/archivos/17/descarga");
+  await started;
+  storage.saveSession({
+    accessToken: "apoderado",
+    user: { id: "17", sessionId: 1, role: "APODERADO", contextVersion: 1 },
+  });
+  receiveBlob(new Blob(["contenido del rol anterior"]));
+  await assert.rejects(download, (error) => error.code === "CONTEXTO_DE_SESION_CAMBIO");
+  assert.equal(requests, 1);
+});
+
 test("Carga masiva: solo .xlsx de hasta 5 MB", async () => {
   const { validateImportFile, IMPORT_MAX_BYTES } = await harness()("src/modules/students/import-dialog.tsx");
   assert.notEqual(validateImportFile(null), "");

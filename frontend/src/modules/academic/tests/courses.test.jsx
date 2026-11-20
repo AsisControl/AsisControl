@@ -122,21 +122,17 @@ test("Crea un curso con los datos del formulario", async () => {
   await rowOf("Matemática");
   await user.click(screen.getByText("+ Nuevo curso"));
   const dialog = screen.getByRole("dialog", { name: "Nuevo curso" });
-  expect(within(dialog).getByText("Agrega un curso al plan curricular de un grado y año académico.")).toBeTruthy();
+  expect(within(dialog).getByText(/Agrega un curso al catálogo/)).toBeTruthy();
   const yearSelect = await within(dialog).findByLabelText(/^Año académico/);
   expect([...yearSelect.options].map((option) => option.textContent)).toEqual(["2027 · Activo", "2028 · Borrador"]);
   expect(yearSelect.value).toBe("2");
   const gradeSelect = within(dialog).getByLabelText(/^Grado/);
   expect([...gradeSelect.options].map((option) => option.textContent)).toEqual([
-    "Selecciona el grado", "1° Grado", "2° Grado",
+    "Sin referencia académica", "1° Grado", "2° Grado",
   ]);
   await user.type(within(dialog).getByLabelText(/^Código/), " art ");
   await user.type(within(dialog).getByLabelText(/^Nombre del curso/), " Arte y Cultura ");
   await user.type(within(dialog).getByLabelText(/^Horas semanales/), "2");
-  await user.click(within(dialog).getByText("Crear curso"));
-  // El grado es obligatorio: el formulario no se envía sin elegirlo.
-  expect(gradeSelect.validity.valueMissing).toBe(true);
-  expect(calls.some((c) => c.method === "POST")).toBe(false);
   await user.selectOptions(gradeSelect, "2° Grado");
   await user.click(within(dialog).getByText("Crear curso"));
   expect(await screen.findByText("Curso Arte y Cultura creado.")).toBeTruthy();
@@ -197,15 +193,23 @@ test("Muestra el año y grado de cada curso y avisa si un curso antiguo no lo ti
   expect((await within(dialog).findByLabelText(/^Grado/)).value).toBe("");
 });
 
-test("Sin años abiertos no se puede elegir el contexto del curso", async () => {
-  backend({ "GET /api/configuracion-academica/anios": page([year(1, 2026, "CERRADO", [grade(5, 1)])]) });
+test("Registra un curso del catálogo sin años académicos abiertos", async () => {
+  const calls = backend({
+    "GET /api/configuracion-academica/anios": page([year(1, 2026, "CERRADO", [grade(5, 1)])]),
+    "POST /api/cursos": reply(201, course({ id: 30, nombre: "Arte", gradoAcademicoId: null })),
+  });
   const user = userEvent.setup();
   renderAcademic();
   await rowOf("Matemática");
   await user.click(screen.getByText("+ Nuevo curso"));
-  expect(
-    await within(screen.getByRole("dialog")).findByText(/No hay años académicos abiertos/),
-  ).toBeTruthy();
+  const form = within(screen.getByRole("dialog"));
+  expect(await form.findByText(/Puedes registrar el curso sin un año/)).toBeTruthy();
+  await user.type(form.getByLabelText(/^Código/), "ART");
+  await user.type(form.getByLabelText(/^Nombre del curso/), "Arte");
+  await user.type(form.getByLabelText(/^Horas semanales/), "2");
+  await user.click(form.getByRole("button", { name: "Crear curso" }));
+  await screen.findByText("Curso Arte creado.");
+  expect(calls.find(call => call.method === "POST").body.gradoAcademicoId).toBeNull();
 });
 
 test("Desactiva un curso desde el menú de acciones", async () => {

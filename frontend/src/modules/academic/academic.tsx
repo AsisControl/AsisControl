@@ -5,9 +5,11 @@ import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
 import { AssociationsPanel } from "./associations/associations-panel";
 import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
+import { StudyPlansPanel } from "./study-plans-panel";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
 const tabs: TabItem[] = [
   { id: "cursos", label: "Cursos" },
+  { id: "plan-estudios", label: "Plan de estudios" },
   { id: "competencias", label: "Competencias" },
   { id: "asociaciones", label: "Asociaciones" },
   { id: "reglas-academicas", label: "Reglas académicas" },
@@ -18,6 +20,7 @@ const tabs: TabItem[] = [
 /** Pestañas con pantalla; las demás muestran el aviso de pendiente. */
 const panels: Record<string, (canWrite: boolean) => ReactNode> = {
   cursos: (canWrite) => <CoursesPanel canWrite={canWrite} />,
+  "plan-estudios": (canWrite) => <StudyPlansPanel canWrite={canWrite} />,
   competencias: (canWrite) => <CompetenciesPanel canWrite={canWrite} />,
   asociaciones: (canWrite) => <AssociationsPanel canWrite={canWrite} />,
 };

@@ -5,7 +5,8 @@ import { fakeBackend, inOneHour, page, reply, signIn, signOut } from "../../../t
 import { currentUrl, setUrl } from "../../../tests/support/navigation.js";
 import { AppShell } from "@/core/layout/app-shell";
 import { ModuleOutlet } from "@/core/navigation/module-outlet";
-import { setSessionStatus } from "@/core/auth/session-storage";
+import { roleContextEventKey, setSessionStatus } from "@/core/auth/session-storage";
+import { api } from "@/core/api/client";
 import AppLayout from "@/app/(app)/layout";
 import AppPage from "@/app/(app)/[[...ruta]]/page";
 
@@ -14,7 +15,7 @@ vi.mock("next/link", () => import("../../../tests/support/next-link.jsx"));
 
 const summary = (overrides = {}) => ({
   id: 1,
-  username: "admin",
+  username: "20260001",
   nombreCompleto: "Ana Ramos",
   rol: "ADMINISTRADOR",
   permisos: ["USUARIOS_LEER", "MATRICULA_LEER"],
@@ -27,6 +28,7 @@ function backend(routes = {}) {
     "GET /api/auth/me": summary(),
     "POST /api/auth/logout": reply(204),
     "GET /api/solicitudes-matricula": page([]),
+    "GET /api/dashboard": { rol: "ADMINISTRADOR", personaId: null, generadoEn: "2026-11-19T10:00:00Z", indicadores: [] },
     ...routes,
   });
 }
@@ -59,25 +61,123 @@ test("Sin sesión muestra el login, informa credenciales inválidas y luego ingr
   });
   const user = userEvent.setup();
   renderApp();
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión", level: 1 })).toBeTruthy();
   expect(screen.getByText("¿Olvidaste tu contraseña?").getAttribute("href")).toBe(
     "/recuperar-contrasena",
   );
-  await user.type(screen.getByLabelText(/^Usuario/), "admin");
+  await user.type(screen.getByLabelText(/^Usuario/), "20260001");
   await user.type(screen.getByPlaceholderText("Ingresa tu contraseña"), "Incorrecta1");
   await user.click(screen.getByLabelText("Mostrar contraseña"));
   expect(screen.getByPlaceholderText("Ingresa tu contraseña").type).toBe("text");
-  await user.click(screen.getByText("Iniciar sesión", { selector: "button" }));
+  await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
   expect((await screen.findByRole("alert")).textContent).toBe("Usuario o contraseña incorrectos.");
   const password = screen.getByPlaceholderText("Ingresa tu contraseña");
   await user.clear(password);
   await user.type(password, "Correcta2026");
-  await user.click(screen.getByText("Iniciar sesión", { selector: "button" }));
+  await user.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: "Panel de administración", exact: true })).toBeTruthy();
   expect(calls.filter((c) => c.path === "/api/auth/login").at(-1).body).toEqual({
-    identifier: "admin",
+    identifier: "20260001",
     password: "Correcta2026",
   });
+});
+
+test("Un código incompleto no se envía al backend", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  renderApp();
+  await user.type(screen.getByLabelText(/^Usuario/), "2026");
+  await user.type(screen.getByLabelText(/^Contraseña/), "Correcta2026");
+  await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/8 dígitos/);
+  expect(calls.some((call) => call.path === "/api/auth/login")).toBe(false);
+});
+
+test("Una cuenta sin roles sigue fuera de los módulos", async () => {
+  backend({
+    "GET /api/auth/me": summary({ rol: null, rolesDisponibles: [], permisos: [] }),
+  });
+  sessionFor({ role: null, availableRoles: [] });
+  renderApp();
+  expect(await screen.findByText(/aún no tiene roles habilitados/)).toBeTruthy();
+  expect(screen.queryByRole("navigation", { name: "Navegación principal" })).toBeNull();
+});
+
+test("Elige uno de los roles habilitados y cambia de rol desde la misma sesión", async () => {
+  const common = {
+    rolesDisponibles: ["DOCENTE", "APODERADO", "TESORERIA"],
+    sesionId: 48,
+    permisos: [],
+  };
+  let active = summary({ ...common, rol: null, versionContexto: 0 });
+  const calls = backend({
+    "GET /api/auth/me": () => active,
+    "PUT /api/auth/rol-activo": ({ body }) => {
+      active = { ...active, rol: body.rol, versionContexto: active.versionContexto + 1 };
+      return { accessToken: "token-rol", expiresAt: inOneHour(), user: active };
+    },
+  });
+  sessionFor({
+    role: null, availableRoles: ["DOCENTE", "APODERADO"], sessionId: "48", contextVersion: 0,
+  });
+  const user = userEvent.setup();
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "¿Con qué rol quieres ingresar?" })).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: /Tesorería/i })).toBeNull();
+  expect(screen.getByRole("button", { name: "Continuar" }).disabled).toBe(true);
+  const docente = screen.getByRole("radio", { name: /Docente/ });
+  const apoderado = screen.getByRole("radio", { name: /Apoderado/ });
+  expect(docente.checked).toBe(false);
+  expect(apoderado.checked).toBe(false);
+  await user.tab();
+  expect(document.activeElement).toBe(docente);
+  await user.keyboard("[Space]");
+  expect(docente.checked).toBe(true);
+  await user.click(apoderado);
+  expect(apoderado.checked).toBe(true);
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Continuar como apoderado" }));
+  await user.keyboard("{Enter}");
+  expect(await screen.findByText("Portal del apoderado")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Abrir menú de usuario" }));
+  await user.click(screen.getByRole("button", { name: "Cambiar de rol" }));
+  const dialog = await screen.findByRole("dialog", { name: "Cambiar de rol" });
+  expect(within(dialog).getByRole("radio", { name: /Apoderado/ }).disabled).toBe(true);
+  await user.click(within(dialog).getByRole("radio", { name: /Docente/ }));
+  await user.click(within(dialog).getByRole("button", { name: "Cambiar rol" }));
+  expect(await screen.findByText("Aula docente")).toBeTruthy();
+  expect(calls.filter((call) => call.path === "/api/auth/rol-activo").map((call) => call.body))
+    .toEqual([{ rol: "APODERADO" }, { rol: "DOCENTE" }]);
+  expect(calls.some((call) => call.path === "/api/auth/login")).toBe(false);
+});
+
+test("Un cambio entre pestañas oculta el contexto anterior y descarta su escritura pendiente", async () => {
+  let releasePrevious;
+  const previous = new Promise((resolve) => { releasePrevious = resolve; });
+  const original = summary({ sesionId: 35, versionContexto: 0 });
+  const switched = summary({
+    rol: "APODERADO", sesionId: 35, versionContexto: 1,
+    permisos: [], rolesDisponibles: ["ADMINISTRADOR", "APODERADO"],
+  });
+  const calls = backend({
+    "GET /api/auth/me": original,
+    "POST /api/auth/refresh": { accessToken: "tab-token", expiresAt: inOneHour(), user: switched },
+    "PUT /api/anterior": () => previous,
+  });
+  sessionFor({ sessionId: "35", contextVersion: 0 });
+  setUrl("/matricula");
+  renderApp();
+  await screen.findByText("Panel de administración");
+  const pending = api("/api/anterior", { method: "PUT", body: "{}" }).catch((error) => error);
+  await act(async () => {
+    window.dispatchEvent(new StorageEvent("storage", { key: roleContextEventKey }));
+  });
+  expect(await screen.findByText("Portal del apoderado")).toBeTruthy();
+  expect(currentUrl()).toBe("/");
+  expect(screen.queryByText("Panel de administración")).toBeNull();
+  releasePrevious(reply(401));
+  expect((await pending).code).toBe("CONTEXTO_DE_SESION_CAMBIO");
+  expect(calls.filter((call) => call.path === "/api/anterior")).toHaveLength(1);
 });
 
 test("El menú muestra solo las opciones permitidas y navega por URL", async () => {
@@ -91,7 +191,7 @@ test("El menú muestra solo las opciones permitidas y navega por URL", async () 
   expect(within(nav).getByText("Inicio").getAttribute("aria-current")).toBe("page");
   await user.click(within(nav).getByText("Asistencia"));
   expect(currentUrl()).toBe("/asistencia");
-  expect(await screen.findByText("Punto de marcación docente con QR dinámico")).toBeTruthy();
+  expect(await screen.findByText("Marcación de docentes con QR institucional")).toBeTruthy();
   expect(within(nav).getByText("Asistencia").getAttribute("aria-current")).toBe("page");
 });
 
@@ -303,7 +403,7 @@ test("El menú de cuenta lleva a cambiar la contraseña y cierra la sesión", as
   expect(currentUrl()).toBe("/cambiar-contrasena");
   expect(await screen.findByText("Confirma tu contraseña actual y elige una nueva.")).toBeTruthy();
   await user.click(screen.getByText("Cerrar sesión"));
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
   expect(calls.some((c) => c.path === "/api/auth/logout")).toBe(true);
   expect(currentUrl()).toBe("/");
 });
@@ -343,7 +443,7 @@ test("Una contraseña temporal obliga a cambiarla antes de continuar", async () 
     newPassword: "Nueva2026x",
   });
   await user.click(screen.getByText("Ir al inicio de sesión"));
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
 });
 
 test("Si no se puede comprobar la sesión se avisa y se puede reintentar", async () => {
@@ -378,7 +478,7 @@ test("Un token revocado (401) devuelve al login", async () => {
   backend({ "GET /api/auth/me": reply(401, null) });
   sessionFor();
   renderApp();
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
 });
 
 test("Una sesión vencida no se muestra y otra pestaña puede cerrar la sesión", async () => {
@@ -388,7 +488,7 @@ test("Una sesión vencida no se muestra y otra pestaña puede cerrar la sesión"
   const expired = signIn({ fullName: "Ana Ramos" });
   expired.expiresAt = "2000-01-01T00:00:00Z";
   renderApp();
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
   sessionFor();
   await act(async () => {
     window.dispatchEvent(new Event("pageshow"));
@@ -398,7 +498,7 @@ test("Una sesión vencida no se muestra y otra pestaña puede cerrar la sesión"
     window.localStorage.setItem("asiscontrol:session-invalidation", "otra-pestaña");
     window.dispatchEvent(new Event("storage"));
   });
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
 });
 
 test("Volver a la pestaña revalida la sesión y la actividad la mantiene", async () => {
@@ -445,7 +545,7 @@ test("Si el servidor no responde al cerrar sesión, igual se cierra en la pesta�
   renderApp();
   await user.click(await screen.findByLabelText("Abrir menú de usuario"));
   await user.click(screen.getByText("Cerrar sesión"));
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
 });
 
 test("La ruta interna de Next monta el shell y la pantalla de la URL", async () => {
@@ -524,7 +624,7 @@ test("Sin cookie válida muestra el login sin cerrar las otras pestañas", async
   const mark = window.localStorage.getItem("asiscontrol:session-invalidation");
   reloadPage();
   renderApp();
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
   expect(window.localStorage.getItem("asiscontrol:session-invalidation")).toBe(mark);
   await act(async () => {
     window.dispatchEvent(new Event("pageshow"));
@@ -545,7 +645,7 @@ test("Si no hay conexión al recargar se muestra el login y se reintenta al volv
   );
   reloadPage();
   renderApp();
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
   offline = false;
   await act(async () => {
     window.dispatchEvent(new Event("pageshow"));
@@ -594,7 +694,7 @@ test("Si la renovación es rechazada, el 401 devuelve al login", async () => {
   sessionFor({ permissions: ["ACADEMICO_LEER"] });
   setUrl("/academico");
   renderApp();
-  expect(await screen.findByText("Iniciar sesión", { selector: "h2" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Iniciar sesión" })).toBeTruthy();
   expect(fetchCalls("/api/cursos")).toHaveLength(1);
 });
 

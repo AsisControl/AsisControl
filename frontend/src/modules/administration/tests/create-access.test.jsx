@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
@@ -7,292 +7,115 @@ import { Administration } from "@/modules/administration";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
-const roles = [
-  { id: 1, nombre: "ADMINISTRADOR", descripcion: "", permisos: [] },
-  { id: 2, nombre: "DOCENTE", descripcion: "", permisos: [] },
-  { id: 3, nombre: "ALUMNO", descripcion: "", permisos: [] },
-  { id: 4, nombre: "APODERADO", descripcion: "", permisos: [] },
-  { id: 5, nombre: "TESORERIA", descripcion: "Caja", permisos: [] },
-];
-
-const people = [
-  {
-    id: 70,
-    nombreCompleto: "Patricia Morales",
-    numeroDocumento: "40404040",
-    perfiles: ["ALUMNO"],
-    rolesConAcceso: ["ADMINISTRADOR"],
-  },
-  {
-    id: 71,
-    nombreCompleto: "Rosa Quispe",
-    numeroDocumento: "50505050",
-    perfiles: [],
-    rolesConAcceso: [],
-  },
-];
-
-const student = (id, nombreCompleto) => ({
-  id,
-  codigoAlumno: `EST-${id}`,
-  activo: true,
-  apoderados: [],
-  persona: { id: id + 100, nombreCompleto },
-});
-
-const created = {
-  id: 90,
-  nombreCompleto: "Patricia Morales",
-  rol: "DOCENTE",
-  username: "patricia.morales",
-  correo: "doc20260001@asiscontrol.edu.pe",
-  codigoPerfil: "DOC20260001",
+const person = {
+  id: 70, nombreCompleto: "Patricia Morales", numeroDocumento: "40404040",
+  perfiles: ["APODERADO"], rolesConAcceso: ["APODERADO"],
 };
-
-function backend(overrides = {}) {
-  return fakeBackend({
-    "GET /api/roles": roles,
-    "GET /api/usuarios/personas": page(people),
-    "GET /api/alumnos": page([student(1, "Luis García"), student(2, "Mía García")]),
-    "POST /api/usuarios/provisionar": created,
-    ...overrides,
-  });
-}
-
+const created = {
+  id: 90, nombreCompleto: "Patricia Morales",
+  username: "20260003", correo: "patricia@colegio.edu.pe",
+  contrasenaTemporal: "Temporal2026",
+  contrasenaTemporalExpira: "2027-01-15T12:00:00Z",
+};
+const path = "/api/usuarios/administradores";
+const setup = (response = created) => fakeBackend({
+  "GET /api/usuarios/personas": page([person]),
+  [`POST ${path}`]: response,
+});
 const renderForm = () =>
   render(<Administration currentUserId="1" tab="usuarios" view="nuevo" />);
-
-const summary = () => screen.getByRole("complementary");
-
-async function fillAccess(user, password = "Temporal2026") {
-  await user.type(screen.getByLabelText(/^Contraseña temporal/), password);
-}
 
 beforeEach(() => {
   signIn();
   setUrl("/administracion/usuarios/nuevo");
 });
 
-test.each(["PASAPORTE", "CARNET_EXTRANJERIA"])(
-  "Conserva el documento %s al actualizar el resumen y crear la persona",
-  async (documentType) => {
-    const calls = backend();
-    const user = userEvent.setup();
-    renderForm();
-    await user.click(screen.getByRole("button", { name: "Persona nueva" }));
-    const selector = screen.getByLabelText(/Tipo de documento/);
-    expect(selector.value).toBe("DNI");
-    await user.selectOptions(selector, documentType);
-    expect(selector.value).toBe(documentType);
-
-    await user.type(screen.getByLabelText(/^Nombres/), "Ana");
-    await user.type(screen.getByLabelText(/^Apellido paterno/), "Prueba");
-    await user.type(screen.getByLabelText(/^Apellido materno/), "Local");
-    await user.type(screen.getByLabelText(/Número de documento/), "AB-12345");
-    await user.type(screen.getByLabelText(/Fecha de nacimiento/), "1990-05-15");
-    await user.type(screen.getByLabelText(/Correo de contacto/), "ana@example.test");
-    await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
-    await fillAccess(user);
-
-    expect(selector.value).toBe(documentType);
-    expect(within(summary()).getByText("Ana Prueba Local")).toBeTruthy();
-    // El usuario y el correo los genera el sistema al guardar.
-    expect(within(summary()).getByText("Se generan al guardar")).toBeTruthy();
-    expect(screen.queryByLabelText(/^Usuario/)).toBeNull();
-    expect(screen.queryByLabelText(/^Correo del acceso/)).toBeNull();
-    await user.click(screen.getByText("Crear usuario"));
-    await screen.findByText("Usuario creado");
-    expect(calls.find((call) => call.method === "POST").body.persona).toMatchObject({
-      tipoDocumento: documentType,
-      numeroDocumento: "AB-12345",
-    });
-  },
-);
-
-test("Crea un acceso docente para una persona registrada sin ese perfil", async () => {
-  const calls = backend();
+test("Registra el perfil a una persona existente y conserva su cuenta", async () => {
+  const { promise: response, resolve } = Promise.withResolvers();
+  const calls = setup(() => response);
   const user = userEvent.setup();
   renderForm();
-  expect(within(summary()).getByText(/Falta: persona, rol, contraseña/)).toBeTruthy();
-  await user.click(await screen.findByText("Patricia Morales"));
-  expect(within(summary()).getByText("Patricia Morales")).toBeTruthy();
-  const teacher = await screen.findByRole("radio", { name: /Docente/ });
-  expect(screen.getByRole("radio", { name: /Administrador/ }).disabled).toBe(true);
-  expect(screen.queryByRole("radio", { name: /TESORERIA/ })).toBeNull();
-  await user.click(teacher);
-  expect(within(summary()).getByText("Se creará el perfil de docente")).toBeTruthy();
-  expect(screen.queryByLabelText(/Código docente/)).toBeNull();
-  expect(screen.getByText(/El código institucional del perfil se genera al guardar/)).toBeTruthy();
-  await user.type(screen.getByLabelText(/Fecha de ingreso/), "2026-03-01");
-  await user.selectOptions(screen.getByLabelText(/Especialidad/), "CIENCIA_Y_TECNOLOGIA");
-  await fillAccess(user);
-  await user.click(screen.getByText("Crear usuario"));
-  const success = await screen.findByRole("status");
-  expect(within(success).getByText("Usuario creado")).toBeTruthy();
-  expect(within(success).getByText("Docente")).toBeTruthy();
-  expect(within(success).getByText("DOC20260001")).toBeTruthy();
-  expect(within(success).getByText("patricia.morales")).toBeTruthy();
-  expect(within(success).getByText("doc20260001@asiscontrol.edu.pe")).toBeTruthy();
-  expect(calls.find((c) => c.method === "POST").body).toEqual({
-    personaId: 70,
-    persona: null,
-    rolId: 2,
-    password: "Temporal2026",
-    fechaIngreso: "2026-03-01",
-    especialidad: "CIENCIA_Y_TECNOLOGIA",
-    alumnoIds: [],
-  });
-  await user.click(screen.getByText("Crear otro usuario"));
-  expect(await screen.findByText("Nuevo usuario")).toBeTruthy();
-  await user.click(screen.getByText("← Volver a usuarios"));
+  expect(screen.getByRole("button", { name: "Registrar perfil" }).disabled).toBe(true);
+  await user.click(await screen.findByRole("button", { name: /Patricia Morales/ }));
+  await user.click(screen.getByRole("button", { name: "Registrar perfil" }));
+  const pending = screen.getByRole("button", { name: "Registrando…" });
+  expect(pending.matches(":disabled")).toBe(true);
+  fireEvent.submit(pending.closest("form"));
+  expect(calls.filter((call) => call.path === path)).toHaveLength(1);
+  resolve({ ...created, contrasenaTemporal: null });
+  expect(await screen.findByText("Perfil de administrador registrado para Patricia Morales.")).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(calls.find((call) => call.path === path).body).toEqual({ personaId: 70 });
+  await user.click(screen.getByRole("button", { name: "Volver a usuarios" }));
   expect(currentUrl()).toBe("/administracion/usuarios");
 });
 
-test("Reutiliza el perfil de estudiante que la persona ya tiene", async () => {
-  backend();
-  const user = userEvent.setup();
-  renderForm();
-  await user.click(await screen.findByText("Patricia Morales"));
-  await user.click(await screen.findByRole("radio", { name: /Estudiante/ }));
-  expect(screen.queryByText(/se genera al guardar \(por/)).toBeNull();
-  expect(screen.getByText(/Se utilizará el perfil de estudiante/)).toBeTruthy();
-  expect(within(summary()).getByText("Se reutiliza el perfil existente")).toBeTruthy();
-  await user.click(screen.getByText("Rosa Quispe"));
-  expect(screen.getByText(/se genera al guardar \(por ejemplo, EST\d{8}\)/)).toBeTruthy();
-});
-
-test("Registra una persona nueva como apoderado con estudiantes asociados", async () => {
-  const calls = backend({
-    "POST /api/usuarios/provisionar": { ...created, rol: "APODERADO" },
+test("Busca personas sin enviar el alta al presionar Enter", async () => {
+  const calls = fakeBackend({
+    "GET /api/usuarios/personas": ({ query }) => query.search
+      ? page([])
+      : page([person, { id: 82, nombreCompleto: "Julia Soto", numeroDocumento: "44220101", perfiles: [] }]),
+    [`POST ${path}`]: created,
   });
   const user = userEvent.setup();
   renderForm();
-  await user.click(screen.getByText("Persona nueva"));
-  await user.type(screen.getByLabelText(/^Nombres/), "Carmen");
-  await user.type(screen.getByLabelText(/^Apellido paterno/), "Flores");
-  await user.type(screen.getByLabelText(/^Apellido materno/), "Vega");
-  await user.type(screen.getByLabelText(/Número de documento/), "41414141");
-  await user.type(screen.getByLabelText(/Fecha de nacimiento/), "1985-04-12");
-  await user.selectOptions(screen.getByLabelText(/^Sexo/), "FEMENINO");
-  await user.type(screen.getByLabelText(/Correo de contacto/), "carmen@correo.pe");
-  await user.type(screen.getByLabelText(/^Teléfono/), "987654321");
-  expect(within(summary()).getByText("Carmen Flores Vega")).toBeTruthy();
-  await user.click(await screen.findByRole("radio", { name: /Apoderado/ }));
-  await user.click(await screen.findByRole("checkbox", { name: /Luis García/ }));
-  await user.click(screen.getByRole("checkbox", { name: /Mía García/ }));
-  await user.click(screen.getByRole("checkbox", { name: /Mía García/ }));
-  await user.click(screen.getByRole("checkbox", { name: /Mía García/ }));
-  await user.click(screen.getByLabelText("Quitar a Mía García"));
-  expect(within(summary()).getByText("Estudiantes asociados").nextSibling.textContent).toBe("1");
-  await fillAccess(user);
-  await user.click(screen.getByText("Crear usuario"));
-  await screen.findByText("Usuario creado");
-  const body = calls.find((c) => c.method === "POST").body;
-  expect(body.personaId).toBeNull();
-  expect(body.alumnoIds).toEqual([1]);
-  expect(body.persona).toEqual({
-    nombres: "Carmen",
-    apellidoPaterno: "Flores",
-    apellidoMaterno: "Vega",
-    tipoDocumento: "DNI",
-    numeroDocumento: "41414141",
-    fechaNacimiento: "1985-04-12",
-    sexo: "FEMENINO",
-    correo: "carmen@correo.pe",
-    telefono: "987654321",
-    direccion: null,
-    nacionalidadId: null,
-  });
-});
+  const patricia = await screen.findByRole("button", { name: /Patricia Morales/ });
+  expect(within(patricia).getByText("Apoderado")).toBeTruthy();
+  const julia = screen.getByRole("button", { name: /Julia Soto/ });
+  expect(within(julia).getByText("Sin perfil institucional")).toBeTruthy();
+  await user.click(julia);
+  expect(julia.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Registrar perfil" }).disabled).toBe(false);
 
-test("Rechaza una contraseña débil y acepta la generada", async () => {
-  const calls = backend();
-  const user = userEvent.setup();
-  renderForm();
-  await user.click(await screen.findByText("Rosa Quispe"));
-  await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
-  await fillAccess(user, "pmorales");
-  const passwordInput = screen.getByLabelText(/^Contraseña temporal/);
-  const invalid = vi.fn();
-  passwordInput.addEventListener("invalid", invalid);
-  expect(passwordInput.validity.customError).toBe(true);
-  expect(passwordInput.validationMessage).toMatch(/8 a 64 caracteres/);
-  await user.click(screen.getByText("Crear usuario"));
-  expect(invalid).toHaveBeenCalled();
-  expect(screen.queryByRole("alert")).toBeNull();
-  expect(calls.some((c) => c.method === "POST")).toBe(false);
-  // El respaldo también protege un submit disparado sin validación interactiva.
-  fireEvent.submit(passwordInput.form);
-  expect(document.activeElement).toBe(passwordInput);
-  expect(calls.some((c) => c.method === "POST")).toBe(false);
-  await user.click(screen.getByText("Generar contraseña"));
-  expect(passwordInput.validity.customError).toBe(false);
-  expect(passwordInput.validationMessage).toBe("");
-  const generated = screen.getByLabelText(/^Contraseña temporal/).value;
-  expect(generated).toMatch(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{16}$/);
-  await user.click(screen.getByText("Crear usuario"));
-  await screen.findByText("Usuario creado");
-  expect(calls.find((c) => c.method === "POST").body.password).toBe(generated);
-});
-
-test("Revalida la contraseña al cambiarla y limpia el error", async () => {
-  backend();
-  const user = userEvent.setup();
-  renderForm();
-  await user.click(await screen.findByText("Rosa Quispe"));
-  await user.click(await screen.findByRole("radio", { name: /Administrador/ }));
-  await fillAccess(user);
-  const passwordInput = screen.getByLabelText(/^Contraseña temporal/);
-  expect(passwordInput.validity.valid).toBe(true);
-  await user.clear(passwordInput);
-  await user.type(passwordInput, "sinmayuscula1");
-  expect(passwordInput.validity.customError).toBe(true);
-  await user.clear(passwordInput);
-  await user.type(passwordInput, "Valida2026");
-  expect(passwordInput.validationMessage).toBe("");
-  await user.click(screen.getByText("Crear usuario"));
-  await screen.findByText("Usuario creado");
-});
-
-test("Busca personas y estudiantes con el texto escrito", async () => {
-  const calls = backend({ "GET /api/usuarios/personas": page([]) });
-  const user = userEvent.setup();
-  renderForm();
+  await user.type(screen.getByRole("searchbox", { name: "Buscar persona" }), " Nadie {Enter}");
   expect(await screen.findByText("No hay personas para esta búsqueda.")).toBeTruthy();
-  await user.type(screen.getByLabelText("Buscar persona"), "quispe{Enter}");
-  await waitFor(() =>
-    expect(calls.some((c) => c.query.search === "quispe")).toBe(true),
-  );
-  await user.click(screen.getByText("Persona nueva"));
-  await user.click(await screen.findByRole("radio", { name: /Apoderado/ }));
-  await user.type(screen.getByLabelText("Buscar estudiante"), "garcía");
-  await waitFor(() =>
-    expect(calls.some((c) => c.path === "/api/alumnos" && c.query.search === "garcía")).toBe(true),
-  );
+  expect(calls.at(-1).query).toMatchObject({ search: "Nadie", page: "0" });
+  expect(calls.some((call) => call.path === path)).toBe(false);
 });
 
-test("Informa los errores del backend al cargar y al crear", async () => {
-  backend({
-    "GET /api/alumnos": reply(503, { message: "Estudiantes no disponibles" }),
-    "POST /api/usuarios/provisionar": reply(409, { message: "El usuario ya existe" }),
+test("Registra una persona nueva y entrega la credencial temporal una sola vez", async () => {
+  const calls = setup();
+  const user = userEvent.setup();
+  renderForm();
+  await user.click(screen.getByRole("button", { name: "Persona nueva" }));
+  await user.type(screen.getByLabelText(/^Nombres/), "Patricia");
+  await user.type(screen.getByLabelText(/^Apellido paterno/), "Morales");
+  await user.type(screen.getByLabelText(/^Apellido materno/), "Vega");
+  await user.selectOptions(screen.getByLabelText(/Tipo de documento/), "PASAPORTE");
+  await user.type(screen.getByLabelText(/Número de documento/), "AB123456");
+  await user.type(screen.getByLabelText(/Fecha de nacimiento/), "1985-05-15");
+  await user.click(screen.getByRole("button", { name: "Registrar perfil" }));
+  const dialog = await screen.findByRole("dialog", { name: "Credenciales iniciales" });
+  expect(within(dialog).getByText("20260003")).toBeTruthy();
+  expect(within(dialog).getByText("Temporal2026")).toBeTruthy();
+  expect(calls.find((call) => call.path === path).body).toMatchObject({
+    persona: { tipoDocumento: "PASAPORTE", numeroDocumento: "AB123456" },
   });
-  const user = userEvent.setup();
-  renderForm();
-  await user.click(await screen.findByText("Rosa Quispe"));
-  await user.click(await screen.findByRole("radio", { name: /Apoderado/ }));
-  expect((await screen.findByRole("alert")).textContent).toBe("Estudiantes no disponibles");
-  await fillAccess(user);
-  await user.click(screen.getByText("Crear usuario"));
-  await waitFor(() =>
-    expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain("El usuario ya existe"),
-  );
+  expect(calls.find((call) => call.path === path).body.personaId).toBeUndefined();
+  const sheet = { document: { write: vi.fn(), close: vi.fn() }, focus: vi.fn(), print: vi.fn() };
+  const open = vi.spyOn(window, "open").mockReturnValueOnce(null).mockReturnValueOnce(sheet);
+  const print = within(dialog).getByRole("button", { name: "Imprimir o guardar PDF" });
+  await user.click(print);
+  expect(sheet.print).not.toHaveBeenCalled();
+  expect(within(dialog).getByText("Temporal2026")).toBeTruthy();
+  await user.click(print);
+  expect(open).toHaveBeenCalledWith("", "_blank");
+  expect(sheet.document.write.mock.calls[0][0]).toContain("<code>20260003</code>");
+  expect(sheet.document.write.mock.calls[0][0]).toContain("<code>Temporal2026</code>");
+  expect(sheet.print).toHaveBeenCalledOnce();
+  await user.click(within(dialog).getByRole("button", { name: "Entendido" }));
+  expect(screen.queryByText("Temporal2026")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Imprimir o guardar PDF" })).toBeNull();
 });
 
-test("Si no cargan los roles se informa y Cancelar vuelve a usuarios", async () => {
-  backend({ "GET /api/roles": reply(500, { message: "Sin roles" }) });
+test("Informa el rechazo del servidor y permite volver a usuarios", async () => {
+  const calls = setup(reply(409, { message: "La persona ya tiene ese perfil." }));
   const user = userEvent.setup();
   renderForm();
-  expect((await screen.findByRole("alert")).textContent).toBe("Sin roles");
-  await user.click(within(summary()).getByText("Cancelar"));
+  await user.click(await screen.findByRole("button", { name: /Patricia Morales/ }));
+  await user.click(screen.getByRole("button", { name: "Registrar perfil" }));
+  expect((await screen.findByRole("alert")).textContent).toBe("La persona ya tiene ese perfil.");
+  await user.click(screen.getByRole("button", { name: "Cancelar" }));
   expect(currentUrl()).toBe("/administracion/usuarios");
+  expect(calls.filter((call) => call.path === path)).toHaveLength(1);
 });

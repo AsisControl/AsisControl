@@ -43,7 +43,7 @@ const IMPORT_SLOTS: ImportSlot[] = [
   {
     id: "estudiantes",
     title: "Estudiantes",
-    description: "Una fila por estudiante, con su documento. El código lo genera el sistema.",
+    description: "Completa el tipo y el número de documento de cada estudiante. El código se asigna al guardar.",
     template: {
       fileName: "plantilla_alumnos.xlsx",
       download: downloadStudentTemplate,
