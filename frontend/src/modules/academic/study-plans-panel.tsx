@@ -24,8 +24,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
     <section className="panel">
       <PanelHeading title="Plan de estudios" summary="Define los cursos que se dictan por grado y año académico." />
       <Feedback error={years.error} />
-      {years.loading && <Loading variant="inline">Cargando años académicos…</Loading>}
-      <label className="field">Año académico
+      {years.loading ? <Loading skeleton="fields">Cargando años académicos…</Loading> : <label className="field">Año académico
         <select value={selectedYear} onChange={event => {
           setSelectedYear(event.target.value);
           setSelectedGrade("");
@@ -33,7 +32,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
           <option value="">Selecciona un año</option>
           {years.data?.content.map(item => <option key={item.id} value={item.anio}>{item.anio}</option>)}
         </select>
-      </label>
+      </label>}
       <Pager data={years.data} loading={years.loading} setPage={page => {
         setSelectedYear("");
         setSelectedGrade("");
@@ -93,7 +92,7 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
     }
   }
 
-  if (!plan) return error ? <Feedback error={error} /> : <Loading>Cargando plan de estudios…</Loading>;
+  if (!plan) return error ? <Feedback error={error} /> : <Loading skeleton="table" columns={4} rows={5}>Cargando plan de estudios…</Loading>;
   const editable = canWrite && plan.editable;
   return (
     <form onSubmit={save}>
@@ -129,7 +128,7 @@ function Catalog({ selection, onAdd }: { selection: Plan["cursos"]; onAdd: (cour
         <input value={filter} onChange={event => { catalog.setPage(0); setFilter(event.target.value); }} />
       </label>
       <Feedback error={catalog.error} />
-      {catalog.loading ? <Loading variant="inline">Buscando cursos…</Loading> : <>
+      {catalog.loading ? <Loading skeleton="fields">Buscando cursos…</Loading> : <>
         <label className="field">Agregar curso
           <select value="" onChange={event => {
             const course = available?.find(item => String(item.id) === event.target.value);

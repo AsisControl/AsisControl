@@ -87,6 +87,35 @@ test("Separa ingreso nuevo y renovación e inicia el trámite como pendiente de 
   expect(currentUrl()).toBe("/matricula/solicitudes");
 });
 
+test("Muestra la acción por hijo elegible, el estado de otro trámite y preselecciona al estudiante", async () => {
+  signIn({ role: "APODERADO", permissions: ["MATRICULA_LEER", "SOLICITUDES_ESCRIBIR"] });
+  const pending = record({ id: 20, idAlumno: 43, alumno: "Mario Flores", codigoAlumno: "EST-043" });
+  const calls = backend({
+    "GET /api/familia/estudiantes": [
+      { id: 42, codigoAlumno: "EST-042", nombreCompleto: "Lucía Flores" },
+      { id: 43, codigoAlumno: "EST-043", nombreCompleto: "Mario Flores" },
+      { id: 44, codigoAlumno: "EST-044", nombreCompleto: "Elena Flores" },
+    ],
+    "GET /api/renovaciones": page([pending]),
+    "POST /api/renovaciones": reply(201, record()),
+  });
+  render(<FamilyScreen />);
+  const user = userEvent.setup();
+  const lucia = await screen.findByRole("article", { name: "Renovación de Lucía Flores" });
+  const mario = screen.getByRole("article", { name: "Renovación de Mario Flores" });
+  const elena = screen.getByRole("article", { name: "Renovación de Elena Flores" });
+  expect(within(mario).getByText("En revisión")).toBeTruthy();
+  expect(within(mario).getByRole("button", { name: "Ver estado" })).toBeTruthy();
+  expect(within(elena).queryByRole("button", { name: "Renovar matrícula" })).toBeNull();
+  await user.click(within(lucia).getByRole("button", { name: "Renovar matrícula" }));
+  const dialog = screen.getByRole("dialog", { name: "Solicitar renovación anual" });
+  expect((await within(dialog).findByLabelText("Estudiante")).value).toBe("68");
+  await user.selectOptions(within(dialog).getByLabelText("Sección solicitada"), "30");
+  await user.click(within(dialog).getByRole("button", { name: "Enviar solicitud" }));
+  expect(await screen.findByRole("dialog", { name: "Detalle de la renovación" })).toBeTruthy();
+  expect(calls.find((call) => call.method === "POST").body).toEqual({ idMatriculaAnterior: 68, idSeccion: 30 });
+});
+
 test("Una familia puede consultar el motivo de un rechazo y filtrar los trámites", async () => {
   signIn({ role: "APODERADO", permissions: ["MATRICULA_LEER"] });
   const rejected = record({ estado: "RECHAZADA", codigoMotivo: "DEUDA_VENCIDA", motivo: "El estudiante tiene pagos vencidos.", fechaDecision: "2026-11-17T12:00:00Z" });

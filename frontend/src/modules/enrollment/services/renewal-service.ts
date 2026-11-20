@@ -1,4 +1,6 @@
 import { api } from "@/core/api/client";
+import { normalizePage } from "@/shared/lib/pagination";
+import type { Page } from "@/shared/types/api";
 import type { EnrollmentPaymentPlan } from "../types";
 
 export type RenewalState = "EN_REVISION" | "APROBADA" | "RECHAZADA";
@@ -48,6 +50,16 @@ export const PROMOTIONS_PATH = `${RENEWALS_PATH}/promociones`;
 export const getRenewalOptions = () => api<RenewalOption[]>(`${RENEWALS_PATH}/opciones`);
 export const getRenewal = (id: number) => api<RenewalRecord>(`${RENEWALS_PATH}/${id}`);
 export const getRenewalPlan = (id: number) => api<EnrollmentPaymentPlan>(`${RENEWALS_PATH}/${id}/plan`);
+
+/** The family cards need the latest request for each child, even when the history table is filtered or paged. */
+export async function getFamilyRenewalHistory() {
+  const records: RenewalRecord[] = [];
+  for (let page = 0; ; page++) {
+    const result = normalizePage(await api<Page<RenewalRecord>>(`${RENEWALS_PATH}?page=${page}&size=100`));
+    records.push(...result.content);
+    if (result.last) return records;
+  }
+}
 
 export function requestRenewal(idMatriculaAnterior: number, idSeccion: number) {
   return api<RenewalRecord>(RENEWALS_PATH, {

@@ -114,3 +114,73 @@ export function TimetableSkeleton({ rows = 6 }: { rows?: number }) {
     </div>
   );
 }
+
+/** Campos de formulario (etiqueta + control) mientras llegan las opciones de un selector. */
+export function FieldSkeleton({ fields = 1 }: { fields?: number }) {
+  return (
+    <div className={styles.fields} aria-hidden="true">
+      {Array.from({ length: fields }, (_, campo) => (
+        <div className={styles.field} key={campo}>
+          <Skeleton width="30%" height={10} />
+          <Skeleton height={38} radius={8} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Indicadores (cifra + etiqueta) seguidos de una tabla: reportes y resúmenes con detalle. */
+export function MetricsSkeleton({
+  metrics = 4,
+  rows = 5,
+  columns = 5,
+}: {
+  metrics?: number;
+  rows?: number;
+  columns?: number;
+}) {
+  return (
+    <div className={styles.metricsBlock} aria-hidden="true">
+      <div className={styles.metrics}>
+        {Array.from({ length: metrics }, (_, indicador) => (
+          <div className={styles.metric} key={indicador}>
+            <Skeleton width="55%" height={11} />
+            <Skeleton width={64} height={26} />
+            <Skeleton width="40%" height={10} />
+          </div>
+        ))}
+      </div>
+      <TableSkeleton rows={rows} columns={columns} />
+    </div>
+  );
+}
+
+/** Pantalla de varios paneles apilados (encabezado del año y sus listados), como configuración. */
+export function PanelsSkeleton({ panels = 4 }: { panels?: number }) {
+  return (
+    <div className={styles.panels} aria-hidden="true">
+      <div className={styles.panelsHeading}>
+        <div className={styles.panelsTitle}>
+          <Skeleton width={150} height={22} />
+          <Skeleton width={260} height={12} />
+        </div>
+        <div className={styles.panelsActions}>
+          <Skeleton width={96} height={34} radius={8} />
+          <Skeleton width={120} height={34} radius={8} />
+        </div>
+      </div>
+      {Array.from({ length: panels }, (_, panel) => (
+        <div className={styles.panel} key={panel}>
+          <div className={styles.panelHeader}>
+            <div className={styles.panelTitle}>
+              <Skeleton width={170} height={16} />
+              <Skeleton width="60%" height={11} />
+            </div>
+            <Skeleton width={104} height={34} radius={8} />
+          </div>
+          <TableSkeleton rows={3} columns={4} />
+        </div>
+      ))}
+    </div>
+  );
+}

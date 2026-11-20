@@ -39,7 +39,7 @@ function OptionalOfferDialog({ onClose, onSaved }: { onClose: () => void; onSave
     catch (caught) { setError(message(caught)); setBusy(false); }
   }
   return <Dialog title="Publicar cobro opcional" description="El apoderado debe aceptar la propuesta antes de que se emita el compromiso." onClose={onClose} busy={busy} size="lg"><form onSubmit={submit}><Feedback error={error} />
-    {loading ? <Loading>Cargando conceptos…</Loading> : !concepts.length && <p className={styles.notice}>Configura un concepto de pago único que requiera aceptación familiar para publicar una propuesta.</p>}
+    {loading ? <Loading skeleton="fields">Cargando conceptos…</Loading> : !concepts.length && <p className={styles.notice}>Configura un concepto de pago único que requiera aceptación familiar para publicar una propuesta.</p>}
     {!loading && error && !concepts.length && <button type="button" className="secondary-action" onClick={() => { setLoading(true); setRevision((value) => value + 1); }}>Reintentar conceptos</button>}
     <div className="form-grid"><label className="field">Concepto *<select required value={concept?.id ?? ""} disabled={busy || loading} onChange={(event) => { const next = concepts.find((item) => item.id === Number(event.target.value)) ?? null; setConcept(next); setAmount(next?.montoSugerido == null ? "" : String(next.montoSugerido)); }}><option value="">Selecciona el concepto</option>{concepts.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
       <Field label="Referencia de la actividad o cobro" name="referencia" required maxLength={80} placeholder="Ej. FERIA-2027" disabled={busy} />

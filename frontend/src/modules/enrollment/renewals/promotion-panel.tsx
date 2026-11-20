@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, Feedback, Pager, PanelHeading, PersonCell, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, Loading, Pager, PanelHeading, PersonCell, StatusPill } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { PROMOTIONS_PATH, savePromotion, type PromotionRecord, type PromotionResult } from "../services/renewal-service";
 import { promotionLabels } from "./renewal-labels";
@@ -29,7 +29,7 @@ export function PromotionPanel({ canWrite }: { canWrite: boolean }) {
         <label className="field">Estudiante<input name="busqueda" placeholder="Nombre o código" /></label>
         <div className="row-actions"><button className="primary-action" type="submit">Buscar</button></div>
       </form>
-      {list.loading ? <p role="status">Cargando resultados…</p> : list.data?.content.length ? (
+      {list.loading ? <Loading skeleton="table" columns={5} rows={4}>Cargando resultados…</Loading> : list.data?.content.length ? (
         <div className="user-table-wrap">
           <table className="user-table" aria-label="Promoción del grado anterior">
             <thead>

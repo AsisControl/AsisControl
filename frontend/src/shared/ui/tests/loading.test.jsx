@@ -21,6 +21,11 @@ test.each([
   ["detail", { rows: 5 }, 5],
   ["cards", { rows: 3 }, 3],
   ["timetable", { rows: 2 }, 18],
+  ["fields", { rows: 2 }, 2],
+  // 1 bloque de indicadores y la tabla.
+  ["metrics", { rows: 3, columns: 4 }, 2],
+  // Encabezado del año y un panel por listado.
+  ["panels", { rows: 4 }, 5],
 ])("el esqueleto %s respeta la cantidad pedida", (skeleton, props, hijos) => {
   render(<Loading skeleton={skeleton} {...props}>Cargando…</Loading>);
   const esqueleto = screen.getByRole("status").querySelector(":scope > [aria-hidden='true']");
@@ -40,4 +45,13 @@ test.each(["inline", "screen"])("la variante %s mantiene el anillo con el texto 
   expect(estado.className).toContain("extra");
   expect(estado.textContent).toBe("Cargando…");
   expect(estado.querySelector("[aria-hidden='true']").textContent).toBe("");
+});
+
+test("el esqueleto de indicadores trae las tarjetas y una tabla con las filas pedidas", () => {
+  render(<Loading skeleton="metrics" rows={3} columns={4}>Calculando reporte…</Loading>);
+  const bloque = screen.getByRole("status").querySelector(":scope > [aria-hidden='true']");
+  expect(bloque.children[0].children).toHaveLength(4);
+  // 1 encabezado + 3 filas de 4 columnas.
+  expect(bloque.children[1].children).toHaveLength(4);
+  expect(bloque.children[1].children[1].children).toHaveLength(4);
 });

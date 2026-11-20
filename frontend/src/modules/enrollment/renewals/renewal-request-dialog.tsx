@@ -2,18 +2,19 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, Feedback } from "@/shared/ui";
+import { Dialog, Feedback, Loading } from "@/shared/ui";
 import { getRenewalOptions, requestRenewal, type RenewalOption, type RenewalRecord } from "../services/renewal-service";
 import { promotionLabels } from "./renewal-labels";
 
-export function RenewalRequestDialog({ onClose, onSaved }: {
+export function RenewalRequestDialog({ initialEnrollmentId = null, onClose, onSaved }: {
+  initialEnrollmentId?: number | null;
   onClose: () => void;
   onSaved: (record: RenewalRecord) => void;
 }) {
   const [choices, setChoices] = useState<RenewalOption[] | null>(null);
   const [loadingError, setLoadingError] = useState("");
   const [saveError, setSaveError] = useState("");
-  const [source, setSource] = useState("");
+  const [source, setSource] = useState(initialEnrollmentId === null ? "" : String(initialEnrollmentId));
   const [section, setSection] = useState("");
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -21,11 +22,18 @@ export function RenewalRequestDialog({ onClose, onSaved }: {
   useEffect(() => {
     let active = true;
     getRenewalOptions().then(
-      (options) => { if (active) setChoices(options); },
+      (options) => {
+        if (!active) return;
+        setChoices(options);
+        if (initialEnrollmentId !== null && !options.some((item) => item.idMatriculaAnterior === initialEnrollmentId)) {
+          setSource("");
+          setSaveError("La renovación de este estudiante ya no está disponible. Actualiza los trámites o elige otra opción.");
+        }
+      },
       (error) => { if (active) setLoadingError(message(error)); },
     );
     return () => { active = false; };
-  }, [attempt]);
+  }, [attempt, initialEnrollmentId]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,7 +53,7 @@ export function RenewalRequestDialog({ onClose, onSaved }: {
   return (
     <Dialog title="Solicitar renovación anual" description="Elige al estudiante y la sección para el próximo año." onClose={onClose} busy={busy}>
       <Feedback error={loadingError || saveError} />
-      {!choices && !loadingError && <p role="status">Consultando las opciones de renovación…</p>}
+      {!choices && !loadingError && <Loading skeleton="list" rows={3}>Consultando las opciones de renovación…</Loading>}
       {loadingError && (
         <button type="button" className="secondary-action" onClick={() => { setLoadingError(""); setAttempt((value) => value + 1); }}>Volver a consultar</button>
       )}

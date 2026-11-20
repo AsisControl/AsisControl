@@ -13,6 +13,33 @@ import java.util.Optional;
 
 public interface TransaccionPagoRepository extends JpaRepository<TransaccionPago, Long> {
 
+    /** Una fila por transacción/cuota: comprobantes aprobados e intentos propios finalizados. */
+    @Query("""
+            select t from TransaccionPago t
+            join t.compromisoPago cp join cp.matricula m join m.alumno a
+            left join OrdenPagoDetalle d on d.transaccion=t
+            left join d.orden o
+            where t.activo=true and cp.activo=true and a.activo=true and a.persona.activo=true
+              and (:idAlumno is null or a.id=:idAlumno)
+              and exists (select v.id from AlumnoApoderado v where v.alumno=a
+                and v.apoderado.id=:apoderadoId and v.activo=true
+                and v.apoderado.activo=true and v.apoderado.persona.activo=true)
+              and ((t.estado=com.asiscontrol.entity.enums.EstadoTransaccionPago.APROBADA
+                    and (:estado is null or :estado='APROBADO')
+                    and exists (select c.id from Comprobante c where c.transaccionPago=t and c.activo=true))
+                or (d.activo=true and o.activo=true and o.apoderado.id=:apoderadoId
+                    and ((o.estado=com.asiscontrol.entity.enums.EstadoOrdenPago.RECHAZADO
+                          and (:estado is null or :estado='RECHAZADO'))
+                      or ((:estado is null or :estado='VENCIDO')
+                          and (o.estado=com.asiscontrol.entity.enums.EstadoOrdenPago.EXPIRADO
+                            or (o.estado in (com.asiscontrol.entity.enums.EstadoOrdenPago.PENDIENTE,
+                                                  com.asiscontrol.entity.enums.EstadoOrdenPago.REQUIERE_AUTENTICACION)
+                                and o.expiraEn<=:ahora))))))
+            """)
+    Page<TransaccionPago> buscarHistorialFamiliar(@Param("apoderadoId") Long apoderadoId,
+            @Param("idAlumno") Long idAlumno, @Param("estado") String estado,
+            @Param("ahora") java.time.Instant ahora, Pageable pageable);
+
     boolean existsByCompromisoPagoIdAndEstado(
             Long idCompromisoPago, com.asiscontrol.entity.enums.EstadoTransaccionPago estado);
 

@@ -27,3 +27,8 @@ export type ReceiptHistoryItem = {
   medioPago: string; idOrden: number | null; codigoOrden: string | null;
   institucion: string; apoderado: string;
 };
+export type PaymentHistoryItem = Omit<ReceiptHistoryItem, "institucion" | "apoderado"> & {
+  idComprobante: number | null;
+  estado: "APROBADO" | "RECHAZADO" | "VENCIDO";
+  mensaje: string | null;
+};

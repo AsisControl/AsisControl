@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { StatusPill } from "@/shared/ui";
+import { Loading, StatusPill } from "@/shared/ui";
 import { financialLabels, financialToneForStatus, moneyLabel } from "./commitment-format";
 import { getCommitmentSummary } from "./services/commitment-service";
 import type { CommitmentSummary } from "./types";
@@ -38,7 +38,7 @@ export function DelinquencyIndicators({ filters, refreshKey }: { filters: string
         <h3 id="indicadores-morosidad">Indicadores de morosidad</h3>
         {summary && <small>Calculado con los pagos aprobados al {summary.fechaCalculo.split("-").reverse().join("/")}</small>}
       </div>
-      {!current && <p role="status">Calculando indicadores…</p>}
+      {!current && <Loading skeleton="metrics" rows={4} columns={5}>Calculando indicadores…</Loading>}
       {current?.error && (
         <div className={styles.notice}>
           <p>No pudimos calcular los indicadores. {current.error}</p>

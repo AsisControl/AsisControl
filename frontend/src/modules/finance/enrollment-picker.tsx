@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { Feedback, Pager } from "@/shared/ui";
+import { Feedback, Loading, Pager } from "@/shared/ui";
 import { ELIGIBLE_ENROLLMENTS_PATH } from "./services/commitment-service";
 import type { EligibleEnrollment } from "./types";
 import styles from "./finance.module.css";
@@ -74,7 +74,7 @@ export function EnrollmentPicker({ selected, disabled, onSelect }: {
           </div>
           <Feedback error={list.error} />
           {list.loading ? (
-            <p role="status">Buscando matrículas…</p>
+            <Loading skeleton="table" columns={4} rows={3}>Buscando matrículas…</Loading>
           ) : list.error ? (
             <button type="button" className="secondary-action" disabled={disabled} onClick={list.refresh}>
               Reintentar búsqueda
