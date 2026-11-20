@@ -125,6 +125,11 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
             <h2 id="marcar-title" className={styles.blockTitle}>
               Marcar mi asistencia
             </h2>
+            <p className={styles.muted}>
+              Puedes marcar desde una hora antes de tu primera clase del día. Hasta 15 minutos antes
+              de su inicio se registra Presente; después, Tardanza. La marcación cierra al terminar
+              tu última clase. Si no tienes clases programadas, solicita revisión administrativa.
+            </p>
 
             {result && (
               <div role="status" className={`${styles.result} ${styles[result.estado] ?? ""}`}>

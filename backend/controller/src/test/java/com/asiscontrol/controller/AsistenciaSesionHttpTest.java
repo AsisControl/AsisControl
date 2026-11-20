@@ -178,6 +178,35 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         docente("PUT", ruta(futura) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 422);
     }
 
+    @Test void administradorCorrigeFinalizadaConAutorRealSinHabilitarTomaInicial() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        long version = finalizarTodos(id).path("version").asLong();
+        request("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "", "version", version), 400);
+        request("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Revisión administrativa", "version", version + 50), 409);
+        var corregida = request("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Revisión administrativa de evidencia", "version", version), 200);
+        assertThat(corregida.path("estado").asText()).isEqualTo("TOMADA");
+        var historial = getOk(ruta(id) + "/correcciones");
+        assertThat(historial).hasSize(1);
+        assertThat(historial.get(0).path("actorNombre").asText()).isEqualTo(admin.getPersona().nombreCompleto());
+        assertThat(historial.get(0).path("actorRol").asText()).isEqualTo("ADMINISTRADOR");
+        assertThat(historial.get(0).path("docenteId").asLong()).isEqualTo(teacher.getId());
+        assertThat(historial.get(0).path("cambios").get(0).path("estadoAnterior").asText()).isEqualTo("PRESENTE");
+        var reporte = getOk("/api/reportes/asistencia?tipo=ESTUDIANTES&estado=TARDANZA");
+        assertThat(reporte.path("totalDetalle").asLong()).isEqualTo(1);
+        long pendiente = sesion(hoy.minusDays(1), EstadoSesionClase.PENDIENTE);
+        request("PUT", ruta(pendiente), data("marcas", List.of(marca(student, "PRESENTE")),
+                "motivo", "Prueba de sesión no finalizada", "version", 0), 422);
+        request("POST", ruta(pendiente) + "/finalizar", data("marcas", List.of(marca(student, "PRESENTE")), "version", 0), 403);
+        mvc.perform(put(ruta(id)).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"),
+                        new SimpleGrantedAuthority("ASISTENCIA_LEER")))
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(data("marcas", List.of(marca(student, "PRESENTE")),
+                        "motivo", "Sin permiso", "version", corregida.path("version").asLong()))))
+                .andExpect(status().isForbidden());
+    }
+
     @Test void corrigeTomadaConMotivoYRegistraCadaCambio() throws Exception {
         long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
         long version = finalizarTodos(id).path("version").asLong();

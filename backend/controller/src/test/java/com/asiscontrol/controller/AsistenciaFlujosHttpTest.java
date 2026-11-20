@@ -18,7 +18,17 @@ import java.time.*;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 
+@org.springframework.context.annotation.Import(AsistenciaFlujosHttpTest.RelojPrueba.class)
 class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class RelojPrueba {
+        @org.springframework.context.annotation.Bean @org.springframework.context.annotation.Primary
+        Clock relojFijoMarcacion() {
+            var zona = ZoneId.of("America/Lima");
+            return Clock.fixed(LocalDate.now(zona).atTime(7, 30).atZone(zona).toInstant(), zona);
+        }
+    }
 
     /** Los códigos QR vencen según el reloj de la institución, no la zona horaria del servidor. */
     @org.springframework.beans.factory.annotation.Autowired java.time.Clock reloj;
@@ -155,6 +165,7 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void elPuntoDeMarcacionEsDeLaInstitucionYElDocenteSeIdentificaPorSuSesion() throws Exception {
+        asistenciaTomada(LocalDate.now(reloj), EstadoAsistencia.PRESENTE);
         var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
         assertThat(qr.has("docenteId")).isFalse();
         String ruta="/api/asistencias/docentes/qr/"+qr.path("id").asLong();
@@ -172,6 +183,7 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void reemplazarElPuntoInvalidaElCodigoAnteriorYElResumenCuentaLasMarcaciones() throws Exception {
+        asistenciaTomada(LocalDate.now(reloj), EstadoAsistencia.PRESENTE);
         var primero=postOk("/api/asistencias/docentes/qr",null);
         var segundo=postOk("/api/asistencias/docentes/qr",null);
         marcaComoDocente(primero.path("token").asText(),422);

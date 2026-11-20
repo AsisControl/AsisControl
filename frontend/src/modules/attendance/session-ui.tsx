@@ -194,12 +194,14 @@ export function SessionSummary({
   totales,
   nota,
   registro,
+  registroOriginal = false,
 }: {
   sesion: SesionAsistencia;
   estado: ReactNode;
   totales?: { estado: string | null }[];
   nota?: ReactNode;
   registro?: boolean;
+  registroOriginal?: boolean;
 }) {
   return (
     <div className={styles.resumenSesion}>
@@ -214,13 +216,13 @@ export function SessionSummary({
           {nota}
         </div>
       )}
-      {registro && <AuditNote sesion={sesion} />}
+      {registro && <AuditNote sesion={sesion} original={registroOriginal} />}
     </div>
   );
 }
 
 /** Quién registró la asistencia y su última corrección; el motivo completo se ve al pasar el mouse. */
-function AuditNote({ sesion }: { sesion: SesionAsistencia }) {
+function AuditNote({ sesion, original = false }: { sesion: SesionAsistencia; original?: boolean }) {
   const [correcciones, setCorrecciones] = useState<CorreccionAsistencia[]>([]);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -239,13 +241,13 @@ function AuditNote({ sesion }: { sesion: SesionAsistencia }) {
   const ultima = correcciones[0];
   return (
     <div className={styles.auditoria}>
-      <span className={styles.etiquetaZona}>Registro</span>
+      <span className={styles.etiquetaZona}>{original ? "Registro original" : "Registro"}</span>
       {sesion.registradoPor && sesion.registradoEn && (
-        <p>Registrada por {sesion.registradoPor} · {fechaHora(sesion.registradoEn)}</p>
+        <p>{original ? "Registrada originalmente por" : "Registrada por"} {sesion.registradoPor} · {fechaHora(sesion.registradoEn)}</p>
       )}
       {ultima && (
         <>
-          <p>Corregida por {ultima.docente} · {fechaHora(ultima.fechaHora)}</p>
+          <p>Corregida por {ultima.actorNombre || ultima.docente}{ultima.actorRol === "ADMINISTRADOR" ? " (administrador)" : ""} · {fechaHora(ultima.fechaHora)}</p>
           <p className={styles.motivoAuditoria} title={ultima.motivo}>Motivo: {ultima.motivo}</p>
         </>
       )}
