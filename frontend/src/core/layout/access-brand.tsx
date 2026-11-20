@@ -1,10 +1,10 @@
-import Image from "next/image";
+import { AsisControlLogo } from "./brand";
 import styles from "./access.module.css";
 
 export function AccessBrand({ className }: { className?: string }) {
   return (
     <header className={`${styles.brand} ${className ?? ""}`}>
-      <Image src="/brand/asiscontrol-principal.svg" alt="AsisControl" width={208} height={53} unoptimized loading="eager" />
+      <AsisControlLogo />
       <p>Colegio PUCP</p>
     </header>
   );
