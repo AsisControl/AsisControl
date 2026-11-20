@@ -85,7 +85,7 @@ function ReportWithDownload({ context, report }: { context: AvailableReport; rep
     }
   }
   return <>
-    <ReportContent report={report} />
+    <ReportContent report={report} sustento="docente" />
     <div className={`panel ${styles.sheet}`}>
       <Feedback error={error} />
       <button type="button" className="primary-action" disabled={busy} onClick={download}>

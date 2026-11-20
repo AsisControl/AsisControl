@@ -117,7 +117,7 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
           : "Selecciona un período y curso para consultar tu libreta publicada."}
       </p>}
     </>}
-    {detail && <ReportContent report={detail} />}
+    {detail && <ReportContent report={detail} sustento="publicado" />}
   </section>;
 }
 
@@ -280,6 +280,6 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
         </tr>)}</tbody>
       </table>
     </div>}
-    {preview && <ReportContent report={preview.report} draft={preview.draft} />}
+    {preview && <ReportContent report={preview.report} draft={preview.draft} sustento="docente" />}
   </section>;
 }

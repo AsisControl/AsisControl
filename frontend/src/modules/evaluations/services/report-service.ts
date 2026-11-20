@@ -1,6 +1,6 @@
 import { api, apiBlob } from "@/core/api/client";
 import { saveBlob } from "@/shared/lib/save-blob";
-import type { AvailableReport, ProgressReport, ReportContext, ReportPeriod } from "../report-types";
+import type { AvailableReport, ProgressReport, ReportContext, ReportPeriod, ReportRowContext, SustentoInformeDto } from "../report-types";
 
 function reportQuery(context: ReportContext) {
   return new URLSearchParams({
@@ -20,6 +20,18 @@ export function listAvailableReports() {
 
 export function getProgressReport(context: ReportContext) {
   return api<ProgressReport>(`/api/calificaciones/avance?${reportQuery(context)}`);
+}
+
+function evidencePath({ idInforme, idDetalleInforme }: ReportRowContext) {
+  return `/api/calificaciones/informes/${idInforme}/filas/${idDetalleInforme}/evidencias`;
+}
+
+export function getReportRowEvidence(row: ReportRowContext) {
+  return api<SustentoInformeDto>(evidencePath(row));
+}
+
+export function getReportEvidenceAttachment(row: ReportRowContext, evidenceId: number) {
+  return apiBlob(`${evidencePath(row)}/${evidenceId}/archivo`, { timeoutMs: 60000 });
 }
 
 export async function getProgressReportPdf(context: ReportContext) {

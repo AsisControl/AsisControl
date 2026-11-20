@@ -15,6 +15,45 @@ export type AvailableReport = ReportContext & {
 
 export type ReportPeriod = { id: number; nombre: string };
 
+export type ReportRowContext = {
+  idInforme: number;
+  idDetalleInforme: number;
+};
+
+type ReportRowReferences = ReportRowContext & {
+  idEvaluacion: number;
+  idCompetencia: number;
+  idCalificacion: number | null;
+};
+
+export type EvidenceAttachment = {
+  idArchivo: number;
+  nombreOriginal: string;
+  tipoMime: string;
+  tamanioBytes: number;
+  urlDescarga: string;
+};
+
+export type ReportEvidence = {
+  idEvidencia: number;
+  descripcion: string;
+  archivo: EvidenceAttachment | null;
+};
+
+export type SustentoInformeDto = ReportContext & ReportRowReferences & {
+  numeroVersion: number;
+  evidencias: ReportEvidence[];
+};
+
+export type ProgressReportRow = ReportRowReferences & {
+  competencia: string;
+  evaluacion: string;
+  fecha: string;
+  resultado: AchievementLevel | "Sin registrar";
+  ponderacion: string;
+  observacion: string;
+};
+
 /** ReporteAvanceDto: contenido de una versión persistida de la libreta. */
 export type ProgressReport = {
   alumno: string;
@@ -27,12 +66,5 @@ export type ProgressReport = {
   periodo: string;
   fechas: string;
   generadoEn: string;
-  filas: {
-    competencia: string;
-    evaluacion: string;
-    fecha: string;
-    resultado: AchievementLevel | "Sin registrar";
-    ponderacion: string;
-    observacion: string;
-  }[];
+  filas: ProgressReportRow[];
 };
