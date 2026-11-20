@@ -5,11 +5,13 @@ import { api, apiBlob, message } from "@/core/api/client";
 import { Feedback, PageHeader, Loading } from "@/shared/ui";
 import { saveBlob } from "@/shared/lib/save-blob";
 import type { OwnAssignment } from "./types";
+import type { ProgressReportRow } from "./report-types";
+import { ReportEvidenceDialog } from "./report-evidence-dialog";
+import styles from "./evaluations.module.css";
 
 type Option = { idAlumno: number; alumno: string; idAsignacionCurso: number; curso: string;
   anio: number; idPeriodoAcademico: number; periodo: string };
-type Detail = { periodo?: string; filas: { competencia: string; evaluacion: string; fecha: string;
-  resultado: string; ponderacion: string; observacion: string }[] };
+type Detail = { periodo?: string; filas: ProgressReportRow[] };
 const query = (item: Option) => new URLSearchParams({ idAlumno: String(item.idAlumno),
   idAsignacionCurso: String(item.idAsignacionCurso), idPeriodoAcademico: String(item.idPeriodoAcademico) });
 
@@ -23,6 +25,7 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
   const [student, setStudent] = useState("");
   const [period, setPeriod] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [evidenceRow, setEvidenceRow] = useState<ProgressReportRow | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,6 +50,7 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
   function changeCourse(value: string) {
     setSelected(value);
     setDetail(null);
+    setEvidenceRow(null);
     setError("");
   }
 
@@ -57,7 +61,16 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
       if (download) {
         const blob = await apiBlob(`/api/calificaciones/reporte-avance?${query(option)}`, { timeoutMs: 60000 });
         saveBlob(blob, `avance-${option.idAlumno}-${option.idAsignacionCurso}-${option.idPeriodoAcademico}.pdf`);
-      } else setDetail(await api<Detail>(`/api/calificaciones/avance?${query(option)}`));
+      } else {
+        setDetail(null);
+        setEvidenceRow(null);
+        const report = await api<Detail>(`/api/calificaciones/avance?${query(option)}`);
+        if (report.periodo?.endsWith(" | BORRADOR")) {
+          setError("No hay una libreta publicada para este período y curso.");
+        } else {
+          setDetail(report);
+        }
+      }
     } catch (e) { setError(message(e)); }
     finally { setBusy(false); }
   }
@@ -96,11 +109,20 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
       {busy && <p role="status">Preparando informe.</p>}
       {detail && <div className="user-table-wrap" style={{ marginTop: 24 }}><p>{detail.periodo}</p><table className="user-table">
         <thead><tr>{["Competencia", "Evaluación", "Fecha", "Nivel", "Peso", "Observación"].map(t => <th key={t}>{t}</th>)}</tr></thead>
-        <tbody>{detail.filas.map((row, i) => <tr key={i}>
+        <tbody>{detail.filas.map((row, i) => <tr key={row.idDetalleInforme || i}>
           <td>{row.competencia}</td><td>{row.evaluacion}</td><td>{row.fecha}</td>
-          <td>{row.resultado}</td><td>{row.ponderacion}</td><td>{row.observacion}</td>
+          <td>{row.resultado}</td><td>{row.ponderacion}</td><td>
+            {row.observacion}
+            {row.idInforme > 0 && row.idDetalleInforme > 0 && <div className={styles.reportEvidenceAction}>
+              <button type="button" className="secondary-action" aria-haspopup="dialog"
+                aria-label={`Ver sustento de ${row.competencia} en ${row.evaluacion}`}
+                onClick={() => setEvidenceRow(row)}>Ver sustento</button>
+            </div>}
+          </td>
         </tr>)}</tbody>
       </table></div>}
+    {evidenceRow && <ReportEvidenceDialog key={evidenceRow.idDetalleInforme}
+      row={evidenceRow} onClose={() => setEvidenceRow(null)} />}
   </section>;
 }
 
