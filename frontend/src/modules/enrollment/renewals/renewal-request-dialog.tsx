@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Dialog, Feedback } from "@/shared/ui";
+import { Dialog, Feedback, Loading } from "@/shared/ui";
 import { getRenewalOptions, requestRenewal, type RenewalOption, type RenewalRecord } from "../services/renewal-service";
 import { promotionLabels } from "./renewal-labels";
 
@@ -45,7 +45,7 @@ export function RenewalRequestDialog({ onClose, onSaved }: {
   return (
     <Dialog title="Solicitar renovación anual" description="Elige al estudiante y la sección para el próximo año." onClose={onClose} busy={busy}>
       <Feedback error={loadingError || saveError} />
-      {!choices && !loadingError && <p role="status">Consultando las opciones de renovación…</p>}
+      {!choices && !loadingError && <Loading skeleton="list" rows={3}>Consultando las opciones de renovación…</Loading>}
       {loadingError && (
         <button type="button" className="secondary-action" onClick={() => { setLoadingError(""); setAttempt((value) => value + 1); }}>Volver a consultar</button>
       )}

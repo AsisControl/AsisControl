@@ -184,8 +184,8 @@ export function GuardianEnrollment({ navigation }: { navigation?: ReactNode } = 
           }
         />
         <Feedback error={error || list.error} success={success} />
-        {!students && !error && (
-          <Loading skeleton="cards" rows={2}>Cargando estudiantes asociados…</Loading>
+        {!students && !error && !list.loading && (
+          <Loading skeleton="table" columns={5} rows={3}>Cargando estudiantes asociados…</Loading>
         )}
         {students?.length === 0 && (
           <p className="hint">
@@ -219,7 +219,7 @@ export function GuardianEnrollment({ navigation }: { navigation?: ReactNode } = 
           </label>
         )}
         {list.loading ? (
-          <Loading skeleton="list" rows={3}>Cargando solicitudes…</Loading>
+          <Loading skeleton="table" columns={5} rows={3}>Cargando solicitudes…</Loading>
         ) : list.data?.content.length ? (
           <div className="user-table-wrap">
             <table className="user-table">

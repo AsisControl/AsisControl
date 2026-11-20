@@ -132,7 +132,7 @@ function ReportPage({ query, type, state, page, onState, onPage, onDetail }: {
     return () => { alive = false; };
   }, [query, state, page]);
   if (error) return <Feedback error={error} />;
-  if (!data) return <Loading variant="inline">Calculando reporte…</Loading>;
+  if (!data) return <Loading skeleton="metrics" rows={6} columns={5}>Calculando reporte…</Loading>;
   if (data.total === 0) return <p role="status" className={styles.empty}>Sin registros para los filtros seleccionados.</p>;
   return <>
     <p>Total: <strong>{data.total} registros</strong></p>
