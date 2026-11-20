@@ -163,6 +163,7 @@ public class AsistenciaSesionService {
         sesion.setDocenteRegistrador(sesion.getAsignacionCurso().getDocente());
         sesion.setFechaHoraFinalizacion(LocalDateTime.now(reloj));
         sesionRepository.saveAndFlush(sesion);
+        plazoService.confirmarMarcacionDocente(sesionId);
         auditoria.registrar("FINALIZAR_ASISTENCIA", ModuloAuditoria.ASISTENCIA, "SesionClase",
                 sesionId.toString(), ResultadoAuditoria.EXITOSO, null, null, describir(marcas));
         return mapear(sesion, filas);

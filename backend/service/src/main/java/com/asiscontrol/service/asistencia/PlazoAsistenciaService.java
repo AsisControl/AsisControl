@@ -3,12 +3,15 @@ package com.asiscontrol.service.asistencia;
 
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AsistenciaAlumno;
+import com.asiscontrol.entity.AsistenciaDocente;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
+import com.asiscontrol.entity.enums.EstadoVerificacionClase;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
+import com.asiscontrol.repository.AsistenciaDocenteRepository;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
 import com.asiscontrol.service.AuditoriaService;
 import com.asiscontrol.service.MatriculaService;
@@ -43,6 +46,7 @@ public class PlazoAsistenciaService {
     private final AsistenciaAlumnoRepository asistenciaRepository;
     private final MatriculaService matriculaService;
     private final AuditoriaService auditoria;
+    private final AsistenciaDocenteRepository asistenciaDocenteRepository;
     private final Clock reloj;
 
     public PlazoAsistenciaService(
@@ -50,12 +54,25 @@ public class PlazoAsistenciaService {
             AsistenciaAlumnoRepository asistenciaRepository,
             MatriculaService matriculaService,
             AuditoriaService auditoria,
+            AsistenciaDocenteRepository asistenciaDocenteRepository,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.matriculaService = matriculaService;
         this.auditoria = auditoria;
+        this.asistenciaDocenteRepository = asistenciaDocenteRepository;
         this.reloj = reloj;
+    }
+
+    /**
+     * La lista de alumnos ya existe: la marcación QR del docente en esta sesión deja de estar
+     * observada. Se usa al finalizar a mano y también al finalizar sola por plazo vencido.
+     */
+    public void confirmarMarcacionDocente(Long sesionId) {
+        for (AsistenciaDocente marcacion : asistenciaDocenteRepository.findAllBySesionClaseIdAndActivoTrue(sesionId)) {
+            marcacion.setVerificacion(EstadoVerificacionClase.CONFIRMADA);
+            asistenciaDocenteRepository.save(marcacion);
+        }
     }
 
     public LocalDateTime ahora() {
@@ -147,6 +164,7 @@ public class PlazoAsistenciaService {
         sesion.setFechaHoraFinalizacion(registro);
         sesion.setFechaActualizacion(Instant.now(reloj));
         sesionRepository.saveAndFlush(sesion);
+        confirmarMarcacionDocente(sesion.getId());
         auditoria.registrar("FINALIZAR_ASISTENCIA_AUTOMATICA", ModuloAuditoria.ASISTENCIA, "SesionClase",
                 sesion.getId().toString(), ResultadoAuditoria.EXITOSO, "Venció el plazo de edición",
                 null, "sinMarcar=" + sinMarcar.size());

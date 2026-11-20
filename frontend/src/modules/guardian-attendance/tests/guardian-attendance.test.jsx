@@ -8,16 +8,17 @@ import { GuardianAttendance } from "@/modules/guardian-attendance";
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
 const fila = (overrides = {}) => ({
-  id: 1, fechaRegistro: "2026-09-08", horaRegistro: "07:30:00", estado: "PRESENTE", comentario: null, curso: "Matemática",
+  id: 1, fechaRegistro: "2026-09-08", horaRegistro: "07:30:00", horaSesion: "07:30:00", estado: "PRESENTE", comentario: null,
+  curso: "Matemática", anioAcademico: 2026, periodo: "Bimestre III",
   justificacionId: null, estadoJustificacion: null, motivoJustificacion: null, observacionRevision: null, ...overrides,
 });
 const FILAS = [
   fila({ id: 1 }),
   fila({ id: 2, curso: "Comunicación" }),
   fila({ id: 3, estado: "TARDANZA", horaRegistro: "08:10:00", comentario: "Transporte" }),
-  fila({ id: 4, estado: "PRESENTE", fechaRegistro: "2026-08-29" }),
+  fila({ id: 4, estado: "PRESENTE", fechaRegistro: "2026-08-29", periodo: "Bimestre II" }),
   fila({ id: 5, estado: "INASISTENCIA_JUSTIFICADA", horaRegistro: null, curso: "Inglés", justificacionId: 8, estadoJustificacion: "APROBADA", motivoJustificacion: "Cita médica" }),
-  fila({ id: 6, estado: "INASISTENCIA", horaRegistro: null, fechaRegistro: "2026-08-28", curso: "Comunicación" }),
+  fila({ id: 6, estado: "INASISTENCIA", horaRegistro: null, fechaRegistro: "2026-08-28", curso: "Comunicación", periodo: "Bimestre II" }),
   fila({ id: 7, estado: "INASISTENCIA", horaRegistro: null, curso: "Historia", justificacionId: 9, estadoJustificacion: "RECHAZADA", observacionRevision: "Sin sustento" }),
 ];
 const ESTUDIANTES = "GET /api/familia/estudiantes";
@@ -31,7 +32,6 @@ beforeEach(() => {
 
 const abrirModal = async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del Vie, 28 Ago 2026" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Justificar Comunicación del 28/08/2026" }));
   return screen.findByRole("dialog");
 };
 
@@ -87,7 +87,7 @@ test("Envía el motivo con las observaciones y el sustento, y queda pendiente", 
   expect(await screen.findByText("La justificación fue enviada y está pendiente de revisión.")).toBeTruthy();
   expect(calls.find((call) => call.method === "POST" && call.path === "/api/justificaciones-asistencia").body)
     .toEqual({ asistenciaAlumnoId: 6, motivo: "Cita médica — Control", archivoIds: [30] });
-  expect(await screen.findByText("Justificación pendiente")).toBeTruthy();
+  expect(await screen.findByText("Pendiente")).toBeTruthy();
   expect(screen.queryByRole("button", { name: /^Justificar/ })).toBeNull();
 });
 
@@ -171,33 +171,4 @@ test("Seleccionar un registro muestra su detalle y permite justificar desde ahí
   await userEvent.click(within(detalle).getByRole("button", { name: "Justificar" }));
   expect(await screen.findByRole("dialog", { name: "Justificar inasistencia" })).toBeTruthy();
   expect(screen.queryByRole("dialog", { name: "Detalle de asistencia" })).toBeNull();
-});
-
-test("Enmascara, valida y convierte a ISO la fecha escrita", () => {
-  expect(enmascararFecha("0809")).toBe("08/09");
-  expect(enmascararFecha("08092026999")).toBe("08/09/2026");
-  expect(enmascararFecha("8a")).toBe("8");
-  expect(parsearFecha("08/09/2026")).toBe("2026-09-08");
-  expect(parsearFecha("29/02/2024")).toBe("2024-02-29");
-  expect(parsearFecha("29/02/2026")).toBeNull();
-  expect(parsearFecha("31/04/2026")).toBeNull();
-  expect(parsearFecha("08/13/2026")).toBeNull();
-  expect(parsearFecha("08/09/26")).toBeNull();
-  expect(etiquetaMes("2026-09")).toBe("09/2026");
-});
-
-test("Desde y Hasta se escriben como dd/mm/aaaa y filtran la tabla", async () => {
-  fakeBackend({ [ESTUDIANTES]: [luis], [ASISTENCIAS]: page(FILAS) });
-  render(<GuardianAttendance />);
-  await screen.findByText("57%");
-  const desde = screen.getByLabelText("Desde");
-  expect(desde.getAttribute("type")).toBe("text");
-  await userEvent.type(desde, "01092026");
-  expect(desde.value).toBe("01/09/2026");
-  expect(screen.queryByRole("cell", { name: "28/08/2026" })).toBeNull();
-  expect(screen.getAllByRole("cell", { name: "08/09/2026" }).length).toBeGreaterThan(0);
-  await userEvent.type(screen.getByLabelText("Hasta"), "31022026");
-  expect(screen.getByRole("alert").textContent).toBe("Fecha no válida");
-  await userEvent.clear(desde);
-  expect(screen.getByText("28/08/2026")).toBeTruthy();
 });
