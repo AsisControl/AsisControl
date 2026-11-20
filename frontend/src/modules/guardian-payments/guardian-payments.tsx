@@ -92,7 +92,7 @@ export function GuardianPayments() {
     <PageHeader title="Mis pagos" description="Consulta las obligaciones y los pagos de tus estudiantes en soles." />
     {tab !== "opcionales" && <StudentScope students={students} value={studentId} onChange={chooseStudent} />}
     <PaymentTabs label="Secciones de pagos" selected={tab} onSelect={selectTab} items={[{ id: "obligaciones", label: "Obligaciones" }, { id: "historial", label: "Historial de pagos" }, { id: "operaciones", label: "Seguimiento de pagos" }, { id: "opcionales", label: "Actividades y servicios" }]}>
-    {tab === "historial" ? <ReceiptsHistory studentId={studentId} scope={scope} /> : tab === "operaciones" ? <OrdersHistory studentId={studentId} scope={scope} onRefreshObligations={list.refresh} />
+    {tab === "historial" ? <ReceiptsHistory key={studentId} studentId={studentId} scope={scope} /> : tab === "operaciones" ? <OrdersHistory studentId={studentId} scope={scope} onRefreshObligations={list.refresh} />
       : tab === "opcionales" ? <OptionalCharges onChanged={list.refresh} onObligation={setDetail} /> : <section className="panel">
       <PanelHeading title={`Obligaciones de ${scope}`} summary="Selecciona las obligaciones que deseas pagar."
         actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar obligaciones</button>} />

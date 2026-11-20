@@ -14,11 +14,11 @@ afterEach(() => vi.useRealTimers());
 const backend = (routes = {}) => fakeBackend({ "GET /api/apoderado/obligaciones/estudiantes": [student], [OBLIGATIONS]: page([obligation()]), ...routes });
 
 test("las pestañas permiten navegación por teclado y mantienen el panel asociado", async () => {
-  backend({ "GET /api/apoderado/comprobantes": page([]), "GET /api/pagos/ordenes": page([]), "GET /api/apoderado/ofertas": page([]) });
+  backend({ "GET /api/apoderado/pagos/historial": page([]), "GET /api/pagos/ordenes": page([]), "GET /api/apoderado/ofertas": page([]) });
   const user = userEvent.setup(); render(<GuardianPayments />);
   const obligationsTab = screen.getByRole("tab", { name: "Obligaciones" });
   obligationsTab.focus(); await user.keyboard("{ArrowRight}");
-  expect(await screen.findByText("Todavía no tienes pagos registrados.")).toBeTruthy();
+  expect(await screen.findByText("No hay operaciones finalizadas para los filtros seleccionados.")).toBeTruthy();
   const historyTab = screen.getByRole("tab", { name: "Historial de pagos" });
   expect(document.activeElement).toBe(historyTab);
   expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(historyTab.id);
@@ -55,18 +55,18 @@ test("distingue cuotas vencidas, anuladas y parcialmente pagadas y permite quita
 
 test("el historial puede recuperarse de un fallo de consulta y mostrar una lista vacía", async () => {
   let failed = true;
-  backend({ "GET /api/apoderado/comprobantes": () => failed ? reply(503, { message: "Historial temporalmente no disponible" }) : page([]) });
+  backend({ "GET /api/apoderado/pagos/historial": () => failed ? reply(503, { message: "Historial temporalmente no disponible" }) : page([]) });
   const user = userEvent.setup(); render(<GuardianPayments />);
   await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
   await screen.findByText("Historial temporalmente no disponible"); failed = false;
   await user.click(screen.getByRole("button", { name: "Actualizar historial" }));
-  expect(await screen.findByText("Todavía no tienes pagos registrados.")).toBeTruthy();
+  expect(await screen.findByText("No hay operaciones finalizadas para los filtros seleccionados.")).toBeTruthy();
 });
 
-test("retoma una orden desde el historial y actualiza obligaciones e historial al aprobar", async () => {
+test("retoma una orden y la retira de seguimiento al aprobar", async () => {
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
   let paid = false;
-  const calls = backend({ "GET /api/pagos/ordenes": () => page([paid ? complete() : order()]),
+  const calls = backend({ "GET /api/pagos/ordenes": () => page(paid ? [] : [order()]),
     "GET /api/pagos/ordenes/10": () => { paid = true; return complete(); },
     "GET /api/pagos/ordenes/10/comprobante": receipt() });
   const user = userEvent.setup(); render(<GuardianPayments />);
@@ -75,7 +75,8 @@ test("retoma una orden desde el historial y actualiza obligaciones e historial a
   await act(async () => vi.advanceTimersByTimeAsync(2000));
   expect(await screen.findByText("Referencias: REC-000022")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Cerrar", exact: true }));
-  expect(await screen.findByRole("button", { name: "Ver comprobante" })).toBeTruthy();
+  expect(await screen.findByText("No hay órdenes en curso para la selección.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Ver comprobante" })).toBeNull();
   expect(calls.filter((call) => call.path === "/api/apoderado/obligaciones").length).toBeGreaterThan(1);
 });
 
@@ -88,9 +89,9 @@ test("Seguimiento detecta un QR aprobado fuera del diálogo y las consultas mues
     [OBLIGATIONS]: () => page([paid
       ? obligation(1, { estado: "PAGADO", estadoFinanciero: "PAGADO", montoPagado: 350, saldo: 0 })
       : obligation()]),
-    "GET /api/pagos/ordenes": () => page([paid ? approved : pending]),
-    "GET /api/apoderado/comprobantes": () => page(paid ? [{
-      id: 22, codigo: "REC-000022", fechaEmision: approved.pagadaEn, alumno: student.nombreCompleto,
+    "GET /api/pagos/ordenes": () => page(paid ? [] : [pending]),
+    "GET /api/apoderado/pagos/historial": () => page(paid ? [{
+      id: 22, idComprobante: 22, estado: "APROBADO", codigo: "REC-000022", fechaEmision: approved.pagadaEn, alumno: student.nombreCompleto,
       concepto: "Pensión de marzo", numeroCuota: 1, codigoCompromiso: "CP-000001",
       medioPago: "QR_SIMULADO", montoTotal: 350, moneda: "PEN",
     }] : []),
@@ -102,8 +103,8 @@ test("Seguimiento detecta un QR aprobado fuera del diálogo y las consultas mues
 
   paid = true;
   await act(async () => vi.advanceTimersByTimeAsync(5000));
-  expect(await screen.findByText("Pago aprobado")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Ver comprobante" })).toBeTruthy();
+  expect(await screen.findByText("No hay órdenes en curso para la selección.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Ver comprobante" })).toBeNull();
 
   await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
   expect(await screen.findByRole("button", { name: "Ver comprobante REC-000022" })).toBeTruthy();

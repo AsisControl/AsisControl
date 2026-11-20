@@ -1,0 +1,76 @@
+.section {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+}
+
+.heading h3 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.heading p,
+.detail,
+.note {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.heading p {
+  margin: 0 0 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.cardHeading {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.detail,
+.reason {
+  margin: 0;
+}
+
+.reason {
+  color: #9f3030;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.note {
+  margin: 16px 0 0;
+}
+
+.error {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

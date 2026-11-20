@@ -9,19 +9,60 @@ import { paymentMethodLabel } from "../payment-format";
 import { obligation, student } from "./fixtures";
 
 const PATH = "/api/apoderado/comprobantes";
+const HISTORY = "/api/apoderado/pagos/historial";
 const historicalReceipt = (id = 1, overrides = {}) => ({
   id, codigo: `REC-${String(id).padStart(6, "0")}`, fechaEmision: "2026-03-01T12:00:00Z", montoTotal: 350, moneda: "PEN",
   alumno: "Lucía Flores", concepto: "Pensión de marzo", numeroCuota: 1, codigoCompromiso: "CP-000001", medioPago: "EFECTIVO",
+  idComprobante: id, estado: "APROBADO", mensaje: null,
   idOrden: null, codigoOrden: null, institucion: "Colegio PUCP", apoderado: "Ana Flores", ...overrides,
 });
 beforeEach(() => signIn({ role: "APODERADO", permissions: ["PAGOS_LEER"] }));
 const backend = (routes = {}) => fakeBackend({ "GET /api/apoderado/obligaciones/estudiantes": [student], "GET /api/apoderado/obligaciones": page([obligation()]), ...routes });
 
-test("el historial incluye comprobantes previos sin orden y varias cuotas de la misma operación", async () => {
-  const calls = backend({ [`GET ${PATH}`]: page([historicalReceipt(), historicalReceipt(2, { idOrden: 10, codigoOrden: "OP-000010", medioPago: "TARJETA_SIMULADA" }), historicalReceipt(3, { numeroCuota: 2, codigoCompromiso: "CP-000002", idOrden: 10, codigoOrden: "OP-000010", medioPago: "QR_SIMULADO" })]) });
+test("historial distingue aprobados, rechazados y vencidos y sólo los aprobados ofrecen comprobante", async () => {
+  const calls = backend({ [`GET ${HISTORY}`]: page([historicalReceipt(),
+      historicalReceipt(11, { idComprobante: null, codigo: "OP-RECHAZADA", estado: "RECHAZADO", mensaje: "Fondos insuficientes" }),
+      historicalReceipt(12, { idComprobante: null, codigo: "OP-VENCIDA", estado: "VENCIDO" }),
+    ]),
+  });
   const user = userEvent.setup(); render(<GuardianPayments />);
   await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
-  const table = await screen.findByRole("table", { name: "Comprobantes de mis estudiantes" });
+  const approved = await screen.findByRole("table", { name: "Historial de mis pagos" });
+  expect(within(approved).getByRole("columnheader", { name: "Estado" })).toBeTruthy();
+  expect(within(approved).getByText("Aprobado")).toBeTruthy();
+  expect(within(approved).getByRole("button", { name: "Ver comprobante REC-000001" })).toBeTruthy();
+  const failed = approved;
+  expect(within(failed).getByRole("columnheader", { name: "Estado" })).toBeTruthy();
+  expect(within(failed).getByText("Rechazado")).toBeTruthy();
+  expect(within(failed).getByText("Vencido")).toBeTruthy();
+  expect(within(failed).getAllByRole("button", { name: /Ver comprobante/ })).toHaveLength(1);
+  expect(within(failed).queryByRole("button", { name: "Continuar pago" })).toBeNull();
+  await user.click(within(failed).getByRole("button", { name: "Ver resultado OP-RECHAZADA" }));
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByText("Fondos insuficientes")).toBeTruthy();
+  expect(within(dialog).queryByRole("button", { name: /Confirmar|Continuar|Descargar/ })).toBeNull();
+  expect(calls.some(call => call.path === "/api/pagos/ordenes")).toBe(false);
+});
+
+test("filtrar por estado conserva el estudiante y vuelve a la primera página", async () => {
+  const calls = backend({ [`GET ${HISTORY}`]: ({ query }) => ({ ...page([historicalReceipt()], 2), page: Number(query.page), totalElements: 11 }) });
+  const user = userEvent.setup(); render(<GuardianPayments />);
+  await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
+  await screen.findByRole("table", { name: "Historial de mis pagos" });
+  await user.selectOptions(screen.getByRole("combobox", { name: "Estudiante" }), "3");
+  await waitFor(() => expect(calls.filter(call => call.path === HISTORY).at(-1).query.idAlumno).toBe("3"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(false));
+  await user.click(screen.getByRole("button", { name: "Siguiente" }));
+  await waitFor(() => expect(calls.filter(call => call.path === HISTORY).at(-1).query.page).toBe("1"));
+  await user.selectOptions(screen.getByRole("combobox", { name: "Estado", exact: true }), "RECHAZADO");
+  await waitFor(() => expect(calls.filter(call => call.path === HISTORY).at(-1).query).toMatchObject({ page: "0", estado: "RECHAZADO", idAlumno: "3" }));
+});
+
+test("el historial incluye comprobantes previos sin orden y varias cuotas de la misma operación", async () => {
+  const calls = backend({ [`GET ${HISTORY}`]: page([historicalReceipt(), historicalReceipt(2, { idOrden: 10, codigoOrden: "OP-000010", medioPago: "TARJETA_SIMULADA" }), historicalReceipt(3, { numeroCuota: 2, codigoCompromiso: "CP-000002", idOrden: 10, codigoOrden: "OP-000010", medioPago: "QR_SIMULADO" })]) });
+  const user = userEvent.setup(); render(<GuardianPayments />);
+  await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
+  const table = await screen.findByRole("table", { name: "Historial de mis pagos" });
   expect(within(table).getAllByRole("button", { name: /Ver comprobante REC-/ })).toHaveLength(3);
   expect(within(table).getByText("Efectivo")).toBeTruthy();
   expect(within(table).getByText("Tarjeta")).toBeTruthy();
@@ -32,17 +73,17 @@ test("el historial incluye comprobantes previos sin orden y varias cuotas de la 
 });
 
 test("el historial pagina comprobantes y abre el detalle de un pago institucional sin orden", async () => {
-  const calls = backend({ [`GET ${PATH}`]: ({ query }) => ({ ...page([historicalReceipt(Number(query.page) + 1)], 2), page: Number(query.page), totalElements: 11 }), [`GET ${PATH}/2`]: historicalReceipt(2) });
+  const calls = backend({ [`GET ${HISTORY}`]: ({ query }) => ({ ...page([historicalReceipt(Number(query.page) + 1)], 2), page: Number(query.page), totalElements: 11 }), [`GET ${PATH}/2`]: historicalReceipt(2) });
   const user = userEvent.setup(); render(<GuardianPayments />);
   await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
   await screen.findByRole("button", { name: "Ver comprobante REC-000001" });
-  await user.click(screen.getByRole("button", { name: "Siguiente" }));
+  await user.click(screen.getAllByRole("button", { name: "Siguiente" }).find(button => !button.disabled));
   await user.click(await screen.findByRole("button", { name: "Ver comprobante REC-000002" }));
   const dialog = screen.getByRole("dialog");
   expect(await within(dialog).findByText("Constancia de pago")).toBeTruthy();
   expect(within(dialog).getByText("Colegio PUCP")).toBeTruthy();
   expect(within(dialog).queryByText("Operación")).toBeNull();
-  expect(calls.find((call) => call.path === PATH && call.query.page === "1").query.size).toBe("10");
+  expect(calls.find((call) => call.path === HISTORY && call.query.page === "1").query.size).toBe("10");
   await user.click(within(dialog).getByRole("button", { name: "Cerrar", exact: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
