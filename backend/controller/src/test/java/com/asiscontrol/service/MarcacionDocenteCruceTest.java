@@ -95,6 +95,12 @@ class MarcacionDocenteCruceTest {
 
         assertThat(respuesta.verificacion()).isEqualTo(EstadoVerificacionClase.CONFIRMADA);
         assertThat(respuesta.docenteNombre()).isEqualTo("Patricia Morales");
+        assertThat(respuesta.estado()).isEqualTo(com.asiscontrol.entity.enums.EstadoAsistencia.TARDANZA);
+        var guardada = org.mockito.ArgumentCaptor.forClass(AsistenciaDocente.class);
+        org.mockito.Mockito.verify(asistencias).save(guardada.capture());
+        assertThat(guardada.getValue().getVentanaApertura()).isEqualTo(JORNADA.atTime(18, 0));
+        assertThat(guardada.getValue().getLimitePuntualidad()).isEqualTo(JORNADA.atTime(18, 45));
+        assertThat(guardada.getValue().getVentanaCierre()).isEqualTo(JORNADA.atTime(21, 0));
     }
 
     @Test
@@ -124,13 +130,24 @@ class MarcacionDocenteCruceTest {
     }
 
     @Test
-    void sinClaseProgramadaNoHayNadaQueCruzar() {
+    void sinClaseProgramadaSolicitaRevisionAdministrativa() {
         when(sesiones.findAllByAsignacionCursoDocenteIdAndFechaAndActivoTrueOrderByHoraInicioAsc(
                 anyLong(), any(LocalDate.class))).thenReturn(List.of());
 
-        AsistenciaDocenteResponse respuesta = servicio.marcarConToken("token");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> servicio.marcarConToken("token"))
+                .hasMessageContaining("No tiene clases programadas");
+    }
 
-        assertThat(respuesta.verificacion()).isEqualTo(EstadoVerificacionClase.CONFIRMADA);
-        assertThat(respuesta.sesionClaseId()).isNull();
+    @Test
+    void usaLaJornadaGuardadaAunqueDespuesSeMuevaLaClase() {
+        sesion(EstadoSesionClase.PENDIENTE, 20, 21);
+        var jornada = new com.asiscontrol.entity.JornadaMarcacionDocente();
+        jornada.setApertura(JORNADA.atTime(18, 0));
+        jornada.setLimitePuntualidad(JORNADA.atTime(18, 45));
+        jornada.setCierre(JORNADA.atTime(22, 0));
+        when(asistencias.buscarJornada(docente.getId(), JORNADA)).thenReturn(Optional.of(jornada));
+        // A las 19:00 la nueva clase de las 20:00 daría PRESENTE; la regla guardada da TARDANZA.
+        assertThat(servicio.marcarConToken("token").estado())
+                .isEqualTo(com.asiscontrol.entity.enums.EstadoAsistencia.TARDANZA);
     }
 }

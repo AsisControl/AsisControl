@@ -178,6 +178,35 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         docente("PUT", ruta(futura) + "/borrador", data("marcas", List.of(marca(student, "PRESENTE"))), 422);
     }
 
+    @Test void administradorCorrigeFinalizadaConAutorRealSinHabilitarTomaInicial() throws Exception {
+        long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
+        long version = finalizarTodos(id).path("version").asLong();
+        request("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "", "version", version), 400);
+        request("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Revisión administrativa", "version", version + 50), 409);
+        var corregida = request("PUT", ruta(id), data("marcas", List.of(marca(student, "TARDANZA")),
+                "motivo", "Revisión administrativa de evidencia", "version", version), 200);
+        assertThat(corregida.path("estado").asText()).isEqualTo("TOMADA");
+        var historial = getOk(ruta(id) + "/correcciones");
+        assertThat(historial).hasSize(1);
+        assertThat(historial.get(0).path("actorNombre").asText()).isEqualTo(admin.getPersona().nombreCompleto());
+        assertThat(historial.get(0).path("actorRol").asText()).isEqualTo("ADMINISTRADOR");
+        assertThat(historial.get(0).path("docenteId").asLong()).isEqualTo(teacher.getId());
+        assertThat(historial.get(0).path("cambios").get(0).path("estadoAnterior").asText()).isEqualTo("PRESENTE");
+        var reporte = getOk("/api/reportes/asistencia?tipo=ESTUDIANTES&estado=TARDANZA");
+        assertThat(reporte.path("totalDetalle").asLong()).isEqualTo(1);
+        long pendiente = sesion(hoy.minusDays(1), EstadoSesionClase.PENDIENTE);
+        request("PUT", ruta(pendiente), data("marcas", List.of(marca(student, "PRESENTE")),
+                "motivo", "Prueba de sesión no finalizada", "version", 0), 422);
+        request("POST", ruta(pendiente) + "/finalizar", data("marcas", List.of(marca(student, "PRESENTE")), "version", 0), 403);
+        mvc.perform(put(ruta(id)).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"),
+                        new SimpleGrantedAuthority("ASISTENCIA_LEER")))
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(data("marcas", List.of(marca(student, "PRESENTE")),
+                        "motivo", "Sin permiso", "version", corregida.path("version").asLong()))))
+                .andExpect(status().isForbidden());
+    }
+
     @Test void corrigeTomadaConMotivoYRegistraCadaCambio() throws Exception {
         long id = sesion(hoy, EstadoSesionClase.PENDIENTE);
         long version = finalizarTodos(id).path("version").asLong();
@@ -309,21 +338,73 @@ class AsistenciaSesionHttpTest extends ApiIntegrationSupport {
         assertThat(corregida.path("estado").asText()).isEqualTo("TOMADA");
     }
 
-    @Test void borradorVencidoVuelveAPendienteSinGenerarInasistencias() throws Exception {
-        long ayer = sesion(hoy.minusDays(1), EstadoSesionClase.BORRADOR);
-        var fila = new AsistenciaAlumno(); fila.setAlumno(student); fila.setAsignacionCurso(assignment);
-        fila.setSesionClase(em.find(SesionClase.class, ayer)); fila.setFechaRegistro(hoy.minusDays(1));
-        fila.setHoraRegistro(LocalTime.of(8, 5)); fila.setEstadoAsistencia(com.asiscontrol.entity.enums.EstadoAsistencia.PRESENTE);
+    private long sesionALas(LocalDate fecha, EstadoSesionClase estado, LocalTime inicio) {
+        var sesion = new SesionClase(); sesion.setAsignacionCurso(assignment); sesion.setHorario(horario);
+        sesion.setFecha(fecha); sesion.setHoraInicio(inicio); sesion.setHoraFin(inicio.plusMinutes(1));
+        sesion.setEstado(estado); em.persist(sesion); em.flush();
+        return sesion.getId();
+    }
+
+    private AsistenciaAlumno marcaGuardada(long sesionId, Alumno alumno, EstadoAsistencia estado) {
+        var sesion = em.find(SesionClase.class, sesionId);
+        var fila = new AsistenciaAlumno(); fila.setAlumno(alumno); fila.setAsignacionCurso(assignment);
+        fila.setSesionClase(sesion); fila.setFechaRegistro(sesion.getFecha());
+        fila.setHoraRegistro(LocalTime.of(8, 5)); fila.setEstadoAsistencia(estado);
         em.persist(fila); em.flush();
+        return fila;
+    }
 
-        var antes = docente("GET", ruta(ayer), null, 200);
-        assertThat(antes.path("estado").asText()).isEqualTo("PENDIENTE");
-        assertThat(antes.path("pendientes").asInt()).isEqualTo(2);
+    @Test void borradorVencidoSeFinalizaSoloYQuienQuedoSinMarcaQuedaSinMarcar() throws Exception {
+        long ayer = sesion(hoy.minusDays(1), EstadoSesionClase.BORRADOR);
+        marcaGuardada(ayer, student, EstadoAsistencia.PRESENTE);
 
-        assertThat(asistenciaService.vencerBorradores()).isEqualTo(1);
-        em.flush(); em.clear();
-        assertThat(em.find(SesionClase.class, ayer).getEstado()).isEqualTo(EstadoSesionClase.PENDIENTE);
-        assertThat(em.createQuery("select count(a) from AsistenciaAlumno a where a.sesionClase.id = :s", Long.class)
-                .setParameter("s", ayer).getSingleResult()).isZero();
+        var cerrada = docente("GET", ruta(ayer), null, 200);
+        assertThat(cerrada.path("estado").asText()).isEqualTo("TOMADA");
+        assertThat(cerrada.path("registradoEn").asText()).startsWith(hoy.minusDays(1) + "T23:59:59");
+        assertThat(cerrada.path("limiteEdicion").asText()).startsWith(hoy + "T00:00");
+        assertThat(cerrada.path("puedeEditar").asBoolean()).isFalse();
+        var estados = java.util.stream.StreamSupport.stream(cerrada.path("alumnos").spliterator(), false)
+                .collect(java.util.stream.Collectors.toMap(a -> a.path("alumnoId").asLong(), a -> a.path("estado").asText()));
+        assertThat(estados).containsEntry(student.getId(), "PRESENTE").containsEntry(otro.getId(), "SIN_MARCACION");
+
+        var fuera = docente("PUT", ruta(ayer), data("marcas", List.of(marca(otro, "PRESENTE")),
+                "motivo", "Tarde", "version", cerrada.path("version").asLong()), 422);
+        assertThat(fuera.path("code").asText()).isEqualTo("ASISTENCIA_PLAZO_VENCIDO");
+        assertThat(fuera.path("message").asText()).contains("al terminar el día");
+    }
+
+    @Test void laSiguienteClaseDelMismoCursoCierraElPlazoDeLaAnterior() throws Exception {
+        long primera = sesionALas(hoy, EstadoSesionClase.PENDIENTE, LocalTime.of(0, 0));
+        long segunda = sesionALas(hoy, EstadoSesionClase.PENDIENTE, LocalTime.of(0, 1));
+
+        var vista = docente("GET", ruta(primera), null, 200);
+        assertThat(vista.path("limiteEdicion").asText()).startsWith(hoy + "T00:01");
+        assertThat(vista.path("puedeTomar").asBoolean()).isFalse();
+        var rechazo = docente("PUT", ruta(primera) + "/borrador",
+                data("marcas", List.of(marca(student, "PRESENTE"))), 422);
+        assertThat(rechazo.path("code").asText()).isEqualTo("ASISTENCIA_PLAZO_VENCIDO");
+        assertThat(rechazo.path("message").asText()).contains("a las 00:01");
+
+        var ultima = docente("GET", ruta(segunda), null, 200);
+        assertThat(ultima.path("puedeTomar").asBoolean()).isTrue();
+        assertThat(ultima.path("limiteEdicion").asText()).startsWith(hoy.plusDays(1) + "T00:00");
+        var historial = docente("GET", "/api/asistencias/asignaciones/" + assignment.getId() + "/sesiones", null, 200);
+        var deLaPrimera = java.util.stream.StreamSupport.stream(historial.spliterator(), false)
+                .filter(s -> s.path("id").asLong() == primera).findFirst().orElseThrow();
+        assertThat(deLaPrimera.path("puedeTomar").asBoolean()).isFalse();
+        assertThat(deLaPrimera.path("limiteEdicion").asText()).startsWith(hoy + "T00:01");
+    }
+
+    @Test void unaAsistenciaTomadaSoloSeCorrigeDentroDeSuPlazo() throws Exception {
+        long primera = sesionALas(hoy, EstadoSesionClase.TOMADA, LocalTime.of(0, 0));
+        sesionALas(hoy, EstadoSesionClase.PENDIENTE, LocalTime.of(0, 1));
+        marcaGuardada(primera, student, EstadoAsistencia.PRESENTE);
+        marcaGuardada(primera, otro, EstadoAsistencia.PRESENTE);
+
+        var vista = docente("GET", ruta(primera), null, 200);
+        assertThat(vista.path("puedeEditar").asBoolean()).isFalse();
+        var rechazo = docente("PUT", ruta(primera), data("marcas", List.of(marca(otro, "TARDANZA")),
+                "motivo", "Llego tarde", "version", vista.path("version").asLong()), 422);
+        assertThat(rechazo.path("code").asText()).isEqualTo("ASISTENCIA_PLAZO_VENCIDO");
     }
 }

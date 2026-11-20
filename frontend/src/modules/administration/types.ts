@@ -1,22 +1,18 @@
-/** Valores del enum Especialidad del backend (perfil docente al crear un acceso). */
-export const teacherSpecialties = [
-  "MATEMATICA",
-  "COMUNICACION",
-  "CIENCIA_Y_TECNOLOGIA",
-  "CIENCIAS_SOCIALES",
-  "EDUCACION_FISICA",
-  "INGLES",
-  "ARTE_Y_CULTURA",
-  "TUTORIA",
-] as const;
+export type AccountRole = {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  codigoPerfil: string | null;
+};
 export type Account = {
   id: number;
   personaId: number;
   username: string;
   correo: string;
   nombreCompleto: string;
-  rolId: number;
-  rol: string;
+  roles: AccountRole[];
+  rolId?: number;
+  rol?: string;
   estado: string;
   requiereCambioContrasena: boolean;
   intentosFallidos: number;

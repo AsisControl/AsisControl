@@ -15,10 +15,7 @@ public final class UsuarioDtos {
 
     private UsuarioDtos() {}
 
-    /**
-     * Sin usuario ni correo, se generan: nombre.apellido y {codigo}@dominio institucional. Por la
-     * API web siempre se generan; solo la configuración interna (administrador inicial) los fija.
-     */
+    /** Datos internos de un alta con una contraseña temporal ya entregada al operador. */
     public record CreateRequest(
             @NotNull(message = "La persona es obligatoria") Long personaId,
             @NotNull(message = "El rol es obligatorio") Long rolId,
@@ -37,12 +34,6 @@ public final class UsuarioDtos {
             this(personaId, rolId, null, null, password, true, false);
         }
 
-        /** La misma solicitud con usuario y correo generados por el sistema. */
-        public CreateRequest conCredencialesGeneradas() {
-            return new CreateRequest(
-                    personaId, rolId, null, null, password, requiereCambioContrasena,
-                    correoVerificado);
-        }
     }
 
     /** Usuario, correo y códigos de perfil los genera el sistema. */
@@ -75,8 +66,30 @@ public final class UsuarioDtos {
             List<String> perfiles,
             List<String> rolesConAcceso) {}
 
+    public record RegistroAdministradorRequest(
+            Long personaId,
+            @jakarta.validation.Valid
+                    com.asiscontrol.dto.persona.PersonaDtos.PersonaRequest persona) {}
+
+    public record RegistroAdministradorResponse(
+            Long id,
+            String username,
+            String correo,
+            String nombreCompleto,
+            String contrasenaTemporal,
+            Instant contrasenaTemporalExpira) {
+        @Override
+        public String toString() {
+            return "RegistroAdministradorResponse[id=" + id + ", username=" + username + "]";
+        }
+    }
+
+    public record CambiarRolRequest(
+            @NotNull(message = "Indica el estado del rol") Boolean activo,
+            @NotBlank(message = "Escribe el motivo del cambio") @Size(max = 700) String motivo) {}
+
     public record UpdateRequest(
-            @NotNull(message = "El rol es obligatorio") Long rolId,
+            Long rolId,
             @NotBlank(message = "El correo es obligatorio")
                     @Email(message = "El correo no tiene un formato valido")
                     String correo,
@@ -117,7 +130,10 @@ public final class UsuarioDtos {
             Instant fechaCreacion,
             boolean correoVerificado,
             Instant contrasenaTemporalExpira,
-            String codigoPerfil) {}
+            String codigoPerfil,
+            List<RolAsignadoResponse> roles) {}
+
+    public record RolAsignadoResponse(Long id, String nombre, boolean activo, String codigoPerfil) {}
 
     public record RolRequest(
             @NotBlank(message = "El nombre es obligatorio") @Size(max = 50) String nombre,

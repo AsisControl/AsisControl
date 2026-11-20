@@ -26,8 +26,9 @@ public class ComprobantesApoderadoController {
 
     @GetMapping
     public Page<PagosFamiliaDto.HistorialComprobanteResponse> listar(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long idAlumno,
             @PageableDefault(size = 10, sort = "fechaEmision", direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.listar(pageable);
+        return service.listar(idAlumno, pageable);
     }
 
     @GetMapping("/{id}")

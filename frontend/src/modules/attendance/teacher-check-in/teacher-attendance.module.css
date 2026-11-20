@@ -1,0 +1,359 @@
+/* Asistencia del docente: pestañas, bandeja de justificaciones y Mi marcación */
+.shell {
+  margin: 0 auto;
+  max-width: 1100px;
+}
+
+/* Pestañas */
+.tabs {
+  background: #e2e8f0;
+  border-radius: 10px;
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  padding: 4px;
+}
+.tab {
+  border-radius: 8px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 18px;
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.tab:hover {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.tab[aria-current="page"] {
+  background: #fff;
+  box-shadow: 0 1px 3px #0f172a26;
+  color: var(--blue);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Encabezado de página */
+.header {
+  margin-bottom: 20px;
+}
+.header h1,
+.header h2 {
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  line-height: 32px;
+  margin: 0;
+}
+.header p {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 2px 0 0;
+}
+
+/* Bandeja: selector de vista */
+.views {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+}
+.views button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #475569;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  padding: 7px 14px;
+  transition: background-color 0.15s, color 0.15s;
+}
+.views button:hover {
+  background: #f1f5f9;
+  color: var(--blue);
+}
+.views button[aria-pressed="true"] {
+  background: var(--blue);
+  color: #fff;
+}
+.count {
+  background: #ffffff33;
+  border-radius: 999px;
+  font-size: 12px;
+  min-width: 20px;
+  padding: 1px 7px;
+  text-align: center;
+}
+
+/* Tarjetas y tablas */
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px #0f172a0f;
+}
+.table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+.table th {
+  background: var(--surface);
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 12px 16px;
+  text-align: left;
+  text-transform: uppercase;
+}
+.table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+.table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+.table td {
+  border-top: 1px solid #e2e8f0;
+  color: #1e293b;
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+.table tbody tr {
+  transition: background-color 0.15s;
+}
+.table tbody tr:hover {
+  background: #f8fafc;
+}
+.alignEnd {
+  text-align: right !important;
+  width: 1%;
+  white-space: nowrap;
+}
+.muted {
+  color: #64748b;
+  font-size: 13px;
+}
+.person {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+.avatar {
+  align-items: center;
+  background: #dbeafe;
+  border-radius: 50%;
+  color: var(--blue);
+  display: inline-flex;
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+.person strong {
+  display: block;
+  font-weight: 600;
+}
+.person small {
+  color: #64748b;
+  font-size: 12px;
+}
+.pager {
+  border-top: 1px solid #e2e8f0;
+  padding: 8px 16px 12px;
+}
+
+/* Botones */
+.primary,
+.outline {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 16px;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.primary {
+  background: var(--blue);
+  border: 1px solid var(--blue);
+  color: #fff;
+}
+.primary:hover:not(:disabled) {
+  background: #1e40af;
+}
+.outline {
+  background: #fff;
+  border: 1px solid var(--blue);
+  color: var(--blue);
+}
+.outline:hover:not(:disabled) {
+  background: #eff6ff;
+}
+.primary:focus-visible,
+.outline:focus-visible {
+  box-shadow: 0 0 0 3px #bfdbfe;
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.primary:disabled,
+.outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Estado vacío */
+.empty {
+  align-items: center;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  display: grid;
+  font-size: 14px;
+  gap: 8px;
+  justify-items: center;
+  padding: 40px 24px;
+  text-align: center;
+}
+.empty svg {
+  color: #94a3b8;
+}
+
+/* Mi marcación */
+.layout {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+.blockTitle {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+.scan {
+  font-size: 15px;
+  padding: 14px 16px;
+  width: 100%;
+}
+.divider {
+  align-items: center;
+  color: #94a3b8;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 12px;
+  text-transform: uppercase;
+}
+.divider::before,
+.divider::after {
+  background: #e2e8f0;
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+.manualForm {
+  display: grid;
+  gap: 10px;
+}
+.field {
+  color: #334155;
+  display: grid;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+}
+.input {
+  background: #fff;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  height: 40px;
+  padding: 0 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:hover {
+  border-color: var(--blue);
+}
+.input:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #bfdbfe;
+  outline: 2px solid transparent;
+}
+.input[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+.error {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 0;
+}
+.result,
+.errorBox {
+  border-left: 4px solid #94a3b8;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.result {
+  background: #f1f5f9;
+}
+.result p,
+.errorBox p {
+  margin: 2px 0;
+}
+.resultState {
+  font-size: 20px;
+  font-weight: 700;
+}
+.PRESENTE {
+  background: #f0fdf4;
+  border-left-color: #16a34a;
+}
+.TARDANZA {
+  background: #fffbeb;
+  border-left-color: #d97706;
+}
+.errorBox {
+  background: #fef2f2;
+  border-left-color: #dc2626;
+  color: #7f1d1d;
+}
+.historyCard {
+  overflow: hidden;
+}
+.historyHead {
+  padding: 20px 24px 12px;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .table th,
+  .table td {
+    padding: 10px 12px;
+  }
+}

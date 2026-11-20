@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsistenciaAlumno;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.CodigoQRAsistencia;
@@ -9,6 +10,7 @@ import com.asiscontrol.entity.Notificacion;
 import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.TipoAula;
@@ -18,7 +20,17 @@ import java.time.*;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 
+@org.springframework.context.annotation.Import(AsistenciaFlujosHttpTest.RelojPrueba.class)
 class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class RelojPrueba {
+        @org.springframework.context.annotation.Bean @org.springframework.context.annotation.Primary
+        Clock relojFijoMarcacion() {
+            var zona = ZoneId.of("America/Lima");
+            return Clock.fixed(LocalDate.now(zona).atTime(7, 30).atZone(zona).toInstant(), zona);
+        }
+    }
 
     /** Los códigos QR vencen según el reloj de la institución, no la zona horaria del servidor. */
     @org.springframework.beans.factory.annotation.Autowired java.time.Clock reloj;
@@ -75,6 +87,22 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
                 data("asistenciaAlumnoId",asistencia,"motivo","Cita medica","archivoIds",Set.of()),201).path("id").asLong();
     }
 
+    @Test void elAlumnoConsultaSoloSuHistorialConHoraAnioYPeriodo() throws Exception {
+        var periodo=new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Bimestre IV"); periodo.setOrden(4);
+        periodo.setFechaInicio(LocalDate.now().minusDays(30)); periodo.setFechaFin(LocalDate.now().plusDays(30)); em.persist(periodo);
+        asistenciaTomada(LocalDate.now(),EstadoAsistencia.PRESENTE);
+        var propia=comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos",null,200).path("content").get(0);
+        assertThat(propia.path("horaSesion").asText()).startsWith("08:00");
+        assertThat(propia.path("anioAcademico").asInt()).isEqualTo(year.getAnio());
+        assertThat(propia.path("periodo").asText()).isEqualTo("Bimestre IV");
+        comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200);
+
+        var otro=new Alumno(); otro.setPersona(person()); otro.setCodigoAlumno("O"+key()); em.persist(otro); em.flush();
+        comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos?alumnoId="+otro.getId(),null,403);
+        apoderado("GET","/api/asistencias/alumnos?alumnoId="+otro.getId(),null,403);
+        apoderado("GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200);
+    }
+
     @Test void soloElApoderadoJustificaYSoloInasistencias() throws Exception {
         long a=asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA);
         var pedido=data("asistenciaAlumnoId",a,"motivo","Cita medica","archivoIds",Set.of());
@@ -82,6 +110,8 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
         request("POST","/api/justificaciones-asistencia",pedido,403);
         long tardanza=asistenciaTomada(LocalDate.now().minusDays(1),EstadoAsistencia.TARDANZA);
         apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",tardanza,"motivo","Trafico","archivoIds",Set.of()),422);
+        long sinMarcar=asistenciaTomada(LocalDate.now().minusDays(2),EstadoAsistencia.SIN_MARCACION);
+        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",sinMarcar,"motivo","No asistio","archivoIds",Set.of()),422);
     }
 
     @Test void elDocenteResuelveSinIniciarRevisionYConDatosVigentes() throws Exception {
@@ -102,8 +132,10 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
 
     @Test void avisaAlApoderadoDelResultado() throws Exception {
         var acceso=new AccesoUsuario(); acceso.setPersona(guardian.getPersona());
-        acceso.setRol(rol("APODERADO")); acceso.setUsername("apo"+key()); acceso.setCorreo("apo"+key()+"@example.test");
-        acceso.setContrasenaHash("x"); em.persist(acceso); em.flush();
+        acceso.setUsername("apo"+key()); acceso.setCorreo("apo"+key()+"@example.test");
+        acceso.setContrasenaHash("x"); em.persist(acceso);
+        asignarRol(acceso, rol("APODERADO"));
+        em.flush();
         String p=justificar(asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA));
         request("POST",p+"/rechazar",data("version",version(p),"observacion","Sin sustento"),200);
         var aviso=em.createQuery("from Notificacion n where n.destinatario.id=:id",Notificacion.class)
@@ -155,6 +187,7 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void elPuntoDeMarcacionEsDeLaInstitucionYElDocenteSeIdentificaPorSuSesion() throws Exception {
+        asistenciaTomada(LocalDate.now(reloj), EstadoAsistencia.PRESENTE);
         var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
         assertThat(qr.has("docenteId")).isFalse();
         String ruta="/api/asistencias/docentes/qr/"+qr.path("id").asLong();
@@ -172,6 +205,7 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void reemplazarElPuntoInvalidaElCodigoAnteriorYElResumenCuentaLasMarcaciones() throws Exception {
+        asistenciaTomada(LocalDate.now(reloj), EstadoAsistencia.PRESENTE);
         var primero=postOk("/api/asistencias/docentes/qr",null);
         var segundo=postOk("/api/asistencias/docentes/qr",null);
         marcaComoDocente(primero.path("token").asText(),422);

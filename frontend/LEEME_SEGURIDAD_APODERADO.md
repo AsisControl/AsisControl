@@ -1,5 +1,7 @@
 # Actualización de AsisControl: acceso, recuperación y solicitudes del apoderado
 
+Esta guía documenta el incremento 1.4. Para la cuenta única, el selector de rol y la migración vigente consulta [Autenticación unificada](../docs/AUTENTICACION_UNIFICADA.md).
+
 Versión 1.4 · 2 de octubre de 2026.
 
 Esta entrega amplía la versión Administración y Matrícula. Conserva el login, header con nombre y rol, navegación y estilos del coordinador, las fichas, los accesos centralizados y los módulos de configuración, auditoría y logs que ya veníamos trabajando.

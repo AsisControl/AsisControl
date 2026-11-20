@@ -31,6 +31,13 @@ public interface SesionClaseRepository extends JpaRepository<SesionClase, Long> 
             Long docenteId, LocalDate fecha);
 
     /** Bloquea la sesión para escritura al finalizar o corregir su asistencia. */
+    // asistencia alumnos: plazo de edición (siguiente clase del mismo curso ese día) y cierre automático
+    Optional<SesionClase> findFirstByAsignacionCursoIdAndFechaAndHoraInicioGreaterThanAndActivoTrueOrderByHoraInicioAsc(
+            Long asignacionCursoId, LocalDate fecha, java.time.LocalTime horaInicio);
+
+    @Query("select s.id from SesionClase s where s.activo = true and s.estado = :estado and s.fecha <= :fecha")
+    List<Long> idsPorEstadoHasta(@Param("estado") EstadoSesionClase estado, @Param("fecha") LocalDate fecha);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from SesionClase s where s.id = :id and s.activo = true")
     Optional<SesionClase> bloquear(@Param("id") Long id);

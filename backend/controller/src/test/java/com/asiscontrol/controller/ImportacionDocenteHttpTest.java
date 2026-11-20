@@ -94,7 +94,7 @@ class ImportacionDocenteHttpTest {
         assertThat(auditoriasDe(archivo)).isEmpty();
         // El análisis anticipa usuario y código, pero nunca entrega una contraseña.
         JsonNode credencial = resultado.path("credentials").get(0);
-        assertThat(credencial.path("username").asText()).startsWith("patricia.morales");
+        assertThat(credencial.path("username").asText()).matches("[0-9]{8}");
         assertThat(credencial.path("temporaryPassword").isNull()).isTrue();
     }
 
@@ -128,8 +128,9 @@ class ImportacionDocenteHttpTest {
         String contrasena = credencial.path("temporaryPassword").asText();
         assertThat(contrasena).hasSize(12);
         assertThat(credencial.path("code").asText()).isEqualTo(creado.getCodigoDocente());
+        assertThat(credencial.path("username").asText()).matches("[0-9]{8}");
         assertThat(credencial.path("email").asText())
-                .isEqualTo(creado.getCodigoDocente().toLowerCase() + "@asiscontrol.edu.pe");
+                .isEqualTo(credencial.path("username").asText() + "@asiscontrol.edu.pe");
         // La contraseña no queda en la auditoría.
         assertThat(auditorias.findAll()).noneMatch(registro ->
                 String.valueOf(registro.getNuevoValor()).contains(contrasena)
@@ -200,7 +201,7 @@ class ImportacionDocenteHttpTest {
     }
 
     @Test
-    void soloAdministracionYSecretariaImportan() throws Exception {
+    void soloAdministracionImporta() throws Exception {
         byte[] archivo = libro(filaValida());
         mvc.perform(multipart(IMPORTACIONES).file(archivo("d.xlsx", archivo)))
                 .andExpect(status().isUnauthorized());
@@ -211,7 +212,7 @@ class ImportacionDocenteHttpTest {
         mvc.perform(get(IMPORTACIONES + "/plantilla").with(comoRol("DOCENTE")))
                 .andExpect(status().isForbidden());
         mvc.perform(multipart(IMPORTACIONES).file(archivo("d.xlsx", archivo)).with(comoRol("SECRETARIA")))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     private List<RegistroAuditoria> auditoriasDe(String archivo) {

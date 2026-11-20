@@ -7,26 +7,26 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Al terminar el día en Lima, los borradores no finalizados se eliminan y su sesión vuelve a
- * PENDIENTE (R08), sin generar inasistencias (R09). La zona es explícita: no depende de la del
- * servidor. Si el job no corre, la lectura igual trata el borrador vencido como PENDIENTE.
+ * Cada minuto finaliza los borradores cuyo plazo de edición venció: lo marcado se conserva y quien
+ * quedó sin marca recibe SIN_MARCACION. El plazo puede vencer a media mañana, por eso no basta un
+ * job a medianoche. La zona es explícita y las lecturas también cierran lo vencido.
  */
 @Component
 public class VencimientoBorradorJob {
 
     private static final Logger log = LoggerFactory.getLogger(VencimientoBorradorJob.class);
 
-    private final AsistenciaSesionService asistenciaService;
+    private final PlazoAsistenciaService plazoService;
 
-    public VencimientoBorradorJob(AsistenciaSesionService asistenciaService) {
-        this.asistenciaService = asistenciaService;
+    public VencimientoBorradorJob(PlazoAsistenciaService plazoService) {
+        this.plazoService = plazoService;
     }
 
-    @Scheduled(cron = "0 5 0 * * *", zone = "America/Lima")
-    public void vencerBorradores() {
-        int vencidos = asistenciaService.vencerBorradores();
-        if (vencidos > 0) {
-            log.info("Borradores de asistencia vencidos: {}", vencidos);
+    @Scheduled(cron = "0 * * * * *", zone = "America/Lima")
+    public void cerrarAsistenciasVencidas() {
+        int cerradas = plazoService.cerrarVencidas();
+        if (cerradas > 0) {
+            log.info("Asistencias finalizadas al vencer su plazo: {}", cerradas);
         }
     }
 }

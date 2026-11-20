@@ -41,7 +41,8 @@ test.each([
   expect(context.closest("main").dataset.role).toBe(role);
   expect(within(context).getByText(title)).toBeTruthy();
   expect(context.querySelector("svg[aria-hidden='true']")).toBeTruthy();
-  expect(within(header).getByText("AsisControl")).toBeTruthy();
+  expect(within(header).getByRole("img", { name: "AsisControl" }).getAttribute("src"))
+    .toBe("/brand/asiscontrol-invertido.svg");
   const account = within(header).getByRole("button", { name: "Abrir menú de usuario" });
   const name = within(account).getByText("Ana Ramos");
   const badge = within(account).getByText(role);

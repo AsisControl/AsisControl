@@ -257,6 +257,14 @@ test("Roles: muestra los permisos del rol elegido agrupados por módulo", async 
   expect(screen.getByText("Permisos — Docente")).toBeTruthy();
   expect(screen.getByText("Ver perfil").closest("li").textContent).toContain("(permitido)");
   expect(screen.getByText("1 de 3 permisos habilitados para este rol.")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Solo habilitados" }));
+  expect(screen.getByText("1 de 1 permisos habilitados para este rol.")).toBeTruthy();
+  expect(screen.queryByText("Ver solicitudes")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Solo habilitados" }));
+  await user.selectOptions(screen.getByLabelText("Filtrar por módulo"), "Usuarios");
+  expect(screen.getByText("0 de 1 permisos habilitados para este rol.")).toBeTruthy();
+  expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["Usuarios"]);
+  await user.selectOptions(screen.getByLabelText("Filtrar por módulo"), "");
   await user.type(screen.getByLabelText("Buscar permiso o módulo"), "matrícula");
   expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual(["Matrícula"]);
   await user.clear(screen.getByLabelText("Buscar permiso o módulo"));

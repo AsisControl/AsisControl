@@ -255,7 +255,8 @@ class HistorialHorarioHttpTest extends ApiIntegrationSupport {
 
     private org.springframework.test.web.servlet.ResultActions consultarCon(String... permisos)
             throws Exception {
-        org.springframework.security.core.GrantedAuthority[] autoridades = java.util.Arrays.stream(permisos)
+        org.springframework.security.core.GrantedAuthority[] autoridades = java.util.stream.Stream.concat(
+                        java.util.stream.Stream.of("ROLE_ADMINISTRADOR"), java.util.Arrays.stream(permisos))
                 .map(SimpleGrantedAuthority::new)
                 .toArray(org.springframework.security.core.GrantedAuthority[]::new);
         return mvc.perform(get(HISTORIAL).with(jwt().authorities(autoridades)));

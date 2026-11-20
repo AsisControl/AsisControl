@@ -8,9 +8,18 @@ import {
   marcarAsistencia,
 } from "./services/asistencia-docente-service";
 import type { AsistenciaDocente } from "./types";
-import styles from "./teacher-check-in.module.css";
+import { StatusPill, type StatusTone } from "@/shared/ui";
+import styles from "./teacher-attendance.module.css";
 
 const MAX_TOKEN_LENGTH = 500;
+const TONOS: Record<string, StatusTone> = {
+  PRESENTE: "success",
+  TARDANZA: "warning",
+  TARDANZA_JUSTIFICADA: "success",
+  INASISTENCIA_JUSTIFICADA: "success",
+  INASISTENCIA: "danger",
+  SIN_MARCACION: "danger",
+};
 
 /** US-15: el docente marca su asistencia general escaneando el QR institucional. */
 export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
@@ -96,11 +105,9 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
 
   return (
     <>
-      <div className="page-title">
-        <div>
-          <h1>Asistencia</h1>
-          <p>Marca tu asistencia de la jornada con el QR institucional</p>
-        </div>
+      <div className={styles.header}>
+        <h1>Asistencia</h1>
+        <p>Marca tu asistencia de la jornada con el QR institucional</p>
       </div>
 
       {!canWrite ? (
@@ -114,10 +121,15 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
         </article>
       ) : (
         <div className={styles.layout}>
-          <section className={`panel ${styles.card}`} aria-labelledby="marcar-title">
-            <h2 id="marcar-title" className={styles.cardTitle}>
+          <section className={`${styles.card} ${styles.block}`} aria-labelledby="marcar-title">
+            <h2 id="marcar-title" className={styles.blockTitle}>
               Marcar mi asistencia
             </h2>
+            <p className={styles.muted}>
+              Puedes marcar desde una hora antes de tu primera clase del día. Hasta 15 minutos antes
+              de su inicio se registra Presente; después, Tardanza. La marcación cierra al terminar
+              tu última clase. Si no tienes clases programadas, solicita revisión administrativa.
+            </p>
 
             {result && (
               <div role="status" className={`${styles.result} ${styles[result.estado] ?? ""}`}>
@@ -149,23 +161,27 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
             ) : (
               <button
                 type="button"
-                className="primary-action"
+                className={`${styles.primary} ${styles.scan}`}
                 disabled={sending}
                 onClick={() => setScanning(true)}
               >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" />
+                </svg>
                 Escanear código QR
               </button>
             )}
 
+            <p className={styles.divider} aria-hidden="true">o</p>
             <form className={styles.manualForm} onSubmit={submitManual} noValidate>
               <label className={styles.field}>
                 <span>¿La cámara no funciona? Ingresa el código</span>
                 <input
+                  className={styles.input}
                   value={manualCode}
                   maxLength={MAX_TOKEN_LENGTH}
                   aria-invalid={manualError ? true : undefined}
                   aria-describedby={manualError ? "codigo-error" : undefined}
-                  className={manualError ? styles.inputError : undefined}
                   onChange={(event) => {
                     setManualCode(event.target.value);
                     setManualError("");
@@ -177,18 +193,20 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
                   {manualError}
                 </p>
               )}
-              <button type="submit" className={styles.secondaryButton} disabled={sending}>
+              <button type="submit" className={styles.outline} disabled={sending}>
                 Registrar con código
               </button>
             </form>
           </section>
 
-          <section className={`panel ${styles.card}`} aria-labelledby="historial-title">
-            <h2 id="historial-title" className={styles.cardTitle}>
-              Mis últimas marcaciones
-            </h2>
+          <section className={`${styles.card} ${styles.historyCard}`} aria-labelledby="historial-title">
+            <div className={styles.historyHead}>
+              <h2 id="historial-title" className={styles.blockTitle}>
+                Mis últimas marcaciones
+              </h2>
+            </div>
             {history.length === 0 ? (
-              <p className={styles.muted}>Aún no tienes marcaciones registradas.</p>
+              <p className={`${styles.muted} ${styles.historyHead}`}>Aún no tienes marcaciones registradas.</p>
             ) : (
               <table className={styles.table}>
                 <thead>
@@ -204,7 +222,13 @@ export function TeacherCheckIn({ canWrite }: { canWrite: boolean }) {
                     <tr key={item.id}>
                       <td>{dateOf(item.fechaJornada)}</td>
                       <td>{timeOf(item.fechaHoraMarcada)}</td>
-                      <td>{ESTADO_LABEL[item.estado] ?? item.estado}</td>
+                      <td>
+                        <StatusPill
+                          state={item.estado}
+                          label={ESTADO_LABEL[item.estado] ?? item.estado}
+                          tone={TONOS[item.estado] ?? "neutral"}
+                        />
+                      </td>
                       <td>{VERIFICACION_LABEL[item.verificacion] ?? "—"}</td>
                     </tr>
                   ))}

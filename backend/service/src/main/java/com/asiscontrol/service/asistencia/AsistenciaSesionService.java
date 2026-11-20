@@ -12,21 +12,18 @@ import com.asiscontrol.dto.asistencia.AsistenciaSesionDtos.SesionAsistenciaRespo
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AsistenciaAlumno;
-import com.asiscontrol.entity.AsistenciaDocente;
 import com.asiscontrol.entity.JustificacionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistencia;
 import com.asiscontrol.entity.asistencia.CorreccionAsistenciaDetalle;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
-import com.asiscontrol.entity.enums.EstadoVerificacionClase;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
-import com.asiscontrol.repository.AsistenciaDocenteRepository;
 import com.asiscontrol.repository.JustificacionAsistenciaRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaDetalleRepository;
 import com.asiscontrol.repository.asistencia.CorreccionAsistenciaRepository;
@@ -55,7 +52,8 @@ import java.util.stream.Collectors;
 
 /**
  * Toma de asistencia de una sesión de clase: borrador, finalización y corrección de una
- * asistencia TOMADA. Solo el docente asignado escribe (R01); cada operación es una unidad
+ * asistencia TOMADA. El docente asignado registra y finaliza; el administrador autorizado
+ * también puede corregir una asistencia finalizada (US-32). Cada operación es una unidad
  * transaccional con su auditoría y bloquea la fila de la sesión para serializar a quien
  * escriba a la vez.
  */
@@ -80,7 +78,7 @@ public class AsistenciaSesionService {
     private final AuditoriaService auditoria;
     private final ModuloAccessGuard accessGuard;
     private final CalendarioSesionService calendarioService;
-    private final AsistenciaDocenteRepository asistenciaDocenteRepository;
+    private final PlazoAsistenciaService plazoService;
     private final Clock reloj;
 
     public AsistenciaSesionService(
@@ -93,7 +91,7 @@ public class AsistenciaSesionService {
             AuditoriaService auditoria,
             ModuloAccessGuard accessGuard,
             CalendarioSesionService calendarioService,
-            AsistenciaDocenteRepository asistenciaDocenteRepository,
+            PlazoAsistenciaService plazoService,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
         this.asistenciaRepository = asistenciaRepository;
@@ -104,15 +102,17 @@ public class AsistenciaSesionService {
         this.auditoria = auditoria;
         this.accessGuard = accessGuard;
         this.calendarioService = calendarioService;
-        this.asistenciaDocenteRepository = asistenciaDocenteRepository;
+        this.plazoService = plazoService;
         this.reloj = reloj;
     }
 
     /**
      * Estudiantes de la sesión con su estado. Una sesión TOMADA muestra lo registrado; las demás,
-     * a los matriculados hoy. Un borrador vencido no muestra sus marcas (vuelve a PENDIENTE).
+     * a los matriculados hoy. Antes de leer se finalizan los borradores cuyo plazo venció.
      */
+    @Transactional
     public SesionAsistenciaResponse obtener(Long sesionId) {
+        plazoService.cerrarVencidas();
         SesionClase sesion = buscarSesion(sesionId);
         accessGuard.verificarAsignacionDocente(sesion.getAsignacionCurso());
         calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
@@ -137,14 +137,6 @@ public class AsistenciaSesionService {
         auditoria.registrar("GUARDAR_BORRADOR_ASISTENCIA", ModuloAuditoria.ASISTENCIA, "SesionClase",
                 sesionId.toString(), ResultadoAuditoria.EXITOSO, null, null, describir(marcas));
         return mapear(sesion, filas);
-    }
-
-    /** La lista de alumnos ya existe: la marcación del docente en esta sesión deja de estar observada. */
-    private void confirmarMarcacionDocente(Long sesionId) {
-        for (AsistenciaDocente marcacion : asistenciaDocenteRepository.findAllBySesionClaseIdAndActivoTrue(sesionId)) {
-            marcacion.setVerificacion(EstadoVerificacionClase.CONFIRMADA);
-            asistenciaDocenteRepository.save(marcacion);
-        }
     }
 
     /** Finaliza en una sola transacción; si algo falla no queda una asistencia a medias (R10, R11). */
@@ -172,24 +164,25 @@ public class AsistenciaSesionService {
         sesion.setDocenteRegistrador(sesion.getAsignacionCurso().getDocente());
         sesion.setFechaHoraFinalizacion(LocalDateTime.now(reloj));
         sesionRepository.saveAndFlush(sesion);
-        confirmarMarcacionDocente(sesionId);
+        plazoService.confirmarMarcacionDocente(sesionId);
         auditoria.registrar("FINALIZAR_ASISTENCIA", ModuloAuditoria.ASISTENCIA, "SesionClase",
                 sesionId.toString(), ResultadoAuditoria.EXITOSO, null, null, describir(marcas));
         return mapear(sesion, filas);
     }
 
     /**
-     * Corrige una asistencia TOMADA, incluso días después (R12, R13). Registra un detalle por
+     * Corrige una asistencia TOMADA dentro de su plazo de edición (R12, R13). Registra un detalle por
      * estudiante cambiado ligado al motivo; si nada cambió se rechaza sin crear una corrección.
      * Reenviar el estado base de una marca justificada no es un cambio: conserva la justificación.
      */
     @Transactional
     public SesionAsistenciaResponse corregir(Long sesionId, CorregirAsistenciaRequest request) {
-        SesionClase sesion = bloquearParaEscribir(sesionId, request.version());
+        SesionClase sesion = bloquearParaEscribir(sesionId, request.version(), true);
         if (sesion.getEstado() != EstadoSesionClase.TOMADA) {
             throw new BusinessRuleException(
                     "ASISTENCIA_NO_TOMADA", "Solo se corrige una asistencia finalizada");
         }
+        plazoService.exigirPlazo(sesion);
         Map<Long, EstadoAsistencia> marcas = validarMarcas(request.marcas());
         Map<Long, AsistenciaAlumno> registradas = asistenciaRepository.findAllBySesionClaseId(sesionId).stream()
                 .collect(Collectors.toMap(fila -> fila.getAlumno().getId(), Function.identity()));
@@ -222,6 +215,9 @@ public class AsistenciaSesionService {
         CorreccionAsistencia correccion = new CorreccionAsistencia();
         correccion.setSesionClase(sesion);
         correccion.setDocente(sesion.getAsignacionCurso().getDocente());
+        correccion.setActorIdentificador(accessGuard.identificadorActual());
+        correccion.setActorNombre(accessGuard.nombrePersonaActual());
+        correccion.setActorRol(accessGuard.esAdministradorAsistencia() ? "ADMINISTRADOR" : "DOCENTE");
         correccion.setMotivo(request.motivo().trim());
         correccion.setFechaHora(LocalDateTime.now(reloj));
         correccion.setActivo(true);
@@ -255,25 +251,15 @@ public class AsistenciaSesionService {
                 c.getDocente().getId(),
                 c.getDocente().getPersona().nombreCompleto(),
                 c.getMotivo(),
+                c.getActorIdentificador(),
+                c.getActorNombre(),
+                c.getActorRol(),
                 detalles.getOrDefault(c.getId(), List.of()).stream().map(d -> new CambioAsistenciaResponse(
                         d.getAlumno().getId(),
                         d.getAlumno().getPersona().nombreLista(),
                         d.getEstadoAnterior(),
                         d.getEstadoNuevo())).toList()))
                 .toList();
-    }
-
-    /** Vencimiento del borrador (R08): borra sus marcas y devuelve la sesión a PENDIENTE (R09). */
-    @Transactional
-    public int vencerBorradores() {
-        List<SesionClase> vencidos = sesionRepository.findAllByEstadoAndFechaBefore(
-                EstadoSesionClase.BORRADOR, LocalDate.now(reloj));
-        for (SesionClase sesion : vencidos) {
-            asistenciaRepository.deleteAll(asistenciaRepository.findAllBySesionClaseId(sesion.getId()));
-            sesion.setEstado(EstadoSesionClase.PENDIENTE);
-        }
-        sesionRepository.saveAll(vencidos);
-        return vencidos.size();
     }
 
     private SesionClase buscarSesion(Long sesionId) {
@@ -287,10 +273,15 @@ public class AsistenciaSesionService {
      * versión sube en cada escritura, también cuando solo cambian las filas de los estudiantes.
      */
     private SesionClase bloquearParaEscribir(Long sesionId, Long version) {
+        return bloquearParaEscribir(sesionId, version, false);
+    }
+
+    private SesionClase bloquearParaEscribir(Long sesionId, Long version, boolean correccion) {
         SesionClase sesion = sesionRepository.bloquear(sesionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "SESION_CLASE_NO_ENCONTRADA", "No existe una sesión de clase activa con id " + sesionId));
-        accessGuard.verificarDocenteTitular(sesion.getAsignacionCurso());
+        if (correccion) accessGuard.verificarCorreccionAsistencia(sesion.getAsignacionCurso());
+        else accessGuard.verificarDocenteTitular(sesion.getAsignacionCurso());
         calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         if (version != null && sesion.getVersion() != version) {
             throw new ConflictException(
@@ -301,7 +292,10 @@ public class AsistenciaSesionService {
         return sesion;
     }
 
-    /** Solo se toma la asistencia del día: ni retroactiva (R15) ni adelantada (R16). */
+    /**
+     * Solo se toma la asistencia del día (R15, R16) y dentro de su plazo: hasta que empiece la
+     * siguiente clase del mismo curso o termine el día.
+     */
     private void exigirTomaDelDia(SesionClase sesion) {
         if (!sesion.getFecha().isEqual(LocalDate.now(reloj))) {
             throw new BusinessRuleException(
@@ -311,6 +305,7 @@ public class AsistenciaSesionService {
             throw new BusinessRuleException(
                     "ASISTENCIA_YA_TOMADA", "La asistencia ya fue finalizada; use la corrección para editarla");
         }
+        plazoService.exigirPlazo(sesion);
     }
 
     private Map<Long, EstadoAsistencia> validarMarcas(List<MarcaAsistenciaRequest> marcas) {
@@ -379,9 +374,10 @@ public class AsistenciaSesionService {
 
     private SesionAsistenciaResponse mapear(SesionClase sesion, List<AsistenciaAlumno> filas) {
         LocalDate hoy = LocalDate.now(reloj);
-        EstadoSesionClase estado = CalendarioSesionService.estadoEfectivo(sesion, hoy);
-        boolean vencido = sesion.getEstado() == EstadoSesionClase.BORRADOR && estado == EstadoSesionClase.PENDIENTE;
-        Map<Long, AsistenciaAlumno> registradas = vencido ? Map.of() : filas.stream()
+        EstadoSesionClase estado = sesion.getEstado();
+        LocalDateTime limite = plazoService.limite(sesion);
+        boolean abierta = plazoService.abierta(limite);
+        Map<Long, AsistenciaAlumno> registradas = filas.stream()
                 .collect(Collectors.toMap(f -> f.getAlumno().getId(), Function.identity()));
         Map<Long, JustificacionAsistencia> justificaciones = estado != EstadoSesionClase.TOMADA ? Map.of()
                 : justificacionRepository
@@ -420,15 +416,16 @@ public class AsistenciaSesionService {
                 sesion.getHoraInicio(),
                 sesion.getHoraFin(),
                 estado,
-                sesion.getFecha().isEqual(hoy) && estado != EstadoSesionClase.TOMADA,
+                sesion.getFecha().isEqual(hoy) && estado != EstadoSesionClase.TOMADA && abierta,
                 !sesion.getFecha().isAfter(hoy),
-                estado == EstadoSesionClase.TOMADA,
+                estado == EstadoSesionClase.TOMADA && abierta,
                 (int) lista.stream().filter(a -> a.estado() == null).count(),
                 lista,
                 sesion.getDocenteRegistrador() == null
                         ? null : sesion.getDocenteRegistrador().getPersona().nombreCompleto(),
                 sesion.getFechaHoraFinalizacion(),
-                sesion.getVersion());
+                sesion.getVersion(),
+                limite);
     }
 
     /** Sin inasistencia ya no hay qué justificar: lo pendiente no debe quedar esperando revisión. */

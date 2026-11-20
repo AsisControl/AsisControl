@@ -1,29 +1,26 @@
 package com.asiscontrol.config;
 
-import com.asiscontrol.entity.AccesoUsuario;
-import com.asiscontrol.entity.Administrador;
 import com.asiscontrol.entity.CategoriaPermiso;
 import com.asiscontrol.entity.Nacionalidad;
 import com.asiscontrol.entity.Permiso;
 import com.asiscontrol.entity.Persona;
 import com.asiscontrol.entity.Rol;
-import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.enums.Sexo;
 import com.asiscontrol.entity.enums.TipoDocumento;
-import com.asiscontrol.repository.AccesoUsuarioRepository;
-import com.asiscontrol.repository.AdministradorRepository;
 import com.asiscontrol.repository.CategoriaPermisoRepository;
 import com.asiscontrol.repository.NacionalidadRepository;
 import com.asiscontrol.repository.PermisoRepository;
 import com.asiscontrol.repository.PersonaRepository;
 import com.asiscontrol.repository.RolRepository;
+import com.asiscontrol.service.CicloCuentaService;
+import com.asiscontrol.service.CodigoInstitucionalService;
+import com.asiscontrol.service.PerfilAccesoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,15 +41,12 @@ public class BootstrapDataInitializer implements ApplicationRunner {
     private final RolRepository rolRepository;
     private final NacionalidadRepository nacionalidadRepository;
     private final PersonaRepository personaRepository;
-    private final AdministradorRepository administradorRepository;
-    private final AccesoUsuarioRepository usuarioRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final com.asiscontrol.service.CodigoInstitucionalService codigos;
-    private final com.asiscontrol.service.VigenciaContrasenaTemporal vigencia;
+    private final PerfilAccesoService perfiles;
+    private final CodigoInstitucionalService codigos;
+    private final CicloCuentaService cuentas;
     private final String adminDocument;
     private final String adminEmail;
     private final String adminPassword;
-    private final String adminUsername;
 
     public BootstrapDataInitializer(
             CategoriaPermisoRepository categoriaRepository,
@@ -60,30 +54,24 @@ public class BootstrapDataInitializer implements ApplicationRunner {
             RolRepository rolRepository,
             NacionalidadRepository nacionalidadRepository,
             PersonaRepository personaRepository,
-            AdministradorRepository administradorRepository,
-            AccesoUsuarioRepository usuarioRepository,
-            PasswordEncoder passwordEncoder,
-            com.asiscontrol.service.CodigoInstitucionalService codigos,
-            com.asiscontrol.service.VigenciaContrasenaTemporal vigencia,
+            PerfilAccesoService perfiles,
+            CodigoInstitucionalService codigos,
+            CicloCuentaService cuentas,
             @Value("${app.bootstrap.admin-document:}") String adminDocument,
             @Value("${app.bootstrap.admin-email:}") String adminEmail,
-            @Value("${app.bootstrap.admin-password:}") String adminPassword,
-            @Value("${app.bootstrap.admin-username:admin}") String adminUsername
+            @Value("${app.bootstrap.admin-password:}") String adminPassword
     ) {
         this.categoriaRepository = categoriaRepository;
         this.permisoRepository = permisoRepository;
         this.rolRepository = rolRepository;
         this.nacionalidadRepository = nacionalidadRepository;
         this.personaRepository = personaRepository;
-        this.administradorRepository = administradorRepository;
-        this.usuarioRepository = usuarioRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.perfiles = perfiles;
         this.codigos = codigos;
-        this.vigencia = vigencia;
+        this.cuentas = cuentas;
         this.adminDocument = adminDocument;
         this.adminEmail = adminEmail;
         this.adminPassword = adminPassword;
-        this.adminUsername = adminUsername;
     }
 
     @Override
@@ -158,14 +146,6 @@ public class BootstrapDataInitializer implements ApplicationRunner {
 
     private void initializeRoles(Map<String, Permiso> permissions) {
         createOrUpdateRole("ADMINISTRADOR", "Acceso total al sistema", permissions.keySet(), permissions);
-        createOrUpdateRole("DIRECTOR", "Supervision academica y administrativa", Set.of(
-                "ACADEMICO_LEER", "MATRICULA_LEER", "ASISTENCIA_LEER", "TAREAS_LEER",
-                "CALIFICACIONES_LEER", "PAGOS_LEER", "RIESGOS_LEER", "AUDITORIA_LEER"
-        ), permissions);
-        createOrUpdateRole("SECRETARIA", "Gestion de personas y matriculas", Set.of(
-                "USUARIOS_LEER", "ACADEMICO_LEER", "MATRICULA_LEER", "MATRICULA_ESCRIBIR",
-                "ASISTENCIA_LEER", "PAGOS_LEER", "ARCHIVOS_ESCRIBIR", "SOLICITUDES_ESCRIBIR"
-        ), permissions);
         createOrUpdateRole("DOCENTE", "Gestion pedagogica y asistencia", Set.of(
                 "ACADEMICO_LEER", "ASISTENCIA_LEER", "ASISTENCIA_ESCRIBIR", "TAREAS_LEER",
                 "TAREAS_ESCRIBIR", "CALIFICACIONES_LEER", "CALIFICACIONES_ESCRIBIR",
@@ -179,9 +159,12 @@ public class BootstrapDataInitializer implements ApplicationRunner {
                 "MATRICULA_LEER", "ASISTENCIA_LEER", "TAREAS_LEER", "CALIFICACIONES_LEER",
                 "PAGOS_LEER", "ARCHIVOS_ESCRIBIR", "SOLICITUDES_ESCRIBIR"
         ), permissions);
-        createOrUpdateRole("TESORERIA", "Gestion de compromisos y pagos", Set.of(
-                "PAGOS_LEER", "PAGOS_ESCRIBIR", "MATRICULA_LEER", "AUDITORIA_LEER"
-        ), permissions);
+        for (String rol : Set.of("DIRECTOR", "SECRETARIA", "TESORERIA")) {
+            rolRepository.findByNombreIgnoreCase(rol).filter(Rol::isActivo).ifPresent(anterior -> {
+                anterior.setActivo(false);
+                rolRepository.save(anterior);
+            });
+        }
     }
 
     private void createOrUpdateRole(
@@ -214,14 +197,13 @@ public class BootstrapDataInitializer implements ApplicationRunner {
                     + "BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si lo necesita");
             return;
         }
-        if (usuarioRepository.findActiveByIdentifier(adminUsername).isPresent()
-                || usuarioRepository.findActiveByIdentifier(adminEmail).isPresent()) {
-            return;
-        }
-        Rol administratorRole = rolRepository.findByNombreIgnoreCase("ADMINISTRADOR")
-                .orElseThrow();
+        rolRepository.bloquearAdministrador().orElseThrow();
+        codigos.bloquearSecuenciaCuentas();
         Nacionalidad nationality = nacionalidadRepository.findByNombreIgnoreCase("Peruana")
                 .orElseThrow();
+        if (!adminDocument.trim().matches("[0-9]{8}")) {
+            throw new IllegalArgumentException("El DNI del administrador inicial debe tener ocho dígitos");
+        }
         Persona person = personaRepository.findByTipoDocumentoAndNumeroDocumento(
                 TipoDocumento.DNI,
                 adminDocument.trim()
@@ -238,26 +220,17 @@ public class BootstrapDataInitializer implements ApplicationRunner {
             created.setCorreo(adminEmail.trim().toLowerCase());
             return personaRepository.save(created);
         });
-        Administrador administrator = administradorRepository.findByPersonaIdAndActivoTrue(person.getId())
-                .orElseGet(() -> {
-                    Administrador created = new Administrador();
-                    created.setPersona(person);
-                    created.setCodigoAdministrador(codigos.siguiente(
-                            com.asiscontrol.service.CodigoInstitucionalService.Prefijo.ADM));
-                    return administradorRepository.save(created);
-                });
-        AccesoUsuario user = new AccesoUsuario();
-        user.setPersona(administrator.getPersona());
-        user.setRol(administratorRole);
-        user.setUsername(adminUsername.trim());
-        user.setCorreo(adminEmail.trim().toLowerCase());
-        user.setContrasenaHash(passwordEncoder.encode(adminPassword));
-        user.setEstado(EstadoAcceso.ACTIVO);
-        com.asiscontrol.security.PasswordPolicy.validate(adminPassword.trim(), adminUsername.trim());
-        user.setRequiereCambioContrasena(true);
-        user.setContrasenaTemporalExpira(vigencia.expiraDesde(java.time.Instant.now()));
-        usuarioRepository.save(user);
-        LOGGER.info("Administrador inicial creado; debe cambiar su contrasena en el primer acceso");
+        if (!person.isActivo()) {
+            LOGGER.warn("Se omite el alta inicial porque la persona configurada está deshabilitada.");
+            return;
+        }
+        String codigoPerfil = perfiles.registrarAdministrador(person);
+        var credencial = cuentas.altaConfigurada(
+                person, "ADMINISTRADOR", codigoPerfil, adminEmail, adminPassword, false);
+        if (!credencial.existing()) {
+            LOGGER.info("Cuenta inicial de administración: {}. Debe cambiar la contraseña al ingresar.",
+                    credencial.username());
+        }
     }
 
     private boolean isBlank(String value) {

@@ -416,6 +416,23 @@ section > .subtitulo {
   border-color: #fcd34d;
   color: #92400e;
 }
+.chip-SIN_MARCACION {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+.sinMarcar {
+  color: #64748b;
+}
+.avisoPlazo {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 13px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+}
 .chip-INASISTENCIA {
   background: #fee2e2;
   border-color: #fca5a5;

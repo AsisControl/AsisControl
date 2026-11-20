@@ -1,86 +1,88 @@
-# US-20: publicacion de notas y PDF de progreso
+# US-20: libretas persistidas y PDF de progreso
 
-Genera un PDF al solicitarlo, sin almacenar informes ni crear entidades. Los datos
-corresponden al momento de la consulta. No conserva versiones anteriores.
+El flujo utiliza InformeProgreso y DetalleInformeProgreso, sin cambiar sus campos
+ni la migracion V20. El PDF se renderiza al descargarlo; sus resultados proceden
+de la ultima version PUBLICADA, no de las calificaciones vigentes.
 
-## Descarga
+## Flujo de uso
 
-`GET /api/calificaciones/reporte-avance?idAlumno=1&idAsignacionCurso=2&idPeriodoAcademico=3`
+En Evaluaciones > Libretas, seleccionar curso/seccion y periodo:
 
-Los identificadores son ejemplos: usar los existentes en la base de datos.
-Enviar la autenticacion habitual del API. La respuesta es `application/pdf`,
-con nombre de descarga y `Cache-Control: no-store`.
+1. Generar borradores guarda una libreta por alumno con matricula activa o finalizada.
+   Incluye evaluaciones activas no anuladas dentro de las fechas inclusivas del periodo.
+   Copia nombre de competencia, titulo y fecha de evaluacion, ponderacion, nivel y
+   observacion. Guarda referencias a evaluacion, competencia y calificacion de origen.
+   Sin nota, el borrador muestra "Sin registrar"; no crea una nota ficticia.
+2. Revisar borrador permite consultar los resultados por alumno. Volver a generar
+   reemplaza los detalles del mismo borrador. Si la ultima version estaba publicada,
+   crea una nueva version BORRADOR y conserva la anterior.
+3. Publicar libretas exige niveles completos. Si las fuentes cambiaron desde la
+   generacion, devuelve INFORME_DESACTUALIZADO y exige generar/revisar nuevamente.
+   Publica el lote en una transaccion, registra fecha de publicacion y utiliza las
+   validaciones existentes de EvaluacionService para publicar las evaluaciones.
+   Si nunca se genero una libreta, la prepara en esa misma transaccion. Repetir la
+   publicacion sin nuevos borradores devuelve cero y no crea versiones duplicadas.
+4. Progreso y Descargar PDF leen la ultima version publicada. Una correccion de
+   notas solo aparece despues de generar y publicar una nueva version.
 
-Admite docentes titulares del curso, administradores, el propio alumno y sus
-apoderados con vinculo activo y `CALIFICACIONES_LEER`. La relacion se comprueba
-en cada consulta y descarga. Solo se muestran notas publicadas o cerradas.
+La asignacion se bloquea durante generacion/publicacion para serializar numeros
+de version concurrentes. El bloqueo optimista heredado sigue vigente.
 
-## Publicacion y consulta
+## API
 
-El docente usa Evaluaciones > Publicar notas, selecciona curso y periodo y
-confirma. `POST /api/evaluaciones/publicar-periodo` recibe `idAsignacionCurso`
-e `idPeriodoAcademico`; exige `CALIFICACIONES_ESCRIBIR` y la titularidad del curso
-(o administrador). Publica los borradores de las fechas del periodo en una sola
-transaccion, reutilizando las validaciones y auditoria de EvaluacionService.
-Una planilla incompleta impide publicar el lote: todos los alumnos matriculados deben tener nivel de logro en todas las competencias de la evaluacion. Repetir la solicitud devuelve
-cero publicaciones si ya no quedan borradores. No crea permisos globales ni
-entidades de informe: PUBLICADA habilita la visibilidad de las notas.
+Todos los POST reciben idAsignacionCurso e idPeriodoAcademico y requieren
+CALIFICACIONES_ESCRIBIR y rol DOCENTE titular o ADMINISTRADOR:
 
-En Progreso, alumnos y apoderados eligen entre las opciones que el servidor
-devuelve en `GET /api/calificaciones/informes-disponibles`, consultan el detalle
-mediante `GET /api/calificaciones/avance` y descargan el PDF. Ambos endpoints de
-detalle reciben los mismos tres IDs que la descarga. Los IDs enviados por el
-cliente no sustituyen la comprobacion de identidad y relacion.
+- POST /api/calificaciones/informes/generar: devuelve informesProcesados e informes
+  con las opciones de alumnos para revisar.
+- POST /api/calificaciones/informes/publicar: devuelve informesProcesados.
 
-Las evaluaciones publicadas previamente tambien quedan disponibles; no existe
-una segunda marca de publicacion del informe. Corregir una nota actualiza la
-siguiente consulta o descarga. Anular la evaluacion la excluye del informe.
+Consultas con CALIFICACIONES_LEER:
 
-El alumno debe tener matricula activa o finalizada en la seccion. El periodo
-academico debe estar activo (no eliminado), pertenecer al año de la seccion y
-se filtra por fechas inclusivas de evaluacion. No confundir el ID del periodo
-academico con el enum PeriodoEvaluacion (BIMESTRAL, MENSUAL, etc.).
+- GET /api/calificaciones/informes/borrador: ultima version, solo docente titular
+  o administrador. Recibe idAlumno, idAsignacionCurso e idPeriodoAcademico.
+- GET /api/calificaciones/informes-disponibles: opciones publicadas filtradas por
+  identidad y relacion, una por alumno/curso/periodo.
+- GET /api/calificaciones/avance: resultados guardados de la ultima publicada.
+- GET /api/calificaciones/reporte-avance: mismos resultados como application/pdf,
+  con Content-Disposition y Cache-Control: no-store.
 
-Se incluyen calificaciones activas de evaluaciones activas publicadas o cerradas.
-Sin evaluaciones publicadas en el periodo se devuelve un error de negocio. Las competencias publicadas sin calificacion se incluyen sin crear notas ni asignarles cero.
+Los ultimos dos reciben los mismos tres IDs que la consulta del borrador. Se
+comprueban titularidad del docente, identidad del alumno o vinculo activo del
+apoderado, matricula y correspondencia entre el año del curso y el periodo.
+Alumno y apoderado no pueden consultar borradores ni generar/publicar libretas.
 
-## Contenido
+POST /api/evaluaciones/publicar-periodo sigue siendo publicacion de evaluaciones.
+Publicar una evaluacion por separado NO publica la libreta. Las evaluaciones
+anteriores pueden incorporarse generando/publicando libretas desde la pantalla.
+No se hace una migracion automatica de publicaciones anteriores.
 
-Alumno y codigo, curso, grado, seccion, año, docente, periodo y fechas.
-Detalle ordenado por competencia, fecha de evaluacion e ID de evaluacion:
-competencia, evaluacion, fecha, nivel registrado, ponderacion y observacion.
-Las observaciones vacias se muestran como "Sin observaciones". La ponderacion
-es la registrada en cada evaluacion; no se renormaliza al conjunto del informe.
-La fecha de generacion usa America/Lima.
+## Alcance de la conservacion historica
 
-El consolidado por competencia y las referencias de evidencia quedan pendientes
-de definir sus reglas. No se convierten niveles a numeros ni se infieren evidencias.
-La pantalla Progreso incluye la consulta y el boton de descarga.
+Se conservan los resultados y textos presentes en DetalleInformeProgreso. El PDF
+incluye numero de version y estado. Cambiar o desactivar una nota de origen no
+altera los detalles publicados. Las versiones anteriores permanecen en BD; la
+pantalla de familias muestra la ultima publicada, incluso si existe un borrador
+mas reciente. No se incorpora un selector de versiones historicas.
 
-## Organizacion
-
-- DTO: ReporteAvanceDto.
-- Preparacion de datos: ReporteAvanceService (transaccion de lectura).
-- Renderizado fuera de la transaccion: GeneradorReporteAvance.
-- Plantilla editable: service/src/main/resources/reports/reporte-avance.jrxml.
-- Endpoint: CalificacionController.
+Las entidades actuales no copian nombres del alumno/docente/curso, codigo,
+seccion ni etiquetas/fechas del periodo: la cabecera consulta esas relaciones.
+El instante de renderizado tambien cambia en cada descarga. Por tanto se conserva
+el resultado academico, no una copia binaria identica del PDF ni toda su cabecera.
+Las referencias de origen quedan guardadas; no se agrega un visor de evidencias.
+El contrato de consulta y descarga autorizada por fila esta implementado y
+documentado en [US20_SUSTENTO_FILA.md](US20_SUSTENTO_FILA.md).
 
 ## Verificacion
 
-`./mvnw.cmd -pl controller -am test "-Dtest=ReporteAvanceTest,ReporteAvanceHttpTest,CalificacionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false"`
+Desde backend:
 
-Las pruebas cubren limites de fechas, año incorrecto, alumno ajeno, docente ajeno,
-ausencia de notas y generacion real de un PDF con varias paginas y observaciones
-largas. El PDF sintetico se escribe en target/reportes-prueba/avance.pdf respecto
-al directorio de trabajo de las pruebas (controller con ejecucion bifurcada;
-backend al ejecutar Maven desde backend con forkCount=0).
+`./mvnw.cmd -pl controller -am test "-Dtest=ReporteAvanceTest,ReporteAvanceHttpTest,InformeProgresoPersistenciaTest,CalificacionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false"`
 
-La prueba HTTP usa datos persistidos en H2 para comprobar publicacion, consulta,
-descarga y aislamiento entre alumnos, apoderados y docentes. Se inspecciono
-visualmente el ejemplo sintetico de cinco paginas de la primera etapa.
+Pruebas HTTP/H2: permisos, vinculos revocados, matricula/año, fechas inclusivas,
+niveles incompletos, regeneracion, conservacion del resultado, version nueva,
+repeticion de publicacion y descarga PDF. ReporteAvanceTest renderiza un PDF real
+con varias paginas y observaciones largas. InformeProgresoPersistenciaTest
+comprueba el esquema V20 y sus restricciones. No sustituye una prueba en MySQL.
 
-Se intento consultar los alumnos reales 128 y 8 mediante una conexion JDBC
-de solo lectura. La conexion fallo por UnknownHostException: el entorno no
-pudo resolver el servidor configurado. No se generaron reportes reales para
-esos alumnos ni se modificaron sus datos. Esta comprobacion queda pendiente
-desde un entorno con acceso a la base de datos.
+Desde frontend: `npm test -- src/modules/evaluations/tests` y `npx tsc --noEmit`.

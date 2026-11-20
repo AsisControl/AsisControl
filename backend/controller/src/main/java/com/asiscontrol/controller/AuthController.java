@@ -1,7 +1,6 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.auth.AuthDtos;
-import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -12,8 +11,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -71,14 +70,14 @@ public class AuthController {
     @io.swagger.v3.oas.annotations.Operation(summary = "Revocar la sesión y eliminar la cookie de renovación")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(
-            @RequestHeader(name = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @AuthenticationPrincipal Jwt jwt,
             @org.springframework.web.bind.annotation.CookieValue(
                     name = com.asiscontrol.security.RefreshCookieSupport.NAME, required = false)
                     String refreshToken,
             jakarta.servlet.http.HttpServletRequest http,
             jakarta.servlet.http.HttpServletResponse response) {
         cookies.validarOrigen(http, refreshToken != null);
-        renovacion.cerrar(refreshToken, authorization == null ? null : extractBearerToken(authorization));
+        renovacion.cerrar(refreshToken, jwt);
         response.addHeader(HttpHeaders.SET_COOKIE, cookies.borrar().toString());
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
     }
@@ -86,6 +85,14 @@ public class AuthController {
     @GetMapping("/me")
     public AuthDtos.UserSummary me(@AuthenticationPrincipal Jwt jwt) {
         return authService.getCurrentUser(jwt);
+    }
+
+    @PutMapping("/rol-activo")
+    public org.springframework.http.ResponseEntity<AuthDtos.AuthResponse> rolActivo(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AuthDtos.RolActivoRequest request) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(authService.cambiarRol(jwt, request));
     }
 
     @PostMapping("/change-password")
@@ -119,13 +126,6 @@ public class AuthController {
             @Valid @RequestBody AuthDtos.ResetRecoveryRequest request) {
         recuperacion.confirmar(request);
         return new AuthDtos.MessageResponse("Contraseña actualizada. Inicie sesión nuevamente");
-    }
-
-    private String extractBearerToken(String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw new BusinessRuleException("TOKEN_FALTANTE", "Debe enviar un token Bearer valido");
-        }
-        return authorization.substring(7);
     }
 
     private org.springframework.http.ResponseEntity<AuthDtos.AuthResponse> respuesta(

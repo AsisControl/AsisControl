@@ -2,10 +2,12 @@ package com.asiscontrol.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.dto.seguridad.UsuarioDtos;
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
 import com.asiscontrol.entity.enums.Especialidad;
 import com.asiscontrol.entity.enums.EstadoAcceso;
@@ -87,7 +89,10 @@ class UsuariosEstudiantesIntegrationTest {
 
         assertThat(alumnoRepository.findByIdAndActivoTrue(creado.id())).isEmpty();
         assertThat(personaRepository.findById(creado.persona().id()).orElseThrow().isActivo())
-                .isFalse();
+                .isTrue();
+        var cuenta = accesoRepository.findByPersonaId(creado.persona().id()).orElseThrow();
+        assertThat(usuarios.get(cuenta.getId()).roles())
+                .singleElement().satisfies(rol -> assertThat(rol.activo()).isFalse());
         assertThatThrownBy(() -> personas.getAlumno(creado.id()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -99,9 +104,27 @@ class UsuariosEstudiantesIntegrationTest {
 
         assertThatThrownBy(
                         () ->
-                                personas.createApoderado(
-                                        new PersonaDtos.ApoderadoCreateRequest(persona(key))))
+                                personas.createAlumno(
+                                        new PersonaDtos.AlumnoCreateRequest(persona(key))))
                 .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void actualizaFichaPreexistenteAunqueNoTengaDocumento() {
+        var sinDocumento = new PersonaDtos.PersonaRequest(
+                "Mateo", "Ramos", "Quispe", null, null, null, Sexo.MASCULINO,
+                LocalDate.now().minusYears(14), null, null, "Dirección actualizada");
+        var personaAnterior = personas.createPersona(sinDocumento);
+        var alumnoAnterior = new Alumno();
+        alumnoAnterior.setPersona(personaAnterior);
+        alumnoAnterior.setCodigoAlumno("PREV-" + key());
+        alumnoRepository.saveAndFlush(alumnoAnterior);
+
+        var actualizado = personas.updateAlumno(alumnoAnterior.getId(),
+                new PersonaDtos.AlumnoUpdateRequest(sinDocumento, alumnoAnterior.getCodigoAlumno()));
+
+        assertThat(actualizado.persona().numeroDocumento()).isNull();
+        assertThat(accesoRepository.findByPersonaId(personaAnterior.getId())).isEmpty();
     }
 
     @Test
@@ -417,7 +440,7 @@ class UsuariosEstudiantesIntegrationTest {
     }
 
     @Test
-    void exigeMotivoIdentidadYRolInmutableAlAdministrarAccesos() {
+    void exigeMotivoIdentidadYPerfilCompatibleAlAdministrarAccesos() {
         var alumno =
                 personas.createAlumno(
                         new PersonaDtos.AlumnoCreateRequest(persona(key())));
@@ -448,15 +471,9 @@ class UsuariosEstudiantesIntegrationTest {
                 .isInstanceOf(BusinessRuleException.class);
         assertThatThrownBy(
                         () ->
-                                usuarios.update(
-                                        acceso.id(),
-                                        new UsuarioDtos.UpdateRequest(
-                                                role("APODERADO"),
-                                                acceso.correo(),
-                                                EstadoAcceso.ACTIVO,
-                                                null,
-                                                null,
-                                                null)))
+                                usuarios.cambiarRol(acceso.id(), role("APODERADO"),
+                                        new UsuarioDtos.CambiarRolRequest(
+                                                true, "Alta de un rol de apoderado")))
                 .isInstanceOf(ConflictException.class);
         assertThatThrownBy(
                         () ->
@@ -655,8 +672,11 @@ class UsuariosEstudiantesIntegrationTest {
                 .isTrue();
         assertThat(accesoRepository.findById(docente.id()).orElseThrow().getEstado())
                 .isEqualTo(EstadoAcceso.ACTIVO);
-        assertThat(accesoRepository.findById(apoderado.id()).orElseThrow().getEstado())
-                .isEqualTo(EstadoAcceso.DESACTIVADO);
+        assertThat(apoderado.id()).isEqualTo(docente.id());
+        assertThat(usuarios.get(docente.id()).roles())
+                .extracting(UsuarioDtos.RolAsignadoResponse::nombre,
+                        UsuarioDtos.RolAsignadoResponse::activo)
+                .containsExactlyInAnyOrder(tuple("DOCENTE", true), tuple("APODERADO", false));
     }
 
     private long role(String name) {

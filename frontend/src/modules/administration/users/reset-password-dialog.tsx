@@ -3,7 +3,6 @@ import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { passwordError } from "@/core/auth/password-policy";
 import { Dialog, Feedback, PasswordField } from "@/shared/ui";
-import { roleLabel } from "@/shared/lib/formatters";
 import type { Account } from "../types";
 import { restablecerContrasena } from "./services/usuarioService";
 /** Asigna una contraseña temporal tras verificar la identidad del titular. */
@@ -45,7 +44,7 @@ export function ResetPasswordDialog({
     <Dialog title="Restablecer contraseña" onClose={onClose} busy={busy}>
       <form onSubmit={save}>
         <p>
-          {account.nombreCompleto} · {roleLabel(account.rol)}
+          {account.nombreCompleto} · {account.username}
         </p>
         <Feedback error={error} />
         <label className="check-field">

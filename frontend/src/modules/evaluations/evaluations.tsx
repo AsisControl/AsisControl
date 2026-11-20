@@ -18,7 +18,7 @@ const EVIDENCE_TAB = "evidencias";
 const tabs: TabItem[] = [
   { id: LIST_TAB, label: "Mis evaluaciones" },
   { id: REGISTRY_TAB, label: "Registro de calificaciones" },
-  { id: PUBLISH_TAB, label: "Publicar notas" },
+  { id: PUBLISH_TAB, label: "Libretas" },
   { id: EVIDENCE_TAB, label: "Evidencias" },
 ];
 

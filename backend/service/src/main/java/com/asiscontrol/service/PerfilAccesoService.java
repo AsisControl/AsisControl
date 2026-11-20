@@ -24,6 +24,7 @@ public class PerfilAccesoService {
     private final ApoderadoRepository apoderados;
     private final AlumnoApoderadoRepository vinculos;
     private final AccesoUsuarioRepository accesos;
+    private final AccesoUsuarioRolRepository asignaciones;
     private final PersonaService personaService;
     private final AuditoriaService auditoria;
     private final CodigoInstitucionalService codigos;
@@ -31,11 +32,13 @@ public class PerfilAccesoService {
     public PerfilAccesoService(PersonaRepository personas, AdministradorRepository administradores,
         AlumnoRepository alumnos, DocenteRepository docentes, ApoderadoRepository apoderados,
         AlumnoApoderadoRepository vinculos, AccesoUsuarioRepository accesos,
+        AccesoUsuarioRolRepository asignaciones,
         PersonaService personaService, AuditoriaService auditoria,
         CodigoInstitucionalService codigos) {
         this.personas = personas; this.administradores = administradores; this.alumnos = alumnos;
         this.docentes = docentes; this.apoderados = apoderados; this.vinculos = vinculos;
         this.accesos = accesos; this.personaService = personaService; this.auditoria = auditoria;
+        this.asignaciones = asignaciones;
         this.codigos = codigos;
     }
 
@@ -47,17 +50,35 @@ public class PerfilAccesoService {
                 List<String> profiles = new ArrayList<>();
                 for (String role : List.of("ADMINISTRADOR", "DOCENTE", "ALUMNO", "APODERADO"))
                     if (hasProfile(p.getId(), role)) profiles.add(role);
-                return new UsuarioDtos.PersonaAccesoResponse(p.getId(), p.nombreCompleto(),
-                    p.getNumeroDocumento(), profiles, accesos.findAllByPersonaIdAndActivoTrue(p.getId())
-                        .stream().map(a -> a.getRol().getNombre()).toList());
+                List<String> roles = accesos.findByPersonaId(p.getId()).stream()
+                        .flatMap(cuenta -> asignaciones.findAllByUsuarioId(cuenta.getId()).stream())
+                        .filter(AccesoUsuarioRol::isActivo)
+                        .map(a -> a.getRol().getNombre()).toList();
+                return new UsuarioDtos.PersonaAccesoResponse(
+                        p.getId(), p.nombreCompleto(), p.getNumeroDocumento(), profiles, roles);
             });
     }
 
-    public Persona resolve(UsuarioDtos.ProvisionRequest r) {
-        if ((r.personaId() == null) == (r.persona() == null))
+    public Persona resolve(Long personaId, com.asiscontrol.dto.persona.PersonaDtos.PersonaRequest datos) {
+        if ((personaId == null) == (datos == null))
             invalid("Seleccione una persona existente o complete una nueva, exclusivamente");
-        return r.personaId() == null ? personaService.createPersona(r.persona()) : personas.lockActiveById(r.personaId())
+        return personaId == null ? personaService.resolvePersona(datos) : personas.lockActiveById(personaId)
             .orElseThrow(() -> new ResourceNotFoundException("PERSONA_NO_ENCONTRADA", "No se encontro la persona habilitada"));
+    }
+
+    public String registrarAdministrador(Persona persona) {
+        if (hasProfile(persona.getId(), "ADMINISTRADOR")) {
+            return codigoPerfil(persona.getId(), "ADMINISTRADOR", true);
+        }
+        if (administradores.existsByPersonaId(persona.getId())) inactive();
+        Administrador administrador = new Administrador();
+        administrador.setPersona(persona);
+        administrador.setCodigoAdministrador(codigos.siguiente(CodigoInstitucionalService.Prefijo.ADM));
+        administradores.save(administrador);
+        auditoria.registrar("CREAR_PERFIL", ModuloAuditoria.PERSONAS, "Administrador",
+                administrador.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                "personaId=" + persona.getId());
+        return administrador.getCodigoAdministrador();
     }
 
     public boolean hasProfile(Long id, String role) {
@@ -76,13 +97,13 @@ public class PerfilAccesoService {
         if (!hasProfile(p.getId(), role)) {
             switch (role) {
                 case "ADMINISTRADOR" -> {
-                    if (administradores.existsByPersonaId(p.getId())) inactive();
-                    Administrador a = new Administrador(); a.setPersona(p);
-                    a.setCodigoAdministrador(codigos.siguiente(CodigoInstitucionalService.Prefijo.ADM));
-                    administradores.save(a);
+                    registrarAdministrador(p);
+                    return;
                 }
                 case "ALUMNO", "ESTUDIANTE" -> {
                     if (alumnos.existsByPersonaId(p.getId())) inactive();
+                    if (p.getTipoDocumento() == null || p.getNumeroDocumento() == null)
+                        invalid("El documento de identidad del estudiante es obligatorio");
                     Alumno a = new Alumno(); a.setPersona(p);
                     a.setCodigoAlumno(codigos.siguiente(CodigoInstitucionalService.Prefijo.EST));
                     alumnos.save(a);

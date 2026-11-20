@@ -58,6 +58,16 @@ public class AsistenciaDocente extends AuditableEntity {
     @Column(name = "fecha_hora_marcada", nullable = false)
     private LocalDateTime fechaHoraMarcada;
 
+    /** Copia de la regla aplicada; null en marcaciones anteriores y contingencias manuales. */
+    @Column(name = "ventana_apertura")
+    private LocalDateTime ventanaApertura;
+
+    @Column(name = "limite_puntualidad")
+    private LocalDateTime limitePuntualidad;
+
+    @Column(name = "ventana_cierre")
+    private LocalDateTime ventanaCierre;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_asistencia", nullable = false, length = 35)
     private EstadoAsistencia estado;

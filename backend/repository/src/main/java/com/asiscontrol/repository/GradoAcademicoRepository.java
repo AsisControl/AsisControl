@@ -10,4 +10,6 @@ public interface GradoAcademicoRepository extends JpaRepository<GradoAcademico, 
     List<GradoAcademico> findByAnioAcademicoAnioOrderByNumero(int anio);
 
     Optional<GradoAcademico> findByAnioAcademicoAnioAndNumero(int anio, int numero);
+
+    boolean existsByCursosPlanId(Long cursoId);
 }

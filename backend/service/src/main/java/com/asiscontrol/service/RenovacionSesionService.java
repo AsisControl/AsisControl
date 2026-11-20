@@ -9,10 +9,10 @@ import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.repository.SesionAccesoRepository;
 import com.asiscontrol.repository.TokenRenovacionRepository;
 import com.asiscontrol.security.AuthenticatedUser;
-import com.asiscontrol.security.JwtService;
 import com.asiscontrol.util.HashUtils;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,23 +27,20 @@ public class RenovacionSesionService {
     private final AuthService auth;
     private final SesionAccesoRepository sesiones;
     private final TokenRenovacionRepository tokens;
-    private final JwtService jwt;
     private final AuditoriaService auditoria;
 
     public RenovacionSesionService(AuthService auth, SesionAccesoRepository sesiones,
-            TokenRenovacionRepository tokens, JwtService jwt, AuditoriaService auditoria) {
+            TokenRenovacionRepository tokens, AuditoriaService auditoria) {
         this.auth = auth;
         this.sesiones = sesiones;
         this.tokens = tokens;
-        this.jwt = jwt;
         this.auditoria = auditoria;
     }
 
     @Transactional(noRollbackFor = AuthenticationException.class)
     public Credenciales login(AuthDtos.LoginRequest request) {
         AuthDtos.AuthResponse response = auth.login(request);
-        SesionAcceso sesion = sesiones.findByTokenHashAndEstado(
-                HashUtils.sha256(response.accessToken()), EstadoSesion.VIGENTE).orElseThrow();
+        SesionAcceso sesion = sesiones.findById(response.user().sesionId()).orElseThrow();
         return new Credenciales(response, emitir(sesion), sesion.getFechaExpiracion());
     }
 
@@ -79,36 +76,37 @@ public class RenovacionSesionService {
                     sesion, motivo, "estado=" + estadoPrevio);
             throw invalid();
         }
+        var disponibles = auth.rolesDisponibles(usuario);
+        var activo = sesion.getRolActivo();
+        if (activo != null && disponibles.stream().noneMatch(rol -> rol.getId().equals(activo.getId()))) {
+            sesion.setRolActivo(null);
+            sesion.setVersionContexto(sesion.getVersionContexto() + 1);
+        }
         token.setFechaUso(now);
-        tokens.save(token);
-        var generated = jwt.generate(principal);
-        sesion.setTokenHash(HashUtils.sha256(generated.value()));
         sesion.setUltimaActividad(now);
-        sesiones.save(sesion);
-        var response = new AuthDtos.AuthResponse("Bearer", generated.value(),
-                generated.expiresAt(), auth.toUserSummary(usuario));
+        var response = auth.emitirRespuesta(sesion, disponibles);
         return new Credenciales(response, emitir(sesion), sesion.getFechaExpiracion());
     }
 
     @Transactional
-    public void cerrar(String rawToken, String bearer) {
-        boolean conBearer = bearer != null && !bearer.isBlank();
+    public void cerrar(String rawToken, Jwt jwt) {
         if (rawToken != null && !rawToken.isBlank()) {
-            tokens.findByTokenHash(HashUtils.sha256(rawToken)).ifPresent(token ->
-                    sesiones.bloquear(token.getSesion().getId()).ifPresent(sesion -> {
-                        boolean vigente = sesion.getEstado() == EstadoSesion.VIGENTE;
-                        revocar(sesion);
-                        // Con access token, auth.logout ya registra CERRAR_SESION.
-                        if (vigente && !conBearer) {
-                            auditoria.registrarComo(sesion.getUsuario(), "CERRAR_SESION",
-                                    ModuloAuditoria.SEGURIDAD, "SesionAcceso",
-                                    sesion.getId().toString(), ResultadoAuditoria.EXITOSO,
-                                    "Cierre con token de renovacion", "estado=VIGENTE",
-                                    "estado=" + sesion.getEstado());
-                        }
-                    }));
+            tokens.findSesionIdByHash(HashUtils.sha256(rawToken)).ifPresent(this::cerrarPorId);
         }
-        if (conBearer) auth.logout(bearer);
+        if (jwt != null && jwt.getClaims().get("sesionId") instanceof Number id) {
+            cerrarPorId(id.longValue());
+        }
+    }
+
+    private void cerrarPorId(Long id) {
+        sesiones.bloquear(id).filter(sesion -> sesion.getEstado() == EstadoSesion.VIGENTE)
+                .ifPresent(sesion -> {
+                    revocar(sesion);
+                    auditoria.registrarComo(sesion.getUsuario(), sesion.getRolActivo(),
+                            "CERRAR_SESION", ModuloAuditoria.SEGURIDAD, "SesionAcceso",
+                            sesion.getId().toString(), ResultadoAuditoria.EXITOSO,
+                            null, "estado=VIGENTE", "estado=" + sesion.getEstado());
+                });
     }
 
     /** Devuelve por que la sesion no se puede renovar, o null si puede. */
@@ -121,13 +119,12 @@ public class RenovacionSesionService {
         if (!usuario.isActivo() || usuario.getEstado() != EstadoAcceso.ACTIVO)
             return "El acceso no esta activo (" + usuario.getEstado() + ")";
         if (!usuario.getPersona().isActivo()) return "La persona del acceso esta inactiva";
-        if (!usuario.getRol().isActivo()) return "El rol del acceso esta inactivo";
         if (!principal.isCredentialsNonExpired()) return "La contrasena temporal vencio";
         return null;
     }
 
     private void auditarSesion(String accion, SesionAcceso sesion, String motivo, String anterior) {
-        auditoria.registrarComo(sesion.getUsuario(), accion, ModuloAuditoria.SEGURIDAD,
+        auditoria.registrarComo(sesion.getUsuario(), sesion.getRolActivo(), accion, ModuloAuditoria.SEGURIDAD,
                 "SesionAcceso", sesion.getId().toString(), ResultadoAuditoria.RECHAZADO,
                 motivo, anterior, "estado=" + sesion.getEstado());
     }

@@ -12,6 +12,7 @@ import { ReceiptsHistory } from "./receipts-history";
 import { OptionalCharges } from "./optional-charges";
 import { PaymentCheckout } from "./payment-checkout";
 import { PaymentTabs } from "./payment-tabs";
+import { scopeLabel, StudentScope } from "./student-scope";
 import type { FamilyStudent, PaymentOrder } from "./types";
 import styles from "./guardian-payments.module.css";
 
@@ -20,7 +21,14 @@ export function GuardianPayments() {
   const [students, setStudents] = useState<FamilyStudent[] | null>(null);
   const [studentError, setStudentError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [filters, setFilters] = useState("");
+  /** Estudiante elegido en el selector; vacío es el estado de cuenta consolidado. */
+  const [studentId, setStudentId] = useState("");
+  /** Tipo de cobro y situación de pago elegidos en el formulario de Obligaciones. */
+  const [formFilters, setFormFilters] = useState("");
+  const applied = new URLSearchParams(formFilters);
+  const query = new URLSearchParams(formFilters);
+  if (studentId) query.set("idAlumno", studentId);
+  const filters = query.toString();
   const list = usePaged<PaymentCommitment>(OBLIGATIONS_PATH, "", filters, 10);
   const [selected, setSelected] = useState<PaymentCommitment[]>([]);
   const [selectionError, setSelectionError] = useState("");
@@ -45,11 +53,15 @@ export function GuardianPayments() {
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget), query = new URLSearchParams();
-    for (const name of ["idAlumno", "tipo", "estado"]) {
+    for (const name of ["tipo", "estado"]) {
       const value = String(form.get(name) || ""); if (value) query.set(name, value);
     }
-    setFilters(query.toString()); list.setPage(0); setSelected([]); setSelectionError("");
+    setFormFilters(query.toString()); list.setPage(0); setSelected([]); setSelectionError("");
   }
+  function chooseStudent(value: string) {
+    setStudentId(value); list.setPage(0); setSelected([]); setSelectionError(""); setSuccess("");
+  }
+  const scope = scopeLabel(students, studentId);
   function toggle(item: PaymentCommitment) {
     setSelectionError("");
     if (selected.some((value) => value.id === item.id)) return setSelected(selected.filter((value) => value.id !== item.id));
@@ -78,18 +90,18 @@ export function GuardianPayments() {
   }
   return <section className={styles.payments}>
     <PageHeader title="Mis pagos" description="Consulta las obligaciones y los pagos de tus estudiantes en soles." />
+    {tab !== "opcionales" && <StudentScope students={students} value={studentId} onChange={chooseStudent} />}
     <PaymentTabs label="Secciones de pagos" selected={tab} onSelect={selectTab} items={[{ id: "obligaciones", label: "Obligaciones" }, { id: "historial", label: "Historial de pagos" }, { id: "operaciones", label: "Seguimiento de pagos" }, { id: "opcionales", label: "Actividades y servicios" }]}>
-    {tab === "historial" ? <ReceiptsHistory /> : tab === "operaciones" ? <OrdersHistory onRefreshObligations={list.refresh} />
+    {tab === "historial" ? <ReceiptsHistory studentId={studentId} scope={scope} /> : tab === "operaciones" ? <OrdersHistory studentId={studentId} scope={scope} onRefreshObligations={list.refresh} />
       : tab === "opcionales" ? <OptionalCharges onChanged={list.refresh} onObligation={setDetail} /> : <section className="panel">
-      <PanelHeading title="Obligaciones de mis estudiantes" summary="Selecciona las obligaciones que deseas pagar."
+      <PanelHeading title={`Obligaciones de ${scope}`} summary="Selecciona las obligaciones que deseas pagar."
         actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar obligaciones</button>} />
       <Feedback error={studentError || list.error || selectionError} success={success} />
       {studentError && <button type="button" className="secondary-action" onClick={() => setRevision((value) => value + 1)}>Reintentar estudiantes</button>}
       {students?.length === 0 && <p className={styles.notice}>No tienes estudiantes asociados. Consulta con la institución para revisar tu vínculo familiar.</p>}
-      <form className={styles.filters} onSubmit={applyFilters}>
-        <label className="field">Estudiante<select name="idAlumno" defaultValue="" disabled={!students?.length}><option value="">Todos mis estudiantes</option>{students?.map((student) => <option key={student.id} value={student.id}>{student.nombreCompleto}</option>)}</select></label>
-        <label className="field">Tipo de cobro<select name="tipo" defaultValue=""><option value="">Todos los conceptos</option><option value="PENSION">Pensiones</option><option value="OTRO">Actividades y servicios</option></select></label>
-        <label className="field">Situación de pago<select name="estado" defaultValue=""><option value="">Todas</option>{Object.entries(financialLabels).map(([state, label]) => <option value={state} key={state}>{label}</option>)}</select></label>
+      <form className={`${styles.filters} ${styles.stateFilters}`} onSubmit={applyFilters}>
+        <label className="field">Tipo de cobro<select name="tipo" defaultValue={applied.get("tipo") ?? ""}><option value="">Todos los conceptos</option><option value="PENSION">Pensiones</option><option value="OTRO">Actividades y servicios</option></select></label>
+        <label className="field">Situación de pago<select name="estado" defaultValue={applied.get("estado") ?? ""}><option value="">Todas</option>{Object.entries(financialLabels).map(([state, label]) => <option value={state} key={state}>{label}</option>)}</select></label>
         <button type="submit" className="primary-action" disabled={list.loading}>Buscar</button>
       </form>
       {list.loading ? <Loading>Cargando obligaciones…</Loading> : !list.error && !list.data?.content.length ? <p className="empty">No hay obligaciones que coincidan con la consulta.</p> : list.data && <div className={styles.tableWrap}>

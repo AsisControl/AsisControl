@@ -1,234 +1,90 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { passwordError } from "@/core/auth/password-policy";
-import { api, message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
+import { useState, type FormEvent } from "react";
+import { message } from "@/core/api/client";
+import { NewAccountCredentials, type AccessCredential } from "@/modules/students";
 import { personData } from "@/shared/forms/person-fields";
-import { roleLabel } from "@/shared/lib/formatters";
-import { CredentialsStep } from "./new-user/credentials-step";
-import { NewUserSuccess } from "./new-user/new-user-success";
-import { NewUserSummary } from "./new-user/new-user-summary";
+import { Feedback } from "@/shared/ui";
 import { PersonStep, type PersonMode } from "./new-user/person-step";
-import { RoleStep } from "./new-user/role-step";
-import { StudentsStep } from "./new-user/students-step";
 import styles from "./new-user/new-user.module.css";
-import type { Account, PersonChoice, Role } from "./types";
-const INSTITUTIONAL_ROLES = [
-  "ADMINISTRADOR",
-  "DOCENTE",
-  "ALUMNO",
-  "ESTUDIANTE",
-  "APODERADO",
-];
-/** Valores del formulario que se muestran en el resumen mientras se escribe. */
-type Draft = { personName: string };
-const EMPTY_DRAFT: Draft = { personName: "" };
-export function temporaryPassword(): string {
-  const alphabet =
-    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
-  let result = "";
-  do {
-    result = Array.from(
-      crypto.getRandomValues(new Uint32Array(16)),
-      (v) => alphabet[v % alphabet.length],
-    ).join("");
-  } while (
-    !/[A-Z]/.test(result) ||
-    !/[a-z]/.test(result) ||
-    !/[0-9]/.test(result)
-  );
-  return result;
-}
-/** Nuevo usuario: persona, rol y perfil, acceso y (apoderado) estudiantes. */
+import type { PersonChoice } from "./types";
+import { registrarAdministrador } from "./users/services/usuarioService";
+
 export function CreateAccess({ onBack }: { onBack: () => void }) {
-  const [formKey, setFormKey] = useState(0);
-  return (
-    <NewUserForm
-      key={formKey}
-      onBack={onBack}
-      onCreateAnother={() => setFormKey((key) => key + 1)}
-    />
-  );
-}
-function NewUserForm({
-  onBack,
-  onCreateAnother,
-}: {
-  onBack: () => void;
-  onCreateAnother: () => void;
-}) {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [roleId, setRoleId] = useState("");
   const [mode, setMode] = useState<PersonMode>("existing");
   const [person, setPerson] = useState<PersonChoice | null>(null);
-  const [selected, setSelected] = useState<Map<number, string>>(new Map());
-  const [password, setPassword] = useState("");
-  const formRef = useRef<HTMLFormElement>(null);
-  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState<Account | null>(null);
-  useEffect(() => {
-    const input = formRef.current?.elements.namedItem("password");
-    if (input instanceof HTMLInputElement)
-      input.setCustomValidity(passwordError(password, ""));
-  }, [password]);
-  useEffect(() => {
-    let active = true;
-    api<Role[]>("/api/roles")
-      .then((all) => {
-        if (active)
-          setRoles(all.filter((r) => INSTITUTIONAL_ROLES.includes(r.nombre)));
-      })
-      .catch((e) => {
-        if (active) setError(message(e));
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  const role = roles.find((r) => String(r.id) === roleId)?.nombre || "";
-  const needsProfile = mode === "new" || !person?.perfiles.includes(role);
-  const rolesWithAccess =
-    mode === "existing" ? (person?.rolesConAcceso ?? []) : [];
-  const roleTaken = rolesWithAccess.includes(role);
-  const missing = [
-    mode === "existing" && !person && "persona",
-    !role && "rol",
-    roleTaken && "otro rol",
-    !password && "contraseña",
-  ].filter((item): item is string => Boolean(item));
-  function readDraft(form: HTMLFormElement) {
-    const data = new FormData(form);
-    const str = (key: string) => String(data.get(key) || "").trim();
-    setDraft({
-      personName: [
-        str("nombres"),
-        str("apellidoPaterno"),
-        str("apellidoMaterno"),
-      ]
-        .filter(Boolean)
-        .join(" "),
-    });
-  }
-  function changeMode(next: PersonMode) {
-    setMode(next);
-    setError("");
-  }
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    if (mode === "existing" && !person) {
-      setError("Selecciona una persona existente.");
-      return;
-    }
-    if (roleTaken) {
-      setError("Esta persona ya tiene un acceso para el rol elegido.");
-      return;
-    }
-    const data = new FormData(e.currentTarget);
-    const str = (key: string) => String(data.get(key) || "").trim();
-    const policy = passwordError(password, "");
-    if (policy) {
-      const input = e.currentTarget.elements.namedItem("password");
-      if (input instanceof HTMLInputElement) {
-        input.setCustomValidity(policy);
-        input.reportValidity();
-        input.focus();
-      }
-      return;
-    }
+  const [busy, setBusy] = useState(false);
+  const [savedName, setSavedName] = useState("");
+  const [credential, setCredential] = useState<AccessCredential | null>(null);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || (mode === "existing" && !person)) return;
+    const data = new FormData(event.currentTarget);
     setBusy(true);
+    setError("");
     try {
-      const result = await api<Account>("/api/usuarios/provisionar", {
-        method: "POST",
-        body: JSON.stringify({
-          personaId: mode === "existing" ? person?.id : null,
-          persona: mode === "new" ? personData(data) : null,
-          rolId: Number(roleId),
-          password,
-          fechaIngreso: str("fechaIngreso") || null,
-          especialidad: str("especialidad") || null,
-          alumnoIds: role === "APODERADO" ? [...selected.keys()] : [],
-        }),
-      });
-      setPassword("");
-      setSaved(result);
-    } catch (e) {
-      setError(message(e));
+      const saved = await registrarAdministrador(
+        mode === "existing" && person
+          ? { personaId: person.id }
+          : { persona: personData(data) },
+      );
+      setSavedName(saved.nombreCompleto);
+      if (saved.contrasenaTemporal) {
+        setCredential({
+          row: 0,
+          fullName: saved.nombreCompleto,
+          role: "ADMINISTRADOR",
+          code: null,
+          username: saved.username,
+          email: saved.correo,
+          temporaryPassword: saved.contrasenaTemporal,
+          expiresAt: saved.contrasenaTemporalExpira,
+          existing: false,
+        });
+      }
+    } catch (cause) {
+      setError(message(cause));
     } finally {
       setBusy(false);
     }
   }
-  if (saved)
-    return (
-      <NewUserSuccess
-        account={saved}
-        onBack={onBack}
-        onCreateAnother={onCreateAnother}
-      />
-    );
-  const personName =
-    mode === "existing" ? (person?.nombreCompleto ?? "") : draft.personName;
+
   return (
     <section>
-      <button type="button" className={styles.backLink} onClick={onBack}>
+      <button type="button" className={styles.backLink} onClick={onBack} disabled={busy}>
         ← Volver a usuarios
       </button>
       <div className={styles.heading}>
-        <h2>Nuevo usuario</h2>
-        <p>
-          Una cuenta por persona y rol. El código, el usuario y el correo del
-          acceso se generan al guardar.
-        </p>
+        <h2>Registrar administrador</h2>
+        <p>Registra el perfil institucional. Si la persona ya tiene cuenta, conservará sus credenciales.</p>
       </div>
-      <Feedback error={error} />
-      <form ref={formRef} onSubmit={submit} onChange={(e) => readDraft(e.currentTarget)}>
-        <fieldset className={styles.layout} disabled={busy}>
-          <div className={styles.steps}>
+      <Feedback error={error} success={savedName && `Perfil de administrador registrado para ${savedName}.`} />
+      {savedName ? (
+        <div className="form-actions">
+          <button type="button" className="primary-action" onClick={onBack}>Volver a usuarios</button>
+        </div>
+      ) : (
+        <form onSubmit={submit}>
+          <fieldset className={styles.steps} disabled={busy}>
             <PersonStep
               mode={mode}
-              onModeChange={changeMode}
+              onModeChange={(next) => { setMode(next); setError(""); }}
               person={person}
               onPersonChange={setPerson}
             />
-            <RoleStep
-              roles={roles}
-              roleId={roleId}
-              onRoleChange={setRoleId}
-              needsProfile={needsProfile}
-              rolesWithAccess={rolesWithAccess}
-            />
-            <CredentialsStep
-              password={password}
-              onPasswordChange={setPassword}
-              onGeneratePassword={() => setPassword(temporaryPassword())}
-              done={Boolean(password)}
-            />
-            {role === "APODERADO" && (
-              <StudentsStep
-                selected={selected}
-                onSelectedChange={setSelected}
-              />
-            )}
-          </div>
-          <NewUserSummary
-            personName={personName}
-            role={role}
-            profileAction={
-              role
-                ? needsProfile
-                  ? `Se creará el perfil de ${roleLabel(role).toLowerCase()}`
-                  : "Se reutiliza el perfil existente"
-                : ""
-            }
-            studentCount={role === "APODERADO" ? selected.size : null}
-            missing={missing}
-            busy={busy}
-            onCancel={onBack}
-          />
-        </fieldset>
-      </form>
+            <div className="form-actions">
+              <button type="button" onClick={onBack}>Cancelar</button>
+              <button className="primary-action" disabled={mode === "existing" && !person}>
+                {busy ? "Registrando…" : "Registrar perfil"}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      )}
+      {credential && (
+        <NewAccountCredentials credential={credential} onClose={() => setCredential(null)} />
+      )}
     </section>
   );
 }
