@@ -163,6 +163,7 @@ export function TotalesEstados({ alumnos }: { alumnos: { estado: string | null }
       {total("PRESENTE", "Presentes", styles.tomadas)}
       {total("TARDANZA", "Tardanzas", styles.borradores)}
       {total("INASISTENCIA", "Inasistencias", styles.inasistencias)}
+      {contar("SIN_MARCACION") > 0 && total("SIN_MARCACION", "Sin marcar", styles.sinMarcar)}
     </div>
   );
 }

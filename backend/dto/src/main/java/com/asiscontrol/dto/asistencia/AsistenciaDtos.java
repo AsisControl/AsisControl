@@ -37,7 +37,10 @@ public final class AsistenciaDtos {
             Long justificacionId,
             EstadoJustificacion estadoJustificacion,
             String motivoJustificacion,
-            String observacionRevision
+            String observacionRevision,
+            LocalTime horaSesion,
+            Integer anioAcademico,
+            String periodo
     ) {
     }
 

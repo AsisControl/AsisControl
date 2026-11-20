@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { message } from "@/core/api/client";
 import { countLabel } from "@/shared/lib/formatters";
 import { Dialog, Feedback, StatusPill } from "@/shared/ui";
-import { coincideBusqueda, etiquetaMarca } from "./lib";
+import { coincideBusqueda, etiquetaMarca, textoPlazo } from "./lib";
 import { JustificationDialog } from "./justification-dialog";
 import { corregirAsistencia } from "./services/asistencia-service";
 import { MarkButtons } from "./session-marks";
@@ -69,6 +69,7 @@ export function SessionCorrection({
       <SessionHeader sesion={sesion} onNavigate={salir} />
       <p className={styles.avisoInfo}>
         Estás modificando una asistencia finalizada. Los cambios quedarán registrados con el motivo de corrección.
+        {textoPlazo(sesion) && ` Puedes corregirla ${textoPlazo(sesion)}.`}
       </p>
       <SessionSummary
         sesion={sesion}
@@ -87,7 +88,7 @@ export function SessionCorrection({
           renderEstado={(alumno) => (
             <MarkButtons
               nombre={alumno.nombreCompleto}
-              valor={nuevos[alumno.alumnoId] ?? alumno.estado}
+              valor={nuevos[alumno.alumnoId] ?? (alumno.estado === "SIN_MARCACION" ? null : alumno.estado)}
               disabled={guardando}
               onChange={(estado) => setNuevos((actual) => ({ ...actual, [alumno.alumnoId]: estado }))}
             />

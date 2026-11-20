@@ -2,6 +2,8 @@ export type CursoSesiones = { id: number; curso: string; seccion: string };
 
 export type EstadoSesion = "PENDIENTE" | "BORRADOR" | "TOMADA";
 export type EstadoMarca = "PRESENTE" | "TARDANZA" | "INASISTENCIA";
+/** SIN_MARCACION: el plazo venció con el borrador y el docente no marcó a ese estudiante. */
+export type EstadoRegistrado = EstadoMarca | "SIN_MARCACION";
 export type EstadoJustificacion =
   | "ENVIADA"
   | "EN_REVISION"
@@ -22,13 +24,15 @@ export type SesionClase = {
   puedeVer: boolean;
   puedeEditar: boolean;
   version: number;
+  /** Fin del plazo para tomar o corregir: siguiente clase del curso ese día o fin del día. */
+  limiteEdicion?: string;
 };
 
 export type AlumnoSesion = {
   alumnoId: number;
   codigoAlumno: string;
   nombreCompleto: string;
-  estado: EstadoMarca | null;
+  estado: EstadoRegistrado | null;
   asistenciaId: number | null;
   justificacionId: number | null;
   estadoJustificacion: EstadoJustificacion | null;
@@ -52,6 +56,7 @@ export type SesionAsistencia = {
   registradoPor: string | null;
   registradoEn: string | null;
   version: number;
+  limiteEdicion?: string;
 };
 
 export type Marca = { alumnoId: number; estado: EstadoMarca };

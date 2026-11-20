@@ -44,10 +44,8 @@ public class JustificacionAsistenciaService {
             EstadoAsistencia.INASISTENCIA,
             EstadoAsistencia.SIN_MARCACION);
 
-    // asistencia alumnos: el apoderado solo solicita sobre inasistencias
-    private static final Set<EstadoAsistencia> ESTADOS_SOLICITABLES = Set.of(
-            EstadoAsistencia.INASISTENCIA,
-            EstadoAsistencia.SIN_MARCACION);
+    // asistencia alumnos: el apoderado solo solicita sobre inasistencias; "sin marcar" no es una falta
+    private static final Set<EstadoAsistencia> ESTADOS_SOLICITABLES = Set.of(EstadoAsistencia.INASISTENCIA);
 
     private final JustificacionAsistenciaRepository justificacionRepository;
     private final AsistenciaAlumnoRepository asistenciaRepository;

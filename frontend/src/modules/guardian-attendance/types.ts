@@ -12,6 +12,7 @@ export type EstadoJustificacion =
 /** Refleja AsistenciaDtos.AsistenciaAlumnoResponse. */
 export type AsistenciaEstudiante = {
   id: number;
+  asignacionCursoId: number;
   fechaRegistro: string;
   horaRegistro: string | null;
   estado: string;
@@ -21,4 +22,17 @@ export type AsistenciaEstudiante = {
   estadoJustificacion: EstadoJustificacion | null;
   motivoJustificacion: string | null;
   observacionRevision: string | null;
+  /** Hora de inicio de la clase; horaRegistro es cuándo se guardó la asistencia. */
+  horaSesion: string | null;
+  anioAcademico: number | null;
+  periodo: string | null;
+};
+
+/** Bloque del horario del alumno (HorarioResponse); horas "07:30:00". */
+export type BloqueHorario = {
+  asignacionCursoId: number;
+  curso: string;
+  diaSemana: string;
+  horaInicio: string;
+  horaFin: string;
 };

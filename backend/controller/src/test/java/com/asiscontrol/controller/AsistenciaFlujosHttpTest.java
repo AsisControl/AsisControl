@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsistenciaAlumno;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.CodigoQRAsistencia;
@@ -9,6 +10,7 @@ import com.asiscontrol.entity.Notificacion;
 import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.TipoAula;
@@ -75,6 +77,22 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
                 data("asistenciaAlumnoId",asistencia,"motivo","Cita medica","archivoIds",Set.of()),201).path("id").asLong();
     }
 
+    @Test void elAlumnoConsultaSoloSuHistorialConHoraAnioYPeriodo() throws Exception {
+        var periodo=new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Bimestre IV"); periodo.setOrden(4);
+        periodo.setFechaInicio(LocalDate.now().minusDays(30)); periodo.setFechaFin(LocalDate.now().plusDays(30)); em.persist(periodo);
+        asistenciaTomada(LocalDate.now(),EstadoAsistencia.PRESENTE);
+        var propia=comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos",null,200).path("content").get(0);
+        assertThat(propia.path("horaSesion").asText()).startsWith("08:00");
+        assertThat(propia.path("anioAcademico").asInt()).isEqualTo(year.getAnio());
+        assertThat(propia.path("periodo").asText()).isEqualTo("Bimestre IV");
+        comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200);
+
+        var otro=new Alumno(); otro.setPersona(person()); otro.setCodigoAlumno("O"+key()); em.persist(otro); em.flush();
+        comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos?alumnoId="+otro.getId(),null,403);
+        apoderado("GET","/api/asistencias/alumnos?alumnoId="+otro.getId(),null,403);
+        apoderado("GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200);
+    }
+
     @Test void soloElApoderadoJustificaYSoloInasistencias() throws Exception {
         long a=asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA);
         var pedido=data("asistenciaAlumnoId",a,"motivo","Cita medica","archivoIds",Set.of());
@@ -82,6 +100,8 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
         request("POST","/api/justificaciones-asistencia",pedido,403);
         long tardanza=asistenciaTomada(LocalDate.now().minusDays(1),EstadoAsistencia.TARDANZA);
         apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",tardanza,"motivo","Trafico","archivoIds",Set.of()),422);
+        long sinMarcar=asistenciaTomada(LocalDate.now().minusDays(2),EstadoAsistencia.SIN_MARCACION);
+        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",sinMarcar,"motivo","No asistio","archivoIds",Set.of()),422);
     }
 
     @Test void elDocenteResuelveSinIniciarRevisionYConDatosVigentes() throws Exception {
