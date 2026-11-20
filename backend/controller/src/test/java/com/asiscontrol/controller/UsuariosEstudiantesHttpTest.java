@@ -125,14 +125,16 @@ class UsuariosEstudiantesHttpTest {
                         201);
         long role = roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId();
         var credencial = alumno.path("credencialAcceso");
-        assertThat(credencial.path("username").asText()).matches("[0-9]{8}");
+        assertThat(credencial.path("accessCode").asText()).matches("[0-9]{8}");
         assertThat(credencial.path("temporaryPassword").asText()).isNotBlank();
         var account = call(get("/api/usuarios")
-                .param("search", credencial.path("username").asText()), null, 200)
+                .param("search", credencial.path("accessCode").asText()), null, 200)
                 .path("content").get(0);
         long id = account.path("id").asLong();
         String email = account.path("correo").asText();
-        assertThat(email).isEqualTo(credencial.path("username").asText() + "@asiscontrol.edu.pe");
+        assertThat(email).isEqualTo("a" + credencial.path("accessCode").asText() + "@asiscontrol.edu.pe");
+        assertThat(account.path("codigo").asText()).isEqualTo(credencial.path("accessCode").asText());
+        assertThat(account.path("username").asText()).isEqualTo(credencial.path("username").asText());
         assertThat(account.path("roles").get(0).path("nombre").asText()).isEqualTo("ALUMNO");
         assertThat(call(get("/api/alumnos/{id}", alumno.path("id").asLong()), null, 200)
                 .path("credencialAcceso").isNull()).isTrue();

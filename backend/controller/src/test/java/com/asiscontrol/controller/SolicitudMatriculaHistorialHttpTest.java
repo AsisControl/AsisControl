@@ -76,7 +76,7 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
         RegistroAuditoria creacion = evento(
                 "Matricula", matricula, "CREAR_MATRICULA", "2026-10-30T09:00:00Z");
         creacion.setNuevoValor("estado=ACTIVA,seccion=" + section.getId());
-        creacion.setActorIdentificador(admin.getUsername());
+        creacion.setActorIdentificador(admin.getCodigo());
         RegistroAuditoria cambio = evento(
                 "Matricula", matricula, "CAMBIAR_ESTADO_MATRICULA", "2026-10-30T10:00:00Z");
         cambio.setValorAnterior("ACTIVA");

@@ -22,7 +22,8 @@ export function printCredentials(credentials: AccessCredential[]) {
     .filter((c) => c.temporaryPassword)
     .map(
       (c) => `<tr><td>${escapeHtml(c.fullName)}</td><td>${escapeHtml(roleLabel(c.role))}</td>
-<td>${escapeHtml(c.code ?? "—")}</td><td><code>${escapeHtml(c.username)}</code></td>
+<td>${escapeHtml(c.code ?? "—")}</td><td><code>${escapeHtml(c.accessCode ?? "—")}</code></td>
+<td><code>${escapeHtml(c.username)}</code></td>
 <td><code>${escapeHtml(c.temporaryPassword ?? "")}</code></td>
 <td>${escapeHtml(shortDateLabel(c.expiresAt))}</td></tr>`,
     )
@@ -38,7 +39,7 @@ code{font-family:Consolas,monospace;font-size:13px}</style></head><body>
 <h1>Credenciales iniciales de acceso</h1>
 <p>Entrega a cada titular su usuario y contraseña temporal. Deberá cambiar la contraseña en su
 primer ingreso, antes de la fecha de vencimiento. Guarda esta hoja en un lugar seguro.</p>
-<table><thead><tr><th>Nombre</th><th>Rol</th><th>Código</th><th>Usuario</th>
+<table><thead><tr><th>Nombre</th><th>Rol</th><th>Código</th><th>Código de acceso</th><th>Usuario</th>
 <th>Contraseña temporal</th><th>Vence</th></tr></thead><tbody>${rows}</tbody></table>
 </body></html>`);
   sheet.document.close();
@@ -58,7 +59,9 @@ export function NewAccountCredentials({
     <Dialog title="Credenciales iniciales" onClose={onClose}>
       <p>Entrega estos datos únicamente a {credential.fullName}.</p>
       <dl className="detail-grid">
-        <div><dt>Usuario institucional</dt><dd>{credential.username}</dd></div>
+        <div><dt>Código de acceso</dt><dd>{credential.accessCode ?? "—"}</dd></div>
+        <div><dt>Usuario</dt><dd>{credential.username}</dd></div>
+        <div><dt>Correo</dt><dd>{credential.email}</dd></div>
         <div><dt>Contraseña temporal</dt><dd><code>{credential.temporaryPassword}</code></dd></div>
         <div><dt>Vencimiento</dt><dd>{shortDateLabel(credential.expiresAt)}</dd></div>
       </dl>
@@ -102,7 +105,7 @@ export function AccessCredentials({
           : `Se ${created === 1 ? "creará" : "crearán"} ${countLabel(created, "acceso", "accesos")}`}
         {existing > 0 &&
           ` y se ${saved ? "conservaron" : "conservarán"} ${countLabel(existing, "acceso existente", "accesos existentes")}`}
-        . Cada cuenta conserva su usuario institucional al agregarle otro rol.
+        . Cada cuenta conserva su código de acceso y su usuario al agregarle otro rol.
       </p>
       {printable && (
         <div className={styles.credentialsWarning} role="note">
@@ -128,17 +131,19 @@ export function AccessCredentials({
               <th scope="col">Nombre</th>
               <th scope="col">Rol</th>
               <th scope="col">Código</th>
+              <th scope="col">Código de acceso</th>
               <th scope="col">Usuario</th>
               <th scope="col">{saved ? "Contraseña temporal" : "Acceso"}</th>
             </tr>
           </thead>
           <tbody>
             {credentials.map((c) => (
-              <tr key={`${c.role}-${c.row}-${c.username}`}>
+              <tr key={`${c.role}-${c.row}-${c.accessCode ?? c.username}`}>
                 <td data-label="Fila">{c.row}</td>
                 <td data-label="Nombre">{c.fullName}</td>
                 <td data-label="Rol">{roleLabel(c.role)}</td>
                 <td data-label="Código">{c.code ?? "—"}</td>
+                <td data-label="Código de acceso">{c.accessCode ?? "—"}</td>
                 <td data-label="Usuario">{c.username}</td>
                 <td data-label={saved ? "Contraseña temporal" : "Acceso"}>
                   {c.existing ? (

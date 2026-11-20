@@ -30,6 +30,7 @@ import java.time.Instant;
         uniqueConstraints = {
             @UniqueConstraint(
                     name = "uk_acceso_usuario_persona", columnNames = "id_persona"),
+            @UniqueConstraint(name = "uk_acceso_usuario_codigo", columnNames = "codigo"),
             @UniqueConstraint(name = "uk_acceso_usuario_username", columnNames = "username"),
             @UniqueConstraint(name = "uk_acceso_usuario_correo", columnNames = "correo")
         })
@@ -44,7 +45,12 @@ public class AccesoUsuario extends AuditableEntity {
     @JoinColumn(name = "id_persona", nullable = false)
     private Persona persona;
 
-    @Column(name = "username", nullable = false, updatable = false, length = 80)
+    /** Código permanente de la cuenta (AAAANNNN). Es el identificador estable de la persona. */
+    @Column(name = "codigo", nullable = false, updatable = false, length = 20)
+    private String codigo;
+
+    /** Usuario legible generado (nombre.apellido); se puede usar para iniciar sesión. */
+    @Column(name = "username", nullable = false, length = 80)
     private String username;
 
     @Column(name = "correo", nullable = false, length = 150)

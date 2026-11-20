@@ -60,7 +60,7 @@ class HistorialHorarioHttpTest extends ApiIntegrationSupport {
         assertThat(campo(eliminacion, "aula").path("nuevo").isNull()).isTrue();
 
         JsonNode edicion = pagina.path("content").get(1);
-        assertThat(edicion.path("actorIdentificador").asText()).isEqualTo(admin.getUsername());
+        assertThat(edicion.path("actorIdentificador").asText()).isEqualTo(admin.getCodigo());
         assertThat(edicion.path("actorNombre").asText())
                 .isEqualTo(admin.getPersona().nombreCompleto());
         assertThat(edicion.path("rolActor").asText()).isEqualTo("ADMINISTRADOR");

@@ -22,15 +22,9 @@ export function LoginScreen({
     if (isSubmitting) return;
     setError(null);
     const form = new FormData(event.currentTarget);
-    const identifier = String(form.get("username") ?? "").trim();
-    if (!/^\d{8}$/.test(identifier)) {
-      setError({ message: "Ingresa los 8 dígitos de tu usuario institucional.", field: "username" });
-      event.currentTarget.querySelector<HTMLInputElement>('[name="username"]')?.focus();
-      return;
-    }
     setIsSubmitting(true);
     const result = await onLogin({
-      username: identifier,
+      username: String(form.get("username") ?? "").trim(),
       password: String(form.get("password") ?? ""),
     });
     setIsSubmitting(false);
@@ -58,21 +52,21 @@ export function LoginScreen({
             </header>
             <div className={styles.field}>
               <div className={styles.fieldHeader}>
-                <label htmlFor="login-username">Usuario institucional</label>
-                <span id="login-username-hint" className={styles.hint}>8 dígitos</span>
+                <label htmlFor="login-username">Usuario o correo</label>
+                <span id="login-username-hint" className={styles.hint}>Código, usuario o correo</span>
               </div>
               <input
                 id="login-username"
                 name="username"
+                maxLength={150}
                 required
-                inputMode="numeric"
                 autoComplete="username"
-                placeholder="Ej. 20260001"
+                placeholder="Código, usuario o correo"
                 aria-describedby={error?.field ? "login-username-hint login-error" : "login-username-hint"}
                 aria-invalid={error?.field === "username" || undefined}
                 value={username}
                 onChange={(event) => {
-                  setUsername(event.currentTarget.value.replace(/\D/g, "").slice(0, 8));
+                  setUsername(event.currentTarget.value);
                   if (error?.field === "username") setError(null);
                 }}
                 disabled={isSubmitting}

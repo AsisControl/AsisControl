@@ -46,7 +46,7 @@ public class JwtService {
                         .issuer("asiscontrol-backend")
                         .issuedAt(issuedAt)
                         .expiresAt(expiresAt)
-                        .subject(usuario.getUsername())
+                        .subject(usuario.getCodigo())
                         .claim("usuarioId", usuario.getId())
                         .claim("personaId", usuario.getPersona().getId())
                         .claim("sesionId", sesion.getId())

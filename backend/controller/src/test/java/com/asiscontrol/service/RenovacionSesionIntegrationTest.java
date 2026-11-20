@@ -104,7 +104,7 @@ class RenovacionSesionIntegrationTest {
         var registro = reutilizacion.getFirst();
         assertThat(registro.getResultado()).isEqualTo(ResultadoAuditoria.RECHAZADO);
         assertThat(registro.getModulo()).isEqualTo(ModuloAuditoria.SEGURIDAD);
-        assertThat(registro.getActorIdentificador()).isEqualTo(user.username());
+        assertThat(registro.getActorIdentificador()).isEqualTo(user.codigo());
         assertThat(registro.getValorAnterior()).startsWith("estado=VIGENTE,tokenUsadoEn=");
         assertThat(registro.getNuevoValor()).isEqualTo("estado=REVOCADA");
 
@@ -128,7 +128,7 @@ class RenovacionSesionIntegrationTest {
         var revocacion = auditoria(id, "REVOCAR_SESION");
         assertThat(revocacion).hasSize(1);
         assertThat(revocacion.getFirst().getMotivo()).isEqualTo("Inactividad mayor a 30 minutos");
-        assertThat(revocacion.getFirst().getActorIdentificador()).isEqualTo(user.username());
+        assertThat(revocacion.getFirst().getActorIdentificador()).isEqualTo(user.codigo());
         assertThat(revocacion.getFirst().getValorAnterior()).isEqualTo("estado=VIGENTE");
     }
 

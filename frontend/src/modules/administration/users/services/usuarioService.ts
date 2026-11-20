@@ -36,7 +36,7 @@ export function actualizarRolUsuario(id: number, rolId: number, activo: boolean,
 export function registrarAdministrador(
   input: { personaId: number } | { persona: ReturnType<typeof personData> },
 ) {
-  return api<Pick<Account, "id" | "username" | "correo" | "nombreCompleto" | "contrasenaTemporalExpira"> & {
+  return api<Pick<Account, "id" | "codigo" | "username" | "correo" | "nombreCompleto" | "contrasenaTemporalExpira"> & {
     contrasenaTemporal: string | null;
   }>(`${USUARIOS_PATH}/administradores`, {
     method: "POST",

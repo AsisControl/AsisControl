@@ -138,8 +138,8 @@ public class PagosDemoDataInitializer {
         var credencial = cuentas.altaConfigurada(persona, "APODERADO", apoderado.getCodigoApoderado(),
                 "demo.pagos." + numero + "@example.test", password, false);
         for (int hijo = 1; hijo <= hijos; hijo++) estudiante(numero, hijo, apellido, apoderado, seccion);
-        LOGGER.info("Cuenta de demostración de pagos {}: {}. Cambia la temporal al ingresar.",
-                numero, credencial.username());
+        LOGGER.info("Cuenta de demostración de pagos {}: código {} (usuario {}). Cambia la temporal al ingresar.",
+                numero, credencial.accessCode(), credencial.username());
     }
 
     private Persona persona(String documento, String nombre, String apellido, LocalDate nacimiento) {

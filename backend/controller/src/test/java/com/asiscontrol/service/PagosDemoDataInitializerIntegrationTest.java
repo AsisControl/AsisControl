@@ -48,7 +48,7 @@ class PagosDemoDataInitializerIntegrationTest {
         var accesos = em.createQuery("from AccesoUsuario a where a.correo like 'demo.pagos.%' order by a.correo",
                 AccesoUsuario.class).getResultList();
         assertThat(accesos).hasSize(2).allSatisfy(acceso -> {
-            assertThat(acceso.getUsername()).matches("[0-9]{8}");
+            assertThat(acceso.getCodigo()).matches("[0-9]{8}");
             assertThat(em.createQuery("""
                     select a.rol.nombre from AccesoUsuarioRol a where a.usuario.id = :id
                     """, String.class).setParameter("id", acceso.getId()).getResultList())

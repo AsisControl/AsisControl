@@ -94,7 +94,7 @@ class ImportacionDocenteHttpTest {
         assertThat(auditoriasDe(archivo)).isEmpty();
         // El análisis anticipa usuario y código, pero nunca entrega una contraseña.
         JsonNode credencial = resultado.path("credentials").get(0);
-        assertThat(credencial.path("username").asText()).matches("[0-9]{8}");
+        assertThat(credencial.path("accessCode").asText()).matches("[0-9]{8}");
         assertThat(credencial.path("temporaryPassword").isNull()).isTrue();
     }
 
@@ -128,9 +128,9 @@ class ImportacionDocenteHttpTest {
         String contrasena = credencial.path("temporaryPassword").asText();
         assertThat(contrasena).hasSize(12);
         assertThat(credencial.path("code").asText()).isEqualTo(creado.getCodigoDocente());
-        assertThat(credencial.path("username").asText()).matches("[0-9]{8}");
+        assertThat(credencial.path("accessCode").asText()).matches("[0-9]{8}");
         assertThat(credencial.path("email").asText())
-                .isEqualTo(credencial.path("username").asText() + "@asiscontrol.edu.pe");
+                .isEqualTo("a" + credencial.path("accessCode").asText() + "@asiscontrol.edu.pe");
         // La contraseña no queda en la auditoría.
         assertThat(auditorias.findAll()).noneMatch(registro ->
                 String.valueOf(registro.getNuevoValor()).contains(contrasena)

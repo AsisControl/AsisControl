@@ -328,7 +328,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     private AccesoUsuario acceso(Docente docente) {
         AccesoUsuario acceso = new AccesoUsuario();
         acceso.setPersona(docente.getPersona());
-        acceso.setUsername("docente" + key());
+        acceso.setUsername("docente" + key()); acceso.setCodigo(acceso.getUsername());
         acceso.setCorreo(key() + "@example.test");
         acceso.setContrasenaHash("hash-exclusivo-de-prueba");
         acceso.setEstado(EstadoAcceso.ACTIVO);

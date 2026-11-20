@@ -73,6 +73,7 @@ public final class UsuarioDtos {
 
     public record RegistroAdministradorResponse(
             Long id,
+            String codigo,
             String username,
             String correo,
             String nombreCompleto,
@@ -80,7 +81,7 @@ public final class UsuarioDtos {
             Instant contrasenaTemporalExpira) {
         @Override
         public String toString() {
-            return "RegistroAdministradorResponse[id=" + id + ", username=" + username + "]";
+            return "RegistroAdministradorResponse[id=" + id + ", codigo=" + codigo + ", username=" + username + "]";
         }
     }
 
@@ -117,6 +118,7 @@ public final class UsuarioDtos {
     public record Response(
             Long id,
             Long personaId,
+            String codigo,
             String username,
             String correo,
             String nombreCompleto,

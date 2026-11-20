@@ -82,15 +82,20 @@ test("Sin sesión muestra el login, informa credenciales inválidas y luego ingr
   });
 });
 
-test("Un código incompleto no se envía al backend", async () => {
-  const calls = backend();
-  const user = userEvent.setup();
-  renderApp();
-  await user.type(screen.getByLabelText(/^Usuario/), "2026");
-  await user.type(screen.getByLabelText(/^Contraseña/), "Correcta2026");
-  await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
-  expect((await screen.findByRole("alert")).textContent).toMatch(/8 dígitos/);
-  expect(calls.some((call) => call.path === "/api/auth/login")).toBe(false);
+test("El login envía tal cual el número, el usuario o el correo escrito", async () => {
+  for (const identifier of ["2026", "pmorales", "Ana.Perez@colegio.edu.pe"]) {
+    const calls = backend({
+      "POST /api/auth/login": () => reply(401, { message: "Usuario o contraseña incorrectos." }),
+    });
+    const user = userEvent.setup();
+    const { unmount } = renderApp();
+    await user.type(screen.getByLabelText(/^Usuario/), ` ${identifier} `);
+    await user.type(screen.getByLabelText(/^Contraseña/), "Correcta2026");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Usuario o contraseña incorrectos.");
+    expect(calls.filter((call) => call.path === "/api/auth/login").at(-1).body.identifier).toBe(identifier);
+    unmount();
+  }
 });
 
 test("Una cuenta sin roles sigue fuera de los módulos", async () => {
