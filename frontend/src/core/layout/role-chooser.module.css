@@ -92,10 +92,13 @@
 }
 
 .role {
+  --role-card-text: color-mix(in srgb, var(--role-accent-on-brand) 18%, #fff);
   align-items: center;
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #cbd5e1);
+  background: var(--role-card-background);
+  border: 2px solid color-mix(in srgb, var(--role-accent-on-brand) 45%, transparent);
   border-radius: 8px;
+  box-shadow: inset 0 3px 0 var(--role-accent-on-brand);
+  color: #fff;
   cursor: pointer;
   display: grid;
   gap: 10px;
@@ -105,12 +108,12 @@
 }
 
 .role:has(input:not(:disabled)):hover {
-  border-color: #7897c9;
+  border-color: var(--role-accent-on-brand);
 }
 
 .role:has(:checked) {
-  border-color: var(--access-blue);
-  box-shadow: inset 0 0 0 1px var(--access-blue);
+  border-color: var(--role-accent-on-brand);
+  box-shadow: inset 0 0 0 2px var(--role-accent-on-brand), 0 8px 20px #263d7326;
 }
 
 .role:has(input:focus-visible) {
@@ -123,7 +126,7 @@
 }
 
 .role input {
-  accent-color: var(--access-blue);
+  accent-color: var(--role-accent-on-brand);
   appearance: auto;
   margin: 0;
 }
@@ -138,14 +141,18 @@
 }
 
 .role small {
-  color: var(--muted, #64748b);
+  color: var(--role-card-text);
   margin-top: 2px;
 }
 
 .icon {
-  color: var(--primary, #293780);
+  background: var(--role-accent-on-brand);
+  border-radius: 8px;
+  color: var(--role-card-background);
   display: grid;
+  height: 32px;
   place-content: center;
+  width: 32px;
 }
 
 .actions {
@@ -166,38 +173,13 @@
 }
 
 .page .role {
-  --role-ink: var(--access-blue);
-  --role-ground: #e5edfb;
   align-items: start;
-  background: #fff;
-  border: 2px solid #dbe1ec;
   border-radius: 20px;
-  color: #141c34;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto 1fr auto;
   gap: 16px;
   padding: clamp(19px, 2.1vw, 32px);
   position: relative;
-}
-
-.page .role[data-role="DOCENTE"] {
-  --role-ink: #176638;
-  --role-ground: #dcefe3;
-}
-
-.page .role[data-role="APODERADO"] {
-  --role-ink: #794c08;
-  --role-ground: #ffe9be;
-}
-
-.page .role[data-role="ESTUDIANTE"] {
-  --role-ink: #6b397d;
-  --role-ground: #efe3f6;
-}
-
-.page .role:has(:checked) {
-  border-color: var(--access-blue);
-  box-shadow: 0 10px 28px #263d7317;
 }
 
 .page .role input {
@@ -209,18 +191,16 @@
 }
 
 .page .icon {
-  background: var(--role-ground);
   border-radius: 15px;
-  color: var(--role-ink);
   grid-area: 1 / 1;
   height: clamp(48px, 4.2vw, 62px);
   width: clamp(48px, 4.2vw, 62px);
 }
 
 .indicator {
-  border: 2px solid #a1aabd;
+  border: 2px solid var(--role-accent-on-brand);
   border-radius: 50%;
-  color: #fff;
+  color: var(--role-card-background);
   display: grid;
   grid-area: 1 / 2;
   height: clamp(27px, 2.3vw, 35px);
@@ -234,8 +214,7 @@
 }
 
 .role:has(:checked) .indicator {
-  background: var(--access-blue);
-  border-color: var(--access-blue);
+  background: var(--role-accent-on-brand);
 }
 
 .role:has(:checked) .indicator svg {
@@ -252,14 +231,13 @@
 }
 
 .page .roleText small {
-  color: #45516a;
   font-size: clamp(15px, 1.25vw, 18px);
   line-height: 1.5;
   margin-top: 6px;
 }
 
 .shortcuts {
-  border-top: 1px solid #e7ebf2;
+  border-top: 1px solid color-mix(in srgb, var(--role-accent-on-brand) 45%, transparent);
   display: flex;
   flex-wrap: wrap;
   gap: 7px 10px;
@@ -268,9 +246,9 @@
 }
 
 .shortcuts span {
-  background: #edf1f7;
+  background: color-mix(in srgb, var(--role-card-background) 82%, #000);
   border-radius: 999px;
-  color: #37425a;
+  color: var(--role-card-text);
   font-size: clamp(12px, 1.1vw, 16px);
   padding: 5px 13px;
 }
