@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { Dialog, Feedback, Pager, PanelHeading, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, Loading, Pager, PanelHeading, StatusPill } from "@/shared/ui";
 import { dueDateLabel, moneyLabel } from "./payment-format";
 import styles from "./guardian-payments.module.css";
 
@@ -33,7 +33,7 @@ export function OptionalCharges({ onChanged, onObligation }: {
       summary="Revisa las opciones para tus estudiantes. Aceptar registra la obligación; el pago se realiza después."
       actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar opciones</button>} />
     <Feedback error={list.error} />
-    {list.loading ? <p role="status">Consultando actividades y servicios…</p>
+    {list.loading ? <Loading skeleton="table" columns={5} rows={4}>Consultando actividades y servicios…</Loading>
       : !list.error && !list.data?.content.length ? <p className="empty">No tienes actividades ni servicios opcionales registrados.</p>
       : list.data && <div className={styles.tableWrap}><table className={`user-table ${styles.historyTable}`} aria-label="Opciones de mis estudiantes">
         <thead><tr><th>Estudiante</th><th>Actividad o servicio</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr></thead>

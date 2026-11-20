@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
-import { Dialog, Feedback, PanelHeading, StatusPill } from "@/shared/ui";
+import { Dialog, Feedback, Loading, PanelHeading, StatusPill } from "@/shared/ui";
 import { getConcepts, getEnrollmentPlan, generateEnrollmentPlan, linkLegacyCommitment, monthName, type ChargeConcept, type PensionPlan } from "@/modules/payment-settings";
 import { EnrollmentPicker } from "./enrollment-picker";
 import { dueDateLabel, financialLabels, financialToneForStatus, moneyLabel } from "./commitment-format";
@@ -29,6 +29,7 @@ export function PensionPlanManager({ canWrite }: { canWrite: boolean }) {
     <EnrollmentPicker selected={enrollment} disabled={busy} onSelect={choose} />
     <div className={styles.detailActions}><button type="button" className="secondary-action" disabled={!enrollment || busy} onClick={review}>{busy ? "Consultando…" : "Revisar plan de pensiones"}</button></div>
     <Feedback error={error} success={success} />
+    {busy && !plan && <Loading skeleton="table" columns={6} rows={5}>Consultando el plan de pensiones…</Loading>}
     {plan && <>
       {plan.mensaje !== success && <p className={styles.notice}>{plan.mensaje}</p>}
       <dl className="detail-grid"><div><dt>Estudiante</dt><dd>{plan.alumno}</dd></div><div><dt>Año y grado</dt><dd>{plan.anioAcademico} · {plan.grado}° de secundaria</dd></div>{plan.montoMensual != null && <div><dt>Tarifa configurada actualmente</dt><dd>{moneyLabel(plan.montoMensual)}</dd></div>}</dl>

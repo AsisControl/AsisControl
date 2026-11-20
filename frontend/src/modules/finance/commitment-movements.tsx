@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { StatusPill } from "@/shared/ui";
+import { Loading, StatusPill } from "@/shared/ui";
 import {
   momentLabel,
   moneyLabel,
@@ -40,7 +40,7 @@ export function CommitmentMovements({ id, currency }: { id: number; currency: st
         <h4 id={`movimientos-${id}`}>Historial de pagos</h4>
         {count > 0 && <span>{count === 1 ? "1 transacción" : `${count} transacciones`}</span>}
       </div>
-      {!current && <p role="status" className={styles.movementsEmpty}>Cargando transacciones…</p>}
+      {!current && <Loading skeleton="list" rows={3}>Cargando transacciones…</Loading>}
       {current?.error && (
         <div className={styles.notice}>
           <p>No pudimos cargar las transacciones. {current.error}</p>

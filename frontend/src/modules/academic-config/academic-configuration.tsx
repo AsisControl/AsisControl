@@ -224,7 +224,7 @@ export function AcademicConfiguration() {
         <Feedback error={years.error} />
       </div>
       {years.loading && !years.data && (
-        <Loading skeleton="cards">Cargando configuración…</Loading>
+        <Loading skeleton="panels">Cargando configuración…</Loading>
       )}
       {!years.loading && !years.error && !sorted.length && (
         <div className={styles.infoNotice} role="note">
