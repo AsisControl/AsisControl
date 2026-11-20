@@ -7,6 +7,7 @@ import { Dialog, Feedback } from "@/shared/ui";
 import { AccessArrow, AccessBrand } from "./access-brand";
 import { SpaceIcon } from "./role-context";
 import { roleSpaces } from "./role-space";
+import "./role-theme.css";
 import access from "./access.module.css";
 import styles from "./role-chooser.module.css";
 
@@ -51,7 +52,7 @@ export function RoleChooser({
       <Feedback error={error} />
       <fieldset className={styles.roles} disabled={busy} aria-label="Roles disponibles">
         {roles.map((role) => (
-          <label className={styles.role} data-role={role} key={role}>
+          <label className={styles.role} data-role-palette={role} key={role}>
             <input
               type="radio"
               name="rol"
