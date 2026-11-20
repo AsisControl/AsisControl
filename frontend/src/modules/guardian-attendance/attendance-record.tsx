@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { countLabel } from "@/shared/lib/formatters";
 import { Dialog, StatusPill } from "@/shared/ui";
+import { DateField } from "./date-field";
 import {
   anioDe,
   enPeriodo,
@@ -122,7 +123,6 @@ export function AttendanceRecord({
     [...delAnio].sort((a, b) => a.fechaRegistro.localeCompare(b.fechaRegistro)).map((fila) => fila.periodo),
   )].filter((periodo): periodo is string => !!periodo);
   const cursos = [...new Set(delAnio.map((fila) => fila.curso))].sort((a, b) => a.localeCompare(b, "es"));
-  const fechas = delAnio.map((fila) => fila.fechaRegistro).sort();
   const base = delAnio.filter(
     (fila) =>
       enPeriodo(fila, filtros.periodo, filtros.desde, filtros.hasta) &&
@@ -160,6 +160,7 @@ export function AttendanceRecord({
           <label>
             <span>Año</span>
             <select
+              className={styles.control}
               value={anio}
               onChange={(event) => cambiar({ anio: Number(event.target.value), periodo: "TODO", desde: "", hasta: "", curso: "" })}
             >
@@ -169,7 +170,11 @@ export function AttendanceRecord({
         )}
         <label className={styles.filtroPeriodo}>
           <span>Periodo</span>
-          <select value={filtros.periodo} onChange={(event) => cambiar({ periodo: event.target.value as FiltroPeriodo })}>
+          <select
+            className={styles.control}
+            value={filtros.periodo}
+            onChange={(event) => cambiar({ periodo: event.target.value as FiltroPeriodo })}
+          >
             <option value="TODO">Todo el año</option>
             {anio === anios[0] && <option value="MES">Este mes</option>}
             {anio === anios[0] && <option value="MES_ANTERIOR">Mes anterior</option>}
@@ -179,26 +184,8 @@ export function AttendanceRecord({
         </label>
         {filtros.periodo === "PERSONALIZADO" && (
           <>
-            <label>
-              <span>Desde</span>
-              <input
-                type="date"
-                value={filtros.desde}
-                min={fechas[0]}
-                max={filtros.hasta || fechas.at(-1)}
-                onChange={(event) => cambiar({ desde: event.target.value })}
-              />
-            </label>
-            <label>
-              <span>Hasta</span>
-              <input
-                type="date"
-                value={filtros.hasta}
-                min={filtros.desde || fechas[0]}
-                max={fechas.at(-1)}
-                onChange={(event) => cambiar({ hasta: event.target.value })}
-              />
-            </label>
+            <DateField label="Desde" onChange={(desde) => cambiar({ desde })} />
+            <DateField label="Hasta" onChange={(hasta) => cambiar({ hasta })} />
           </>
         )}
         <button
@@ -212,14 +199,18 @@ export function AttendanceRecord({
         <div className={styles.filtrosExtra} data-abierto={abiertos}>
           <label>
             <span>Curso</span>
-            <select value={filtros.curso} onChange={(event) => cambiar({ curso: event.target.value })}>
+            <select className={styles.control} value={filtros.curso} onChange={(event) => cambiar({ curso: event.target.value })}>
               <option value="">Todos</option>
               {cursos.map((curso) => <option key={curso} value={curso}>{curso}</option>)}
             </select>
           </label>
           <label>
             <span>Estado</span>
-            <select value={filtros.estado} onChange={(event) => cambiar({ estado: event.target.value as EstadoBase | "" })}>
+            <select
+              className={styles.control}
+              value={filtros.estado}
+              onChange={(event) => cambiar({ estado: event.target.value as EstadoBase | "" })}
+            >
               <option value="">Todos</option>
               {estados.map(({ valor, etiqueta }) => <option key={valor} value={valor}>{etiqueta}</option>)}
             </select>

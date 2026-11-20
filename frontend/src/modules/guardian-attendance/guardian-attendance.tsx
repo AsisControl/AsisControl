@@ -63,7 +63,11 @@ export function GuardianAttendance() {
         {estudiantes && estudiantes.length > 0 && (
           <label className={styles.selector}>
             <span>Estudiante:</span>
-            <select value={alumnoId ?? ""} onChange={(event) => cambiarEstudiante(Number(event.target.value))}>
+            <select
+              className={styles.control}
+              value={alumnoId ?? ""}
+              onChange={(event) => cambiarEstudiante(Number(event.target.value))}
+            >
               {alumnoId === null && <option value="" disabled>Selecciona un estudiante</option>}
               {estudiantes.map((item) => (
                 <option key={item.id} value={item.id}>{item.nombreCompleto}</option>

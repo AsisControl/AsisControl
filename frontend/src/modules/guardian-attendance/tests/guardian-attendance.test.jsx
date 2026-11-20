@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { GuardianAttendance } from "@/modules/guardian-attendance";
+import { enmascararFecha, parsearFecha } from "../lib";
 
 vi.mock("next/navigation", () => import("../../../../tests/support/navigation.js"));
 
@@ -171,4 +172,33 @@ test("Seleccionar un registro muestra su detalle y permite justificar desde ahí
   await userEvent.click(within(detalle).getByRole("button", { name: "Justificar" }));
   expect(await screen.findByRole("dialog", { name: "Justificar inasistencia" })).toBeTruthy();
   expect(screen.queryByRole("dialog", { name: "Detalle de asistencia" })).toBeNull();
+});
+
+test("Enmascara, valida y convierte a ISO la fecha escrita", () => {
+  expect(enmascararFecha("0809")).toBe("08/09");
+  expect(enmascararFecha("08092026999")).toBe("08/09/2026");
+  expect(enmascararFecha("8a")).toBe("8");
+  expect(parsearFecha("08/09/2026")).toBe("2026-09-08");
+  expect(parsearFecha("29/02/2024")).toBe("2024-02-29");
+  expect(parsearFecha("29/02/2026")).toBeNull();
+  expect(parsearFecha("31/04/2026")).toBeNull();
+  expect(parsearFecha("08/13/2026")).toBeNull();
+  expect(parsearFecha("08/09/26")).toBeNull();
+});
+
+test("En Personalizado, Desde y Hasta se escriben como dd/mm/aaaa y filtran la tabla", async () => {
+  fakeBackend({ [ESTUDIANTES]: [luis], [ASISTENCIAS]: page(FILAS) });
+  render(<GuardianAttendance />);
+  await screen.findByText("57%");
+  await userEvent.selectOptions(screen.getByLabelText("Periodo"), "Personalizado");
+  const desde = screen.getByLabelText("Desde");
+  expect(desde.getAttribute("type")).toBe("text");
+  await userEvent.type(desde, "01092026");
+  expect(desde.value).toBe("01/09/2026");
+  expect(screen.queryByText("Vie, 28 Ago 2026")).toBeNull();
+  expect(screen.getAllByText("Mar, 08 Sep 2026").length).toBeGreaterThan(0);
+  await userEvent.type(screen.getByLabelText("Hasta"), "31022026");
+  expect(screen.getByRole("alert").textContent).toBe("Fecha no válida");
+  await userEvent.clear(desde);
+  expect(screen.getByText("Vie, 28 Ago 2026")).toBeTruthy();
 });

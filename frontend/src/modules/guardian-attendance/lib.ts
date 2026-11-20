@@ -14,6 +14,22 @@ export function fechaCorta(iso: string) {
   return `${dia} ${MESES[Number(mes) - 1]} ${anio}`;
 }
 
+/** Deja solo dígitos y los agrupa como dd/mm/aaaa mientras se escribe ("0809" → "08/09"). */
+export function enmascararFecha(texto: string) {
+  const digitos = texto.replace(/\D/g, "").slice(0, 8);
+  return [digitos.slice(0, 2), digitos.slice(2, 4), digitos.slice(4)].filter(Boolean).join("/");
+}
+
+/** "08/09/2026" → "2026-09-08"; null si el texto no es una fecha de calendario completa y real. */
+export function parsearFecha(texto: string) {
+  const coincide = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+  if (!coincide) return null;
+  const [dia, mes, anio] = coincide.slice(1).map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  const real = fecha.getUTCFullYear() === anio && fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === dia;
+  return real && anio >= 1900 ? `${coincide[3]}-${coincide[2]}-${coincide[1]}` : null;
+}
+
 /** "2026-11-06" → "Vie, 06 Nov 2026". */
 export function fechaConDia(iso: string) {
   const [anio, mes, dia] = iso.split("-").map(Number);

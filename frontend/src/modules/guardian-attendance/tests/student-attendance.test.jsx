@@ -78,7 +78,7 @@ test("Filtra por período académico y por rango personalizado, y Limpiar filtro
   expect(screen.getByText("Bimestre II · Todos los cursos · 1 registro")).toBeTruthy();
   expect(screen.getByText("0%")).toBeTruthy();
   await userEvent.selectOptions(screen.getByLabelText("Periodo"), "Personalizado");
-  await userEvent.type(screen.getByLabelText("Desde"), "2026-09-01");
+  await userEvent.type(screen.getByLabelText("Desde"), "01092026");
   expect(filasTabla()).toBe(3);
   await userEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
   expect(screen.getByText("Todo el año · Todos los cursos · 4 registros")).toBeTruthy();
