@@ -18,7 +18,7 @@ export function AdminSessionCorrection({ sessionId, attendanceId, onCancel, onSa
     return () => { alive = false; };
   }, [sessionId]);
   if (error) return <><Feedback error={error} /><button className="secondary-action" onClick={onCancel}>Volver al reporte</button></>;
-  if (!session) return <Loading>Cargando asistencia finalizada…</Loading>;
+  if (!session) return <Loading skeleton="detail" rows={4}>Cargando asistencia finalizada…</Loading>;
   if (session.estado !== "TOMADA" || !session.puedeEditar) return <>
     <p>La sesión no está finalizada o no está disponible para corrección.</p>
     <button className="secondary-action" onClick={onCancel}>Volver al reporte</button>

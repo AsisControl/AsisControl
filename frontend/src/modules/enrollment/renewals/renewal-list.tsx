@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Feedback, Pager, PanelHeading, PersonCell, StatusPill } from "@/shared/ui";
+import { Feedback, Loading, Pager, PanelHeading, PersonCell, StatusPill } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { shortDateLabel } from "@/shared/lib/formatters";
 import { RENEWALS_PATH, type RenewalRecord, type RenewalState } from "../services/renewal-service";
@@ -52,7 +52,7 @@ export function RenewalList({ role, canWrite }: { role: "APODERADO" | "ADMINISTR
           )}
         </select>
       </label>
-      {list.loading ? <p role="status">Cargando renovaciones…</p> : list.data?.content.length ? (
+      {list.loading ? <Loading skeleton="table" columns={5} rows={4}>Cargando renovaciones…</Loading> : list.data?.content.length ? (
         <div className="user-table-wrap">
           <table className="user-table" aria-label="Trámites de renovación">
             <thead>

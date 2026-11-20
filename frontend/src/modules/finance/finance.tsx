@@ -104,7 +104,7 @@ export function Finance({ canWrite }: { canWrite: boolean }) {
         <Feedback error={list.error} success={success} />
         <CommitmentFilters applied={filters} onApply={applyFilters} />
         {list.loading ? (
-          <Loading>Cargando compromisos…</Loading>
+          <Loading skeleton="table" columns={8} rows={6}>Cargando compromisos…</Loading>
         ) : list.error ? (
           <p className="empty">
             No pudimos cargar los compromisos. Intenta actualizar la lista.

@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { Feedback, Field, PanelHeading, Pager, PersonCell, StatusPill } from "@/shared/ui";
+import { Feedback, Field, Loading, PanelHeading, Pager, PersonCell, StatusPill } from "@/shared/ui";
 import {
   momentLabel,
   moneyLabel,
@@ -72,7 +72,7 @@ export function TransactionsPanel() {
         <button type="submit" className="primary-action">Filtrar</button>
       </form>
       {list.loading ? (
-        <p role="status">Cargando transacciones…</p>
+        <Loading skeleton="table" columns={6} rows={6}>Cargando transacciones…</Loading>
       ) : list.error ? (
         <p className="empty">No pudimos cargar las transacciones. Intenta actualizar la lista.</p>
       ) : !list.data?.content.length ? (
