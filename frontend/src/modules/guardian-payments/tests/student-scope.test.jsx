@@ -6,7 +6,7 @@ import { GuardianPayments } from "../guardian-payments";
 import { complete, obligation, sibling, student } from "./fixtures";
 
 const OBLIGATIONS = "/api/apoderado/obligaciones";
-const RECEIPTS = "/api/apoderado/comprobantes";
+const RECEIPTS = "/api/apoderado/pagos/historial";
 const ORDERS = "/api/pagos/ordenes";
 
 beforeEach(() => signIn({ role: "APODERADO", permissions: ["PAGOS_LEER"] }));
@@ -51,7 +51,7 @@ test("el estudiante elegido filtra Obligaciones, Historial y Seguimiento y siemp
   await user.click(screen.getByRole("tab", { name: "Historial de pagos" }));
   await waitFor(() => expect(lastQuery(calls, RECEIPTS)).toMatchObject({ idAlumno: "4" }));
   expect(await screen.findByRole("heading", { name: "Historial de pagos de Luis Flores" })).toBeTruthy();
-  expect(screen.getByText("Todavía no hay pagos registrados de Luis Flores.")).toBeTruthy();
+  expect(screen.getByText("No hay operaciones finalizadas para los filtros seleccionados.")).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Estudiante" }).value).toBe("4");
 
   await user.click(screen.getByRole("tab", { name: "Seguimiento de pagos" }));

@@ -56,6 +56,17 @@ explica que esas condiciones deben informarse previamente a las familias.
    del apoderado sin recargar toda la página.
 7. El detalle de una obligación muestra sus transacciones y comprobantes; las
    órdenes guardan el historial de intentos y muestran su comprobante al aprobarse.
+8. **Historial de pagos** reúne una sola tabla con columna Estado y filtro Todos,
+   Aprobado, Rechazado o Vencido. Los aprobados permiten ver su comprobante;
+   rechazados y vencidos permiten consultar el resultado sin continuar la orden.
+   Una fila representa el pago/intento de una cuota, preservando los comprobantes
+   previos registrados por la institución. **Seguimiento de pagos** contiene exclusivamente órdenes
+   pendientes o que requieren autenticación y todavía no han vencido. La
+   separación y el filtro de estado se aplican antes de paginar, con un orden
+   estable por fecha e identificador. Las pendientes vencidas se reconocen
+   también en la consulta del historial, aunque nadie haya abierto su detalle.
+   El estado de las órdenes en curso se actualiza automáticamente; no es una
+   bitácora de todas las transiciones históricas.
 
 Las pantallas móviles de `/pagar-qr/{token}` están **fuera del layout que exige
 iniciar sesión**. El token firmado permite consultar y confirmar únicamente esa

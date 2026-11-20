@@ -175,11 +175,11 @@ public class PagosFamiliaService {
         return respuesta(orden, false);
     }
 
-    /** Pagos iniciados por el apoderado; con idAlumno, los que incluyen alguna cuota de ese estudiante. */
+    /** Seguimiento exclusivo de órdenes que todavía pueden continuarse. */
     public Page<PagosFamiliaDto.OrdenResponse> listar(Long idAlumno, Pageable pageable) {
         var apoderado = acceso.apoderadoActual();
         if (idAlumno != null) acceso.verificarAlumno(idAlumno, apoderado);
-        return ordenes.buscarPropias(apoderado.getId(), idAlumno, pageable).map(orden -> {
+        return ordenes.buscarPropias(apoderado.getId(), idAlumno, Instant.now(), pageable).map(orden -> {
             var bloqueada = bloquear(orden.getId());
             expirar(bloqueada);
             return respuesta(bloqueada, false);

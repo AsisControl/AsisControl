@@ -1,4 +1,6 @@
 .payments { min-width: 0; }
+.historyFilters { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.historyFilters > label { margin: 0; min-width: 180px; }
 .payments button { min-height: 44px; }
 .tabs, .methodTabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
 .tabs button, .methodTabs button { min-height: 44px; }
