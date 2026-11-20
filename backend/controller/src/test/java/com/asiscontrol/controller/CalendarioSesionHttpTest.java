@@ -112,7 +112,7 @@ class CalendarioSesionHttpTest extends ApiIntegrationSupport {
         assertThat(listar()).hasSize(dias(DayOfWeek.MONDAY).size());
     }
 
-    @Test void informaEstadoEfectivoYAccionesSegunLaFechaDelServidor() throws Exception {
+    @Test void informaPlazoYAccionesSegunLaFechaDelServidor() throws Exception {
         var horario = new Horario(); horario.setAsignacionCurso(assignment); horario.setAula(aula());
         horario.setDiaSemana(DiaSemana.LUNES); horario.setHoraInicio(LocalTime.of(8, 0)); horario.setHoraFin(LocalTime.of(9, 0));
         em.persist(horario);
@@ -123,7 +123,9 @@ class CalendarioSesionHttpTest extends ApiIntegrationSupport {
 
         var lista = listar();
         var vencido = lista.get(0);
-        assertThat(vencido.path("estado").asText()).isEqualTo("PENDIENTE");
+        // El borrador de ayer venció: se finalizó solo y ya no se edita.
+        assertThat(vencido.path("estado").asText()).isEqualTo("TOMADA");
+        assertThat(vencido.path("puedeEditar").asBoolean()).isFalse();
         assertThat(vencido.path("puedeTomar").asBoolean()).isFalse();
         assertThat(vencido.path("puedeVer").asBoolean()).isTrue();
         var deHoy = lista.get(1);

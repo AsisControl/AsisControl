@@ -153,6 +153,17 @@
   font-size: 24px;
   line-height: 30px;
 }
+.conSinMarcar {
+  grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr));
+}
+.tarjeta .SIN_MARCAR {
+  color: #64748b;
+}
+.notaDetalle {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
 .tarjeta[aria-pressed="true"] {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px var(--blue);

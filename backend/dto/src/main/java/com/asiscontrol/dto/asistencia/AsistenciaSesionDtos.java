@@ -77,7 +77,8 @@ public final class AsistenciaSesionDtos {
             List<AlumnoAsistenciaResponse> alumnos,
             String registradoPor,
             LocalDateTime registradoEn,
-            long version
+            long version,
+            LocalDateTime limiteEdicion
     ) {
     }
 

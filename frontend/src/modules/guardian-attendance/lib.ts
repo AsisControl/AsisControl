@@ -23,17 +23,26 @@ export function fechaConDia(iso: string) {
 /** Hora de inicio de la clase, la misma que ve el docente; "—" si el registro no tiene sesión. */
 export const horaDe = (fila: AsistenciaEstudiante) => fila.horaSesion?.slice(0, 5) ?? "—";
 
-export type EstadoBase = "PRESENTE" | "TARDANZA" | "INASISTENCIA";
+export type EstadoBase = "PRESENTE" | "TARDANZA" | "INASISTENCIA" | "SIN_MARCAR";
 
 export const ESTADOS: { valor: EstadoBase; etiqueta: string; plural: string; tono: StatusTone }[] = [
   { valor: "PRESENTE", etiqueta: "Presente", plural: "Presentes", tono: "success" },
   { valor: "TARDANZA", etiqueta: "Tardanza", plural: "Tardanzas", tono: "warning" },
   { valor: "INASISTENCIA", etiqueta: "Inasistencia", plural: "Inasistencias", tono: "danger" },
+  { valor: "SIN_MARCAR", etiqueta: "Sin marcar", plural: "Sin marcar", tono: "neutral" },
 ];
+
+export const NOTA_SIN_MARCAR = "El docente no registró esta asistencia";
 
 /** La marca justificada conserva su estado base: la justificación se muestra en su propia columna. */
 export const estadoBase = (fila: AsistenciaEstudiante): EstadoBase =>
-  fila.estado === "PRESENTE" ? "PRESENTE" : fila.estado.startsWith("TARDANZA") ? "TARDANZA" : "INASISTENCIA";
+  fila.estado === "PRESENTE"
+    ? "PRESENTE"
+    : fila.estado.startsWith("TARDANZA")
+      ? "TARDANZA"
+      : fila.estado === "SIN_MARCACION"
+        ? "SIN_MARCAR"
+        : "INASISTENCIA";
 
 export const presentarEstado = (fila: AsistenciaEstudiante) =>
   ESTADOS.find((item) => item.valor === estadoBase(fila))!;
@@ -48,7 +57,7 @@ export function presentarJustificacion(
   fila: AsistenciaEstudiante,
 ): { etiqueta: string; tono: StatusTone; detalle: string | null } | null {
   const base = estadoBase(fila);
-  if (base === "PRESENTE") return null;
+  if (base === "PRESENTE" || base === "SIN_MARCAR") return null;
   if (fila.estado.endsWith("_JUSTIFICADA") || fila.estadoJustificacion === "APROBADA")
     return { etiqueta: "Justificada", tono: "info", detalle: fila.motivoJustificacion };
   if (esPendiente(fila)) return { etiqueta: "Pendiente", tono: "warning", detalle: fila.motivoJustificacion };
@@ -60,17 +69,25 @@ export function presentarJustificacion(
 
 /** Solo se pide una vez por inasistencia; una solicitud cancelada se puede volver a enviar. */
 export const puedeJustificar = (fila: AsistenciaEstudiante) =>
-  (fila.estado === "INASISTENCIA" || fila.estado === "SIN_MARCACION") &&
-  (fila.justificacionId === null || fila.estadoJustificacion === "CANCELADA");
+  fila.estado === "INASISTENCIA" && (fila.justificacionId === null || fila.estadoJustificacion === "CANCELADA");
 
 export const sinJustificar = (filas: AsistenciaEstudiante[]) =>
   filas.filter((fila) => presentarJustificacion(fila)?.etiqueta === "Sin justificar").length;
 
-/** Presentes y tardanzas cuentan como asistencia; las inasistencias justificadas no. */
+/**
+ * Presentes y tardanzas cuentan como asistencia; las inasistencias justificadas no. "Sin marcar"
+ * queda fuera del cálculo: no se sabe si asistió.
+ */
 export function resumir(filas: AsistenciaEstudiante[]) {
   const contar = (estado: EstadoBase) => filas.filter((fila) => estadoBase(fila) === estado).length;
-  const totales = { PRESENTE: contar("PRESENTE"), TARDANZA: contar("TARDANZA"), INASISTENCIA: contar("INASISTENCIA") };
-  const porcentaje = filas.length ? Math.round(((totales.PRESENTE + totales.TARDANZA) / filas.length) * 100) : 0;
+  const totales: Record<EstadoBase, number> = {
+    PRESENTE: contar("PRESENTE"),
+    TARDANZA: contar("TARDANZA"),
+    INASISTENCIA: contar("INASISTENCIA"),
+    SIN_MARCAR: contar("SIN_MARCAR"),
+  };
+  const evaluadas = filas.length - totales.SIN_MARCAR;
+  const porcentaje = evaluadas ? Math.round(((totales.PRESENTE + totales.TARDANZA) / evaluadas) * 100) : 0;
   return { totales, porcentaje };
 }
 

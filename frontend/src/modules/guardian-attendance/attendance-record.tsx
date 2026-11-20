@@ -8,6 +8,7 @@ import {
   enPeriodo,
   ESTADOS,
   estadoBase,
+  NOTA_SIN_MARCAR,
   etiquetaPeriodo,
   fechaConDia,
   horaDe,
@@ -60,7 +61,10 @@ function RecordDetail({
           </>
         )}
         <dt>Estado</dt>
-        <dd><StatusPill state={fila.estado} label={etiqueta} tone={tono} /></dd>
+        <dd>
+          <StatusPill state={fila.estado} label={etiqueta} tone={tono} />
+          {estadoBase(fila) === "SIN_MARCAR" && <p className={styles.notaDetalle}>{NOTA_SIN_MARCAR}.</p>}
+        </dd>
         {fila.comentario && (
           <>
             <dt>Comentario del docente</dt>
@@ -138,6 +142,10 @@ export function AttendanceRecord({
     setVisibles(POR_TANDA);
   };
   const { totales, porcentaje } = resumir(base);
+  // "Sin marcar" solo aparece como tarjeta y filtro cuando existe en el año elegido.
+  const estados = ESTADOS.filter(
+    ({ valor }) => valor !== "SIN_MARCAR" || delAnio.some((fila) => estadoBase(fila) === "SIN_MARCAR"),
+  );
   const contexto = [
     anios.length > 1 ? String(anio) : null,
     etiquetaPeriodo(filtros.periodo, filtros.desde, filtros.hasta),
@@ -213,7 +221,7 @@ export function AttendanceRecord({
             <span>Estado</span>
             <select value={filtros.estado} onChange={(event) => cambiar({ estado: event.target.value as EstadoBase | "" })}>
               <option value="">Todos</option>
-              {ESTADOS.map(({ valor, etiqueta }) => <option key={valor} value={valor}>{etiqueta}</option>)}
+              {estados.map(({ valor, etiqueta }) => <option key={valor} value={valor}>{etiqueta}</option>)}
             </select>
           </label>
         </div>
@@ -222,18 +230,18 @@ export function AttendanceRecord({
         )}
       </div>
       <p className={styles.contexto}>{contexto}</p>
-      <div className={styles.totales}>
+      <div className={estados.length > 3 ? `${styles.totales} ${styles.conSinMarcar}` : styles.totales}>
         <button
           type="button"
           className={`${styles.tarjeta} ${styles.tarjetaPrincipal}`}
           aria-pressed={!filtros.estado}
-          title="Presentes y tardanzas cuentan como asistencia"
+          title="Presentes y tardanzas cuentan como asistencia; las clases sin marcar no se cuentan"
           onClick={() => cambiar({ estado: "" })}
         >
           <strong>{porcentaje}%</strong>
           <span>Asistencia</span>
         </button>
-        {ESTADOS.map(({ valor, plural }) => (
+        {estados.map(({ valor, plural }) => (
           <button
             key={valor}
             type="button"
@@ -296,7 +304,7 @@ export function AttendanceRecord({
                     </td>
                     <td className={styles.celdaHora}>{hora}</td>
                     <td className={styles.celdaEstado}>
-                      <span title={fila.comentario ?? undefined}>
+                      <span title={estadoBase(fila) === "SIN_MARCAR" ? NOTA_SIN_MARCAR : (fila.comentario ?? undefined)}>
                         <StatusPill state={fila.estado} label={etiqueta} tone={tono} />
                       </span>
                     </td>

@@ -183,3 +183,16 @@ test("El alumno abre el detalle de un registro solo para consultar", async () =>
   expect(within(detalle).getByText("Cita médica")).toBeTruthy();
   expect(within(detalle).queryByRole("button", { name: "Justificar" })).toBeNull();
 });
+
+test("Una clase sin marcar se ve aparte, no cuenta en el % y no se justifica", async () => {
+  fakeBackend({ [ASISTENCIAS]: page([...FILAS, fila({ id: 30, estado: "SIN_MARCACION", curso: "Arte" })]) });
+  render(<StudentAttendance fullName="Mateo Rojas" />);
+  expect(await screen.findByText("50%")).toBeTruthy();
+  const tarjeta = screen.getAllByRole("button").find((boton) => boton.textContent === "1Sin marcar");
+  expect(tarjeta).toBeTruthy();
+  const chip = screen.getByText("Sin marcar", { selector: ".status" });
+  expect(chip.closest("[title]").getAttribute("title")).toBe("El docente no registró esta asistencia");
+  expect(screen.getByText("Tienes 1 inasistencia sin justificar. Pídele a tu apoderado que la justifique.")).toBeTruthy();
+  await userEvent.click(chip);
+  expect(within(screen.getByRole("dialog")).getByText("El docente no registró esta asistencia.")).toBeTruthy();
+});

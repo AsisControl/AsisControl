@@ -97,6 +97,8 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
         request("POST","/api/justificaciones-asistencia",pedido,403);
         long tardanza=asistenciaTomada(LocalDate.now().minusDays(1),EstadoAsistencia.TARDANZA);
         apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",tardanza,"motivo","Trafico","archivoIds",Set.of()),422);
+        long sinMarcar=asistenciaTomada(LocalDate.now().minusDays(2),EstadoAsistencia.SIN_MARCACION);
+        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",sinMarcar,"motivo","No asistio","archivoIds",Set.of()),422);
     }
 
     @Test void elDocenteResuelveSinIniciarRevisionYConDatosVigentes() throws Exception {
