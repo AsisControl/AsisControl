@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.*;
 class ReporteAvanceTest {
     @Test void generaPdfConPlantillaRealYTextoLargo() throws Exception {
         var filas = new ArrayList<ReporteAvanceDto.Fila>();
-        for (int i=1; i<=35; i++) filas.add(new ReporteAvanceDto.Fila("Resuelve problemas de cantidad",
+        for (int i=1; i<=35; i++) filas.add(new ReporteAvanceDto.Fila(1L, (long) i, (long) i, 1L, (long) i, "Resuelve problemas de cantidad",
                 "Evaluación " + i, "15/03/2026", "AD", "30 %", i == 1
                 ? "Debe reforzar la interpretación y explicar el procedimiento. ".repeat(16) : "Sin observaciones"));
         var dto = new ReporteAvanceDto("Ana María Pérez", "A001", "Matemática", "José Sánchez",

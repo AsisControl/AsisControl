@@ -275,7 +275,9 @@ public class ReporteAvanceService {
         }
         var informe = ultimo(alumnoId, curso, periodoId, !borrador)
                 .orElseThrow(() -> new ResourceNotFoundException("INFORME_NO_ENCONTRADO", "No hay un informe disponible para este periodo"));
-        var filas = detalles(informe).stream().map(d -> new ReporteAvanceDto.Fila(d.getNombreCompetencia(),
+        var filas = detalles(informe).stream().map(d -> new ReporteAvanceDto.Fila(
+                informe.getId(), d.getId(), d.getEvaluacion().getId(), d.getCompetencia().getId(),
+                d.getCalificacion() == null ? null : d.getCalificacion().getId(), d.getNombreCompetencia(),
                 d.getTituloEvaluacion(), FECHA.format(d.getFechaEvaluacion()),
                 d.getNivelLogro() == null ? "Sin registrar" : d.getNivelLogro().name(),
                 d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
