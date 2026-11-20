@@ -36,6 +36,7 @@ export function CreateAccess({ onBack }: { onBack: () => void }) {
           fullName: saved.nombreCompleto,
           role: "ADMINISTRADOR",
           code: null,
+          accessCode: saved.codigo,
           username: saved.username,
           email: saved.correo,
           temporaryPassword: saved.contrasenaTemporal,

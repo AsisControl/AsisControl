@@ -71,6 +71,28 @@ class LoginCredencialesIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Usuario o contraseña incorrectos."));
     }
 
+    // La cuenta se identifica con su código (AAAANNNN), con su usuario nombre.apellido o con su correo
+    // a{código}@dominio, sin distinguir mayúsculas.
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void elLoginAceptaElCodigoElUsuarioYElCorreo() throws Exception {
+        String key = UUID.randomUUID().toString().replace("-", "").substring(0, 14);
+        var persona = new PersonaDtos.PersonaRequest("Persona", "Prueba", "Identificador",
+                TipoDocumento.PASAPORTE, key, null, Sexo.PREFIERE_NO_INDICAR,
+                LocalDate.of(1990, 1, 1), null, key + "@example.test", null);
+        var usuario = usuarios.provision(new UsuarioDtos.ProvisionRequest(null, persona,
+                roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId(), "Temporal123!", null, null, Set.of()));
+
+        org.assertj.core.api.Assertions.assertThat(usuario.codigo()).matches("[0-9]{8}");
+        org.assertj.core.api.Assertions.assertThat(usuario.username()).isEqualTo("persona.prueba");
+        org.assertj.core.api.Assertions.assertThat(usuario.correo()).startsWith("a" + usuario.codigo() + "@");
+        login(usuario.codigo(), "Temporal123!").andExpect(status().isOk());
+        login(usuario.username(), "Temporal123!").andExpect(status().isOk());
+        login(usuario.username().toUpperCase(), "Temporal123!").andExpect(status().isOk());
+        login(usuario.correo(), "Temporal123!").andExpect(status().isOk());
+        login(usuario.correo().toUpperCase(), "Temporal123!").andExpect(status().isOk());
+    }
+
     @Test void unaPeticionSinSesionExplicaQueLaSesionExpiro() throws Exception {
         mvc.perform(get("/api/auth/me").header("Origin", ORIGIN))
                 .andExpect(status().isUnauthorized())

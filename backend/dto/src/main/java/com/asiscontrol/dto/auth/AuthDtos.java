@@ -11,7 +11,7 @@ public final class AuthDtos {
     private AuthDtos() {}
 
     public record LoginRequest(
-            @NotBlank(message = "El identificador institucional es obligatorio") @Size(max = 150)
+            @NotBlank(message = "El usuario o correo es obligatorio") @Size(max = 150)
                     String identifier,
             @NotBlank(message = "La contrasena es obligatoria") @Size(max = 72) String password) {}
 

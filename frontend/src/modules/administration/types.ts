@@ -7,6 +7,8 @@ export type AccountRole = {
 export type Account = {
   id: number;
   personaId: number;
+  /** Código permanente de la cuenta (AAAANNNN). */
+  codigo: string;
   username: string;
   correo: string;
   nombreCompleto: string;

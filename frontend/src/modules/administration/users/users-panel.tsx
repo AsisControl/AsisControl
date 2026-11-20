@@ -179,6 +179,7 @@ export function UsersPanel({
               <thead>
                 <tr>
                   <th>Nombre</th>
+                  <th>Código</th>
                   <th>Usuario</th>
                   <th>Roles</th>
                   <th>Estado</th>
@@ -197,6 +198,7 @@ export function UsersPanel({
                         <strong>{account.nombreCompleto}</strong>
                       </div>
                     </td>
+                    <td data-label="Código">{account.codigo}</td>
                     <td data-label="Usuario">{account.username}</td>
                     <td data-label="Roles">
                       <AccountRoles account={account} />

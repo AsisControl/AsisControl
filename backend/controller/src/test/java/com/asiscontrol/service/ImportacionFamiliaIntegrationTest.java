@@ -91,7 +91,7 @@ class ImportacionFamiliaIntegrationTest {
         var repetida = result.credentials().get(3);
         assertThat(primera.temporaryPassword()).isNotBlank();
         assertThat(primera.code()).matches("APO[0-9]{8}");
-        assertThat(primera.username()).matches("[0-9]{8}");
+        assertThat(primera.accessCode()).matches("[0-9]{8}");
         assertThat(rolAgregado.username()).isEqualTo(altaDocente.credencialAcceso().username());
         assertThat(rolAgregado.temporaryPassword()).isNull();
         assertThat(primera.expiresAt()).isAfter(java.time.Instant.now().plus(java.time.Duration.ofDays(13)));

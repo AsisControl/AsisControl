@@ -53,7 +53,7 @@ class AccesosPorRolIntegrationTest {
         var despues = apoderado.credencialAcceso();
 
         assertThat(docente.persona().id()).isEqualTo(apoderado.persona().id());
-        assertThat(primero.username()).matches("[0-9]{8}");
+        assertThat(primero.accessCode()).matches("[0-9]{8}");
         assertThat(primero.temporaryPassword()).isNotBlank();
         assertThat(despues.username()).isEqualTo(primero.username());
         assertThat(despues.email()).isEqualTo(primero.email());
@@ -131,8 +131,8 @@ class AccesosPorRolIntegrationTest {
         var antes = java.time.Instant.now();
         var acceso = service.registrarAdministrador(
                 new UsuarioDtos.RegistroAdministradorRequest(null, person(key())));
-        assertThat(acceso.username()).matches("[0-9]{8}");
-        assertThat(acceso.correo()).isEqualTo(acceso.username() + "@asiscontrol.edu.pe");
+        assertThat(acceso.codigo()).matches("[0-9]{8}");
+        assertThat(acceso.correo()).isEqualTo("a" + acceso.codigo() + "@asiscontrol.edu.pe");
         assertThat(acceso.contrasenaTemporal()).isNotBlank();
         assertThat(acceso.contrasenaTemporalExpira())
                 .isBetween(antes.plus(java.time.Duration.ofDays(14)).minusSeconds(5),

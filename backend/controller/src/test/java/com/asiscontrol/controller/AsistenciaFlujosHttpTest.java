@@ -132,7 +132,7 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
 
     @Test void avisaAlApoderadoDelResultado() throws Exception {
         var acceso=new AccesoUsuario(); acceso.setPersona(guardian.getPersona());
-        acceso.setUsername("apo"+key()); acceso.setCorreo("apo"+key()+"@example.test");
+        acceso.setUsername("apo"+key()); acceso.setCodigo(acceso.getUsername()); acceso.setCorreo("apo"+key()+"@example.test");
         acceso.setContrasenaHash("x"); em.persist(acceso);
         asignarRol(acceso, rol("APODERADO"));
         em.flush();

@@ -143,7 +143,7 @@ export function RecoveryScreen() {
                   required
                   maxLength={150}
                   autoComplete="username"
-                  placeholder="Ej. 20260001"
+                  placeholder="Código, usuario o correo"
                 />
               </>
             ) : (

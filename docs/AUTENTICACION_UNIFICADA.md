@@ -1,12 +1,12 @@
 # Autenticación unificada de AsisControl
 
-Cada persona tiene una cuenta con un identificador `AAAANNNN`. El año se calcula en la zona horaria de Lima y el correlativo anual va de `0001` a `9999`. La cuenta conserva su identificador y su contraseña al incorporar otro rol. Los códigos propios de las fichas de Administración, Docencia, Estudiante y Apoderado se conservan.
+Cada persona tiene una cuenta con un **código de acceso** `AAAANNNN` (columna `codigo`). El año se calcula en la zona horaria de Lima y el correlativo anual va de `0001` a `9999`. La cuenta conserva su código, su usuario y su contraseña al incorporar otro rol. Además, la cuenta tiene un **usuario** legible generado (`nombre.apellido`, con sufijo 2, 3… si se repite) y un **correo** institucional `a{código}@dominio` (por ejemplo `a20260001@asiscontrol.edu.pe`), con el dominio de `asiscontrol.correo.dominio`. Los códigos propios de las fichas de Administración, Docencia, Estudiante y Apoderado se conservan.
 
 La cuenta vive en `AccesoUsuario`. Cada asignación se guarda en `AccesoUsuarioRol`, y cada sesión guarda el rol activo y la versión de ese contexto. El servidor valida la cuenta, la asignación y el perfil institucional habilitado. Los cuatro roles disponibles son Administrador, Docente, Estudiante (`ALUMNO` en la API) y Apoderado.
 
 ## Ingreso y gestión de accesos
 
-1. Ingresa con el identificador de ocho dígitos y tu contraseña. Si la contraseña es temporal, cámbiala e ingresa nuevamente.
+1. Ingresa con tu código de acceso, tu usuario o tu correo, y tu contraseña. Si la contraseña es temporal, cámbiala e ingresa nuevamente.
 2. Con un solo rol disponible, la aplicación abre su inicio. Con varios, elige uno. Una cuenta sin roles disponibles muestra el aviso y permite cerrar sesión.
 3. Para cambiar de rol, abre el menú de la cuenta y selecciona el rol. La aplicación abre el inicio del rol elegido y sincroniza el contexto en las demás pestañas. El servidor invalida los JWT del contexto anterior. Los permisos de otra asignación requieren cambiar primero al rol correspondiente.
 4. Desde **Administración → Usuarios**, el administrador consulta las cuentas, revisa y administra las asignaciones, cambia el estado de la cuenta o restablece la contraseña según el caso. La revocación de un rol afecta las sesiones que lo tenían activo. Si quedan otras asignaciones habilitadas, la cuenta puede volver a operar con ellas. El sistema protege al último administrador habilitado.
@@ -29,6 +29,8 @@ La recuperación por correo pertenece a la cuenta. Requiere un correo de recuper
 
 ## Migración y puesta en servicio
 
+`V25__codigo_cuenta_y_username.sql` separa el código de la cuenta del usuario: copia el código a `codigo` y, al arrancar, `RegeneracionIdentificadoresCuenta` genera el usuario `nombre.apellido` de las cuentas migradas y deja su correo generado como `a{código}@dominio`. No modifica correos personales ni verificados y es idempotente. El código sigue siendo el identificador permanente: el subject del JWT y el actor de auditoría usan el código.
+
 `V22__autenticacion_unificada.sql` se aplica con Flyway sobre el esquema versionado. La migración agrupa por `id_persona`, conserva una credencial por persona, asigna los códigos nuevos y revoca sesiones, renovaciones y enlaces de recuperación anteriores. Conserva el mapa de identificadores históricos y las referencias de notificaciones por rol. Director, Secretaría y Tesorería quedan deshabilitados y sus referencias históricas se conservan.
 
 1. Ensaya la migración sobre una copia de MySQL 8 con el mismo historial Flyway que el destino. Revisa los accesos por persona, los roles habilitados, la vigencia de la credencial del administrador, los correos verificados distintos en una misma persona y la capacidad de cada correlativo anual. Comprueba la restauración del respaldo antes del corte.
@@ -48,7 +50,7 @@ La recuperación por correo pertenece a la cuenta. Requiere un correo de recuper
 
 ## Trazabilidad
 
-- **US-01 y US-59** · Login con un identificador institucional, recuperación por cuenta y cambio obligatorio de la temporal.
+- **US-01 y US-59** · Login con código, usuario o correo, recuperación por cuenta y cambio obligatorio de la temporal.
 - **US-02 y US-03** · Administración de cuentas y asignaciones, catálogo fijo de cuatro roles y autorización bajo un solo contexto.
 - **US-04** · Historial de accesos y auditoría de cambios con el rol activo del actor.
 - **US-09 y US-10** · Alta de perfiles y cuenta, con documento obligatorio para fichas nuevas de estudiante. Las asociaciones familiares conservan su flujo.

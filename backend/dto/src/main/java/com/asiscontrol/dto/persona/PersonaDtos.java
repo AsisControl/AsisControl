@@ -246,20 +246,29 @@ public final class PersonaDtos {
             String email,
             String temporaryPassword,
             Instant expiresAt,
-            boolean existing) {
+            boolean existing,
+            String accessCode) {
+        /** Sin código de acceso: lo usan los datos de prueba y las respuestas que no lo informan. */
+        public CredencialAcceso(
+                int row, String fullName, String role, String code, String username, String email,
+                String temporaryPassword, Instant expiresAt, boolean existing) {
+            this(row, fullName, role, code, username, email, temporaryPassword, expiresAt, existing, null);
+        }
+
         public CredencialAcceso enFila(int fila) {
-            return new CredencialAcceso(
-                    fila, fullName, role, code, username, email, temporaryPassword, expiresAt, existing);
+            return new CredencialAcceso(fila, fullName, role, code, username, email,
+                    temporaryPassword, expiresAt, existing, accessCode);
         }
 
         public CredencialAcceso sinContrasena() {
             return new CredencialAcceso(
-                    row, fullName, role, code, username, email, null, expiresAt, existing);
+                    row, fullName, role, code, username, email, null, expiresAt, existing, accessCode);
         }
 
         @Override
         public String toString() {
-            return "CredencialAcceso[row=" + row + ", role=" + role + ", username=" + username
+            return "CredencialAcceso[row=" + row + ", role=" + role + ", accessCode=" + accessCode
+                    + ", username=" + username
                     + ", existing=" + existing + ", temporaryPassword="
                     + (temporaryPassword == null ? "null" : "***") + "]";
         }

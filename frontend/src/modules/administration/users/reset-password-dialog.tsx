@@ -21,7 +21,7 @@ export function ResetPasswordDialog({
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const password = String(form.get("password") || "");
-    const policy = passwordError(password, account.username);
+    const policy = passwordError(password, account.codigo);
     if (policy) {
       setError(policy);
       return;
@@ -44,7 +44,7 @@ export function ResetPasswordDialog({
     <Dialog title="Restablecer contraseña" onClose={onClose} busy={busy}>
       <form onSubmit={save}>
         <p>
-          {account.nombreCompleto} · {account.username}
+          {account.nombreCompleto} · {account.codigo}
         </p>
         <Feedback error={error} />
         <label className="check-field">

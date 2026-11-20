@@ -108,7 +108,7 @@ public class RecuperacionService {
         if (!request.newPassword().equals(request.confirmPassword()))
             throw new BusinessRuleException(
                     "CONFIRMACION_INVALIDA", "Las contraseñas no coinciden");
-        PasswordPolicy.validate(request.newPassword(), user.getUsername());
+        PasswordPolicy.validate(request.newPassword(), user.getCodigo());
         if (encoder.matches(request.newPassword(), user.getContrasenaHash()))
             throw new BusinessRuleException(
                     "CONTRASENA_REPETIDA", "La nueva contraseña debe ser diferente a la actual");

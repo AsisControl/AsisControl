@@ -45,7 +45,7 @@ export function ManageRolesDialog({
 
   return (
     <Dialog title="Administrar roles" onClose={onClose} busy={busy}>
-      <p>{account.nombreCompleto} · {account.username}</p>
+      <p>{account.nombreCompleto} · {account.codigo}</p>
       <form onSubmit={save}>
         <Feedback error={error} />
         <label className="field">

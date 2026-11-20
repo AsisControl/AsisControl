@@ -228,8 +228,8 @@ public class BootstrapDataInitializer implements ApplicationRunner {
         var credencial = cuentas.altaConfigurada(
                 person, "ADMINISTRADOR", codigoPerfil, adminEmail, adminPassword, false);
         if (!credencial.existing()) {
-            LOGGER.info("Cuenta inicial de administración: {}. Debe cambiar la contraseña al ingresar.",
-                    credencial.username());
+            LOGGER.info("Cuenta inicial de administración: código {} (usuario {}). Debe cambiar la contraseña al ingresar.",
+                    credencial.accessCode(), credencial.username());
         }
     }
 
