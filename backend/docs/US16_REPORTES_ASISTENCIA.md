@@ -31,11 +31,11 @@ Ejemplo: primera clase 09:00 y última clase termina 17:00. Ventana [08:00, 17:0
 
 ## Persistencia y límites históricos
 
-V22 agrega las columnas ventana_apertura, limite_puntualidad y ventana_cierre a AsistenciaDocente. Son nulas en los registros anteriores y no se recalculan retroactivamente. El flujo de contingencia conserva la asignación administrativa existente y su motivo.
+V24 agrega las columnas ventana_apertura, limite_puntualidad y ventana_cierre a AsistenciaDocente. Son nulas en los registros anteriores y no se recalculan retroactivamente. El flujo de contingencia conserva la asignación administrativa existente y su motivo.
 
-V22 también crea JornadaMarcacionDocente. Un job, iniciado 10 segundos después del arranque y repetido cada minuto, guarda la ventana del día para docentes activos con clases activas. No reconstruye días anteriores ni crea una jornada si el servidor arrancó después de su cierre. Una vez guardada, la fotografía de esa jornada se conserva. Las modificaciones posteriores del horario no deben interpretarse como una reconstrucción del control histórico.
+V24 también crea JornadaMarcacionDocente. Un job, iniciado 10 segundos después del arranque y repetido cada minuto, guarda la ventana del día para docentes activos con clases activas. No reconstruye días anteriores ni crea una jornada si el servidor arrancó después de su cierre. Una vez guardada, la fotografía de esa jornada se conserva. Las modificaciones posteriores del horario no deben interpretarse como una reconstrucción del control histórico.
 
-No todos los días sin marcación histórica son faltas. Antes de V22, o si el sistema no estuvo operativo durante una jornada, puede no existir evidencia para calcular su omisión. El reporte lo explica en pantalla. Una marcación activa registrada por contingencia elimina la omisión del informe sin duplicar la jornada.
+No todos los días sin marcación histórica son faltas. Antes de V24, o si el sistema no estuvo operativo durante una jornada, puede no existir evidencia para calcular su omisión. El reporte lo explica en pantalla. Una marcación activa registrada por contingencia elimina la omisión del informe sin duplicar la jornada.
 
 Si ya existe una fotografía de jornada, la marcación QR usa esos mismos límites, evitando que un cambio posterior de horario altere silenciosamente su regla. Una modificación excepcional de la jornada ya guardada requiere revisión administrativa. En el perfil test se deshabilita el job periódico; su prueba lo invoca expresamente con un reloj fijo para no interferir con otros escenarios.
 
@@ -47,7 +47,7 @@ V23 agrega actor_identificador, actor_nombre y actor_rol a CorreccionAsistencia.
 
 ## Verificación local
 
-Realizar respaldo antes de arrancar contra MySQL. Flyway aplica V22 y V23 pendientes al iniciar con perfil mysql; no ejecutar el SQL manualmente ni editar migraciones ya aplicadas. Los tests HTTP usan H2 aislado y no modifican la base de desarrollo ni RDS.
+Realizar respaldo antes de arrancar contra MySQL. Flyway aplica V23 y V24 pendientes al iniciar con perfil mysql; no ejecutar el SQL manualmente ni editar migraciones ya aplicadas. Los tests HTTP usan H2 aislado y no modifican la base de desarrollo ni RDS.
 
 Las pruebas agregadas cubren filtros, vacíos, denominador independiente de la paginación, detalle por estado, agrupación de justificaciones, permisos, corrección US-32, jornadas sin marcar, resolución por contingencia y límites exactos de apertura, puntualidad y cierre. La prueba de integración de corrección usa el endpoint existente de US-32.
 
