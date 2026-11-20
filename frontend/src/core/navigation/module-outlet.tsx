@@ -18,6 +18,7 @@ import { Finance } from "@/modules/finance";
 import { GuardianAttendance, StudentAttendance } from "@/modules/guardian-attendance";
 import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
+import { StudentCourses } from "@/modules/student-courses";
 import { StudentTasks } from "@/modules/student-tasks";
 import { TasksModule } from "@/modules/tasks";
 import { TeacherCoursesModule } from "@/modules/teacher-courses";
@@ -42,6 +43,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
     Asistencia: ({ user }) => <StudentAttendance fullName={user.fullName} />,
+    "Mis cursos": () => <StudentCourses />,
   },
   DOCENTE: {
     Progreso: () => <ProgressPreview />,
