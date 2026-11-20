@@ -1,7 +1,10 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.CursoPlan;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.CursoDelPlan;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.GradoDelPlan;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.GuardarPlan;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanAnual;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanEstudios;
 import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.GradoAcademico;
@@ -24,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @Transactional(readOnly = true)
@@ -45,6 +49,29 @@ public class PlanEstudiosService {
 
     public PlanEstudios consultar(int anio, int numero) {
         return mapear(buscarGrado(anio, numero));
+    }
+
+    public PlanAnual consultarPlanAnual(int anio) {
+        var actual = anios.findByAnio(anio).filter(a -> a.isActivo())
+                .orElseThrow(() -> new ResourceNotFoundException("ANIO_NO_ENCONTRADO", "El año académico no está habilitado"));
+        var gradosGuardados = grados.findByAnioAcademicoAnioOrderByNumero(anio).stream()
+                .filter(GradoAcademico::isActivo)
+                .collect(Collectors.toMap(GradoAcademico::getNumero, grado -> grado));
+        var mapa = IntStream.rangeClosed(1, 5)
+                .mapToObj(numero -> mapearGradoDelPlan(numero, gradosGuardados.get(numero)))
+                .toList();
+        return new PlanAnual(anio, actual.getEstado(), actual.getFechaInicio(), actual.getFechaFin(), mapa);
+    }
+
+    private GradoDelPlan mapearGradoDelPlan(int numero, GradoAcademico grado) {
+        if (grado == null || !grado.isPlanDefinido()) {
+            return new GradoDelPlan(numero, false, List.of());
+        }
+        var lista = cursosVigentes(grado).stream()
+                .map(curso -> new CursoDelPlan(curso.getCodigo(), curso.getNombre(), curso.getHorasSemanales()))
+                .sorted(Comparator.comparing(CursoDelPlan::nombre).thenComparing(CursoDelPlan::codigo))
+                .toList();
+        return new GradoDelPlan(numero, true, lista);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
