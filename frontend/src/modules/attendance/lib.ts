@@ -27,7 +27,20 @@ export const ESTADOS_MARCA: { estado: EstadoMarca; etiqueta: string }[] = [
 ];
 
 export const etiquetaMarca = (estado: string) =>
-  ESTADOS_MARCA.find((item) => estado.startsWith(item.estado))?.etiqueta ?? estado;
+  estado === "SIN_MARCACION"
+    ? "Sin marcar"
+    : (ESTADOS_MARCA.find((item) => estado.startsWith(item.estado))?.etiqueta ?? estado);
+
+/**
+ * "hasta las 11:00 AM" o "hasta el final del día". El límite es la siguiente clase del mismo
+ * curso ese día o la medianoche; null si la respuesta no lo trae.
+ */
+export function textoPlazo(sesion: { fecha: string; limiteEdicion?: string }) {
+  if (!sesion.limiteEdicion) return null;
+  return sesion.limiteEdicion.slice(0, 10) === sesion.fecha
+    ? `hasta las ${horaSesion(sesion.limiteEdicion.slice(11, 19))}`
+    : "hasta el final del día";
+}
 
 export type Indicador = { etiqueta: string; tono: "info" | "neutral" | "danger" };
 

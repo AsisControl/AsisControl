@@ -4,7 +4,7 @@ import { useState } from "react";
 import { message } from "@/core/api/client";
 import { countLabel } from "@/shared/lib/formatters";
 import { Feedback, StatusPill } from "@/shared/ui";
-import { coincideBusqueda } from "./lib";
+import { coincideBusqueda, textoPlazo } from "./lib";
 import { finalizarAsistencia, guardarBorrador } from "./services/asistencia-service";
 import { MarkButtons } from "./session-marks";
 import { Buscador, CheckIcon, ExitDialog, SessionHeader, StudentsTable, TotalesEstados } from "./session-ui";
@@ -69,6 +69,12 @@ export function SessionTaking({
         }
       />
       <Feedback error={error} success={exito} />
+      {textoPlazo(sesion) && (
+        <p className={styles.avisoPlazo}>
+          Puedes editar esta asistencia {textoPlazo(sesion)}. Si al vencer el plazo queda un borrador, se
+          finaliza solo y quienes no tengan marca quedan como &quot;Sin marcar&quot;.
+        </p>
+      )}
       <div className={styles.franja}>
         <TotalesEstados alumnos={sesion.alumnos.map((alumno) => ({ estado: marcas[alumno.alumnoId] ?? null }))} />
         <div className={styles.progreso}>

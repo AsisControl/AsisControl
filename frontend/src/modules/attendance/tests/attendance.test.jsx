@@ -233,7 +233,7 @@ test("La pestaña Resueltas muestra el resultado y solo permite consultar", asyn
 test("Una sesión pasada sin asistencia avisa y no ofrece registrar ni editar", async () => {
   fakeBackend({ [SESION]: sesion({ puedeTomar: false, fecha: "2026-08-10" }) });
   render(<SessionDetail asignacionId={42} sesionId={7} />);
-  expect(await screen.findByText("Esta sesión no tiene asistencia registrada y ya no se puede registrar retroactivamente.")).toBeTruthy();
+  expect(await screen.findByText("Esta sesión no tiene asistencia registrada y el plazo para registrarla ya venció.")).toBeTruthy();
   expect(screen.getByText("Sin registrar")).toBeTruthy();
   expect(screen.queryByText("Presentes")).toBeNull();
   expect(screen.queryByText("Registro")).toBeNull();
@@ -293,4 +293,36 @@ test("Muestra el error del backend y conserva las marcas", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByText("50%")).toBeTruthy();
+});
+
+test("Al tomar asistencia el docente ve hasta cuándo puede editarla", async () => {
+  fakeBackend({ [SESION]: sesion({ limiteEdicion: "2026-08-17T11:00:00" }) });
+  render(<SessionDetail asignacionId={42} sesionId={7} />);
+  expect(await screen.findByText(/Puedes editar esta asistencia hasta las 11:00 AM\./)).toBeTruthy();
+});
+
+test("Una asistencia tomada muestra su plazo de corrección mientras sigue abierta", async () => {
+  fakeBackend({ [SESION]: tomada({ limiteEdicion: "2026-08-18T00:00:00" }), [CORRECCIONES]: [] });
+  render(<SessionDetail asignacionId={42} sesionId={7} />);
+  expect(await screen.findByText("Puedes corregir esta asistencia hasta el final del día.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Editar asistencia" })).toBeTruthy();
+});
+
+test("Cerrada por plazo: muestra Sin marcar, su total y no permite corregir", async () => {
+  fakeBackend({
+    [SESION]: tomada({
+      puedeEditar: false,
+      limiteEdicion: "2026-08-18T00:00:00",
+      alumnos: [
+        alumno({ estado: "PRESENTE", asistenciaId: 10 }),
+        alumno({ alumnoId: 2, nombreCompleto: "Bravo, Ana", estado: "SIN_MARCACION", asistenciaId: 11 }),
+      ],
+    }),
+    [CORRECCIONES]: [],
+  });
+  render(<SessionDetail asignacionId={42} sesionId={7} />);
+  expect(await screen.findByText("Sin marcar", { selector: "span[title]" })).toBeTruthy();
+  expect(screen.getByText("Sin marcar", { selector: "[class*=totales] span" })).toBeTruthy();
+  expect(screen.queryByText(/Puedes corregir/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Editar asistencia" })).toBeNull();
 });
