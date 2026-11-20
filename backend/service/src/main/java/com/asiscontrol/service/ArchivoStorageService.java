@@ -11,10 +11,13 @@ import com.asiscontrol.repository.ArchivoAdjuntoRepository;
 import com.asiscontrol.repository.EvidenciaPedagogicaRepository;
 import com.asiscontrol.repository.PersonaRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedInputStream;
@@ -56,6 +59,8 @@ public class ArchivoStorageService {
     private final ModuloAccessGuard accessGuard;
     private final Path directorioRaiz;
     private final long tamanioMaximoBytes;
+    private final boolean usarS3;
+    private final ObjectProvider<ArchivoS3Service> s3;
 
     public ArchivoStorageService(
             ArchivoAdjuntoRepository archivoRepository,
@@ -63,18 +68,27 @@ public class ArchivoStorageService {
             ModuloAccessGuard accessGuard,
             EvidenciaPedagogicaRepository evidenciaRepository,
             @Value("${app.storage.path:./storage}") String directorio,
-            @Value("${app.storage.tamanio-maximo-bytes:10485760}") long tamanioMaximoBytes) {
+            @Value("${app.storage.tamanio-maximo-bytes:10485760}") long tamanioMaximoBytes,
+            @Value("${app.storage.provider:local}") String proveedor,
+            ObjectProvider<ArchivoS3Service> s3) {
+        if (!Set.of("local", "s3").contains(proveedor))
+            throw new IllegalStateException("FILE_STORAGE_PROVIDER debe ser local o s3.");
         this.archivoRepository = archivoRepository;
         this.evidenciaRepository = evidenciaRepository;
         this.personaRepository = personaRepository;
         this.accessGuard = accessGuard;
         this.directorioRaiz = Path.of(directorio).toAbsolutePath().normalize();
         this.tamanioMaximoBytes = tamanioMaximoBytes;
+        this.usarS3 = "s3".equals(proveedor);
+        this.s3 = s3;
     }
 
     @Transactional
     public ArchivoResponse almacenar(MultipartFile archivo) {
         validarArchivoBasico(archivo);
+        var persona = personaRepository.findByIdAndActivoTrue(accessGuard.personaIdActual())
+                .orElseThrow(() -> new ResourceNotFoundException("PERSONA_AUTENTICADA_NO_ENCONTRADA",
+                        "No existe el perfil de la persona autenticada"));
 
         String nombreOriginal = limpiarNombre(archivo.getOriginalFilename());
         String identificador = UUID.randomUUID().toString();
@@ -103,26 +117,38 @@ public class ArchivoStorageService {
                         "El archivo debe tener contenido y no exceder " + tamanioMaximoBytes + " bytes");
             }
 
-            moverAtomico(temporal, destino);
-            temporal = null;
+            String hash = HexFormat.of().formatHex(digest.digest());
+            String relativa = directorioRaiz.relativize(destino).toString().replace('\\', '/');
+            String ubicacion;
+            if (usarS3) {
+                ubicacion = servicioS3().almacenar(temporal, relativa, tipoMime, hash);
+            } else {
+                moverAtomico(temporal, destino);
+                temporal = null;
+                ubicacion = relativa;
+            }
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) {
+                        if (status == STATUS_ROLLED_BACK) limpiarCargaFallida(ubicacion);
+                    }
+                });
+            }
 
             ArchivoAdjunto entidad = new ArchivoAdjunto();
             entidad.setNombreOriginal(nombreOriginal);
             entidad.setNombreAlmacenado(identificador);
-            entidad.setRutaArchivo(directorioRaiz.relativize(destino).toString().replace('\\', '/'));
+            entidad.setRutaArchivo(ubicacion);
             entidad.setTipoMime(tipoMime);
             entidad.setTamanioBytes(tamanioReal);
-            entidad.setSha256(HexFormat.of().formatHex(digest.digest()));
-            entidad.setCargadoPor(personaRepository.findByIdAndActivoTrue(accessGuard.personaIdActual())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "PERSONA_AUTENTICADA_NO_ENCONTRADA",
-                            "No existe el perfil de la persona autenticada")));
+            entidad.setSha256(hash);
+            entidad.setCargadoPor(persona);
             entidad.setActivo(true);
 
             try {
                 return mapResponse(archivoRepository.save(entidad));
             } catch (RuntimeException ex) {
-                Files.deleteIfExists(destino);
+                limpiarCargaFallida(ubicacion);
                 throw ex;
             }
         } catch (IOException ex) {
@@ -146,6 +172,10 @@ public class ArchivoStorageService {
 
     public DescargaArchivo descargar(Long id) {
         ArchivoAdjunto archivo = obtenerEntidad(id);
+        if (archivo.getRutaArchivo().startsWith("s3://")) {
+            return new DescargaArchivo(servicioS3().abrir(archivo.getRutaArchivo()), archivo.getNombreOriginal(),
+                    archivo.getTipoMime(), archivo.getTamanioBytes());
+        }
         Path ruta = directorioRaiz.resolve(archivo.getRutaArchivo()).normalize();
         verificarRutaSegura(ruta);
         if (!Files.isRegularFile(ruta)) {
@@ -286,6 +316,26 @@ public class ArchivoStorageService {
             Files.move(origen, destino, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException ex) {
             Files.move(origen, destino, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private ArchivoS3Service servicioS3() {
+        ArchivoS3Service servicio = s3.getIfAvailable();
+        if (servicio == null) throw new BusinessRuleException("ARCHIVO_S3_NO_CONFIGURADO", "El almacenamiento S3 no está configurado en este entorno.");
+        return servicio;
+    }
+
+    private void limpiarCargaFallida(String ubicacion) {
+        try {
+            if (ubicacion.startsWith("s3://")) servicioS3().eliminarCargaFallida(ubicacion);
+            else {
+                Path ruta = directorioRaiz.resolve(ubicacion).normalize();
+                verificarRutaSegura(ruta);
+                Files.deleteIfExists(ruta);
+            }
+        } catch (RuntimeException | IOException ex) {
+            org.slf4j.LoggerFactory.getLogger(ArchivoStorageService.class)
+                    .warn("No se pudo limpiar una carga fallida; revisar el almacenamiento de adjuntos.");
         }
     }
 

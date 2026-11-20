@@ -57,6 +57,10 @@ services:
       SPRINGDOC_API_DOCS_ENABLED: "false"
       SPRINGDOC_SWAGGER_UI_ENABLED: "false"
       FILE_STORAGE_PATH: /app/storage
+      FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-local}
+      FILE_STORAGE_S3_BUCKET: ${FILE_STORAGE_S3_BUCKET:-}
+      FILE_STORAGE_S3_REGION: ${FILE_STORAGE_S3_REGION:-us-east-1}
+      FILE_STORAGE_S3_PREFIX: ${FILE_STORAGE_S3_PREFIX:-asiscontrol/adjuntos}
     volumes:
       - archivos:/app/storage
       - registros:/app/logs
