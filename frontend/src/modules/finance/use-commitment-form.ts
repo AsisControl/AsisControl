@@ -1,11 +1,14 @@
 "use client";
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { annulCommitment, issueCommitment, updateCommitment } from "./services/commitment-service";
 import type { EligibleEnrollment, PaymentCommitment } from "./types";
+import { getConcepts, type ChargeConcept } from "@/modules/payment-settings";
 
 type Draft = {
   concepto: string;
+  idConcepto: string;
+  referenciaCobro: string;
   numeroCuota: string;
   montoTotal: string;
   fechaVencimiento: string;
@@ -25,12 +28,11 @@ function validateDraft(draft: Draft, isCreate: boolean, isAnnul: boolean, hasEnr
   if (isCreate && !hasEnrollment) {
     errors.matricula = "Selecciona la matrícula del estudiante.";
   }
-  if (isCreate && !draft.concepto.trim()) {
-    errors.concepto = "Escribe el concepto del compromiso.";
+  if (isCreate && !draft.idConcepto) {
+    errors.idConcepto = "Selecciona el concepto del compromiso.";
   }
-  const quota = Number(draft.numeroCuota);
-  if (isCreate && (!/^\d+$/.test(draft.numeroCuota) || quota < 1 || quota > 2147483647)) {
-    errors.numeroCuota = "Ingresa un número de cuota válido, mayor que cero.";
+  if (isCreate && !draft.referenciaCobro.trim()) {
+    errors.referenciaCobro = "Indica una referencia para identificar este cobro.";
   }
   const amount = Number(draft.montoTotal);
   if (!isAnnul && (
@@ -54,6 +56,8 @@ export function useCommitmentForm({
   const [enrollment, setEnrollment] = useState<EligibleEnrollment | null>(null);
   const [draft, setDraft] = useState<Draft>({
     concepto: commitment?.concepto ?? "",
+    idConcepto: String(commitment?.idConcepto ?? ""),
+    referenciaCobro: commitment?.referenciaCobro ?? "",
     numeroCuota: String(commitment?.numeroCuota ?? ""),
     montoTotal: String(commitment?.montoTotal ?? ""),
     fechaVencimiento: commitment?.fechaVencimiento ?? "",
@@ -69,6 +73,22 @@ export function useCommitmentForm({
   const errorRef = useRef<HTMLDivElement>(null);
   const isCreate = action === "create";
   const isAnnul = action === "annul";
+  const [concepts, setConcepts] = useState<ChargeConcept[]>([]);
+  const [conceptLoading, setConceptLoading] = useState(action === "create");
+  const [conceptError, setConceptError] = useState("");
+  const [conceptRevision, setConceptRevision] = useState(0);
+  useEffect(() => {
+    if (!isCreate) return;
+    let active = true;
+    getConcepts().then((items) => { if (active) { setConcepts(items.filter((item) => item.activo && !item.esPension && !item.requiereAceptacion)); setConceptError(""); setConceptLoading(false); } })
+      .catch((caught) => { if (active) { setConceptError(message(caught)); setConceptLoading(false); } });
+    return () => { active = false; };
+  }, [isCreate, conceptRevision]);
+  function selectConcept(id: string) {
+    const item = concepts.find((value) => value.id === Number(id));
+    setDraft((previous) => ({ ...previous, idConcepto: id, concepto: item?.nombre ?? "", montoTotal: item?.montoSugerido == null ? "" : String(item.montoSugerido) }));
+    setErrors((previous) => ({ ...previous, idConcepto: undefined })); setDirty(true); setDiscard(false);
+  }
 
   function change(field: keyof Draft, value: string) {
     setDraft((previous) => ({ ...previous, [field]: value }));
@@ -103,7 +123,9 @@ export function useCommitmentForm({
       return issueCommitment({
         idMatricula: enrollment!.id,
         concepto: draft.concepto.trim(),
-        numeroCuota: Number(draft.numeroCuota),
+        idConcepto: Number(draft.idConcepto),
+        referenciaCobro: draft.referenciaCobro.trim(),
+        numeroCuota: null,
         montoTotal: Number(draft.montoTotal),
         moneda: "PEN",
         fechaVencimiento: draft.fechaVencimiento,
@@ -138,7 +160,7 @@ export function useCommitmentForm({
       setError(message(caught));
       if (caught instanceof ApiError && caught.fieldErrors.length) {
         const fields = Object.fromEntries(caught.fieldErrors.map((entry) => [
-          entry.field === "idMatricula" ? "matricula" : entry.field,
+          entry.field === "idMatricula" ? "matricula" : entry.field === "concepto" ? "idConcepto" : entry.field,
           entry.message,
         ]));
         setErrors(fields);
@@ -165,5 +187,7 @@ export function useCommitmentForm({
     draft, enrollment, errors, error, busy, discard, setDiscard,
     isCreate, isAnnul, formRef, errorRef, change, field,
     selectEnrollment, requestClose, submit,
+    concepts, conceptLoading, conceptError, selectConcept,
+    retryConcepts() { setConceptLoading(true); setConceptRevision((value) => value + 1); },
   };
 }

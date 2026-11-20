@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
+import { Feedback, Loading } from "@/shared/ui";
 import { obtenerSesion } from "./services/asistencia-service";
 import { SessionCorrection } from "./session-correction";
 import { SessionReadonly } from "./session-readonly";
@@ -37,7 +37,7 @@ export function SessionDetail({ asignacionId, sesionId }: { asignacionId: number
         <Link href={historial}>Volver al historial</Link>
       </section>
     );
-  if (!sesion) return <p role="status">Cargando asistencia…</p>;
+  if (!sesion) return <Loading rows={8} columns={3}>Cargando asistencia…</Loading>;
   if (!sesion.puedeVer)
     return (
       <section>

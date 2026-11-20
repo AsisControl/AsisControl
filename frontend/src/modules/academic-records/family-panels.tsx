@@ -4,6 +4,7 @@ import { FamilyImportDialog, type Student } from "@/modules/students";
 import { documentLabel, PersonCell, StatusPill } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PendingAction, RecordsPanel } from "./records-panel";
+import { RegisterProfile } from "./register-profile";
 import { GuardianDetail } from "./record-details";
 import type { Guardian } from "./types";
 import styles from "./academic-records.module.css";
@@ -34,6 +35,7 @@ export function GuardiansPanel() {
         noun={["apoderado", "apoderados"]}
         searchLabel="Buscar por nombre o documento"
         columns={[
+          "Código",
           "Apoderado",
           "Documento",
           "Estudiantes a cargo",
@@ -44,16 +46,13 @@ export function GuardiansPanel() {
         actions={(refresh) => (
           <>
             <FamilyImportAction onImported={refresh} />
-            <PendingAction
-              className="primary-action"
-              label="+ Registrar apoderado"
-              hint="El formulario de apoderados se habilitará en una próxima entrega."
-            />
+            <RegisterProfile role="apoderado" onRegistered={refresh} />
           </>
         )}
         renderRows={(guardians) =>
           guardians.map((guardian) => (
             <tr key={guardian.id}>
+              <td data-label="Código">{guardian.codigoApoderado ?? "—"}</td>
               <td data-label="Apoderado">
                 <PersonCell
                   name={guardian.persona.nombreCompleto}

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ESTADOS_MARCA } from "./lib";
 import { CheckIcon, ClockIcon, CrossIcon } from "./session-ui";
 import styles from "./attendance.module.css";
-import type { EstadoMarca } from "./types";
+import type { EstadoMarca, EstadoRegistrado } from "./types";
 
 const ICONOS: Record<EstadoMarca, ReactNode> = {
   PRESENTE: <CheckIcon />,
@@ -43,7 +43,13 @@ export function MarkButtons({
 }
 
 /** Solo Tardanza e Inasistencia llevan píldora, para que las excepciones destaquen. */
-export function MarkStatus({ estado }: { estado: EstadoMarca }) {
+export function MarkStatus({ estado }: { estado: EstadoRegistrado }) {
+  if (estado === "SIN_MARCACION")
+    return (
+      <span className={`${styles.chip} ${styles["chip-SIN_MARCACION"]}`} title="El plazo venció sin que se registrara">
+        Sin marcar
+      </span>
+    );
   if (estado === "PRESENTE")
     return (
       <span className={styles.presente}>

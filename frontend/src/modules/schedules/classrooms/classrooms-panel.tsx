@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, PanelHeading, Pager, RowMenu } from "@/shared/ui";
+import { Feedback, FormDialog, PanelHeading, Pager, RowMenu, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { classroomTypeLabels } from "../lib/labels";
@@ -120,7 +120,7 @@ export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
       </p>
       <Feedback error={classrooms.error} success={success} />
       {classrooms.loading ? (
-        <p role="status">Cargando aulas…</p>
+        <Loading>Cargando aulas…</Loading>
       ) : rows.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>

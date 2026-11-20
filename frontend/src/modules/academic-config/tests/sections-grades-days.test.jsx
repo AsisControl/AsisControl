@@ -255,8 +255,8 @@ test("Días no lectivos: se cargan al expandir y se agrega uno validado", async 
   render(<AcademicConfiguration />);
   await ready();
   await user.click(screen.getByRole("button", { name: /Días no lectivos/ }));
-  const rows = await screen.findAllByText(/^\d{2} \w{3} 2026$/, { selector: "td" });
-  expect(rows.map((cell) => cell.textContent)).toEqual(["01 May 2026", "28 Jul 2026"]);
+  const rows = await screen.findAllByText(/^\d{2}\/\d{2}\/2026$/, { selector: "td" });
+  expect(rows.map((cell) => cell.textContent)).toEqual(["01/05/2026", "28/07/2026"]);
   expect(within(rows[0].closest("tr")).getByText("—")).toBeTruthy();
   await user.click(screen.getByText("Agregar día no lectivo"));
   const dialog = screen.getByRole("dialog", { name: "Agregar día no lectivo" });
@@ -269,7 +269,7 @@ test("Días no lectivos: se cargan al expandir y se agrega uno validado", async 
   await user.type(within(dialog).getByLabelText(/Descripción/), " Santa Rosa ");
   await user.click(within(dialog).getByText("Guardar"));
   expect(await screen.findByText("Día no lectivo agregado.")).toBeTruthy();
-  expect(await screen.findByText("30 Ago 2026")).toBeTruthy();
+  expect(await screen.findByText("30/08/2026")).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toEqual({
     fecha: "2026-08-30",
     descripcion: "Santa Rosa",
@@ -294,7 +294,7 @@ test("Días no lectivos: editar la descripción y recargar si la versión es vie
   await user.click(screen.getByRole("button", { name: /Días no lectivos/ }));
   await user.click(await screen.findByText("Editar descripción", { selector: "button" }));
   let dialog = screen.getByRole("dialog", { name: "Editar descripción" });
-  expect(within(dialog).getByText("01 May 2026")).toBeTruthy();
+  expect(within(dialog).getByText("01/05/2026")).toBeTruthy();
   const text = within(dialog).getByLabelText(/Descripción/);
   await user.clear(text);
   await user.type(text, "a".repeat(256));

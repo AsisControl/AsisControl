@@ -12,7 +12,7 @@ import styles from "./students.module.css";
 type IdentityFieldsProps = Pick<
   StudentFormState,
   "draft" | "errors" | "bindField" | "changeField" | "validateFieldOnBlur"
->;
+> & { documentRequired: boolean };
 
 export function StudentIdentityFields({
   draft,
@@ -20,6 +20,7 @@ export function StudentIdentityFields({
   bindField,
   changeField,
   validateFieldOnBlur,
+  documentRequired,
 }: IdentityFieldsProps) {
   const birthRange = studentBirthRange();
   const documentRule =
@@ -63,7 +64,7 @@ export function StudentIdentityFields({
         />
         <div>
           <label className="field">
-            Tipo de documento{draft.numeroDocumento ? " *" : ""}
+            Tipo de documento{documentRequired || draft.numeroDocumento ? " *" : ""}
             <select
               name="tipoDocumento"
               value={draft.tipoDocumento}
@@ -73,25 +74,27 @@ export function StudentIdentityFields({
               onBlur={(event) =>
                 validateFieldOnBlur("tipoDocumento", event.currentTarget.form)
               }
-              required={!!draft.numeroDocumento}
+              required={documentRequired || !!draft.numeroDocumento}
               className={errors.tipoDocumento ? styles.invalid : undefined}
               aria-invalid={!!errors.tipoDocumento}
               aria-describedby={
                 [
-                  !draft.tipoDocumento ? "student-document-help" : "",
+                  !documentRequired && !draft.tipoDocumento ? "student-document-help" : "",
                   errors.tipoDocumento ? "student-document-type-error" : "",
                 ]
                   .filter(Boolean)
                   .join(" ") || undefined
               }
             >
-              <option value="">Sin documento por el momento</option>
+              <option value="">
+                {documentRequired ? "Selecciona un documento" : "Sin documento por el momento"}
+              </option>
               <option value="DNI">DNI</option>
               <option value="CARNET_EXTRANJERIA">Carné de extranjería</option>
               <option value="PASAPORTE">Pasaporte</option>
             </select>
           </label>
-          {!draft.tipoDocumento && (
+          {!documentRequired && !draft.tipoDocumento && (
             <small id="student-document-help" className={styles.helper}>
               Puedes registrar el documento más adelante.
             </small>
@@ -103,7 +106,7 @@ export function StudentIdentityFields({
         <StudentField
           label="Número de documento"
           {...bindField("numeroDocumento")}
-          required={!!draft.tipoDocumento}
+          required={documentRequired || !!draft.tipoDocumento}
           maxLength={documentRule?.max ?? 12}
           inputMode={draft.tipoDocumento !== "PASAPORTE" ? "numeric" : "text"}
           placeholder={documentRule?.placeholder}

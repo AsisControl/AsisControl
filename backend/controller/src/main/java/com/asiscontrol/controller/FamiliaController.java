@@ -18,6 +18,7 @@ public class FamiliaController {
     }
 
     @GetMapping("/estudiantes")
+    @PreAuthorize("hasRole('APODERADO') and (hasAuthority('MATRICULA_LEER') or hasAuthority('CALIFICACIONES_LEER'))")
     public List<FamiliaService.Estudiante> estudiantes() {
         return service.estudiantes();
     }

@@ -3,11 +3,13 @@ package com.asiscontrol.service;
 import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.notificacion.NotificacionDtos;
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.Notificacion;
 import com.asiscontrol.entity.enums.TipoNotificacion;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
 import com.asiscontrol.repository.NotificacionRepository;
+import com.asiscontrol.repository.RolRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -21,13 +23,16 @@ public class NotificacionService {
 
     private final NotificacionRepository notificacionRepository;
     private final AccesoUsuarioRepository usuarioRepository;
+    private final RolRepository roles;
 
     public NotificacionService(
             NotificacionRepository notificacionRepository,
-            AccesoUsuarioRepository usuarioRepository
+            AccesoUsuarioRepository usuarioRepository,
+            RolRepository roles
     ) {
         this.notificacionRepository = notificacionRepository;
         this.usuarioRepository = usuarioRepository;
+        this.roles = roles;
     }
 
     @Transactional(readOnly = true)
@@ -39,16 +44,15 @@ public class NotificacionService {
                 Sort.by(Sort.Direction.DESC, "fechaCreacion")
         );
         return PageResponse.from(
-                notificacionRepository.findAllByDestinatarioIdAndActivoTrue(user.getId(), pageable),
+                notificacionRepository.buscarVisibles(user.getId(), rolActivo(jwt).getId(), pageable),
                 this::toResponse
         );
     }
 
     @Transactional(readOnly = true)
     public NotificacionDtos.Summary summary(Jwt jwt) {
-        long unread = notificacionRepository.countByDestinatarioIdAndLeidaFalseAndActivoTrue(
-                currentUser(jwt).getId()
-        );
+        long unread = notificacionRepository.contarNoLeidas(
+                currentUser(jwt).getId(), rolActivo(jwt).getId());
         return new NotificacionDtos.Summary(unread);
     }
 
@@ -56,7 +60,7 @@ public class NotificacionService {
     public NotificacionDtos.Response markRead(Jwt jwt, Long id) {
         AccesoUsuario user = currentUser(jwt);
         Notificacion notification = notificacionRepository
-                .findByIdAndDestinatarioIdAndActivoTrue(id, user.getId())
+                .buscarVisible(id, user.getId(), rolActivo(jwt).getId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "NOTIFICACION_NO_ENCONTRADA",
                         "No se encontro la notificacion"
@@ -70,7 +74,8 @@ public class NotificacionService {
 
     @Transactional
     public int markAllRead(Jwt jwt) {
-        return notificacionRepository.markAllRead(currentUser(jwt).getId(), Instant.now());
+        return notificacionRepository.markAllRead(
+                currentUser(jwt).getId(), rolActivo(jwt).getId(), Instant.now());
     }
 
     @Transactional
@@ -79,7 +84,8 @@ public class NotificacionService {
             String title,
             String message,
             TipoNotificacion type,
-            String targetUrl
+            String targetUrl,
+            String rolDestinatario
     ) {
         AccesoUsuario user = usuarioRepository.findByIdAndActivoTrue(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -88,11 +94,19 @@ public class NotificacionService {
                 ));
         Notificacion notification = new Notificacion();
         notification.setDestinatario(user);
+        notification.setRolDestinatario(roles.findByNombreIgnoreCase(rolDestinatario).orElseThrow());
         notification.setTitulo(title);
         notification.setMensaje(message);
         notification.setTipo(type);
         notification.setUrlDestino(targetUrl);
         return toResponse(notificacionRepository.save(notification));
+    }
+
+    private Rol rolActivo(Jwt jwt) {
+        String nombre = jwt.getClaimAsString("rol");
+        if (nombre == null) throw new org.springframework.security.access.AccessDeniedException(
+                "Selecciona un rol para consultar tus notificaciones.");
+        return roles.findByNombreIgnoreCase(nombre).orElseThrow();
     }
 
     private AccesoUsuario currentUser(Jwt jwt) {

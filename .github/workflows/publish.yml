@@ -68,11 +68,20 @@ jobs:
           IMAGE: ${{ steps.image.outputs.name }}
           PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
           COMPONENT: ${{ matrix.component }}
+        # Igual que en CI: reintentos ante un 429 de Maven Central u otro fallo de red.
         run: |
-          docker build --build-arg "NEXT_PUBLIC_API_BASE_URL=$PUBLIC_APP_URL" \
-            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            --tag "$IMAGE:$GITHUB_SHA" "./$COMPONENT"
+          construir() {
+            docker build --build-arg "NEXT_PUBLIC_API_BASE_URL=$PUBLIC_APP_URL" \
+              --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --tag "$IMAGE:$GITHUB_SHA" "./$COMPONENT"
+          }
+          for intento in 1 2 3; do
+            construir && break
+            if [ "$intento" -eq 3 ]; then exit 1; fi
+            echo "::warning::Fallo el intento $intento de construir $COMPONENT; se reintenta en $((intento * 60)) s"
+            sleep $((intento * 60))
+          done
           docker push "$IMAGE:$GITHUB_SHA"
           echo "### Imagen publicada: $COMPONENT" >> "$GITHUB_STEP_SUMMARY"
           echo "\`$IMAGE:$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"

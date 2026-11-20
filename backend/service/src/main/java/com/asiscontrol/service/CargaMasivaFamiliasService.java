@@ -13,7 +13,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Carga masiva de estudiantes, apoderados y parentescos como una sola operacion, todo o nada.
+ * Carga masiva de estudiantes, apoderados y parentescos como una sola operacion, todo o nada,
+ * con el acceso al sistema de cada estudiante y apoderado.
  *
  * <p>Los tres archivos se procesan en orden dentro de una unica transaccion con las mismas reglas
  * que la importacion de cada archivo, asi los parentescos ven a los estudiantes y apoderados de
@@ -56,7 +57,14 @@ public class CargaMasivaFamiliasService {
             boolean valida = archivos.values().stream().allMatch(CargaMasivaFamiliasService::limpio);
             boolean guardar = confirmar && valida;
             // Rollback local: se deshace sin error aunque alguna fila haya marcado la transaccion.
-            if (!guardar) status.setRollbackOnly();
+            if (!guardar) {
+                status.setRollbackOnly();
+                // Las cuentas se deshicieron: se muestran usuario y código, nunca una contraseña.
+                archivos.replaceAll((clave, archivo) -> archivo.result() == null
+                        ? archivo
+                        : new PersonaDtos.FamilyImportFile(
+                                archivo.error(), archivo.result().sinContrasenas()));
+            }
             return new PersonaDtos.FamilyImportResult(
                     valida, guardar, java.util.Collections.unmodifiableMap(archivos));
         });

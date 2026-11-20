@@ -134,21 +134,17 @@ export function RecoveryScreen() {
             {mode === "request" ? (
               <>
                 <p className={styles.description}>
-                  Ingresa el usuario de tu acceso. Si la institución confirmó
-                  tu correo, recibirás un enlace válido durante 15 minutos.
+                  Ingresa tu usuario institucional o tu correo de recuperación.
+                  Si la institución confirmó tu correo, recibirás un enlace válido durante 15 minutos.
                 </p>
                 <Field
-                  label="Usuario institucional"
+                  label="Usuario institucional o correo de recuperación"
                   name="identifier"
                   required
                   maxLength={150}
                   autoComplete="username"
-                  placeholder="Ingresa tu usuario"
+                  placeholder="Código, usuario o correo"
                 />
-                <p className="hint">
-                  Cada acceso de una persona con varios roles se recupera por
-                  separado. No creamos cuentas mediante este formulario.
-                </p>
               </>
             ) : (
               <>

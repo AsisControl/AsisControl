@@ -40,6 +40,7 @@ public class HorarioService {
     private final AuditoriaService auditoria;
     private final ApplicationEventPublisher eventos;
     private final AnioAcademicoRepository anios;
+    private final PlanEstudiosService planes;
 
     public HorarioService(
             HorarioRepository horarioRepository,
@@ -47,13 +48,15 @@ public class HorarioService {
             AulaRepository aulaRepository,
             AuditoriaService auditoria,
             ApplicationEventPublisher eventos,
-            AnioAcademicoRepository anios) {
+            AnioAcademicoRepository anios,
+            PlanEstudiosService planes) {
         this.horarioRepository = horarioRepository;
         this.asignacionRepository = asignacionRepository;
         this.aulaRepository = aulaRepository;
         this.auditoria = auditoria;
         this.eventos = eventos;
         this.anios = anios;
+        this.planes = planes;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -212,6 +215,7 @@ public class HorarioService {
             Aula aula,
             Long idExcluido) {
         validarContexto(asignacion);
+        planes.comprobarPertenencia(asignacion.getCurso(), asignacion.getSeccion());
         if (!inicio.isBefore(fin)) {
             throw new BusinessRuleException(
                     "HORARIO_RANGO_INVALIDO", "La hora de inicio debe ser anterior a la hora de fin");

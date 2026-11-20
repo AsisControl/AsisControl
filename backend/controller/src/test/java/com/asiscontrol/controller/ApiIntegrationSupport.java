@@ -53,10 +53,11 @@ abstract class ApiIntegrationSupport {
             authorities.add(new SimpleGrantedAuthority(p.getCodigo()));
         authorities.add(new SimpleGrantedAuthority("TAREAS_ENTREGAR"));
         var role = em.createQuery("from Rol r where r.nombre='ADMINISTRADOR'", Rol.class).getSingleResult();
-        admin = new AccesoUsuario(); admin.setPersona(person()); admin.setRol(role);
-        admin.setUsername("admin" + key()); admin.setCorreo(key() + "@example.test");
+        admin = new AccesoUsuario(); admin.setPersona(person());
+        admin.setUsername("admin" + key()); admin.setCodigo(admin.getUsername()); admin.setCorreo(key() + "@example.test");
         admin.setContrasenaHash("hash-exclusivo-de-prueba"); admin.setEstado(EstadoAcceso.ACTIVO);
         admin.setRequiereCambioContrasena(false); em.persist(admin);
+        asignarRol(admin, role);
         student = new Alumno(); student.setPersona(person()); student.setCodigoAlumno("EST" + key()); em.persist(student);
         teacher = new Docente(); teacher.setPersona(person()); teacher.setCodigoDocente("DOC" + key());
         teacher.setFechaIngreso(LocalDate.now().minusYears(1)); teacher.setEspecialidad(Especialidad.MATEMATICA); em.persist(teacher);
@@ -72,6 +73,7 @@ abstract class ApiIntegrationSupport {
         section.setCapacidadMaxima(30); section.setDocenteTutor(teacher); em.persist(section);
         course = new Curso(); course.setCodigo("MAT" + key()); course.setNombre("Matematica");
         course.setHorasSemanales(4); course.setGradoAcademico(grade); em.persist(course);
+        grade.getCursosPlan().add(course);
         competence = new Competencia(); competence.setCodigo("COMP" + key()); competence.setNombre("Resuelve problemas"); em.persist(competence);
         var courseCompetence = new CursoCompetencia();
         courseCompetence.setCurso(course); courseCompetence.setCompetencia(competence);
@@ -85,6 +87,13 @@ abstract class ApiIntegrationSupport {
         enrollment.setAnioAcademico(2090); enrollment.setFechaMatricula(Instant.now());
         enrollment.setEstado(EstadoMatricula.ACTIVA); em.persist(enrollment);
         em.flush();
+    }
+
+    protected void asignarRol(AccesoUsuario cuenta, Rol rol) {
+        var asignacion = new AccesoUsuarioRol();
+        asignacion.setUsuario(cuenta);
+        asignacion.setRol(rol);
+        em.persist(asignacion);
     }
 
     protected String key() { return UUID.randomUUID().toString().replace("-", "").substring(0, 12); }
@@ -104,7 +113,7 @@ abstract class ApiIntegrationSupport {
     }
     /** Mismo pedido con la sesión del rol indicado; ese rol llega con los permisos de asistencia. */
     protected JsonNode comoRol(String rol, Persona persona, String method, String path, Object body, int expected) throws Exception {
-        return request(jwt().jwt(j -> j.subject(rol + key()).claim("personaId", persona.getId()))
+        return request(jwt().jwt(j -> j.subject(rol + key()).claim("personaId", persona.getId()).claim("rol", rol))
                 .authorities(java.util.List.of(new SimpleGrantedAuthority("ROLE_" + rol),
                         new SimpleGrantedAuthority("ASISTENCIA_LEER"))), method, path, body, expected);
     }
@@ -125,7 +134,8 @@ abstract class ApiIntegrationSupport {
     protected void deleteOk(String path) throws Exception { request("DELETE",path,null,204); }
 
     protected org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor asAdmin() {
-        return jwt().jwt(j -> j.subject(admin.getUsername()).claim("personaId",admin.getPersona().getId())
-                .claim("usuarioId",admin.getId()).claim("requiereCambioContrasena",false)).authorities(authorities);
+        return jwt().jwt(j -> j.subject(admin.getCodigo()).claim("personaId",admin.getPersona().getId())
+                .claim("usuarioId",admin.getId()).claim("rol", "ADMINISTRADOR")
+                .claim("requiereCambioContrasena",false)).authorities(authorities);
     }
 }

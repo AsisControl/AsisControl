@@ -6,6 +6,7 @@ import com.asiscontrol.dto.auditoria.AuditoriaDtos;
 import com.asiscontrol.entity.AccesoUsuario;
 import com.asiscontrol.entity.RegistroAuditoria;
 import com.asiscontrol.entity.RegistroError;
+import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.enums.EstadoError;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.entity.enums.SeveridadError;
@@ -14,6 +15,7 @@ import com.asiscontrol.repository.AccesoUsuarioRepository;
 import com.asiscontrol.repository.RegistroAuditoriaRepository;
 import com.asiscontrol.repository.RegistroErrorRepository;
 import com.asiscontrol.repository.SeccionRepository;
+import com.asiscontrol.repository.RolRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,18 +41,21 @@ public class AuditoriaService {
     private final AccesoUsuarioRepository usuarioRepository;
     private final com.asiscontrol.repository.SeguimientoErrorRepository seguimientos;
     private final SeccionRepository seccionRepository;
+    private final RolRepository roles;
 
     public AuditoriaService(
             RegistroAuditoriaRepository auditoriaRepository,
             RegistroErrorRepository errorRepository,
             AccesoUsuarioRepository usuarioRepository,
             com.asiscontrol.repository.SeguimientoErrorRepository seguimientos,
-            SeccionRepository seccionRepository) {
+            SeccionRepository seccionRepository,
+            RolRepository roles) {
         this.auditoriaRepository = auditoriaRepository;
         this.errorRepository = errorRepository;
         this.usuarioRepository = usuarioRepository;
         this.seguimientos = seguimientos;
         this.seccionRepository = seccionRepository;
+        this.roles = roles;
     }
 
     @Transactional
@@ -71,10 +77,10 @@ public class AuditoriaService {
                 nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
                         valorAnterior, nuevoValor);
         audit.setActorIdentificador(identifier);
-        usuarioRepository
-                .findActiveByIdentifier(identifier)
-                .map(AccesoUsuario::getRol)
-                .ifPresent(audit::setRolActor);
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            String rol = jwt.getClaimAsString("rol");
+            if (rol != null) roles.findByNombreIgnoreCase(rol).ifPresent(audit::setRolActor);
+        }
         auditoriaRepository.save(audit);
     }
 
@@ -85,6 +91,7 @@ public class AuditoriaService {
     @Transactional
     public void registrarComo(
             AccesoUsuario actor,
+            Rol rolActivo,
             String accion,
             String modulo,
             String entidad,
@@ -96,8 +103,8 @@ public class AuditoriaService {
         RegistroAuditoria audit =
                 nuevoRegistro(accion, modulo, entidad, registroId, resultado, motivo,
                         valorAnterior, nuevoValor);
-        audit.setActorIdentificador(actor.getUsername());
-        audit.setRolActor(actor.getRol());
+        audit.setActorIdentificador(actor.getCodigo());
+        audit.setRolActor(rolActivo);
         auditoriaRepository.save(audit);
     }
 
@@ -155,12 +162,13 @@ public class AuditoriaService {
     }
 
     @Transactional
-    public void registrarAcceso(String accion, AccesoUsuario actor, ResultadoAuditoria resultado) {
+    public void registrarAcceso(
+            String accion, AccesoUsuario actor, Rol rolActivo, ResultadoAuditoria resultado) {
         RegistroAuditoria audit =
                 nuevoRegistro(accion, ModuloAuditoria.SEGURIDAD, "AccesoUsuario",
                         actor.getId().toString(), resultado, null, null, null);
-        audit.setActorIdentificador(actor.getUsername());
-        audit.setRolActor(actor.getRol());
+        audit.setActorIdentificador(actor.getCodigo());
+        audit.setRolActor(rolActivo);
         auditoriaRepository.save(audit);
     }
 
@@ -234,8 +242,11 @@ public class AuditoriaService {
                                 registro.getActorIdentificador(),
                                 identificador ->
                                         usuarioRepository
-                                                .findActiveByIdentifier(identificador)
-                                                .map(usuario -> usuario.getPersona().nombreCompleto())
+                                                .findByCodigo(identificador)
+                                                .map(AccesoUsuario::getPersona)
+                                                .or(() -> usuarioRepository
+                                                        .buscarPersonaPorIdentificadorLegado(identificador))
+                                                .map(com.asiscontrol.entity.Persona::nombreCompleto)
                                                 .orElse(null)));
         return nombres;
     }

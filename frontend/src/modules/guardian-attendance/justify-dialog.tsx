@@ -63,7 +63,7 @@ export function JustifyDialog({
       </dl>
       <label className={styles.campo}>
         <span>Motivo <em>*</em></span>
-        <select value={motivo} disabled={enviando} onChange={(event) => setMotivo(event.target.value)}>
+        <select className={styles.control} value={motivo} disabled={enviando} onChange={(event) => setMotivo(event.target.value)}>
           <option value="">Selecciona un motivo</option>
           {MOTIVOS.map((opcion) => <option key={opcion} value={opcion}>{opcion}</option>)}
         </select>
@@ -71,6 +71,7 @@ export function JustifyDialog({
       <label className={styles.campo}>
         <span>Observaciones {motivo === "Otro" && <em>*</em>}</span>
         <textarea
+          className={styles.control}
           rows={3}
           value={observaciones}
           maxLength={MAX_OBSERVACIONES}

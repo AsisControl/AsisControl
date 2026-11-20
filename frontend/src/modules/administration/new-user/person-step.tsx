@@ -1,5 +1,5 @@
 "use client";
-import { Feedback, Pager } from "@/shared/ui";
+import { Feedback, Pager, Loading } from "@/shared/ui";
 import { PersonFields } from "@/shared/forms/person-fields";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { roleLabel } from "@/shared/lib/formatters";
@@ -8,7 +8,6 @@ import { initialsOf, rolePillClass } from "../users/user-format";
 import {
   CheckIcon,
   SearchInput,
-  StepCard,
   useDebouncedSearch,
 } from "./step-parts";
 import styles from "./new-user.module.css";
@@ -27,14 +26,12 @@ export function PersonStep({
 }) {
   const search = useDebouncedSearch();
   const people = usePaged<PersonChoice>("/api/usuarios/personas", search.query);
-  const done = mode === "new" || Boolean(person);
   return (
-    <StepCard
-      number={1}
-      title="Persona"
-      description="Cada acceso pertenece a una persona. Una persona puede tener un acceso por rol."
-      done={done}
-    >
+    <section className={styles.card} aria-labelledby="perfil-persona">
+      <div className={styles.stepHeading}>
+        <h3 id="perfil-persona">Persona</h3>
+        <p>Selecciona a quién se asignará el perfil o registra a una persona nueva.</p>
+      </div>
       <div
         className={styles.segmented}
         role="group"
@@ -70,7 +67,7 @@ export function PersonStep({
           />
           <Feedback error={people.error} />
           {people.loading ? (
-            <p role="status">Cargando personas…</p>
+            <Loading>Cargando personas…</Loading>
           ) : people.data?.content.length ? (
             <div className={styles.choiceList}>
               {people.data.content.map((choice) => {
@@ -125,6 +122,6 @@ export function PersonStep({
           />
         </>
       )}
-    </StepCard>
+    </section>
   );
 }

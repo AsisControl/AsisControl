@@ -39,7 +39,7 @@ class RenovacionSesionIntegrationTest {
     @Autowired SesionAccesoRepository sesiones;
     @Autowired TokenRenovacionRepository tokens;
     @Autowired AccesoUsuarioRepository accesos;
-    @Autowired SesionActividadService actividad;
+    @Autowired org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
     @Autowired PlatformTransactionManager manager;
     @Autowired WebApplicationContext context;
     @Autowired RegistroAuditoriaRepository auditorias;
@@ -57,9 +57,7 @@ class RenovacionSesionIntegrationTest {
                 TipoDocumento.PASAPORTE, key, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1990, 1, 1), null, key + "@example.test", null);
         return usuarios.provision(new UsuarioDtos.ProvisionRequest(null, persona,
-                roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId(), "usr" + key,
-                "login" + key + "@example.test", "Temporal123!", "EST" + key,
-                null, null, null, Set.of()));
+                roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId(), "Temporal123!", null, null, Set.of()));
     }
 
     private RenovacionSesionService.Credenciales login(UsuarioDtos.Response u) {
@@ -106,7 +104,7 @@ class RenovacionSesionIntegrationTest {
         var registro = reutilizacion.getFirst();
         assertThat(registro.getResultado()).isEqualTo(ResultadoAuditoria.RECHAZADO);
         assertThat(registro.getModulo()).isEqualTo(ModuloAuditoria.SEGURIDAD);
-        assertThat(registro.getActorIdentificador()).isEqualTo(user.username());
+        assertThat(registro.getActorIdentificador()).isEqualTo(user.codigo());
         assertThat(registro.getValorAnterior()).startsWith("estado=VIGENTE,tokenUsadoEn=");
         assertThat(registro.getNuevoValor()).isEqualTo("estado=REVOCADA");
 
@@ -130,7 +128,7 @@ class RenovacionSesionIntegrationTest {
         var revocacion = auditoria(id, "REVOCAR_SESION");
         assertThat(revocacion).hasSize(1);
         assertThat(revocacion.getFirst().getMotivo()).isEqualTo("Inactividad mayor a 30 minutos");
-        assertThat(revocacion.getFirst().getActorIdentificador()).isEqualTo(user.username());
+        assertThat(revocacion.getFirst().getActorIdentificador()).isEqualTo(user.codigo());
         assertThat(revocacion.getFirst().getValorAnterior()).isEqualTo("estado=VIGENTE");
     }
 
@@ -157,8 +155,8 @@ class RenovacionSesionIntegrationTest {
         assertThat(tokens.findByTokenHash(original.refreshToken())).isEmpty();
         assertThat(tokens.findByTokenHash(HashUtils.sha256(original.refreshToken()))
                 .orElseThrow().getFechaUso()).isNotNull();
-        assertThat(actividad.validar(HashUtils.sha256(original.response().accessToken()))).isFalse();
-        assertThat(actividad.validar(HashUtils.sha256(renewed.response().accessToken()))).isTrue();
+        assertThat(jwtDecoder.decode(original.response().accessToken()).getClaims().get("sesionId"))
+                .isEqualTo(jwtDecoder.decode(renewed.response().accessToken()).getClaims().get("sesionId"));
     }
 
     @Test void reutilizarTokenViejoRevocaTodaLaSesionYSePersisteElRechazo() {
@@ -166,7 +164,8 @@ class RenovacionSesionIntegrationTest {
         var second = service.renovar(first.refreshToken());
         assertThatThrownBy(() -> service.renovar(first.refreshToken()))
                 .isInstanceOf(BadCredentialsException.class);
-        assertThat(actividad.validar(HashUtils.sha256(second.response().accessToken()))).isFalse();
+        assertThatThrownBy(() -> jwtDecoder.decode(second.response().accessToken()))
+                .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
         assertThatThrownBy(() -> service.renovar(second.refreshToken()))
                 .isInstanceOf(BadCredentialsException.class);
     }
@@ -185,7 +184,8 @@ class RenovacionSesionIntegrationTest {
         service.cerrar(null, null);
         assertThatThrownBy(() -> service.renovar(c.refreshToken()))
                 .isInstanceOf(BadCredentialsException.class);
-        assertThat(actividad.validar(HashUtils.sha256(c.response().accessToken()))).isFalse();
+        assertThatThrownBy(() -> jwtDecoder.decode(c.response().accessToken()))
+                .isInstanceOf(org.springframework.security.oauth2.jwt.JwtException.class);
     }
 
     @Test void respetaInactividadExpiracionYCuentaDeshabilitada() {
@@ -265,8 +265,9 @@ class RenovacionSesionIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(user.id()));
         var refreshed = mvc.perform(post("/api/auth/refresh").cookie(cookie).header("Origin", ORIGIN))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.user.id").value(user.id())).andReturn();
+        // Otra pestaña sigue autorizada con su JWT mientras conserve el contexto vigente.
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
         String newToken = mapper.readTree(refreshed.getResponse().getContentAsByteArray())
                 .path("accessToken").asText();
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + newToken))

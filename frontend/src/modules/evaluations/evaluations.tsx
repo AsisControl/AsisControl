@@ -2,18 +2,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { message } from "@/core/api/client";
-import { Feedback, PageHeader, TabNav, type TabItem } from "@/shared/ui";
+import { Feedback, PageHeader, TabNav, type TabItem, Loading } from "@/shared/ui";
 import { EvaluationList } from "./evaluation-list";
+import { Evidences } from "./evidences/evidences";
 import { GradeRegistry } from "./grade-registry";
+import { PublishPeriod } from "./progress-reports";
 import { listarAsignacionesPropias } from "./services/evaluation-service";
 import type { Evaluation, OwnAssignment } from "./types";
 
 const PATH = "/evaluaciones";
 const LIST_TAB = "mis-evaluaciones";
 const REGISTRY_TAB = "registro-de-calificaciones";
+const PUBLISH_TAB = "publicar-notas";
+const EVIDENCE_TAB = "evidencias";
 const tabs: TabItem[] = [
   { id: LIST_TAB, label: "Mis evaluaciones" },
   { id: REGISTRY_TAB, label: "Registro de calificaciones" },
+  { id: PUBLISH_TAB, label: "Libretas" },
+  { id: EVIDENCE_TAB, label: "Evidencias" },
 ];
 
 /** Evaluaciones del docente (US-18 y US-50). La URL es /evaluaciones/{pestaña}/{evaluación}. */
@@ -28,7 +34,7 @@ export function Evaluations({
   canWrite: boolean;
 }) {
   const router = useRouter();
-  const current = tab === REGISTRY_TAB ? REGISTRY_TAB : LIST_TAB;
+  const current = [PUBLISH_TAB, REGISTRY_TAB, EVIDENCE_TAB].includes(tab ?? "") ? (tab as string) : LIST_TAB;
   const [assignments, setAssignments] = useState<OwnAssignment[] | null>(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -75,7 +81,11 @@ export function Evaluations({
       />
       <Feedback error={error} />
       {!assignments ? (
-        !error && <p role="status">Cargando tus cursos…</p>
+        !error && <Loading>Cargando tus cursos…</Loading>
+      ) : current === PUBLISH_TAB ? (
+        <PublishPeriod assignments={assignments} canWrite={canWrite} />
+      ) : current === EVIDENCE_TAB ? (
+        <Evidences assignments={assignments} canWrite={canWrite} />
       ) : current === LIST_TAB ? (
         <EvaluationList
           canWrite={canWrite}

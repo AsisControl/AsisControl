@@ -66,7 +66,7 @@ class CursoGradoIntegrationTest {
                 TipoDocumento.PASAPORTE, clave, null, Sexo.PREFIERE_NO_INDICAR,
                 LocalDate.of(1985, 1, 1), null, clave + "@example.test", null);
         var docente = personas.createDocente(new PersonaDtos.DocenteCreateRequest(
-                persona, "D" + clave, LocalDate.of(2020, 1, 1), Especialidad.MATEMATICA));
+                persona, LocalDate.of(2020, 1, 1), Especialidad.MATEMATICA));
         asignaciones.crear(new CrearAsignacionCursoRequest(cursoId, seccion.id(), docente.id()));
     }
 

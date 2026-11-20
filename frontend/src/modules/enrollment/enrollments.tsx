@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { api, message } from "@/core/api/client";
+import { api, ApiError, message } from "@/core/api/client";
 import {
   Dialog,
   Feedback,
@@ -13,6 +13,7 @@ import {
   StatusPill,
   TabNav,
   type TabItem,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import {
@@ -27,7 +28,9 @@ import { type Student } from "@/modules/students";
 import { AcademicRecords } from "@/modules/academic-records";
 import type { AcademicYear } from "@/modules/academic-config";
 import { EnrollmentHistory } from "./enrollment-history";
-import type { History } from "./types";
+import { EnrollmentPaymentPreview } from "./enrollment-payment-preview";
+import { AdminRenewals } from "./renewals/renewal-navigation";
+import type { EnrollmentPaymentPlan, History } from "./types";
 type EnrollmentRecord = {
   id: number;
   alumnoId: number;
@@ -67,6 +70,7 @@ const actionLabels: Record<string, string> = {
 };
 const ENROLLMENT_TABS: TabItem[] = [
   { id: "solicitudes", label: "Solicitudes" },
+  { id: "renovaciones", label: "Renovación anual" },
   { id: "matriculas", label: "Matrículas" },
   { id: "fichas", label: "Fichas académicas" },
 ];
@@ -76,10 +80,12 @@ const DEFAULT_TAB = "solicitudes";
 export function Enrollments({
   tab = DEFAULT_TAB,
   view,
+  canManageRenewals = false,
 }: {
   tab?: string;
   /** Vista de Fichas académicas: estudiantes, apoderados, parentescos o docentes. */
   view?: string;
+  canManageRenewals?: boolean;
 }) {
   const router = useRouter();
   const current = ENROLLMENT_TABS.find((item) => item.id === tab);
@@ -101,6 +107,8 @@ export function Enrollments({
       />
       {current.id === "fichas" ? (
         <AcademicRecords basePath={`${ENROLLMENT_PATH}/fichas`} view={view} />
+      ) : current.id === "renovaciones" ? (
+        <AdminRenewals view={view} canWrite={canManageRenewals} />
       ) : (
         <EnrollmentList
           key={current.id}
@@ -153,7 +161,7 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
       />
       <Feedback error={list.error} success={success} />
       {list.loading ? (
-        <p role="status">Cargando registros…</p>
+        <Loading>Cargando registros…</Loading>
       ) : list.data?.content.length ? (
         <div className="user-table-wrap">
           <table className="user-table">
@@ -268,7 +276,7 @@ function StudentPicker({
         </p>
       )}
       {students.loading ? (
-        <p role="status">Cargando estudiantes…</p>
+        <Loading>Cargando estudiantes…</Loading>
       ) : (
         <ul className="choice-list">
           {students.data?.content.map((student) => (
@@ -460,6 +468,8 @@ function EnrollmentDetail({
   const [history, setHistory] = useState<History[] | null>(null);
   const [year, setYear] = useState<AcademicYear | null>(null);
   const [action, setAction] = useState("");
+  const [paymentPlan, setPaymentPlan] = useState<EnrollmentPaymentPlan | null>(null);
+  const [planRevision, setPlanRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -495,6 +505,10 @@ function EnrollmentDetail({
   }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (action === "MATRICULAR" && (!paymentPlan?.puedeGenerar || !paymentPlan.firmaPlan)) {
+      setError("Revisa el plan de pensiones antes de confirmar la matrícula.");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const reason = String(form.get("motivo") || "").trim();
     setBusy(true);
@@ -519,10 +533,11 @@ function EnrollmentDetail({
           body: JSON.stringify({
             solicitudMatriculaId: record.id,
             versionSolicitud: record.version,
+            firmaPlan: paymentPlan!.firmaPlan,
           }),
         });
         setSuccess(
-          `Matrícula ${result.codigoMatricula} creada. Consulta su gestión en la pestaña Matrículas.`,
+          `Matrícula ${result.codigoMatricula} creada con su plan de pensiones. Consulta su gestión en la pestaña Matrículas.`,
         );
         setRecord(await api<EnrollmentRecord>(`${path}/${record.id}`));
       } else {
@@ -553,6 +568,9 @@ function EnrollmentDetail({
       onChanged();
     } catch (error) {
       setError(message(error));
+      if (error instanceof ApiError && error.code === "PLAN_ACTUALIZADO") {
+        setPlanRevision((value) => value + 1);
+      }
     } finally {
       setBusy(false);
     }
@@ -739,6 +757,8 @@ function EnrollmentDetail({
                 rows={3}
               />
             </label>
+          ) : action === "MATRICULAR" ? (
+            <EnrollmentPaymentPreview requestId={record.id} revision={planRevision} onPlan={setPaymentPlan} />
           ) : (
             <p>
               {action === "MATRICULAR"
@@ -752,7 +772,8 @@ function EnrollmentDetail({
             </button>
             <button
               className="primary-action"
-              disabled={busy || (["EDITAR", "CAMBIAR_SECCION"].includes(action) && !year)}
+              disabled={busy || (["EDITAR", "CAMBIAR_SECCION"].includes(action) && !year)
+                || (action === "MATRICULAR" && (!paymentPlan?.puedeGenerar || !paymentPlan.firmaPlan))}
             >
               {busy ? "Guardando…" : "Confirmar"}
             </button>
@@ -768,7 +789,8 @@ function EnrollmentDetail({
           <p className="empty">Sin cambios registrados.</p>
         )
       ) : (
-        <p role="status">Cargando historial…</p>
+        // Si falló la carga, el error ya se muestra en el diálogo: no seguir «cargando».
+        !error && <Loading skeleton="list">Cargando historial…</Loading>
       )}
     </Dialog>
   );
@@ -832,7 +854,7 @@ function GuardianLinks({ studentId }: { studentId: number }) {
       </div>
       <Feedback error={error} />
       {!student ? (
-        <p role="status">Cargando vínculos…</p>
+        !error && <Loading skeleton="list" rows={2}>Cargando vínculos…</Loading>
       ) : student.apoderados.length ? (
         <ul className="choice-list">
           {student.apoderados.map((guardian) => (
@@ -871,7 +893,7 @@ function GuardianLinks({ studentId }: { studentId: number }) {
           </form>
           <Feedback error={guardians.error} />
           {guardians.loading ? (
-            <p role="status">Cargando apoderados…</p>
+            <Loading>Cargando apoderados…</Loading>
           ) : (
             <ul className="choice-list">
               {guardians.data?.content.map((guardian) => {

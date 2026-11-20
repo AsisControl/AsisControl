@@ -6,12 +6,16 @@
   min-height: 100svh;
 }
 .screen > :global(.login-form-panel) {
+  background: #fff;
   min-height: 0;
   min-width: 0;
 }
 .screen > :global(.login-form-panel) > :global(.login-form) {
   max-width: 100%;
   min-width: 0;
+}
+.compactScreen {
+  min-height: 100dvh;
 }
 .panel {
   background: #1e3a8a;
@@ -67,28 +71,56 @@
   line-height: 22.75px;
   margin: 16px 0 32px;
 }
-.identityContent ul {
-  color: #dbeafe;
+.rolesTitle {
+  color: #bedbff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+/* Tarjetas con el color de cada rol (paleta en role-theme.css, vía data-role-palette). */
+.roleGrid {
   display: grid;
-  font-size: 14px;
   gap: 12px;
-  line-height: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
   list-style: none;
   margin: 0;
+  max-width: 424px;
   padding: 0;
 }
-.identityContent li {
-  align-items: center;
-  display: flex;
-  gap: 12px;
+.roleCard {
+  background: var(--role-card-background);
+  border: 1px solid color-mix(in srgb, var(--role-accent-on-brand) 45%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 6px 16px #0f172a33, inset 0 3px 0 var(--role-accent-on-brand);
+  display: grid;
+  gap: 2px;
+  min-height: 112px;
+  padding: 16px;
 }
-.identityContent li::before {
-  background: #38bdf8;
-  border-radius: 50%;
-  content: "";
-  flex: 0 0 6px;
-  height: 6px;
-  width: 6px;
+.roleIcon {
+  align-items: center;
+  background: var(--role-accent-on-brand);
+  border-radius: 8px;
+  color: var(--role-brand, #1e3a8a);
+  display: flex;
+  height: 34px;
+  justify-content: center;
+  margin-bottom: 10px;
+  width: 34px;
+}
+.roleCard strong {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+}
+.roleCard small {
+  color: color-mix(in srgb, var(--role-accent-on-brand) 70%, #fff);
+  font-size: 12px;
+  line-height: 16px;
 }
 .circleTop,
 .circleMiddle,
@@ -128,6 +160,18 @@
     font-size: 30px;
     line-height: 39px;
   }
+  /* En columnas angostas las tarjetas pasan a una fila compacta: icono a la izquierda. */
+  .roleCard {
+    align-items: center;
+    column-gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 0;
+    padding: 10px 12px;
+  }
+  .roleIcon {
+    grid-row: span 2;
+    margin-bottom: 0;
+  }
   .circleTop {
     left: auto;
     right: -64px;
@@ -151,5 +195,19 @@
   .circleTop {
     height: 220px;
     width: 220px;
+  }
+}
+@media (min-width: 761px) {
+  .compactScreen > section {
+    padding-block: 32px;
+  }
+  .compactScreen .identityContent {
+    margin-top: 32px;
+  }
+  .compactScreen .identityContent h2 {
+    line-height: 1.1;
+  }
+  .compactScreen .identityContent p {
+    margin-block: 12px 24px;
   }
 }

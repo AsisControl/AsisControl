@@ -2,10 +2,12 @@ package com.asiscontrol.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.dto.seguridad.UsuarioDtos;
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
 import com.asiscontrol.entity.enums.Especialidad;
 import com.asiscontrol.entity.enums.EstadoAcceso;
@@ -54,9 +56,9 @@ class UsuariosEstudiantesIntegrationTest {
         String key = key();
         var creado =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key), " est" + key + " "));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key)));
 
-        assertThat(creado.codigoAlumno()).isEqualTo(("EST" + key).toUpperCase());
+        assertThat(creado.codigoAlumno()).matches("EST[0-9]{8}");
         assertThat(personas.getAlumno(creado.id()).persona().numeroDocumento())
                 .isEqualTo(key.toUpperCase());
         assertThat(
@@ -87,7 +89,10 @@ class UsuariosEstudiantesIntegrationTest {
 
         assertThat(alumnoRepository.findByIdAndActivoTrue(creado.id())).isEmpty();
         assertThat(personaRepository.findById(creado.persona().id()).orElseThrow().isActivo())
-                .isFalse();
+                .isTrue();
+        var cuenta = accesoRepository.findByPersonaId(creado.persona().id()).orElseThrow();
+        assertThat(usuarios.get(cuenta.getId()).roles())
+                .singleElement().satisfies(rol -> assertThat(rol.activo()).isFalse());
         assertThatThrownBy(() -> personas.getAlumno(creado.id()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -95,26 +100,38 @@ class UsuariosEstudiantesIntegrationTest {
     @Test
     void rechazaDuplicadosDeEstudianteYPersona() {
         String key = key();
-        personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(persona(key), "EST" + key));
+        personas.createAlumno(new PersonaDtos.AlumnoCreateRequest(persona(key)));
 
         assertThatThrownBy(
                         () ->
                                 personas.createAlumno(
-                                        new PersonaDtos.AlumnoCreateRequest(
-                                                persona(key()), "EST" + key)))
+                                        new PersonaDtos.AlumnoCreateRequest(persona(key))))
                 .isInstanceOf(ConflictException.class);
-        assertThatThrownBy(
-                        () ->
-                                personas.createApoderado(
-                                        new PersonaDtos.ApoderadoCreateRequest(persona(key))))
-                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void actualizaFichaPreexistenteAunqueNoTengaDocumento() {
+        var sinDocumento = new PersonaDtos.PersonaRequest(
+                "Mateo", "Ramos", "Quispe", null, null, null, Sexo.MASCULINO,
+                LocalDate.now().minusYears(14), null, null, "Dirección actualizada");
+        var personaAnterior = personas.createPersona(sinDocumento);
+        var alumnoAnterior = new Alumno();
+        alumnoAnterior.setPersona(personaAnterior);
+        alumnoAnterior.setCodigoAlumno("PREV-" + key());
+        alumnoRepository.saveAndFlush(alumnoAnterior);
+
+        var actualizado = personas.updateAlumno(alumnoAnterior.getId(),
+                new PersonaDtos.AlumnoUpdateRequest(sinDocumento, alumnoAnterior.getCodigoAlumno()));
+
+        assertThat(actualizado.persona().numeroDocumento()).isNull();
+        assertThat(accesoRepository.findByPersonaId(personaAnterior.getId())).isEmpty();
     }
 
     @Test
     void gestionaApoderadosYUnSoloVinculoPrincipal() {
         var alumno =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "EST" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
         var primerApoderado =
                 personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(persona(key())));
         var segundoApoderado =
@@ -150,7 +167,7 @@ class UsuariosEstudiantesIntegrationTest {
     void rechazaVinculoDuplicadoYApoderadoInexistente() {
         var alumno =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "EST" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
         var apoderado =
                 personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(persona(key())));
         var request =
@@ -168,7 +185,7 @@ class UsuariosEstudiantesIntegrationTest {
     void permiteReactivarUnVinculoPreviamenteRetirado() {
         var alumno =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "EST" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
         var apoderado =
                 personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(persona(key())));
         var inicial =
@@ -194,7 +211,7 @@ class UsuariosEstudiantesIntegrationTest {
     void actualizaYDesactivaApoderadoConSusVinculos() {
         var alumno =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "EST" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
         String guardianKey = key();
         var apoderado =
                 personas.createApoderado(
@@ -245,11 +262,10 @@ class UsuariosEstudiantesIntegrationTest {
                 personas.createDocente(
                         new PersonaDtos.DocenteCreateRequest(
                                 persona(key),
-                                " doc" + key + " ",
                                 LocalDate.now().minusYears(1),
                                 Especialidad.MATEMATICA));
 
-        assertThat(creado.codigoDocente()).isEqualTo(("DOC" + key).toUpperCase());
+        assertThat(creado.codigoDocente()).matches("DOC[0-9]{8}");
         assertThat(personas.getDocente(creado.id()).especialidad())
                 .isEqualTo(Especialidad.MATEMATICA);
         assertThat(
@@ -269,10 +285,21 @@ class UsuariosEstudiantesIntegrationTest {
                         creado.id(),
                         new PersonaDtos.DocenteUpdateRequest(
                                 persona(key, "Docente actualizado"),
-                                "PROF" + key,
+                                null,
                                 LocalDate.now().minusMonths(6),
                                 Especialidad.INGLES));
-        assertThat(actualizado.codigoDocente()).isEqualTo(("PROF" + key).toUpperCase());
+        // El código institucional es permanente.
+        assertThat(actualizado.codigoDocente()).isEqualTo(creado.codigoDocente());
+        assertThatThrownBy(
+                        () ->
+                                personas.updateDocente(
+                                        creado.id(),
+                                        new PersonaDtos.DocenteUpdateRequest(
+                                                persona(key, "Docente actualizado"),
+                                                "PROF" + key,
+                                                LocalDate.now().minusMonths(6),
+                                                Especialidad.INGLES)))
+                .isInstanceOf(com.asiscontrol.exception.FormFieldException.class);
         assertThat(actualizado.especialidad()).isEqualTo(Especialidad.INGLES);
 
         assertThatThrownBy(
@@ -280,19 +307,9 @@ class UsuariosEstudiantesIntegrationTest {
                                 personas.createDocente(
                                         new PersonaDtos.DocenteCreateRequest(
                                                 persona(key()),
-                                                "FUT" + key(),
                                                 LocalDate.now().plusDays(1),
                                                 Especialidad.TUTORIA)))
                 .isInstanceOf(BusinessRuleException.class);
-        assertThatThrownBy(
-                        () ->
-                                personas.createDocente(
-                                        new PersonaDtos.DocenteCreateRequest(
-                                                persona(key()),
-                                                actualizado.codigoDocente(),
-                                                LocalDate.now(),
-                                                Especialidad.TUTORIA)))
-                .isInstanceOf(ConflictException.class);
         assertThatThrownBy(
                         () ->
                                 personas.updateDocente(
@@ -318,11 +335,11 @@ class UsuariosEstudiantesIntegrationTest {
         var primero =
                 personas.createAlumno(
                         new PersonaDtos.AlumnoCreateRequest(
-                                persona(firstKey, "Primero", nacionalidad.id()), "EST" + firstKey));
+                                persona(firstKey, "Primero", nacionalidad.id())));
         String secondKey = key();
         var segundo =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(secondKey), "EST" + secondKey));
+                        new PersonaDtos.AlumnoCreateRequest(persona(secondKey)));
 
         assertThat(primero.persona().nacionalidadId()).isEqualTo(nacionalidad.id());
         assertThat(primero.persona().nacionalidad()).isEqualTo(nacionalidad.nombre());
@@ -352,7 +369,7 @@ class UsuariosEstudiantesIntegrationTest {
     void gestionaElCicloDeVidaDelAccesoInstitucional() {
         var alumno =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "EST" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
         long roleId = role("ALUMNO");
         String key = key();
         var acceso =
@@ -361,11 +378,7 @@ class UsuariosEstudiantesIntegrationTest {
                                 alumno.persona().id(),
                                 null,
                                 roleId,
-                                "usr" + key,
-                                "cuenta" + key + "@example.test",
                                 "Temporal123!",
-                                null,
-                                null,
                                 null,
                                 null,
                                 Set.of()));
@@ -373,7 +386,7 @@ class UsuariosEstudiantesIntegrationTest {
         assertThat(usuarios.get(acceso.id()).estado()).isEqualTo(EstadoAcceso.ACTIVO);
         assertThat(
                         usuarios.list(
-                                        "usr" + key,
+                                        acceso.username(),
                                         EstadoAcceso.ACTIVO,
                                         roleId,
                                         0,
@@ -427,10 +440,10 @@ class UsuariosEstudiantesIntegrationTest {
     }
 
     @Test
-    void exigeMotivoIdentidadYRolInmutableAlAdministrarAccesos() {
+    void exigeMotivoIdentidadYPerfilCompatibleAlAdministrarAccesos() {
         var alumno =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "EST" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
         long studentRole = role("ALUMNO");
         String key = key();
         var acceso =
@@ -439,11 +452,7 @@ class UsuariosEstudiantesIntegrationTest {
                                 alumno.persona().id(),
                                 null,
                                 studentRole,
-                                "usr" + key,
-                                "cuenta" + key + "@example.test",
                                 "Temporal123!",
-                                null,
-                                null,
                                 null,
                                 null,
                                 Set.of()));
@@ -462,15 +471,9 @@ class UsuariosEstudiantesIntegrationTest {
                 .isInstanceOf(BusinessRuleException.class);
         assertThatThrownBy(
                         () ->
-                                usuarios.update(
-                                        acceso.id(),
-                                        new UsuarioDtos.UpdateRequest(
-                                                role("APODERADO"),
-                                                acceso.correo(),
-                                                EstadoAcceso.ACTIVO,
-                                                null,
-                                                null,
-                                                null)))
+                                usuarios.cambiarRol(acceso.id(), role("APODERADO"),
+                                        new UsuarioDtos.CambiarRolRequest(
+                                                true, "Alta de un rol de apoderado")))
                 .isInstanceOf(ConflictException.class);
         assertThatThrownBy(
                         () ->
@@ -498,7 +501,7 @@ class UsuariosEstudiantesIntegrationTest {
     void aprovisionaLosCuatroPerfilesInstitucionales() {
         var alumnoBase =
                 personas.createAlumno(
-                        new PersonaDtos.AlumnoCreateRequest(persona(key()), "BASE" + key()));
+                        new PersonaDtos.AlumnoCreateRequest(persona(key())));
 
         String adminKey = key();
         var admin =
@@ -568,11 +571,7 @@ class UsuariosEstudiantesIntegrationTest {
                                                 null,
                                                 null,
                                                 role("ALUMNO"),
-                                                "usr" + key(),
-                                                "cuenta" + key() + "@example.test",
                                                 "Temporal123!",
-                                                "ALU" + key(),
-                                                null,
                                                 null,
                                                 null,
                                                 Set.of())))
@@ -582,7 +581,7 @@ class UsuariosEstudiantesIntegrationTest {
         var existing =
                 personas.createAlumno(
                         new PersonaDtos.AlumnoCreateRequest(
-                                persona(existingKey), "EST" + existingKey));
+                                persona(existingKey)));
         assertThatThrownBy(
                         () ->
                                 usuarios.provision(
@@ -590,11 +589,7 @@ class UsuariosEstudiantesIntegrationTest {
                                                 existing.persona().id(),
                                                 persona(key()),
                                                 role("ALUMNO"),
-                                                "usr" + key(),
-                                                "cuenta" + key() + "@example.test",
                                                 "Temporal123!",
-                                                "ALU" + key(),
-                                                null,
                                                 null,
                                                 null,
                                                 Set.of())))
@@ -664,11 +659,7 @@ class UsuariosEstudiantesIntegrationTest {
                                 docente.personaId(),
                                 null,
                                 role("APODERADO"),
-                                "usr" + guardianKey,
-                                "cuenta" + guardianKey + "@example.test",
                                 "Temporal123!",
-                                null,
-                                null,
                                 null,
                                 null,
                                 Set.of()));
@@ -681,8 +672,11 @@ class UsuariosEstudiantesIntegrationTest {
                 .isTrue();
         assertThat(accesoRepository.findById(docente.id()).orElseThrow().getEstado())
                 .isEqualTo(EstadoAcceso.ACTIVO);
-        assertThat(accesoRepository.findById(apoderado.id()).orElseThrow().getEstado())
-                .isEqualTo(EstadoAcceso.DESACTIVADO);
+        assertThat(apoderado.id()).isEqualTo(docente.id());
+        assertThat(usuarios.get(docente.id()).roles())
+                .extracting(UsuarioDtos.RolAsignadoResponse::nombre,
+                        UsuarioDtos.RolAsignadoResponse::activo)
+                .containsExactlyInAnyOrder(tuple("DOCENTE", true), tuple("APODERADO", false));
     }
 
     private long role(String name) {
@@ -702,11 +696,7 @@ class UsuariosEstudiantesIntegrationTest {
                 null,
                 persona,
                 roleId,
-                "usr" + key,
-                "cuenta" + key + "@example.test",
                 "Temporal123!",
-                codigoAlumno,
-                codigoDocente,
                 fechaIngreso,
                 especialidad,
                 alumnoIds);

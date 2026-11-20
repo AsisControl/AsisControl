@@ -2,10 +2,10 @@ import type { EstadoJustificacion, EstadoMarca } from "./types";
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-/** "2026-08-17" → "17-08-2026"; la fecha llega del backend y no se ajusta por zona horaria. */
-export const fechaCorta = (iso: string) => iso.slice(0, 10).split("-").reverse().join("-");
+/** "2026-08-17" → "17/08/2026"; la fecha llega del backend y no se ajusta por zona horaria. */
+export const fechaCorta = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-/** "2026-08-17" → "Lun, 17-08-2026". */
+/** "2026-08-17" → "Lun, 17/08/2026". */
 export function fechaSesion(iso: string) {
   const [anio, mes, dia] = iso.split("-").map(Number);
   return `${DIAS[new Date(Date.UTC(anio, mes - 1, dia)).getUTCDay()]}, ${fechaCorta(iso)}`;
@@ -17,7 +17,7 @@ export function horaSesion(hora: string) {
   return `${String(h % 12 || 12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
-/** "2026-08-17T09:40:00" → "17-08-2026 a las 09:40". */
+/** "2026-08-17T09:40:00" → "17/08/2026 a las 09:40". */
 export const fechaHora = (iso: string) => `${fechaCorta(iso)} a las ${iso.slice(11, 16)}`;
 
 export const ESTADOS_MARCA: { estado: EstadoMarca; etiqueta: string }[] = [
@@ -27,7 +27,20 @@ export const ESTADOS_MARCA: { estado: EstadoMarca; etiqueta: string }[] = [
 ];
 
 export const etiquetaMarca = (estado: string) =>
-  ESTADOS_MARCA.find((item) => estado.startsWith(item.estado))?.etiqueta ?? estado;
+  estado === "SIN_MARCACION"
+    ? "Sin marcar"
+    : (ESTADOS_MARCA.find((item) => estado.startsWith(item.estado))?.etiqueta ?? estado);
+
+/**
+ * "hasta las 11:00 AM" o "hasta el final del día". El límite es la siguiente clase del mismo
+ * curso ese día o la medianoche; null si la respuesta no lo trae.
+ */
+export function textoPlazo(sesion: { fecha: string; limiteEdicion?: string }) {
+  if (!sesion.limiteEdicion) return null;
+  return sesion.limiteEdicion.slice(0, 10) === sesion.fecha
+    ? `hasta las ${horaSesion(sesion.limiteEdicion.slice(11, 19))}`
+    : "hasta el final del día";
+}
 
 export type Indicador = { etiqueta: string; tono: "info" | "neutral" | "danger" };
 

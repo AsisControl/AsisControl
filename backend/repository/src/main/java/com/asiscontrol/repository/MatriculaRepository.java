@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
@@ -44,6 +46,37 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
                        LIKE LOWER(CONCAT('%', :busqueda, '%')))
             """)
     Page<Matricula> buscarParaCompromisos(@Param("busqueda") String busqueda, Pageable pageable);
+
+    @Query("""
+            SELECT m FROM Matricula m
+            JOIN m.alumno a JOIN a.persona p
+            WHERE m.activo = true AND a.activo = true AND p.activo = true AND m.estado IN :estados
+              AND (LOWER(a.codigoAlumno) LIKE :filtro
+                   OR LOWER(CONCAT(p.nombres, ' ', p.apellidoPaterno, ' ', COALESCE(p.apellidoMaterno, '')))
+                       LIKE :filtro)
+            ORDER BY m.anioAcademico DESC, m.id DESC
+            """)
+    Page<Matricula> buscarParaRegistrarPromocion(@Param("estados") Collection<EstadoMatricula> estados,
+            @Param("filtro") String filtro, Pageable pagina);
+
+    @Query("""
+            SELECT m FROM Matricula m
+            JOIN m.alumno a JOIN a.persona p
+            WHERE m.activo = true AND a.activo = true AND p.activo = true
+              AND m.anioAcademico = :anio AND m.estado IN :estados
+              AND NOT EXISTS (SELECT otra.id FROM Matricula otra
+                  WHERE otra.activo = true AND otra.alumno.id = a.id AND otra.anioAcademico = :anio
+                    AND otra.estado IN :estados AND (otra.fechaMatricula > m.fechaMatricula
+                         OR (otra.fechaMatricula = m.fechaMatricula AND otra.id > m.id)))
+              AND (:personaApoderadoId IS NULL OR EXISTS (SELECT v.id FROM AlumnoApoderado v
+                  WHERE v.alumno.id = a.id AND v.activo = true AND v.apoderado.activo = true
+                    AND v.apoderado.persona.activo = true AND v.apoderado.persona.id = :personaApoderadoId))
+            ORDER BY p.apellidoPaterno, p.nombres, m.id
+            """)
+    List<Matricula> buscarUltimasValidasDelAnio(@Param("anio") int anio,
+            @Param("estados") Collection<EstadoMatricula> estados,
+            @Param("personaApoderadoId") Long personaApoderadoId);
+
     boolean existsBySeccionId(Long id);
 
     boolean existsByAnioAcademico(int anioAcademico);
@@ -51,6 +84,12 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
     boolean existsBySeccionIdAndActivoTrueAndEstado(Long id, EstadoMatricula estado);
 
     Optional<Matricula> findByIdAndActivoTrue(Long id);
+    Optional<Matricula> findFirstByAlumnoIdAndAnioAcademicoAndActivoTrueAndEstadoInOrderByFechaMatriculaDescIdDesc(
+            Long alumnoId, int anio, Collection<EstadoMatricula> estados);
+    boolean existsByAlumnoIdAndAnioAcademicoAndActivoTrueAndEstadoIn(
+            Long alumnoId, int anio, Collection<EstadoMatricula> estados);
+    boolean existsByAlumnoIdAndAnioAcademicoLessThanAndActivoTrueAndEstadoIn(
+            Long alumnoId, int anio, Collection<EstadoMatricula> estados);
 
     Optional<Matricula> findBySolicitudMatriculaIdAndActivoTrue(Long solicitudMatriculaId);
 

@@ -76,16 +76,16 @@ $env:SPRING_PROFILES_ACTIVE = "local"
 $env:BOOTSTRAP_ENABLED = "true"
 $env:BOOTSTRAP_ADMIN_DOCUMENT = "00000000"
 $env:BOOTSTRAP_ADMIN_EMAIL = "admin@colegio.test"
-$env:BOOTSTRAP_ADMIN_USERNAME = "admin"
 $env:BOOTSTRAP_ADMIN_PASSWORD = "Temporal2026Clave"
 
 .\mvnw.cmd -DskipTests install
 .\mvnw.cmd -f controller\pom.xml spring-boot:run
 ```
 
-La contraseña temporal debe tener entre 8 y 64 caracteres, mayúscula, minúscula y número; no puede
-tener espacios ni contener el nombre de usuario. Al iniciar sesión, el usuario debe cambiarla antes
-de acceder al resto de módulos.
+El log de arranque muestra el código de ocho dígitos cuando crea la cuenta del administrador inicial.
+La contraseña temporal debe tener entre 8 y 64 caracteres y contener mayúscula, minúscula y número.
+Usa una temporal sin espacios y distinta del identificador. Cámbiala al iniciar sesión para acceder
+al resto de módulos.
 
 Cuando el log muestre que Tomcat inició en el puerto `8080`, verifica:
 
@@ -127,7 +127,6 @@ $env:JWT_SECRET = [Convert]::ToBase64String($jwtBytes)
 $env:BOOTSTRAP_ENABLED = "true"
 $env:BOOTSTRAP_ADMIN_DOCUMENT = "00000000"
 $env:BOOTSTRAP_ADMIN_EMAIL = "admin@colegio.test"
-$env:BOOTSTRAP_ADMIN_USERNAME = "admin"
 $env:BOOTSTRAP_ADMIN_PASSWORD = "Temporal2026Clave"
 
 .\mvnw.cmd -DskipTests install
@@ -142,6 +141,8 @@ El perfil `mysql` usa Flyway para versionar el esquema y `ddl-auto=validate` par
 compruebe la compatibilidad. En una base vacía, Flyway aplica
 `V1__baseline_schema.sql`, que es la versión oficial actual del esquema. No modifiques una migración
 ya aplicada: Flyway valida su checksum.
+
+Si actualizas una instalación con cuentas existentes, revisa el corte de autenticación. [Autenticación unificada](../docs/AUTENTICACION_UNIFICADA.md#migración-y-puesta-en-servicio)
 
 Los archivos recibidos externamente, incluidos SQL que no estén dentro de
 `controller/src/main/resources/db/migration`, no se ejecutan automáticamente y no deben mezclarse
@@ -202,6 +203,10 @@ No edite una migración que ya haya sido aplicada. Flyway valida sus checksums y
 
 Todos los listados grandes admiten paginación y filtros. Las entidades JPA nunca se exponen directamente: cada endpoint utiliza DTO de solicitud y respuesta.
 
+El contrato de recálculo por alumno y período, las fuentes de los indicadores,
+el historial y el resumen institucional se describen en
+[Evaluación de riesgo por período](docs/riesgo-criterios.md).
+
 ## Formato uniforme de errores
 
 ```json
@@ -217,6 +222,36 @@ Todos los listados grandes admiten paginación y filtros. Las entidades JPA nunc
 ```
 
 La API nunca devuelve stack traces, nombres de excepciones internas ni mensajes SQL.
+
+## Referencia de los compromisos de pago
+
+Las emisiones sin código explícito reciben una referencia corta `CP-000001`,
+`CP-000002`, etc. El correlativo es global, se guarda en `ContadorCodigoCompromiso`
+y no se reinicia al cambiar de año, reiniciar el backend o anular un compromiso.
+La referencia es independiente del número de cuota, la matrícula y el identificador
+interno del registro. Los seis dígitos son un ancho mínimo: la secuencia puede crecer.
+
+La migración Flyway `V10__correlativo_codigo_compromiso.sql` agrega únicamente el
+contador. No renumera compromisos existentes ni modifica sus transacciones o
+auditoría. La primera emisión recupera el mayor sufijo numérico legado bajo bloqueo;
+si solo existen UUID o referencias externas, la nueva serie comienza en uno.
+
+El contador se bloquea en base de datos dentro de la misma transacción de emisión,
+para que dos administradores reciban referencias diferentes. Las anulaciones
+conservan su código y no liberan números. Una emisión revertida tampoco confirma el
+avance del contador. No se utiliza un contador en memoria ni `MAX + 1` sin bloqueo.
+
+Por compatibilidad con integraciones anteriores, el campo opcional
+`codigoCompromiso` sigue admitiendo códigos externos únicos. Estas emisiones también
+toman el bloqueo; si proporcionan un código numérico `CP-000100`, la siguiente
+referencia automática continuará en `CP-000101`. Por ello pueden existir saltos por
+referencias externas o históricas. Los identificadores numéricos legados que exceden
+el rango de un entero de 64 bits se conservan como referencias opacas. La interfaz
+web omite este campo y siempre obtiene la referencia automática del backend.
+
+Para producción se debe desplegar el nuevo backend y permitir que Flyway ejecute
+V10 sobre la base existente. En el perfil local con `ddl-auto=update`, JPA crea la
+tabla y su fila se inicializa al emitir; los datos persistidos se conservan.
 
 ## Verificación
 

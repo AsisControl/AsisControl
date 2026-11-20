@@ -1,5 +1,7 @@
 import {
   clearSession,
+  getSessionSnapshot,
+  readContextRevision,
   readSession,
   renewSession,
 } from "@/core/auth/session-storage";
@@ -12,6 +14,7 @@ const SESSION_PATHS = new Set([
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/refresh",
+  "/api/auth/rol-activo",
 ]);
 export type ApiOptions = RequestInit & {
   /** Tiempo máximo de espera; las cargas de archivos necesitan más. */
@@ -50,13 +53,28 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+function ensureContext(revision: number | undefined, path: string) {
+  if (
+    revision !== undefined &&
+    (revision !== readContextRevision() ||
+      (getSessionSnapshot().contextSuspended && path !== "/api/auth/logout"))
+  )
+    throw new ApiError(
+      "El rol de la sesión cambió. Vuelve a la pantalla principal.",
+      409,
+      "CONTEXTO_DE_SESION_CAMBIO",
+    );
+}
+
 async function request(
   path: string,
   { timeoutMs = DEFAULT_TIMEOUT_MS, ...options }: ApiOptions,
   authenticated: boolean,
   accept: string,
+  revision: number | undefined,
   retried = false,
 ): Promise<Response> {
+  ensureContext(revision, path);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -74,6 +92,7 @@ async function request(
       signal: controller.signal,
       cache: "no-store",
     });
+    ensureContext(revision, path);
     if (
       response.status === 401 &&
       session &&
@@ -81,12 +100,15 @@ async function request(
       !retried &&
       !SESSION_PATHS.has(path) &&
       (await renewSession())
-    )
-      // Otra pestaña pudo renovar la sesión y dejar vencido este token: se repite una vez.
-      return request(path, { timeoutMs, ...options }, authenticated, accept, true);
+    ) {
+      // Una renovación puede actualizar el token. Repite solo en el mismo contexto.
+      ensureContext(revision, path);
+      return request(path, { timeoutMs, ...options }, authenticated, accept, revision, true);
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => null);
-      if (response.status === 401 && path !== "/api/auth/login") clearSession();
+      ensureContext(revision, path);
+      if (response.status === 401 && authenticated && !SESSION_PATHS.has(path)) clearSession();
       throw new ApiError(
         body?.message ||
           (response.status === 403
@@ -116,14 +138,17 @@ export async function api<T>(
   options: ApiOptions = {},
   authenticated = true,
 ): Promise<T> {
+  const revision = authenticated && readSession() ? readContextRevision() : undefined;
   const response = await request(
     path,
     options,
     authenticated,
     "application/json",
+    revision,
   );
   const body =
     response.status === 204 ? null : await response.json().catch(() => null);
+  ensureContext(revision, path);
   return body as T;
 }
 /** Descarga un archivo (por ejemplo, una plantilla Excel) con la sesión actual. */
@@ -131,8 +156,11 @@ export async function apiBlob(
   path: string,
   options: ApiOptions = {},
 ): Promise<Blob> {
-  const response = await request(path, options, true, "*/*");
-  return response.blob();
+  const revision = readSession() ? readContextRevision() : undefined;
+  const response = await request(path, options, true, "*/*", revision);
+  const result = await response.blob();
+  ensureContext(revision, path);
+  return result;
 }
 export const message = (error: unknown) =>
   error instanceof Error ? error.message : "No se pudo completar la operación.";

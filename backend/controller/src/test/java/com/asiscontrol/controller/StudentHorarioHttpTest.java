@@ -58,6 +58,8 @@ class StudentHorarioHttpTest extends ApiIntegrationSupport {
         mvc.perform(get("/api/horarios").with(alumno())).andExpect(status().isForbidden());
         mvc.perform(get("/api/horarios/" + ajeno.getId()).with(alumno()))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/api/aulas/" + ajeno.getAula().getId() + "/horarios").with(alumno()))
+                .andExpect(status().isForbidden());
         mvc.perform(delete("/api/horarios/" + propio.getId()).with(jwt()
                 .jwt(j -> j.claim("personaId", student.getPersona().getId()))
                 .authorities(new SimpleGrantedAuthority("ROLE_ALUMNO"),

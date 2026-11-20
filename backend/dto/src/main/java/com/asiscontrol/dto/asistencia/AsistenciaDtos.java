@@ -1,9 +1,11 @@
 package com.asiscontrol.dto.asistencia;
 
 import com.asiscontrol.dto.archivo.ArchivoDtos.ArchivoResponse;
+import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoCodigoQR;
 import com.asiscontrol.entity.enums.EstadoJustificacion;
+import com.asiscontrol.entity.enums.EstadoVerificacionClase;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -35,19 +37,20 @@ public final class AsistenciaDtos {
             Long justificacionId,
             EstadoJustificacion estadoJustificacion,
             String motivoJustificacion,
-            String observacionRevision
+            String observacionRevision,
+            LocalTime horaSesion,
+            Integer anioAcademico,
+            String periodo
     ) {
     }
 
     public record EmitirCodigoQRRequest(
-            @NotNull Long docenteId,
             @Min(30) @Max(900) Integer vigenciaSegundos
     ) {
     }
 
     public record CodigoQRResponse(
             Long id,
-            Long docenteId,
             String token,
             LocalDateTime fechaHoraEmision,
             LocalDateTime fechaHoraExpiracion,
@@ -78,7 +81,29 @@ public final class AsistenciaDtos {
             EstadoAsistencia estado,
             boolean contingencia,
             String motivoContingencia,
-            long version
+            long version,
+            Long sesionClaseId,
+            EstadoVerificacionClase verificacion,
+            String docenteNombre
+    ) {
+    }
+
+    public record ResumenMarcacionResponse(
+            LocalDate fecha,
+            long totalDocentes,
+            long marcaron,
+            long pendientesConfirmacion,
+            long sinMarcar
+    ) {
+    }
+
+    public record ClaseDiaDocenteResponse(
+            Long sesionId,
+            String curso,
+            String seccion,
+            LocalTime horaInicio,
+            LocalTime horaFin,
+            EstadoSesionClase estado
     ) {
     }
 

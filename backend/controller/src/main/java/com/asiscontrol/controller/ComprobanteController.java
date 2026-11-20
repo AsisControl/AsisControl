@@ -42,14 +42,14 @@ public class ComprobanteController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@moduloAccessGuard.puedeAccederComprobante(#id)")
+    @PreAuthorize("hasAuthority('PAGOS_LEER') and @moduloAccessGuard.puedeAccederComprobante(#id)")
     public PagoDto.ComprobanteResponse obtener(@PathVariable Long id) {
         return pagoService.obtenerComprobante(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('PAGOS_ESCRIBIR')")
+    @PreAuthorize("hasAuthority('PAGOS_ESCRIBIR') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'SECRETARIA', 'TESORERIA')")
     public PagoDto.ComprobanteResponse emitir(
             @Valid @RequestBody PagoDto.ComprobanteRequest request
     ) {

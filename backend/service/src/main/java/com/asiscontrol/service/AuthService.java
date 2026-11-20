@@ -2,17 +2,21 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.auth.AuthDtos;
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.SesionAcceso;
 import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.enums.EstadoSesion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
+import com.asiscontrol.repository.AccesoUsuarioRolRepository;
+import com.asiscontrol.repository.TokenRecuperacionRepository;
 import com.asiscontrol.repository.SesionAccesoRepository;
 import com.asiscontrol.security.AuthenticatedUser;
 import com.asiscontrol.security.JwtService;
 import com.asiscontrol.util.HashUtils;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,17 +25,18 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class AuthService {
-
-    @org.springframework.beans.factory.annotation.Autowired
-    private com.asiscontrol.repository.TokenRecuperacionRepository recuperaciones;
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final Duration LOCK_DURATION = Duration.ofMinutes(15);
@@ -42,6 +47,8 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditoriaService auditoriaService;
+    private final AccesoUsuarioRolRepository asignaciones;
+    private final TokenRecuperacionRepository recuperaciones;
 
     public AuthService(
             AuthenticationManager authenticationManager,
@@ -49,13 +56,17 @@ public class AuthService {
             SesionAccesoRepository sesionRepository,
             JwtService jwtService,
             PasswordEncoder passwordEncoder,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            AccesoUsuarioRolRepository asignaciones,
+            TokenRecuperacionRepository recuperaciones) {
         this.authenticationManager = authenticationManager;
         this.usuarioRepository = usuarioRepository;
         this.sesionRepository = sesionRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.auditoriaService = auditoriaService;
+        this.asignaciones = asignaciones;
+        this.recuperaciones = recuperaciones;
     }
 
     @Transactional(noRollbackFor = AuthenticationException.class)
@@ -68,8 +79,9 @@ public class AuthService {
                         && locked.getBloqueadoHasta().isAfter(Instant.now());
         try {
             if (bloqueado
-                    || request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length
-                            > 72) throw new BadCredentialsException("Credenciales invalidas");
+                    || request.password().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+                throw new BadCredentialsException("Credenciales invalidas");
+            }
             Authentication authentication =
                     authenticationManager.authenticate(
                             new UsernamePasswordAuthenticationToken(
@@ -82,22 +94,26 @@ public class AuthService {
             usuario.setUltimoAcceso(Instant.now());
             usuarioRepository.save(usuario);
 
-            JwtService.GeneratedToken token = jwtService.generate(principal);
+            var disponibles = rolesDisponibles(usuario);
+            Instant ahora = Instant.now().truncatedTo(ChronoUnit.SECONDS);
             SesionAcceso sesion = new SesionAcceso();
             sesion.setUsuario(usuario);
-            sesion.setTokenHash(HashUtils.sha256(token.value()));
-            sesion.setFechaCreacion(token.issuedAt());
-            sesion.setUltimaActividad(token.issuedAt());
-            // Límite absoluto de la sesión, independiente de los JWT cortos que se renuevan.
-            sesion.setFechaExpiracion(token.issuedAt().plus(Duration.ofHours(8)));
+            if (disponibles.size() == 1) sesion.setRolActivo(disponibles.getFirst());
+            // La identidad de sesión debe existir antes de firmar el primer token.
+            sesion.setTokenHash(HashUtils.sha256(UUID.randomUUID().toString()));
+            sesion.setFechaCreacion(ahora);
+            sesion.setUltimaActividad(ahora);
+            sesion.setFechaExpiracion(ahora.plus(Duration.ofHours(8)));
             sesion.setEstado(EstadoSesion.VIGENTE);
             sesionRepository.save(sesion);
 
-            auditoriaService.registrarAcceso("INICIAR_SESION", usuario, ResultadoAuditoria.EXITOSO);
-            return new AuthDtos.AuthResponse(
-                    "Bearer", token.value(), token.expiresAt(), toUserSummary(usuario));
+            auditoriaService.registrarAcceso("INICIAR_SESION", usuario,
+                    sesion.getRolActivo(), ResultadoAuditoria.EXITOSO);
+            return emitirRespuesta(sesion, disponibles);
         } catch (AuthenticationException exception) {
-            if (!bloqueado) registerFailedAttempt(identifier);
+            if (!bloqueado && locked != null && locked.getEstado() == EstadoAcceso.ACTIVO) {
+                registrarIntentoFallido(locked);
+            }
             auditoriaService.registrar(
                     "INICIAR_SESION",
                     ModuloAuditoria.SEGURIDAD,
@@ -111,37 +127,50 @@ public class AuthService {
         }
     }
 
-    @Transactional
-    public void logout(String tokenValue) {
-        sesionRepository
-                .findByTokenHashAndEstado(HashUtils.sha256(tokenValue), EstadoSesion.VIGENTE)
-                .ifPresent(
-                        session -> {
-                            session.setEstado(EstadoSesion.REVOCADA);
-                            session.setFechaRevocacion(Instant.now());
-                            sesionRepository.save(session);
-                            auditoriaService.registrar(
-                                    "CERRAR_SESION",
-                                    ModuloAuditoria.SEGURIDAD,
-                                    "SesionAcceso",
-                                    session.getId().toString(),
-                                    ResultadoAuditoria.EXITOSO,
-                                    null,
-                                    null,
-                                    null);
-                        });
-    }
-
     @Transactional(readOnly = true)
     public AuthDtos.UserSummary getCurrentUser(Jwt jwt) {
-        AccesoUsuario usuario =
-                usuarioRepository
-                        .findActiveByIdentifier(jwt.getSubject())
-                        .orElseThrow(
-                                () ->
-                                        new BadCredentialsException(
-                                                "La cuenta ya no esta disponible"));
-        return toUserSummary(usuario);
+        SesionAcceso sesion = sesionRepository.findById(reclamo(jwt, "sesionId"))
+                .filter(s -> contextoVigente(s, jwt))
+                .orElseThrow(this::sesionInvalida);
+        return toUserSummary(sesion, rolesDisponibles(sesion.getUsuario()));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public AuthDtos.AuthResponse cambiarRol(Jwt jwt, AuthDtos.RolActivoRequest request) {
+        SesionAcceso sesion = sesionRepository.bloquear(reclamo(jwt, "sesionId"))
+                .filter(s -> contextoVigente(s, jwt))
+                .orElseThrow(this::sesionInvalida);
+        if (sesion.getUsuario().isRequiereCambioContrasena()) {
+            throw new AccessDeniedException("Debes cambiar tu contraseña antes de elegir un rol.");
+        }
+        var disponibles = rolesDisponibles(sesion.getUsuario());
+        Rol nuevo = disponibles.stream().filter(rol -> rol.getNombre().equals(request.rol()))
+                .findFirst().orElseThrow(() -> new AccessDeniedException("El rol no está disponible."));
+        Rol anterior = sesion.getRolActivo();
+        String nombreAnterior = anterior == null ? null : anterior.getNombre();
+        if (!Objects.equals(nombreAnterior, nuevo.getNombre())) {
+            sesion.setRolActivo(nuevo);
+            sesion.setVersionContexto(sesion.getVersionContexto() + 1);
+            auditoriaService.registrarComo(sesion.getUsuario(), nuevo, "CAMBIAR_ROL_ACTIVO",
+                    ModuloAuditoria.SEGURIDAD, "SesionAcceso", sesion.getId().toString(),
+                    ResultadoAuditoria.EXITOSO, null, nombreAnterior, nuevo.getNombre());
+        }
+        return emitirRespuesta(sesion, disponibles);
+    }
+
+    private boolean contextoVigente(SesionAcceso sesion, Jwt jwt) {
+        return sesion.getEstado() == EstadoSesion.VIGENTE
+                && sesion.getVersionContexto() == reclamo(jwt, "versionContexto")
+                && sesion.getUsuario().getId().equals(reclamo(jwt, "usuarioId"));
+    }
+
+    private long reclamo(Jwt jwt, String nombre) {
+        if (jwt.getClaims().get(nombre) instanceof Number valor) return valor.longValue();
+        throw sesionInvalida();
+    }
+
+    private BadCredentialsException sesionInvalida() {
+        return new BadCredentialsException("La sesión ya no está vigente.");
     }
 
     @Transactional
@@ -154,7 +183,7 @@ public class AuthService {
                                         new BadCredentialsException(
                                                 "La cuenta ya no esta disponible"));
         com.asiscontrol.security.PasswordPolicy.validate(
-                request.newPassword(), usuario.getUsername());
+                request.newPassword(), usuario.getCodigo());
         if (request.currentPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
                 || !passwordEncoder.matches(
                         request.currentPassword(), usuario.getContrasenaHash())) {
@@ -183,36 +212,47 @@ public class AuthService {
                 null);
     }
 
-    private void registerFailedAttempt(String identifier) {
-        usuarioRepository
-                .findActiveByIdentifier(identifier)
-                .ifPresent(
-                        usuario -> {
-                            int attempts = usuario.getIntentosFallidos() + 1;
-                            usuario.setIntentosFallidos(attempts);
-                            if (attempts >= MAX_FAILED_ATTEMPTS) {
-                                usuario.setEstado(EstadoAcceso.BLOQUEADO_TEMPORALMENTE);
-                                usuario.setBloqueadoHasta(Instant.now().plus(LOCK_DURATION));
-                            }
-                            usuarioRepository.save(usuario);
-                        });
+    private void registrarIntentoFallido(AccesoUsuario usuario) {
+        int intentos = usuario.getIntentosFallidos() + 1;
+        usuario.setIntentosFallidos(intentos);
+        if (intentos >= MAX_FAILED_ATTEMPTS) {
+            usuario.setEstado(EstadoAcceso.BLOQUEADO_TEMPORALMENTE);
+            usuario.setBloqueadoHasta(Instant.now().plus(LOCK_DURATION));
+        }
+        usuarioRepository.save(usuario);
     }
 
-    AuthDtos.UserSummary toUserSummary(AccesoUsuario usuario) {
-        List<String> permissions =
-                usuario.getRol().getPermisos().stream()
-                        .filter(permission -> permission.isActivo())
-                        .map(permission -> permission.getCodigo())
-                        .sorted()
-                        .toList();
+    List<Rol> rolesDisponibles(AccesoUsuario usuario) {
+        if (usuario.isRequiereCambioContrasena()) return List.of();
+        return asignaciones.buscarDisponibles(usuario.getId());
+    }
+
+    AuthDtos.AuthResponse emitirRespuesta(SesionAcceso sesion, List<Rol> disponibles) {
+        JwtService.GeneratedToken token = jwtService.generate(sesion);
+        sesion.setTokenHash(HashUtils.sha256(token.value()));
+        return new AuthDtos.AuthResponse("Bearer", token.value(), token.expiresAt(),
+                toUserSummary(sesion, disponibles));
+    }
+
+    private AuthDtos.UserSummary toUserSummary(SesionAcceso sesion, List<Rol> disponibles) {
+        var usuario = sesion.getUsuario();
+        Rol activo = sesion.getRolActivo();
+        List<String> permisos = activo == null ? List.of() : activo.getPermisos().stream()
+                .filter(permiso -> permiso.isActivo())
+                .map(permiso -> permiso.getCodigo())
+                .sorted()
+                .toList();
         return new AuthDtos.UserSummary(
                 usuario.getId(),
                 usuario.getPersona().getId(),
                 usuario.getUsername(),
                 usuario.getCorreo(),
                 usuario.getPersona().nombreCompleto(),
-                usuario.getRol().getNombre(),
-                permissions,
-                usuario.isRequiereCambioContrasena());
+                activo == null ? null : activo.getNombre(),
+                permisos,
+                usuario.isRequiereCambioContrasena(),
+                disponibles.stream().map(Rol::getNombre).toList(),
+                sesion.getId(),
+                sesion.getVersionContexto());
     }
 }

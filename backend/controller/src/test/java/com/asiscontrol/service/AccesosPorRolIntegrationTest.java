@@ -6,6 +6,7 @@ import com.asiscontrol.entity.enums.*;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.repository.*;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,6 +25,8 @@ class AccesosPorRolIntegrationTest {
     @Autowired PersonaService personas;
     @Autowired PersonaRepository personaRepo;
     @Autowired AccesoUsuarioRepository accesoRepo;
+    @Autowired AccesoUsuarioRolRepository asignaciones;
+    @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
     @Autowired DocenteRepository docenteRepo;
     @Autowired ApoderadoRepository apoderadoRepo;
     @Autowired AlumnoApoderadoRepository links;
@@ -37,29 +40,45 @@ class AccesosPorRolIntegrationTest {
     }
     private UsuarioDtos.ProvisionRequest request(String rol, Long id, Set<Long> studentIds) {
         String k = key();
-        return new UsuarioDtos.ProvisionRequest(id, id == null ? person(k) : null, role(rol),
-            "usr" + k, "cuenta" + k + "@example.test", "Temporal123!", "EST" + k, "DOC" + k,
+        return new UsuarioDtos.ProvisionRequest(id, id == null ? person(k) : null, role(rol), "Temporal123!",
             LocalDate.now(), Especialidad.MATEMATICA, studentIds);
     }
 
-    @Test void permiteDocenteYApoderadoSeparadosEnUnaPersona() {
-        var first = service.provision(request("DOCENTE", null, Set.of()));
-        var second = service.provision(request("APODERADO", first.personaId(), Set.of()));
-        assertThat(second.id()).isNotEqualTo(first.id());
-        assertThat(second.personaId()).isEqualTo(first.personaId());
-        assertThat(accesoRepo.findAllByPersonaIdAndActivoTrue(first.personaId())).hasSize(2);
-        assertThat(docenteRepo.findByPersonaIdAndActivoTrue(first.personaId())).isPresent();
-        assertThat(apoderadoRepo.findByPersonaIdAndActivoTrue(first.personaId())).isPresent();
+    @Test void reutilizaCuentaYContrasenaAlCrearUnSegundoPerfil() {
+        var identidad = person(key());
+        var docente = personas.createDocente(new PersonaDtos.DocenteCreateRequest(
+                identidad, LocalDate.now(), Especialidad.MATEMATICA));
+        var primero = docente.credencialAcceso();
+        var apoderado = personas.createApoderado(new PersonaDtos.ApoderadoCreateRequest(identidad));
+        var despues = apoderado.credencialAcceso();
+
+        assertThat(docente.persona().id()).isEqualTo(apoderado.persona().id());
+        assertThat(primero.accessCode()).matches("[0-9]{8}");
+        assertThat(primero.temporaryPassword()).isNotBlank();
+        assertThat(despues.username()).isEqualTo(primero.username());
+        assertThat(despues.email()).isEqualTo(primero.email());
+        assertThat(despues.temporaryPassword()).isNull();
+        assertThat(primero.code()).matches("DOC[0-9]{8}");
+        assertThat(despues.code()).matches("APO[0-9]{8}");
+        var cuenta = accesoRepo.findByPersonaId(docente.persona().id()).orElseThrow();
+        assertThat(encoder.matches(primero.temporaryPassword(), cuenta.getContrasenaHash())).isTrue();
+        assertThat(cuenta.isRequiereCambioContrasena()).isTrue();
+        assertThat(asignaciones.findAllByUsuarioId(cuenta.getId()))
+                .extracting(asignacion -> asignacion.getRol().getNombre())
+                .containsExactlyInAnyOrder("DOCENTE", "APODERADO");
     }
-    @Test void noDuplicaAccesoDelMismoRol() {
-        var first = service.provision(request("ADMINISTRADOR", null, Set.of()));
-        assertThatThrownBy(() -> service.provision(request("ADMINISTRADOR", first.personaId(), Set.of())))
-            .isInstanceOf(ConflictException.class);
+
+    @Test void registrarDosVecesAdministradorConservaCuentaYTemporal() {
+        var primero = service.registrarAdministrador(
+                new UsuarioDtos.RegistroAdministradorRequest(null, person(key())));
+        var personaId = service.get(primero.id()).personaId();
+        var segundo = service.registrarAdministrador(
+                new UsuarioDtos.RegistroAdministradorRequest(personaId, null));
+        assertThat(segundo.id()).isEqualTo(primero.id());
+        assertThat(segundo.contrasenaTemporal()).isNull();
+        assertThat(service.get(primero.id()).roles()).hasSize(1);
     }
-    @Test void obligaCambioInicialInclusoEnCreacionDirecta() {
-        var first = service.provision(request("ALUMNO", null, Set.of()));
-        assertThat(first.requiereCambioContrasena()).isTrue();
-    }
+
     @Test void vinculaApoderadoConEstudianteHabilitado() {
         var personaRequest = person(key());
         // La ficha secundaria ahora exige 10–20 años; los otros perfiles conservan su fixture adulto.
@@ -71,7 +90,7 @@ class AccesosPorRolIntegrationTest {
                 LocalDate.now(java.time.ZoneId.of("America/Lima")).minusYears(14),
                 personaRequest.telefono(), personaRequest.correo(), personaRequest.direccion());
         var student = personas.createAlumno(
-                new PersonaDtos.AlumnoCreateRequest(studentPerson, "EST" + key()));
+                new PersonaDtos.AlumnoCreateRequest(studentPerson));
         var guardian = service.provision(request("APODERADO", null, Set.of(student.id())));
         var profile = apoderadoRepo.findByPersonaIdAndActivoTrue(guardian.personaId()).orElseThrow();
         var link = links.findByAlumnoIdAndApoderadoIdAndActivoTrue(student.id(), profile.getId()).orElseThrow();
@@ -83,22 +102,40 @@ class AccesosPorRolIntegrationTest {
             "doc" + key(), key() + "@example.test", "Temporal123!", false)))
             .isInstanceOf(ConflictException.class);
     }
-    @Test void noPermiteCambiarRolDeCuentaExistente() {
-        var first = service.provision(request("DOCENTE", null, Set.of()));
-        assertThatThrownBy(() -> service.update(first.id(), new UsuarioDtos.UpdateRequest(role("APODERADO"),
-            first.correo(), EstadoAcceso.ACTIVO))).isInstanceOf(ConflictException.class);
+    @Test void revocarRolDeDocenteNoAfectaElAccesoDeApoderado() {
+        var primero = service.provision(request("DOCENTE", null, Set.of()));
+        var ambos = service.provision(request("APODERADO", primero.personaId(), Set.of()));
+        var resultado = service.cambiarRol(ambos.id(), role("DOCENTE"),
+                new UsuarioDtos.CambiarRolRequest(false, "Fin de la asignación docente"));
+        assertThat(resultado.estado()).isEqualTo(EstadoAcceso.ACTIVO);
+        assertThat(resultado.roles()).extracting(UsuarioDtos.RolAsignadoResponse::nombre,
+                UsuarioDtos.RolAsignadoResponse::activo)
+                .containsExactlyInAnyOrder(Assertions.tuple("APODERADO", true),
+                        Assertions.tuple("DOCENTE", false));
+        assertThat(docenteRepo.findByPersonaIdAndActivoTrue(primero.personaId())).isPresent();
     }
+
     @Test void rechazaPasswordTemporalDebil() {
         var r = request("ADMINISTRADOR", null, Set.of());
-        var weak = new UsuarioDtos.ProvisionRequest(r.personaId(), r.persona(), r.rolId(), r.username(), r.correo(),
-            "soloMinusculas", null, null, null, null, Set.of());
+        var weak = new UsuarioDtos.ProvisionRequest(r.personaId(), r.persona(), r.rolId(),
+            "soloMinusculas", null, null, Set.of());
         assertThatThrownBy(() -> service.provision(weak)).isInstanceOf(BusinessRuleException.class);
     }
     @Test void exigeExclusividadEntrePersonaNuevaYExistente() {
         var first = service.provision(request("DOCENTE", null, Set.of()));
         var r = request("APODERADO", null, Set.of());
-        var ambiguous = new UsuarioDtos.ProvisionRequest(first.personaId(), r.persona(), r.rolId(), r.username(),
-            r.correo(), r.password(), null, null, null, null, Set.of());
+        var ambiguous = new UsuarioDtos.ProvisionRequest(first.personaId(), r.persona(), r.rolId(), r.password(), null, null, Set.of());
         assertThatThrownBy(() -> service.provision(ambiguous)).isInstanceOf(BusinessRuleException.class);
+    }
+    @Test void temporalUnicaTieneLaVigenciaConfigurada() {
+        var antes = java.time.Instant.now();
+        var acceso = service.registrarAdministrador(
+                new UsuarioDtos.RegistroAdministradorRequest(null, person(key())));
+        assertThat(acceso.codigo()).matches("[0-9]{8}");
+        assertThat(acceso.correo()).isEqualTo("a" + acceso.codigo() + "@asiscontrol.edu.pe");
+        assertThat(acceso.contrasenaTemporal()).isNotBlank();
+        assertThat(acceso.contrasenaTemporalExpira())
+                .isBetween(antes.plus(java.time.Duration.ofDays(14)).minusSeconds(5),
+                        java.time.Instant.now().plus(java.time.Duration.ofDays(14)));
     }
 }

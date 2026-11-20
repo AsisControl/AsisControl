@@ -17,6 +17,7 @@ import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
+import com.asiscontrol.repository.AccesoUsuarioRolRepository;
 import com.asiscontrol.repository.AlumnoApoderadoRepository;
 import com.asiscontrol.repository.AsistenciaAlumnoRepository;
 import com.asiscontrol.repository.JustificacionAsistenciaRepository;
@@ -43,10 +44,8 @@ public class JustificacionAsistenciaService {
             EstadoAsistencia.INASISTENCIA,
             EstadoAsistencia.SIN_MARCACION);
 
-    // asistencia alumnos: el apoderado solo solicita sobre inasistencias
-    private static final Set<EstadoAsistencia> ESTADOS_SOLICITABLES = Set.of(
-            EstadoAsistencia.INASISTENCIA,
-            EstadoAsistencia.SIN_MARCACION);
+    // asistencia alumnos: el apoderado solo solicita sobre inasistencias; "sin marcar" no es una falta
+    private static final Set<EstadoAsistencia> ESTADOS_SOLICITABLES = Set.of(EstadoAsistencia.INASISTENCIA);
 
     private final JustificacionAsistenciaRepository justificacionRepository;
     private final AsistenciaAlumnoRepository asistenciaRepository;
@@ -57,6 +56,7 @@ public class JustificacionAsistenciaService {
     private final NotificacionService notificaciones;
     private final AlumnoApoderadoRepository vinculoRepository;
     private final AccesoUsuarioRepository accesoRepository;
+    private final AccesoUsuarioRolRepository asignacionesAcceso;
 
     public JustificacionAsistenciaService(
             JustificacionAsistenciaRepository justificacionRepository,
@@ -67,7 +67,8 @@ public class JustificacionAsistenciaService {
             AuditoriaService auditoria,
             NotificacionService notificaciones,
             AlumnoApoderadoRepository vinculoRepository,
-            AccesoUsuarioRepository accesoRepository) {
+            AccesoUsuarioRepository accesoRepository,
+            AccesoUsuarioRolRepository asignacionesAcceso) {
         this.justificacionRepository = justificacionRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.asistenciaService = asistenciaService;
@@ -77,6 +78,7 @@ public class JustificacionAsistenciaService {
         this.notificaciones = notificaciones;
         this.vinculoRepository = vinculoRepository;
         this.accesoRepository = accesoRepository;
+        this.asignacionesAcceso = asignacionesAcceso;
     }
 
     @Transactional
@@ -313,9 +315,10 @@ public class JustificacionAsistenciaService {
         vinculoRepository.findAllByAlumnoIdAndActivoTrue(asistencia.getAlumno().getId()).stream()
                 .flatMap(vinculo -> accesoRepository
                         .findAllByPersonaIdAndActivoTrue(vinculo.getApoderado().getPersona().getId()).stream())
-                .filter(acceso -> "APODERADO".equals(acceso.getRol().getNombre()))
-                .forEach(acceso -> notificaciones.create(
-                        acceso.getId(), titulo, mensaje, TipoNotificacion.ASISTENCIA, "/asistencia"));
+                .filter(acceso -> asignacionesAcceso
+                        .existsByUsuarioIdAndRolNombreAndActivoTrue(acceso.getId(), "APODERADO"))
+                .forEach(acceso -> notificaciones.create(acceso.getId(), titulo, mensaje,
+                        TipoNotificacion.ASISTENCIA, "/asistencia", "APODERADO"));
     }
 
     private JustificacionAsistenciaResponse mapResponse(JustificacionAsistencia justificacion) {

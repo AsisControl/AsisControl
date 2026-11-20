@@ -23,16 +23,12 @@ export function CourseFormDialog({
     const form = new FormData(event.currentTarget);
     const text = (key: string) => String(form.get(key) || "").trim();
     const gradoAcademicoId = Number(form.get("gradoAcademicoId"));
-    if (!gradoAcademicoId) {
-      setError("Selecciona el año académico y el grado del curso.");
-      return;
-    }
     const input = {
       codigo: text("codigo"),
       nombre: text("nombre"),
       descripcion: text("descripcion") || null,
       horasSemanales: Number(form.get("horasSemanales")),
-      gradoAcademicoId,
+      gradoAcademicoId: gradoAcademicoId || null,
     };
     setBusy(true);
     setError("");
@@ -51,7 +47,7 @@ export function CourseFormDialog({
       description={
         course
           ? `${course.nombre} · ${course.codigo}`
-          : "Agrega un curso al plan curricular de un grado y año académico."
+          : "Agrega un curso al catálogo. Puedes incluirlo en distintos planes de estudios."
       }
       submitLabel={course ? "Guardar cambios" : "Crear curso"}
       busy={busy}

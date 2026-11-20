@@ -1,0 +1,342 @@
+.page {
+  background: #eef2fa;
+  min-height: 100svh;
+}
+
+.masthead {
+  background: #fff;
+  border-bottom: 1px solid #e6ebf5;
+}
+
+.mastheadContent {
+  margin-inline: auto;
+  max-width: 1600px;
+  padding: 4px clamp(24px, 6.4vw, 104px);
+}
+
+.mastheadContent img {
+  width: clamp(176px, 16vw, 256px);
+}
+
+.mastheadContent p {
+  font-size: clamp(14px, 1.4vw, 21px);
+}
+
+.workspace {
+  margin-inline: auto;
+  max-width: 1152px;
+  padding: clamp(40px, 7.6vh, 76px) 24px 36px;
+}
+
+.intro {
+  margin-bottom: clamp(28px, 4.1vw, 42px);
+  text-align: center;
+}
+
+.avatar {
+  align-items: center;
+  background: var(--access-blue);
+  border: 5px solid #d5dff2;
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  font-size: clamp(21px, 2vw, 28px);
+  font-weight: 700;
+  height: clamp(64px, 7vw, 84px);
+  justify-content: center;
+  width: clamp(64px, 7vw, 84px);
+}
+
+.greeting {
+  color: var(--access-blue);
+  font-size: clamp(16px, 1.7vw, 22px);
+  font-weight: 650;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.intro h1 {
+  color: #141c34;
+  font-size: clamp(31px, 3.7vw, 58px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  margin: 20px 0 0;
+  text-wrap: balance;
+}
+
+.description {
+  color: #45516a;
+  font-size: clamp(15px, 1.5vw, 22px);
+  line-height: 1.5;
+  margin: 15px auto 0;
+  max-width: 72ch;
+  text-wrap: pretty;
+}
+
+.form {
+  margin-top: 16px;
+}
+
+.page .form {
+  margin-top: 0;
+}
+
+.roles {
+  border: 0;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.role {
+  --role-card-text: color-mix(in srgb, var(--role-accent-on-brand) 18%, #fff);
+  align-items: center;
+  background: var(--role-card-background);
+  border: 2px solid color-mix(in srgb, var(--role-accent-on-brand) 45%, transparent);
+  border-radius: 8px;
+  box-shadow: inset 0 3px 0 var(--role-accent-on-brand);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.role:has(input:not(:disabled)):hover {
+  border-color: var(--role-accent-on-brand);
+}
+
+.role:has(:checked) {
+  border-color: var(--role-accent-on-brand);
+  box-shadow: inset 0 0 0 2px var(--role-accent-on-brand), 0 8px 20px #263d7326;
+}
+
+.role:has(input:focus-visible) {
+  outline: 2px solid #2457ac;
+  outline-offset: 3px;
+}
+
+.role:has(:disabled) {
+  cursor: default;
+}
+
+.role input {
+  accent-color: var(--role-accent-on-brand);
+  appearance: auto;
+  margin: 0;
+}
+
+.role input:focus-visible {
+  outline: none;
+}
+
+.role strong,
+.role small {
+  display: block;
+}
+
+.role small {
+  color: var(--role-card-text);
+  margin-top: 2px;
+}
+
+.icon {
+  background: var(--role-accent-on-brand);
+  border-radius: 8px;
+  color: var(--role-card-background);
+  display: grid;
+  height: 32px;
+  place-content: center;
+  width: 32px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.page .roles {
+  gap: clamp(14px, 1.6vw, 24px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.page .roles:has(.role:only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.page .role {
+  align-items: start;
+  border-radius: 20px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  padding: clamp(19px, 2.1vw, 32px);
+  position: relative;
+}
+
+.page .role input {
+  height: 1px;
+  inset: 0 auto auto 0;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.page .icon {
+  border-radius: 15px;
+  grid-area: 1 / 1;
+  height: clamp(48px, 4.2vw, 62px);
+  width: clamp(48px, 4.2vw, 62px);
+}
+
+.indicator {
+  border: 2px solid var(--role-accent-on-brand);
+  border-radius: 50%;
+  color: var(--role-card-background);
+  display: grid;
+  grid-area: 1 / 2;
+  height: clamp(27px, 2.3vw, 35px);
+  margin-top: 3px;
+  place-items: center;
+  width: clamp(27px, 2.3vw, 35px);
+}
+
+.indicator svg {
+  visibility: hidden;
+}
+
+.role:has(:checked) .indicator {
+  background: var(--role-accent-on-brand);
+}
+
+.role:has(:checked) .indicator svg {
+  visibility: visible;
+}
+
+.page .roleText {
+  grid-column: 1 / -1;
+}
+
+.page .roleText strong {
+  font-size: clamp(22px, 2vw, 30px);
+  line-height: 1.2;
+}
+
+.page .roleText small {
+  font-size: clamp(15px, 1.25vw, 18px);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.shortcuts {
+  border-top: 1px solid color-mix(in srgb, var(--role-accent-on-brand) 45%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 10px;
+  grid-column: 1 / -1;
+  padding-top: 15px;
+}
+
+.shortcuts span {
+  background: color-mix(in srgb, var(--role-card-background) 82%, #000);
+  border-radius: 999px;
+  color: var(--role-card-text);
+  font-size: clamp(12px, 1.1vw, 16px);
+  padding: 5px 13px;
+}
+
+.page .actions {
+  margin-top: clamp(20px, 3vw, 38px);
+}
+
+.page .actions button {
+  font-size: clamp(16px, 1.6vw, 23px);
+  min-height: clamp(52px, 4.3vw, 64px);
+  padding-inline: clamp(18px, 2.2vw, 35px);
+}
+
+.account {
+  align-items: center;
+  color: #45516a;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: clamp(14px, 1.25vw, 18px);
+  gap: 0 18px;
+  justify-content: center;
+  margin-top: clamp(28px, 4vw, 44px);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.account strong {
+  color: #141c34;
+}
+
+.account button {
+  color: var(--access-blue);
+  font-weight: 650;
+  min-height: 44px;
+  padding: 4px 8px;
+}
+
+.account button:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (min-width: 681px) and (max-height: 920px) {
+  .workspace {
+    padding-block: clamp(28px, 6vh, 54px) 24px;
+  }
+
+  .intro {
+    margin-bottom: 32px;
+  }
+
+  .account {
+    margin-top: 32px;
+  }
+}
+
+@media (max-width: 680px) {
+  .mastheadContent {
+    padding: 14px 20px;
+  }
+
+  .mastheadContent img {
+    width: 139px;
+  }
+
+  .mastheadContent p {
+    font-size: 12px;
+  }
+
+  .workspace {
+    max-width: 520px;
+    padding: 28px 20px 24px;
+  }
+
+  .intro h1 {
+    margin-top: 14px;
+  }
+
+  .description {
+    margin-top: 10px;
+  }
+
+  .page .roles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page .actions button {
+    width: 100%;
+  }
+}

@@ -18,6 +18,8 @@ export type RecordPerson = {
 /** PersonaDtos.ApoderadoResponse. */
 export type Guardian = {
   id: number;
+  /** APO{AÑO}{####}; null en registros anteriores a los códigos institucionales. */
+  codigoApoderado: string | null;
   persona: RecordPerson;
   alumnos: {
     id: number;

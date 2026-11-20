@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, PanelHeading } from "@/shared/ui";
+import { Feedback, FormDialog, PanelHeading, Loading } from "@/shared/ui";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { scheduleSlotLabel } from "../lib/labels";
 import {
@@ -246,7 +246,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
         }
       />
       {sections === null ? (
-        <p role="status">Cargando secciones…</p>
+        <Loading skeleton="timetable">Cargando secciones…</Loading>
       ) : !years.length ? (
         <p className="empty">
           No hay secciones habilitadas. Créalas en «Configuración académica»
@@ -325,9 +325,9 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
           </div>
           <Feedback error={loadError} success={success} />
           {loading || (filterValue !== null && !blocks && !loadError) ? (
-            <p role="status">Cargando horario…</p>
+            <Loading skeleton="timetable">Cargando horario…</Loading>
           ) : perspective !== "seccion" && !viewCatalogs ? (
-            !loadError && <p role="status">Cargando opciones…</p>
+            !loadError && <Loading skeleton="list" rows={2}>Cargando opciones…</Loading>
           ) : (
             !loadError && (
               <TimetableGrid

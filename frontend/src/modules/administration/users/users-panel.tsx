@@ -1,19 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Eye, Feedback, Pager, RowMenu, type MenuOption } from "@/shared/ui";
+import { Eye, Feedback, Pager, RowMenu, type MenuOption, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { roleLabel } from "@/shared/lib/formatters";
 import type { Account, Role } from "../types";
+import { AccountRoles } from "./account-roles";
 import { DeactivateAccessDialog } from "./deactivate-access-dialog";
 import { EditAccessDialog } from "./edit-access-dialog";
+import { ManageRolesDialog } from "./manage-roles-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { listarRoles, USUARIOS_PATH } from "./services/usuarioService";
 import {
   accessStates,
   dateTimeLabel,
   initialsOf,
-  rolePillClass,
   stateLabels,
   statePillClass,
 } from "./user-format";
@@ -83,9 +84,13 @@ export function UsersPanel({
   function menuOptions(account: Account): MenuOption[] {
     const open = (kind: UserDialogKind) => () => openDialog(kind, account);
     if (String(account.id) === currentUserId)
-      return [{ label: "Editar correo", onSelect: open("edit") }];
+      return [
+        { label: "Editar correo", onSelect: open("edit") },
+        { label: "Administrar roles", onSelect: open("roles") },
+      ];
     return [
       { label: "Editar", onSelect: open("edit") },
+      { label: "Administrar roles", onSelect: open("roles") },
       { label: "Restablecer contraseña", onSelect: open("reset") },
       ...(account.estado === "DESACTIVADO"
         ? []
@@ -109,7 +114,7 @@ export function UsersPanel({
             </p>
           </div>
           <button className="primary-action" onClick={onCreate}>
-            + Nuevo usuario
+            + Registrar administrador
           </button>
         </div>
         <div className={styles.filters}>
@@ -167,15 +172,16 @@ export function UsersPanel({
           </select>
         </div>
         {users.loading ? (
-          <p role="status">Cargando usuarios…</p>
+          <Loading>Cargando usuarios…</Loading>
         ) : users.data?.content.length ? (
           <div className={styles.tableWrap}>
             <table className={`user-table ${styles.table}`}>
               <thead>
                 <tr>
                   <th>Nombre</th>
+                  <th>Código</th>
                   <th>Usuario</th>
-                  <th>Rol</th>
+                  <th>Roles</th>
                   <th>Estado</th>
                   <th>Último acceso</th>
                   <th>Acciones</th>
@@ -192,11 +198,10 @@ export function UsersPanel({
                         <strong>{account.nombreCompleto}</strong>
                       </div>
                     </td>
+                    <td data-label="Código">{account.codigo}</td>
                     <td data-label="Usuario">{account.username}</td>
-                    <td data-label="Rol">
-                      <span className={rolePillClass(account.rol)}>
-                        {roleLabel(account.rol)}
-                      </span>
+                    <td data-label="Roles">
+                      <AccountRoles account={account} />
                     </td>
                     <td data-label="Estado">
                       <span className={statePillClass(account.estado)}>
@@ -246,6 +251,14 @@ export function UsersPanel({
           isCurrentUser={String(dialog.account.id) === currentUserId}
           onClose={dialog.close}
           onSaved={() => finish("Acceso actualizado.")}
+        />
+      )}
+      {dialog.account && dialog.kind === "roles" && (
+        <ManageRolesDialog
+          account={dialog.account}
+          roles={roles}
+          onClose={dialog.close}
+          onSaved={() => finish("Roles actualizados.")}
         />
       )}
       {dialog.account && dialog.kind === "reset" && (

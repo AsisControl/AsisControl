@@ -1,40 +1,8 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import styles from "./new-user.module.css";
 const SEARCH_DELAY_MS = 300;
-/** Tarjeta de un paso del formulario: número (o ✓ al completarlo), título y contenido. */
-export function StepCard({
-  number,
-  title,
-  description,
-  done,
-  children,
-}: {
-  number: number;
-  title: string;
-  description: string;
-  done: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <section className={styles.card} aria-labelledby={`paso-${number}`}>
-      <div className={styles.stepHeading}>
-        <span
-          className={`${styles.stepNumber} ${done ? styles.stepDone : ""}`}
-          aria-hidden="true"
-        >
-          {done ? <CheckIcon /> : number}
-        </span>
-        <div>
-          <h3 id={`paso-${number}`}>{title}</h3>
-          <p>{description}</p>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-export function CheckIcon({ size = 14 }: { size?: number }) {
+export function CheckIcon({ size }: { size: number }) {
   return (
     <svg
       viewBox="0 0 24 24"

@@ -49,12 +49,13 @@ class ImportacionDocenteHttpTest {
 
     private static final String IMPORTACIONES = "/api/docentes/importaciones";
     private static final List<String> COLUMNAS = List.of(
-            "codigoDocente", "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
-            "apellidoMaterno", "sexo", "fechaNacimiento", "fechaIngreso", "especialidad",
-            "telefono", "correo", "direccion");
+            "tipoDocumento", "numeroDocumento", "nombres", "apellidoPaterno",
+            "apellidoMaterno", "sexo", "fechaNacimiento", "nacionalidad", "fechaIngreso",
+            "especialidad", "telefono", "correo", "direccion");
 
     @Autowired WebApplicationContext context;
     @Autowired DocenteRepository docentes;
+    @Autowired com.asiscontrol.repository.PersonaRepository personas;
     @Autowired RegistroAuditoriaRepository auditorias;
     private final ObjectMapper json = new ObjectMapper();
     private MockMvc mvc;
@@ -89,15 +90,21 @@ class ImportacionDocenteHttpTest {
 
         assertThat(resultado.path("totalRows").asInt()).isEqualTo(1);
         assertThat(resultado.path("importedRows").asInt()).isEqualTo(1);
-        assertThat(docentes.findByCodigoDocenteIgnoreCase(fila.get(0))).isEmpty();
+        assertThat(docente(fila)).isEmpty();
         assertThat(auditoriasDe(archivo)).isEmpty();
+        // El análisis anticipa usuario y código, pero nunca entrega una contraseña.
+        JsonNode credencial = resultado.path("credentials").get(0);
+        assertThat(credencial.path("accessCode").asText()).matches("[0-9]{8}");
+        assertThat(credencial.path("temporaryPassword").isNull()).isTrue();
     }
 
     @Test
     void confirmarCreaLasFilasValidasConTodosSusDatosYAuditaElLote() throws Exception {
         List<String> completa = filaValida();
         List<String> sinOpcionales = filaValida();
+        sinOpcionales.set(7, "");
         sinOpcionales.set(10, "");
+        sinOpcionales.set(11, "");
         sinOpcionales.set(12, "");
         String archivo = "lote-" + UUID.randomUUID() + ".xlsx";
 
@@ -105,15 +112,29 @@ class ImportacionDocenteHttpTest {
 
         assertThat(resultado.path("importedRows").asInt()).isEqualTo(2);
         assertThat(resultado.path("rejectedRows").asInt()).isZero();
-        Docente creado = docentes.findByCodigoDocenteIgnoreCase(completa.get(0)).orElseThrow();
-        assertThat(creado.getCodigoDocente()).isEqualTo(completa.get(0).toUpperCase());
+        Docente creado = docente(completa).orElseThrow();
+        int anio = LocalDate.now(java.time.ZoneId.of("America/Lima")).getYear();
+        assertThat(creado.getCodigoDocente()).matches("DOC" + anio + "[0-9]{4}");
+        assertThat(docente(sinOpcionales).orElseThrow().getCodigoDocente())
+                .isNotEqualTo(creado.getCodigoDocente());
         assertThat(creado.getFechaIngreso()).isEqualTo(LocalDate.of(2020, 3, 1));
         assertThat(creado.getEspecialidad()).isEqualTo(Especialidad.MATEMATICA);
         assertThat(creado.isActivo()).isTrue();
-        assertThat(docentes.findByCodigoDocenteIgnoreCase(sinOpcionales.get(0))).isPresent();
         RegistroAuditoria lote = auditoriasDe(archivo).get(0);
         assertThat(lote.getAccion()).isEqualTo("IMPORTAR_DOCENTES");
-        assertThat(lote.getNuevoValor()).contains("filas=2", "importados=2", "fallidos=0");
+        assertThat(lote.getNuevoValor()).contains(
+                "filas=2", "importados=2", "fallidos=0", "accesosCreados=2", "accesosExistentes=0");
+        JsonNode credencial = resultado.path("credentials").get(0);
+        String contrasena = credencial.path("temporaryPassword").asText();
+        assertThat(contrasena).hasSize(12);
+        assertThat(credencial.path("code").asText()).isEqualTo(creado.getCodigoDocente());
+        assertThat(credencial.path("accessCode").asText()).matches("[0-9]{8}");
+        assertThat(credencial.path("email").asText())
+                .isEqualTo("a" + credencial.path("accessCode").asText() + "@asiscontrol.edu.pe");
+        // La contraseña no queda en la auditoría.
+        assertThat(auditorias.findAll()).noneMatch(registro ->
+                String.valueOf(registro.getNuevoValor()).contains(contrasena)
+                        || String.valueOf(registro.getValorAnterior()).contains(contrasena));
     }
 
     @Test
@@ -122,10 +143,9 @@ class ImportacionDocenteHttpTest {
         importar(libro(existente), true, status().isOk());
 
         List<String> valida = filaValida();
-        List<String> codigoRepetido = filaValida();
-        codigoRepetido.set(0, existente.get(0));
+        List<String> yaRegistrado = new ArrayList<>(existente);
         List<String> documentoRepetidoEnElArchivo = new ArrayList<>(valida);
-        documentoRepetidoEnElArchivo.set(0, "D" + clave());
+        documentoRepetidoEnElArchivo.set(11, "otro" + clave() + "@example.test");
         List<String> sinCorreo = filaValida();
         sinCorreo.set(11, "");
         List<String> especialidadInvalida = filaValida();
@@ -133,43 +153,43 @@ class ImportacionDocenteHttpTest {
         List<String> ingresoFuturo = filaValida();
         ingresoFuturo.set(8, LocalDate.now().plusDays(1).toString());
         List<String> fechaIlegible = filaValida();
-        fechaIlegible.set(7, "ayer");
+        fechaIlegible.set(6, "ayer");
         List<String> documentoInvalido = filaValida();
-        documentoInvalido.set(2, "12");
+        documentoInvalido.set(1, "12");
 
-        JsonNode resultado = importar(libro(valida, codigoRepetido, documentoRepetidoEnElArchivo,
+        JsonNode resultado = importar(libro(valida, yaRegistrado, documentoRepetidoEnElArchivo,
                 sinCorreo, especialidadInvalida, ingresoFuturo, fechaIlegible, documentoInvalido),
                 true, status().isOk());
 
         assertThat(resultado.path("totalRows").asInt()).isEqualTo(8);
-        assertThat(resultado.path("importedRows").asInt()).isEqualTo(1);
-        assertThat(resultado.path("rejectedRows").asInt()).isEqualTo(7);
+        // El correo es opcional: la fila sin correo se registra.
+        assertThat(resultado.path("importedRows").asInt()).isEqualTo(2);
+        assertThat(resultado.path("rejectedRows").asInt()).isEqualTo(6);
         assertThat(resultado.path("issues").findValuesAsText("row"))
-                .containsExactly("3", "4", "5", "6", "7", "8", "9");
+                .containsExactly("3", "4", "6", "7", "8", "9");
         List<String> motivos = resultado.path("issues").findValuesAsText("message");
-        assertThat(motivos.get(0)).isEqualTo("El codigo del docente ya existe");
+        assertThat(motivos.get(0)).containsIgnoringCase("docente");
         assertThat(motivos.get(1)).containsIgnoringCase("docente");
-        assertThat(motivos.get(2)).isEqualTo("La columna correo es obligatoria");
-        assertThat(motivos.get(3)).isEqualTo("El valor de especialidad no esta permitido");
-        assertThat(motivos.get(4)).contains("futuro");
-        assertThat(motivos.get(5)).contains("fechaNacimiento");
-        assertThat(motivos.get(6)).containsIgnoringCase("documento");
-        assertThat(docentes.findByCodigoDocenteIgnoreCase(valida.get(0))).isPresent();
-        assertThat(docentes.findByCodigoDocenteIgnoreCase(documentoRepetidoEnElArchivo.get(0))).isEmpty();
+        assertThat(motivos.get(2)).isEqualTo("El valor de especialidad no esta permitido");
+        assertThat(motivos.get(3)).contains("futuro");
+        assertThat(motivos.get(4)).contains("fechaNacimiento");
+        assertThat(motivos.get(5)).containsIgnoringCase("documento");
+        assertThat(resultado.path("credentials").findValuesAsText("row")).containsExactly("2", "5");
+        assertThat(docente(valida)).isPresent();
+        assertThat(docentes.count()).isGreaterThanOrEqualTo(2);
     }
 
     @Test
     void elAnalisisDetectaRepetidosDentroDelMismoArchivoYNoGuarda() throws Exception {
         List<String> primera = filaValida();
-        List<String> mismoCodigo = filaValida();
-        mismoCodigo.set(0, primera.get(0));
+        List<String> mismoDocumento = new ArrayList<>(primera);
 
-        JsonNode resultado = importar(libro(primera, mismoCodigo), false, status().isOk());
+        JsonNode resultado = importar(libro(primera, mismoDocumento), false, status().isOk());
 
         assertThat(resultado.path("importedRows").asInt()).isEqualTo(1);
         assertThat(resultado.path("issues").findValuesAsText("message"))
-                .containsExactly("El codigo del docente ya existe");
-        assertThat(docentes.findByCodigoDocenteIgnoreCase(primera.get(0))).isEmpty();
+                .containsExactly("La persona con este documento ya esta registrada como docente");
+        assertThat(docente(primera)).isEmpty();
     }
 
     @Test
@@ -181,7 +201,7 @@ class ImportacionDocenteHttpTest {
     }
 
     @Test
-    void soloAdministracionYSecretariaImportan() throws Exception {
+    void soloAdministracionImporta() throws Exception {
         byte[] archivo = libro(filaValida());
         mvc.perform(multipart(IMPORTACIONES).file(archivo("d.xlsx", archivo)))
                 .andExpect(status().isUnauthorized());
@@ -192,7 +212,7 @@ class ImportacionDocenteHttpTest {
         mvc.perform(get(IMPORTACIONES + "/plantilla").with(comoRol("DOCENTE")))
                 .andExpect(status().isForbidden());
         mvc.perform(multipart(IMPORTACIONES).file(archivo("d.xlsx", archivo)).with(comoRol("SECRETARIA")))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     private List<RegistroAuditoria> auditoriasDe(String archivo) {
@@ -214,6 +234,9 @@ class ImportacionDocenteHttpTest {
                         .param("confirmar", String.valueOf(confirmar))
                         .with(comoRol("ADMINISTRADOR")))
                 .andExpect(esperado)
+                // La respuesta puede traer contraseñas temporales: no se guarda en caché.
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
                 .andReturn().getResponse().getContentAsByteArray();
         return json.readTree(respuesta);
     }
@@ -228,11 +251,18 @@ class ImportacionDocenteHttpTest {
                 .authorities(new SimpleGrantedAuthority("ROLE_" + rol));
     }
 
+    /** Docente importado con el documento de la fila (el código lo genera el sistema). */
+    private java.util.Optional<Docente> docente(List<String> fila) {
+        return personas.findByTipoDocumentoAndNumeroDocumento(
+                        com.asiscontrol.entity.enums.TipoDocumento.valueOf(fila.get(0)), fila.get(1))
+                .flatMap(persona -> docentes.findByPersonaIdAndActivoTrue(persona.getId()));
+    }
+
     private List<String> filaValida() {
         String clave = clave();
         return new ArrayList<>(List.of(
-                "d" + clave, "PASAPORTE", clave.toUpperCase(), "Patricia", "Morales", "Rios", "FEMENINO",
-                "1985-03-14", "2020-03-01", "MATEMATICA", "999888777", clave + "@example.test", "Lima"));
+                "PASAPORTE", clave.toUpperCase(), "Patricia", "Morales", "Rios", "FEMENINO",
+                "1985-03-14", "Peruana", "2020-03-01", "MATEMATICA", "999888777", clave + "@example.test", "Lima"));
     }
 
     private String clave() {

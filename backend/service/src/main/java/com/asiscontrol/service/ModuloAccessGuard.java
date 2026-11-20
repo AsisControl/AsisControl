@@ -45,7 +45,35 @@ public class ModuloAccessGuard {
         }
     }
 
-    // asistencia alumnos: solo el docente asignado registra o corrige (R01); el administrador no
+    public void verificarConsultaInforme(AsignacionCurso asignacion, Long alumnoId) {
+        if (tieneAlgunRol("ALUMNO", "APODERADO")) {
+            if (!puedeAccederAlumno(alumnoId)) {
+                throw new AccessDeniedException("No puede consultar las notas de este alumno");
+            }
+            return;
+        }
+        verificarAsignacionDocente(asignacion);
+    }
+
+    public boolean esAdministradorAsistencia() {
+        return tieneRol("ADMINISTRADOR") && autenticacionActual().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ASISTENCIA_ESCRIBIR"));
+    }
+
+    /** US-32 amplía solo la corrección, no la toma inicial ni la finalización. */
+    public void verificarCorreccionAsistencia(AsignacionCurso asignacion) {
+        if (esAdministradorAsistencia()) return;
+        verificarDocenteTitular(asignacion);
+    }
+
+    public String identificadorActual() { return autenticacionActual().getName(); }
+
+    public String nombrePersonaActual() {
+        var persona = entityManager.find(com.asiscontrol.entity.Persona.class, personaIdActual());
+        return persona == null ? identificadorActual() : persona.nombreCompleto();
+    }
+
+    // Solo el docente asignado registra y finaliza la asistencia inicial.
     public void verificarDocenteTitular(AsignacionCurso asignacion) {
         if (!tieneRol("DOCENTE")
                 || !asignacion.getDocente().getPersona().getId().equals(personaIdActual())) {
@@ -59,6 +87,38 @@ public class ModuloAccessGuard {
         }
         if (!tieneRol("ALUMNO") || !alumno.getPersona().getId().equals(personaIdActual())) {
             throw new AccessDeniedException("No puede registrar una entrega para otro alumno");
+        }
+    }
+
+    /** asistencia alumnos: pedir el historial de otro estudiante se rechaza en vez de devolver una lista vacía. */
+    public void verificarConsultaAsistenciaAlumno(Long alumnoId) {
+        if (alumnoId == null) {
+            return;
+        }
+        if (tieneRol("ALUMNO")) {
+            Long propios = entityManager.createQuery("""
+                            SELECT COUNT(a) FROM Alumno a
+                            WHERE a.id = :alumnoId AND a.persona.id = :personaId
+                            """, Long.class)
+                    .setParameter("alumnoId", alumnoId)
+                    .setParameter("personaId", personaIdActual())
+                    .getSingleResult();
+            if (propios == 0) {
+                throw new AccessDeniedException("Solo puede consultar su propia asistencia");
+            }
+        } else if (tieneRol("APODERADO")) {
+            Long vinculos = entityManager.createQuery("""
+                            SELECT COUNT(v) FROM AlumnoApoderado v
+                            WHERE v.activo = true
+                              AND v.alumno.id = :alumnoId
+                              AND v.apoderado.persona.id = :personaId
+                            """, Long.class)
+                    .setParameter("alumnoId", alumnoId)
+                    .setParameter("personaId", personaIdActual())
+                    .getSingleResult();
+            if (vinculos == 0) {
+                throw new AccessDeniedException("El estudiante no está asociado al apoderado");
+            }
         }
     }
 
@@ -495,7 +555,9 @@ public class ModuloAccessGuard {
             return true;
         }
         Long personaId = personaIdActual();
-        if (esPropietarioArchivo(archivoId, personaId)) {
+        boolean esEvidenciaDocente = tieneRol("DOCENTE") && esArchivoDeEvidencia(archivoId);
+        if (esEvidenciaDocente ? puedeAccederArchivoEvidencia(archivoId, personaId)
+                : esPropietarioArchivo(archivoId, personaId)) {
             return true;
         }
         if (tieneRol("DOCENTE")) {
@@ -599,6 +661,26 @@ public class ModuloAccessGuard {
                         """, Long.class)
                 .setParameter("id", alertaId)
                 .setParameter("personaId", personaIdActual())
+                .getSingleResult() > 0;
+    }
+
+    private boolean esArchivoDeEvidencia(Long archivoId) {
+        return entityManager.createQuery("""
+                        SELECT COUNT(e) FROM EvidenciaPedagogica e WHERE e.archivo.id = :id
+                        """, Long.class)
+                .setParameter("id", archivoId)
+                .getSingleResult() > 0;
+    }
+
+    private boolean puedeAccederArchivoEvidencia(Long archivoId, Long personaId) {
+        return entityManager.createQuery("""
+                        SELECT COUNT(e) FROM EvidenciaPedagogica e
+                        WHERE e.archivo.id = :id AND e.activo = true AND e.archivo.activo = true
+                            AND e.asignacion.activo = true AND e.asignacion.docente.activo = true
+                            AND e.asignacion.docente.persona.id = :personaId
+                        """, Long.class)
+                .setParameter("id", archivoId)
+                .setParameter("personaId", personaId)
                 .getSingleResult() > 0;
     }
 
@@ -706,6 +788,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = c.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", compromisoId)
                 .setParameter("personaId", personaIdActual())
@@ -729,6 +813,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = t.compromisoPago.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", transaccionId)
                 .setParameter("personaId", personaIdActual())
@@ -752,6 +838,8 @@ public class ModuloAccessGuard {
                           AND v.activo = true
                           AND v.alumno.id = c.transaccionPago.compromisoPago.matricula.alumno.id
                           AND v.apoderado.persona.id = :personaId
+                          AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                          AND v.alumno.activo = true AND v.alumno.persona.activo = true
                         """, Long.class)
                 .setParameter("id", comprobanteId)
                 .setParameter("personaId", personaIdActual())

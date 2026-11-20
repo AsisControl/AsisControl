@@ -34,16 +34,34 @@ public final class PagoDto {
             @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal montoTotal,
             @NotBlank @Pattern(regexp = "PEN", message = "Los compromisos se emiten en soles (PEN)") String moneda,
             @NotNull LocalDate fechaVencimiento,
-            @NotNull @Min(1) Integer numeroCuota
+            @Min(1) Integer numeroCuota,
+            Long idConcepto,
+            @Size(max=100) String referenciaCobro
     ) {
+        public CompromisoRequest(Long idMatricula,String codigoCompromiso,String concepto,String descripcion,
+                BigDecimal montoTotal,String moneda,LocalDate fechaVencimiento,Integer numeroCuota) {
+            this(idMatricula,codigoCompromiso,concepto,descripcion,montoTotal,moneda,fechaVencimiento,numeroCuota,null,null);
+        }
     }
 
     public record CompromisoActualizacionRequest(
             @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal montoTotal,
             @NotNull LocalDate fechaVencimiento,
             @NotBlank @Size(max = 500) String motivo,
-            @NotNull @Min(0) Long version
+            @NotNull @Min(0) Long version,
+            // Campos calculados por el sistema: si el cliente los envía, la modificación se rechaza.
+            EstadoCompromisoPago estado,
+            EstadoCompromisoPago estadoFinanciero,
+            BigDecimal montoPagado,
+            BigDecimal saldo
     ) {
+        public CompromisoActualizacionRequest(BigDecimal montoTotal, LocalDate fechaVencimiento, String motivo, Long version) {
+            this(montoTotal, fechaVencimiento, motivo, version, null, null, null, null);
+        }
+
+        public boolean intentaCambiarEstadoFinanciero() {
+            return estado != null || estadoFinanciero != null || montoPagado != null || saldo != null;
+        }
     }
 
     public record CompromisoAnulacionRequest(
@@ -89,7 +107,57 @@ public final class PagoDto {
             String codigoMatricula,
             String motivoAnulacion,
             Instant fechaAnulacion,
-            long version
+            long version,
+            Long idConcepto,Integer mes,String referenciaCobro,BigDecimal montoBase,BigDecimal montoDescuento,
+            String beneficioNombre,Long idBeneficio,Long idTarifa,Long tarifaVersion,
+            Integer grado,
+            String seccion,
+            Long idSeccion
+    ) {
+    }
+
+    /** Cantidades y montos de los compromisos de un estado dentro del filtro consultado. */
+    public record ResumenEstadoResponse(
+            EstadoCompromisoPago estado,
+            long cantidad,
+            BigDecimal montoTotal,
+            BigDecimal montoPagado,
+            BigDecimal saldo
+    ) {
+    }
+
+    public record IndicadoresMorosidadResponse(
+            BigDecimal montoVencido,
+            long compromisosVencidos,
+            long estudiantesMorosos
+    ) {
+    }
+
+    public record ResumenCompromisosResponse(
+            LocalDate fechaCalculo,
+            long cantidad,
+            BigDecimal montoTotal,
+            BigDecimal montoPagado,
+            BigDecimal saldo,
+            List<ResumenEstadoResponse> porEstado,
+            IndicadoresMorosidadResponse morosidad
+    ) {
+    }
+
+    /** Una transacción del compromiso en su secuencia, con el efecto que tuvo sobre el saldo. */
+    public record MovimientoCompromisoResponse(
+            int secuencia,
+            TransaccionResponse transaccion,
+            boolean aplicaAlSaldo,
+            BigDecimal pagadoAcumulado,
+            BigDecimal saldoResultante,
+            ComprobanteResponse comprobante
+    ) {
+    }
+
+    public record CompromisoDetalleResponse(
+            CompromisoResponse compromiso,
+            List<MovimientoCompromisoResponse> movimientos
     ) {
     }
 
@@ -116,7 +184,12 @@ public final class PagoDto {
             EstadoTransaccionPago estado,
             Instant fechaTransaccion,
             String observacion,
-            Instant fechaCreacion
+            Instant fechaCreacion,
+            Long idAlumno,
+            String alumno,
+            String codigoAlumno,
+            String codigoCompromiso,
+            String concepto
     ) {
     }
 

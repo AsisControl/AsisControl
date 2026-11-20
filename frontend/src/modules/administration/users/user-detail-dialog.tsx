@@ -1,11 +1,10 @@
 "use client";
 import { Dialog } from "@/shared/ui";
-import { roleLabel } from "@/shared/lib/formatters";
 import type { Account } from "../types";
+import { AccountRoles } from "./account-roles";
 import {
   dateTimeLabel,
   initialsOf,
-  rolePillClass,
   stateLabels,
   statePillClass,
 } from "./user-format";
@@ -29,9 +28,7 @@ export function UserDetailDialog({
         <div>
           <h3>{account.nombreCompleto}</h3>
           <div className={styles.pillRow}>
-            <span className={rolePillClass(account.rol)}>
-              {roleLabel(account.rol)}
-            </span>
+            <AccountRoles account={account} />
             <span className={statePillClass(account.estado)}>
               {stateLabels[account.estado] ?? account.estado}
             </span>
@@ -40,6 +37,10 @@ export function UserDetailDialog({
       </div>
       <p className={styles.sectionTitle}>Cuenta</p>
       <dl className="detail-grid">
+        <div>
+          <dt>Código de acceso</dt>
+          <dd>{account.codigo}</dd>
+        </div>
         <div>
           <dt>Usuario</dt>
           <dd>{account.username}</dd>

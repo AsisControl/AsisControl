@@ -26,7 +26,13 @@ public final class AuthDtos {
             String nombreCompleto,
             String rol,
             List<String> permisos,
-            boolean requiereCambioContrasena) {}
+            boolean requiereCambioContrasena,
+            List<String> rolesDisponibles,
+            Long sesionId,
+            long versionContexto) {}
+
+    public record RolActivoRequest(
+            @NotBlank(message = "Selecciona un rol válido.") @Size(max = 30) String rol) {}
 
     public record ChangePasswordRequest(
             @NotBlank(message = "La contrasena actual es obligatoria") String currentPassword,

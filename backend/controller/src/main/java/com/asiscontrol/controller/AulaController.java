@@ -65,7 +65,9 @@ public class AulaController {
         return aulaService.habilitar(id, request);
     }
 
+    /** US-30: incluye bloques de cualquier sección; el alumno usa /api/horarios/mio. */
     @GetMapping("/{id}/horarios")
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER') and !hasRole('ALUMNO')")
     public List<HorarioResponse> horarios(@PathVariable Long id) {
         return aulaService.horarios(id);
     }

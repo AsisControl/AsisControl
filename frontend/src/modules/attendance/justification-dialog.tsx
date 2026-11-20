@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { descargarArchivo } from "@/modules/tasks";
-import { Dialog, Feedback } from "@/shared/ui";
+import { Dialog, Feedback, Loading } from "@/shared/ui";
 import { fechaHora, fechaSesion, horaSesion, indicadorJustificacion } from "./lib";
 import {
   aprobarJustificacion,
@@ -101,7 +101,7 @@ export function JustificationDialog({
           )}
         </dl>
       )}
-      {!justificacion && !error && <p role="status">Cargando justificación…</p>}
+      {!justificacion && !error && <Loading skeleton="detail" rows={4}>Cargando justificación…</Loading>}
       {decision === "aprobar" && (
         <p className={styles.avisoInfo}>
           La inasistencia quedará como justificada. Esta decisión no se puede deshacer.

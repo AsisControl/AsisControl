@@ -8,6 +8,7 @@ import {
   Pager,
   ReasonField,
   StatusPill,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { stateLabel } from "@/shared/lib/formatters";
@@ -223,7 +224,7 @@ export function AcademicConfiguration() {
         <Feedback error={years.error} />
       </div>
       {years.loading && !years.data && (
-        <p role="status">Cargando configuración…</p>
+        <Loading skeleton="panels">Cargando configuración…</Loading>
       )}
       {!years.loading && !years.error && !sorted.length && (
         <div className={styles.infoNotice} role="note">

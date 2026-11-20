@@ -1,11 +1,14 @@
-import { API_BASE_URL, api, message } from "@/core/api/client";
+import { API_BASE_URL, ApiError, api, message } from "@/core/api/client";
 import { clearSession } from "./session-storage";
 import type { AuthService, AuthSession, UserRole } from "./types";
 export type UserSummary = {
   id: number;
   username: string;
   nombreCompleto: string;
-  rol: string;
+  rol: string | null;
+  rolesDisponibles: string[];
+  sesionId: number;
+  versionContexto: number;
   permisos: string[];
   requiereCambioContrasena: boolean;
 };
@@ -14,12 +17,23 @@ export type AuthResponse = {
   expiresAt: string;
   user: UserSummary;
 };
+const roles: ReadonlySet<string> = new Set([
+  "ADMINISTRADOR", "DOCENTE", "ESTUDIANTE", "APODERADO",
+]);
+function fromBackendRole(role: string): UserRole | null {
+  const name = role === "ALUMNO" ? "ESTUDIANTE" : role;
+  return roles.has(name) ? name as UserRole : null;
+}
+
 export function mapAuth(r: AuthResponse): AuthSession {
-  const role = r.user.rol === "ALUMNO" ? "ESTUDIANTE" : r.user.rol;
-  if (!["ADMINISTRADOR", "DOCENTE", "ESTUDIANTE", "APODERADO"].includes(role))
+  const role = r.user.rol === null ? null : fromBackendRole(r.user.rol);
+  if (r.user.rol !== null && !role)
     throw new Error(
       "El rol de este acceso no está habilitado en esta interfaz.",
     );
+  const availableRoles = (r.user.rolesDisponibles ?? (role ? [role] : []))
+    .map(fromBackendRole)
+    .filter((candidate): candidate is UserRole => candidate !== null);
   return {
     accessToken: r.accessToken,
     expiresAt: r.expiresAt,
@@ -27,8 +41,11 @@ export function mapAuth(r: AuthResponse): AuthSession {
       id: String(r.user.id),
       username: r.user.username,
       fullName: r.user.nombreCompleto,
-      role: role as UserRole,
-      permissions: r.user.permisos,
+      role,
+      availableRoles: [...new Set(availableRoles)],
+      sessionId: String(r.user.sesionId ?? r.user.id),
+      contextVersion: r.user.versionContexto ?? 0,
+      permissions: role ? r.user.permisos : [],
       requiresPasswordChange: r.user.requiereCambioContrasena,
     },
   };
@@ -48,19 +65,30 @@ export const httpAuthService: AuthService = {
               identifier: credentials.username.trim(),
               password: credentials.password,
             }),
-          }),
+          }, false),
         ),
       };
     } catch (e) {
       return { ok: false, message: message(e) };
     }
   },
+  async switchRole(role) {
+    return mapAuth(
+      await api<AuthResponse>("/api/auth/rol-activo", {
+        method: "PUT",
+        credentials: "omit",
+        body: JSON.stringify({ rol: role === "ESTUDIANTE" ? "ALUMNO" : role }),
+      }),
+    );
+  },
   async logout() {
+    const options = { method: "POST", credentials: "include" } as const;
     try {
-      await api("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await api("/api/auth/logout", options);
+    } catch (error) {
+      // Si el rol cambió en otra pestaña, aún se puede revocar la cookie.
+      if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      await api("/api/auth/logout", options, false);
     } finally {
       clearSession();
     }

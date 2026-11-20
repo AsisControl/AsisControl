@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { StatusPill } from "@/shared/ui";
-import { coincideBusqueda } from "./lib";
+import { coincideBusqueda, textoPlazo } from "./lib";
 import { JustificationDialog } from "./justification-dialog";
 import { MarkStatus } from "./session-marks";
 import {
@@ -45,8 +45,11 @@ export function SessionReadonly({
       {aviso && <p className="action-feedback" role="status">{aviso}</p>}
       {!tomada && (
         <p className={styles.avisoAlerta}>
-          Esta sesión no tiene asistencia registrada y ya no se puede registrar retroactivamente.
+          Esta sesión no tiene asistencia registrada y el plazo para registrarla ya venció.
         </p>
+      )}
+      {tomada && sesion.puedeEditar && textoPlazo(sesion) && (
+        <p className={styles.avisoPlazo}>Puedes corregir esta asistencia {textoPlazo(sesion)}.</p>
       )}
       {tomada ? (
         <SessionSummary

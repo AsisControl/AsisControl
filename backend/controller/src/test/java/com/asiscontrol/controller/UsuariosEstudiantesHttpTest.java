@@ -78,7 +78,7 @@ class UsuariosEstudiantesHttpTest {
         var student =
                 call(
                         post("/api/alumnos"),
-                        new PersonaDtos.AlumnoCreateRequest(persona(s), "EST" + s),
+                        new PersonaDtos.AlumnoCreateRequest(persona(s)),
                         201);
         long id = student.path("id").asLong();
         assertThat(student.path("persona").path("nombres").asText()).isEqualTo("Maria");
@@ -121,24 +121,23 @@ class UsuariosEstudiantesHttpTest {
         var alumno =
                 call(
                         post("/api/alumnos"),
-                        new PersonaDtos.AlumnoCreateRequest(persona(s), "EST" + s),
+                        new PersonaDtos.AlumnoCreateRequest(persona(s)),
                         201);
         long role = roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId();
-        var account =
-                call(
-                        post("/api/usuarios"),
-                        new UsuarioDtos.CreateRequest(
-                                alumno.path("persona").path("id").asLong(),
-                                role,
-                                "usr" + s,
-                                "acceso" + s + "@example.test",
-                                "Temporal123!",
-                                true,
-                                true),
-                        201);
+        var credencial = alumno.path("credencialAcceso");
+        assertThat(credencial.path("accessCode").asText()).matches("[0-9]{8}");
+        assertThat(credencial.path("temporaryPassword").asText()).isNotBlank();
+        var account = call(get("/api/usuarios")
+                .param("search", credencial.path("accessCode").asText()), null, 200)
+                .path("content").get(0);
         long id = account.path("id").asLong();
         String email = account.path("correo").asText();
-        call(get("/api/usuarios"), null, 200);
+        assertThat(email).isEqualTo("a" + credencial.path("accessCode").asText() + "@asiscontrol.edu.pe");
+        assertThat(account.path("codigo").asText()).isEqualTo(credencial.path("accessCode").asText());
+        assertThat(account.path("username").asText()).isEqualTo(credencial.path("username").asText());
+        assertThat(account.path("roles").get(0).path("nombre").asText()).isEqualTo("ALUMNO");
+        assertThat(call(get("/api/alumnos/{id}", alumno.path("id").asLong()), null, 200)
+                .path("credencialAcceso").isNull()).isTrue();
         call(get("/api/usuarios/personas"), null, 200);
         call(get("/api/usuarios/{id}", id), null, 200);
         call(
@@ -156,24 +155,25 @@ class UsuariosEstudiantesHttpTest {
                 new UsuarioDtos.ResetPasswordRequest("Temporal789!", true, "Identidad verificada"),
                 204);
         call(delete("/api/usuarios/{id}", id), null, 422);
-        String p = key();
-        var provisionado =
-                call(
-                        post("/api/usuarios/provisionar"),
-                        new UsuarioDtos.ProvisionRequest(
-                                null,
-                                persona(p),
-                                role,
-                                "usr" + p,
-                                "cuenta" + p + "@example.test",
-                                "Temporal123!",
-                                "EST" + p,
-                                null,
-                                null,
-                                null,
-                                Set.of()),
-                        201);
-        assertThat(provisionado.path("requiereCambioContrasena").asBoolean()).isTrue();
+        var registro = call(post("/api/usuarios/administradores"),
+                new UsuarioDtos.RegistroAdministradorRequest(
+                        alumno.path("persona").path("id").asLong(), null), 201);
+        assertThat(registro.path("id").asLong()).isEqualTo(id);
+        assertThat(registro.path("contrasenaTemporal").isNull()).isTrue();
+        var rolesAsignados = call(get("/api/usuarios/{id}", id), null, 200).path("roles");
+        assertThat(rolesAsignados.size()).isEqualTo(2);
+
+        var sinAlumno = call(put("/api/usuarios/{id}/roles/{rol}", id, role),
+                new UsuarioDtos.CambiarRolRequest(false, "Cambio de responsabilidades"), 200);
+        assertThat(sinAlumno.path("roles").get(1).path("activo").asBoolean()).isFalse();
+    }
+
+    @Test
+    void exigeDocumentoAlGuardarUnaFichaNueva() throws Exception {
+        var sinDocumento = new PersonaDtos.PersonaRequest(
+                "Maria", "Torres", "Mamani", null, null, null, Sexo.FEMENINO,
+                LocalDate.of(2009, 3, 10), null, null, null);
+        call(post("/api/alumnos"), new PersonaDtos.AlumnoCreateRequest(sinDocumento), 400);
     }
 
     @Test

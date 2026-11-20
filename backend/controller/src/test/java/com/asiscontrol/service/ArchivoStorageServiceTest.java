@@ -28,7 +28,8 @@ class ArchivoStorageServiceTest {
         repo = mock(ArchivoAdjuntoRepository.class);
         personas = mock(PersonaRepository.class);
         guard = mock(ModuloAccessGuard.class);
-        service = new ArchivoStorageService(repo, personas, guard, root.toString(), 1024);
+        service = new ArchivoStorageService(repo, personas, guard, mock(EvidenciaPedagogicaRepository.class),
+                root.toString(), 1024);
         var persona = new Persona(); persona.setId(7L);
         when(guard.personaIdActual()).thenReturn(7L);
         when(personas.findByIdAndActivoTrue(7L)).thenReturn(Optional.of(persona));
@@ -53,6 +54,7 @@ class ArchivoStorageServiceTest {
         assertThat(response.sha256()).hasSize(64);
         assertThat(response.tamanioBytes()).isEqualTo(bytes.length);
         when(repo.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(saved));
+        when(repo.buscarActivoParaVincularOEliminar(1L)).thenReturn(Optional.of(saved));
         var download = service.descargar(1L);
         assertThat(download.recurso().getContentAsByteArray()).isEqualTo(bytes);
         assertThat(service.obtener(1L).id()).isEqualTo(1L);

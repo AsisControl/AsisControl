@@ -57,6 +57,7 @@ public class CalendarioSesionService {
     private final DiaNoLectivoService diaNoLectivoService;
     private final MatriculaService matriculaService;
     private final ModuloAccessGuard accessGuard;
+    private final PlazoAsistenciaService plazoService;
     private final Clock reloj;
 
     public CalendarioSesionService(
@@ -67,6 +68,7 @@ public class CalendarioSesionService {
             DiaNoLectivoService diaNoLectivoService,
             MatriculaService matriculaService,
             ModuloAccessGuard accessGuard,
+            PlazoAsistenciaService plazoService,
             Clock reloj) {
         this.sesionRepository = sesionRepository;
         this.horarioService = horarioService;
@@ -75,6 +77,7 @@ public class CalendarioSesionService {
         this.diaNoLectivoService = diaNoLectivoService;
         this.matriculaService = matriculaService;
         this.accessGuard = accessGuard;
+        this.plazoService = plazoService;
         this.reloj = reloj;
     }
 
@@ -168,15 +171,18 @@ public class CalendarioSesionService {
         return cursos;
     }
 
+    /** Antes de listar se finalizan los borradores cuyo plazo de edición venció. */
+    @Transactional
     public List<SesionClaseResponse> listar(Long asignacionCursoId) {
+        plazoService.cerrarVencidas();
         AsignacionCurso asignacion = asignacionService.obtenerEntidad(asignacionCursoId);
         accessGuard.verificarAsignacionDocente(asignacion);
         exigirAnioDictado(asignacion);
         LocalDate hoy = LocalDate.now(reloj);
-        return sesionRepository
-                .findAllByAsignacionCursoIdAndActivoTrueOrderByFechaAscHoraInicioAsc(asignacionCursoId)
-                .stream()
-                .map(sesion -> mapear(sesion, hoy))
+        List<SesionClase> sesiones = sesionRepository
+                .findAllByAsignacionCursoIdAndActivoTrueOrderByFechaAscHoraInicioAsc(asignacionCursoId);
+        return sesiones.stream()
+                .map(sesion -> mapear(sesion, hoy, PlazoAsistenciaService.limite(sesion, sesiones)))
                 .toList();
     }
 
@@ -195,17 +201,10 @@ public class CalendarioSesionService {
         }
     }
 
-    /** Un BORRADOR de un día anterior ya venció: se informa como PENDIENTE (R07, R08). */
-    public static EstadoSesionClase estadoEfectivo(SesionClase sesion, LocalDate hoy) {
-        if (sesion.getEstado() == EstadoSesionClase.BORRADOR && sesion.getFecha().isBefore(hoy)) {
-            return EstadoSesionClase.PENDIENTE;
-        }
-        return sesion.getEstado();
-    }
-
-    private SesionClaseResponse mapear(SesionClase sesion, LocalDate hoy) {
-        EstadoSesionClase estado = estadoEfectivo(sesion, hoy);
+    private SesionClaseResponse mapear(SesionClase sesion, LocalDate hoy, java.time.LocalDateTime limite) {
+        EstadoSesionClase estado = sesion.getEstado();
         boolean esHoy = sesion.getFecha().isEqual(hoy);
+        boolean abierta = plazoService.abierta(limite);
         return new SesionClaseResponse(
                 sesion.getId(),
                 sesion.getAsignacionCurso().getId(),
@@ -213,10 +212,11 @@ public class CalendarioSesionService {
                 sesion.getHoraInicio(),
                 sesion.getHoraFin(),
                 estado,
-                esHoy && estado != EstadoSesionClase.TOMADA,
+                esHoy && estado != EstadoSesionClase.TOMADA && abierta,
                 !sesion.getFecha().isAfter(hoy),
-                estado == EstadoSesionClase.TOMADA,
-                sesion.getVersion());
+                estado == EstadoSesionClase.TOMADA && abierta,
+                sesion.getVersion(),
+                limite);
     }
 
     private Map<LocalDate, List<Encuentro>> calcularEncuentros(AsignacionCurso asignacion, LocalDate hoy) {

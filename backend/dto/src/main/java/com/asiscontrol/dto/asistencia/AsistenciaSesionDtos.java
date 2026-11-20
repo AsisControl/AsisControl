@@ -77,7 +77,8 @@ public final class AsistenciaSesionDtos {
             List<AlumnoAsistenciaResponse> alumnos,
             String registradoPor,
             LocalDateTime registradoEn,
-            long version
+            long version,
+            LocalDateTime limiteEdicion
     ) {
     }
 
@@ -95,6 +96,9 @@ public final class AsistenciaSesionDtos {
             Long docenteId,
             String docente,
             String motivo,
+            String actorIdentificador,
+            String actorNombre,
+            String actorRol,
             List<CambioAsistenciaResponse> cambios
     ) {
     }

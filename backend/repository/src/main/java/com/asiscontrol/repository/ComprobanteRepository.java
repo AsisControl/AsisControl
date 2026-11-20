@@ -15,9 +15,27 @@ public interface ComprobanteRepository extends JpaRepository<Comprobante, Long> 
 
     Optional<Comprobante> findByTransaccionPagoIdAndActivoTrue(Long idTransaccionPago);
 
+    /** Comprobantes internos vigentes de las transacciones de un compromiso. */
+    @Query("SELECT c FROM Comprobante c WHERE c.activo = true AND c.transaccionPago.compromisoPago.id = :idCompromisoPago")
+    java.util.List<Comprobante> buscarPorCompromiso(@Param("idCompromisoPago") Long idCompromisoPago);
+
     boolean existsBySerieIgnoreCaseAndNumeroIgnoreCaseAndActivoTrue(String serie, String numero);
 
     Page<Comprobante> findAllByActivoTrue(Pageable pageable);
+
+    @Query("""
+            SELECT c FROM Comprobante c JOIN c.transaccionPago t JOIN t.compromisoPago cp
+            WHERE c.activo=true AND t.activo=true AND cp.activo=true
+              AND t.estado=com.asiscontrol.entity.enums.EstadoTransaccionPago.APROBADA
+              AND EXISTS (SELECT v.id FROM AlumnoApoderado v
+                WHERE v.apoderado.id=:apoderadoId AND v.activo=true
+                  AND v.apoderado.activo=true AND v.apoderado.persona.activo=true
+                  AND v.alumno=cp.matricula.alumno AND v.alumno.activo=true
+                  AND v.alumno.persona.activo=true)
+              AND (:idAlumno IS NULL OR cp.matricula.alumno.id=:idAlumno)
+            """)
+    Page<Comprobante> buscarHistorialFamiliar(@Param("apoderadoId") Long apoderadoId, @Param("idAlumno") Long idAlumno,
+                                              Pageable pageable);
 
     @Query("""
             SELECT c FROM Comprobante c
@@ -27,6 +45,8 @@ public interface ComprobanteRepository extends JpaRepository<Comprobante, Long> 
                     WHERE v.activo = true
                       AND v.alumno.id = c.transaccionPago.compromisoPago.matricula.alumno.id
                       AND v.apoderado.persona.id = :personaApoderadoId
+                      AND v.apoderado.activo = true AND v.apoderado.persona.activo = true
+                      AND v.alumno.activo = true AND v.alumno.persona.activo = true
                   ))
             """)
     Page<Comprobante> buscarVisibles(

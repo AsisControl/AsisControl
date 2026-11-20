@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { message } from "@/core/api/client";
 import { countLabel } from "@/shared/lib/formatters";
 import { Dialog, Feedback, StatusPill } from "@/shared/ui";
-import { coincideBusqueda, etiquetaMarca } from "./lib";
+import { coincideBusqueda, etiquetaMarca, textoPlazo } from "./lib";
 import { JustificationDialog } from "./justification-dialog";
 import { corregirAsistencia } from "./services/asistencia-service";
 import { MarkButtons } from "./session-marks";
@@ -26,10 +26,12 @@ export function SessionCorrection({
   sesion,
   onSaved,
   onCancel,
+  embedded = false,
 }: {
   sesion: SesionAsistencia;
   onSaved: (sesion: SesionAsistencia) => void;
   onCancel: () => void;
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const campoMotivo = useRef<HTMLTextAreaElement>(null);
@@ -66,9 +68,10 @@ export function SessionCorrection({
   };
   return (
     <section className={`${styles.pagina} ${styles.conBarra}`}>
-      <SessionHeader sesion={sesion} onNavigate={salir} />
+      {!embedded && <SessionHeader sesion={sesion} onNavigate={salir} />}
       <p className={styles.avisoInfo}>
         Estás modificando una asistencia finalizada. Los cambios quedarán registrados con el motivo de corrección.
+        {textoPlazo(sesion) && ` Puedes corregirla ${textoPlazo(sesion)}.`}
       </p>
       <SessionSummary
         sesion={sesion}
@@ -76,25 +79,26 @@ export function SessionCorrection({
         totales={totales}
         nota={cambios.length > 0 && <span className={styles.textoSuave}>Con cambios sin guardar</span>}
         registro
+        registroOriginal
       />
       <div className={styles.lista}>
-        <div className={styles.herramientas}>
+        {(!embedded || sesion.alumnos.length > 1) && <div className={styles.herramientas}>
           <Buscador valor={busqueda} onChange={setBusqueda} />
-        </div>
+        </div>}
         <StudentsTable
           alumnos={sesion.alumnos.filter((alumno) => coincideBusqueda(alumno.nombreCompleto, busqueda))}
           claseFila={(alumno) => (cambiado(alumno) ? styles.filaCambiada : undefined)}
           renderEstado={(alumno) => (
             <MarkButtons
               nombre={alumno.nombreCompleto}
-              valor={nuevos[alumno.alumnoId] ?? alumno.estado}
+              valor={nuevos[alumno.alumnoId] ?? (alumno.estado === "SIN_MARCACION" ? null : alumno.estado)}
               disabled={guardando}
               onChange={(estado) => setNuevos((actual) => ({ ...actual, [alumno.alumnoId]: estado }))}
             />
           )}
           renderIndicador={(alumno) => (
             <>
-              <JustificationIndicator alumno={alumno} onOpen={setConsulta} />
+              {!cambiado(alumno) && <JustificationIndicator alumno={alumno} onOpen={setConsulta} />}
               {cambiado(alumno) && <small className={styles.antes}>antes: {etiquetaMarca(alumno.estado ?? "")}</small>}
             </>
           )}
@@ -151,7 +155,7 @@ export function SessionCorrection({
           <div className={styles.ayudaMotivo}>
             <span>
               {motivo.trim()
-                ? "Quedará registrado junto con el docente responsable y la fecha."
+                ? "Quedará registrado junto con la persona que realiza la corrección y la fecha."
                 : "Escribe el motivo para confirmar."}
             </span>
             <span>{motivo.length} / {MAX_MOTIVO}</span>

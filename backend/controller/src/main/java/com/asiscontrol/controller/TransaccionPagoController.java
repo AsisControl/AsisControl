@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.asiscontrol.entity.enums.EstadoTransaccionPago;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/transacciones-pago")
@@ -35,25 +39,29 @@ public class TransaccionPagoController {
     @GetMapping
     public Page<PagoDto.TransaccionResponse> listar(
             @RequestParam(required = false) Long idCompromisoPago,
+            @RequestParam(required = false) Long idAlumno,
+            @RequestParam(required = false) EstadoTransaccionPago estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) String busqueda,
             @PageableDefault(size = 20, sort = "fechaTransaccion", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
-        return pagoService.listarTransacciones(
-                idCompromisoPago,
+        return pagoService.consultarTransacciones(
+                idCompromisoPago, idAlumno, estado, fechaDesde, fechaHasta, busqueda,
                 accessGuard.restriccionApoderadoPersonaId(),
                 pageable);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@moduloAccessGuard.puedeAccederTransaccionPago(#id)")
+    @PreAuthorize("hasAuthority('PAGOS_LEER') and @moduloAccessGuard.puedeAccederTransaccionPago(#id)")
     public PagoDto.TransaccionResponse obtener(@PathVariable Long id) {
         return pagoService.obtenerTransaccion(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('PAGOS_ESCRIBIR') or "
-            + "@moduloAccessGuard.puedeRegistrarPago(#request.idApoderado(), #request.idCompromisoPago())")
+    @PreAuthorize("hasAuthority('PAGOS_ESCRIBIR') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'SECRETARIA', 'TESORERIA')")
     public PagoDto.TransaccionResponse registrar(
             @Valid @RequestBody PagoDto.TransaccionRequest request
     ) {

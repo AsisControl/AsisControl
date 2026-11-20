@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, message } from "@/core/api/client";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   PanelHeading,
   PersonCell,
   StatusPill,
+  Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { countLabel, shortDateLabel, timeLabel } from "@/shared/lib/formatters";
@@ -16,7 +17,7 @@ import { GuardianEnrollmentTrack, type GuardianRequest } from "./guardian-enroll
 type Child = { id: number; codigoAlumno: string; nombreCompleto: string };
 type Offer = { anio: number; grados: number[] };
 type Request = GuardianRequest;
-export function GuardianEnrollment() {
+export function GuardianEnrollment({ navigation }: { navigation?: ReactNode } = {}) {
   const [studentFilter, setStudentFilter] = useState("");
   const list = usePaged<Request>(
     studentFilter
@@ -143,6 +144,7 @@ export function GuardianEnrollment() {
         title="Solicitudes de mis estudiantes"
         description="Solicita año y grado. La administración revisa la solicitud y asigna la sección. Enviar una solicitud no reserva una vacante."
       />
+      {navigation}
       <div className="panel">
         <PanelHeading
           title="Mis solicitudes de matrícula"
@@ -182,8 +184,8 @@ export function GuardianEnrollment() {
           }
         />
         <Feedback error={error || list.error} success={success} />
-        {!students && !error && (
-          <p role="status">Cargando estudiantes asociados…</p>
+        {!students && !error && !list.loading && (
+          <Loading skeleton="table" columns={5} rows={3}>Cargando estudiantes asociados…</Loading>
         )}
         {students?.length === 0 && (
           <p className="hint">
@@ -217,7 +219,7 @@ export function GuardianEnrollment() {
           </label>
         )}
         {list.loading ? (
-          <p role="status">Cargando solicitudes…</p>
+          <Loading skeleton="table" columns={5} rows={3}>Cargando solicitudes…</Loading>
         ) : list.data?.content.length ? (
           <div className="user-table-wrap">
             <table className="user-table">

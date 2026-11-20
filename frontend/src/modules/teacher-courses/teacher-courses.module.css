@@ -12,7 +12,7 @@
 .grilla {
   display: grid;
   gap: 20px;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
 }
 .card {
   background: #fff;
@@ -91,4 +91,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+/* Mismo espacio que la línea de sección de la tarjeta real. */
+.esqueletoSeccion {
+  margin: 8px 0 14px;
 }

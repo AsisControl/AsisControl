@@ -1,7 +1,7 @@
 package com.asiscontrol.security;
 
 import com.asiscontrol.entity.AccesoUsuario;
-import com.asiscontrol.entity.Rol;
+import com.asiscontrol.entity.Persona;
 import com.asiscontrol.entity.enums.EstadoAcceso;
 import org.junit.jupiter.api.Test;
 
@@ -36,14 +36,12 @@ class AuthenticatedUserTest {
     }
 
     private AccesoUsuario usuarioBase() {
-        Rol rol = new Rol();
-        rol.setNombre("ALUMNO");
         AccesoUsuario usuario = new AccesoUsuario();
         usuario.setActivo(true);
-        usuario.setRol(rol);
+        usuario.setPersona(new Persona());
         usuario.setEstado(EstadoAcceso.ACTIVO);
         usuario.setContrasenaHash("hash");
-        usuario.setUsername("alumno");
+        usuario.setUsername("alumno"); usuario.setCodigo("alumno");
         return usuario;
     }
 }

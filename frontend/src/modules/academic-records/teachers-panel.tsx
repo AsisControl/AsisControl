@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { PersonCell, StatusPill } from "@/shared/ui";
 import { specialtyLabel } from "@/shared/lib/formatters";
-import { PendingAction, RecordsPanel } from "./records-panel";
+import { RecordsPanel } from "./records-panel";
+import { RegisterProfile } from "./register-profile";
 import { TeacherImportDialog } from "./teacher-import-dialog";
 import type { Teacher } from "./types";
 import { TeacherDetail } from "./record-details";
@@ -44,11 +45,7 @@ export function TeachersPanel() {
         actions={(refresh) => (
           <>
             <TeacherImportAction onImported={refresh} />
-            <PendingAction
-              className="primary-action"
-              label="+ Registrar docente"
-              hint="El formulario de docentes se habilitará en una próxima entrega."
-            />
+            <RegisterProfile role="docente" onRegistered={refresh} />
           </>
         )}
         renderRows={(teachers) =>

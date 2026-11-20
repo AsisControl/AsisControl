@@ -4,9 +4,10 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { sessionContextKey } from "@/core/auth/session-storage";
 import { ChangePassword } from "@/core/auth/change-password";
 import { useAuth } from "@/core/auth/use-auth";
-import type { AuthenticatedUser } from "@/core/auth/types";
+import type { AuthenticatedUser, SessionUser, UserRole } from "@/core/auth/types";
 import { canAccess } from "@/core/navigation/access-policy";
 import {
   CHANGE_PASSWORD_PATH,
@@ -16,9 +17,13 @@ import {
   roleLabels,
 } from "@/core/navigation/navigation";
 import { NavIcon } from "@/core/navigation/nav-icons";
-import { Brand } from "./brand";
+import { Loading } from "@/shared/ui";
+import { AsisControlLogo } from "./brand";
 import { LoginScreen } from "./login-screen";
 import { SessionUserProvider } from "./session-user";
+import { RoleContext } from "./role-context";
+import { RoleChooser } from "./role-chooser";
+import "./role-theme.css";
 import styles from "./app-shell.module.css";
 
 const MOBILE_BREAKPOINT_PX = 760;
@@ -26,12 +31,14 @@ const MOBILE_BREAKPOINT_PX = 760;
 function Dashboard({
   user,
   onLogout,
+  onSwitchRole,
   validationError,
   onRetryValidation,
   children,
 }: {
-  user: AuthenticatedUser;
+  user: AuthenticatedUser & SessionUser;
   onLogout: () => Promise<void>;
+  onSwitchRole: (role: UserRole) => Promise<void>;
   validationError: string;
   onRetryValidation: () => Promise<void>;
   children: ReactNode;
@@ -40,6 +47,7 @@ function Dashboard({
   const pathname = usePathname();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [choosingRole, setChoosingRole] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const header = useRef<HTMLElement>(null);
   const details = roleDetails[user.role];
@@ -82,7 +90,7 @@ function Dashboard({
     router.push(path);
   }
   return (
-    <main className="role-home">
+    <main className="role-home" data-role={user.role}>
       <header ref={header} className={`top-nav ${styles.header}`}>
         <button
           ref={menuButton}
@@ -116,7 +124,10 @@ function Dashboard({
             )}
           </svg>
         </button>
-        <Brand compact />
+        <div className={styles.dashboardBrand}>
+          <AsisControlLogo inverse />
+          <RoleContext role={user.role} />
+        </div>
         <nav
           id="main-navigation"
           className={`${styles.navBar} ${isMobileMenuOpen ? styles.open : ""}`}
@@ -144,11 +155,11 @@ function Dashboard({
               setIsMobileMenuOpen(false);
             }}
           >
-            <span className="account-name">
+            <span className={styles.accountIdentity}>
+              <span className={styles.roleBadge}>{user.role}</span>
               <strong>{user.fullName}</strong>
-              <small>{roleLabel}</small>
             </span>
-            <span className={`avatar avatar-${user.role.toLowerCase()}`}>
+            <span className={`avatar ${styles.accountAvatar}`}>
               {user.fullName
                 .split(" ")
                 .filter(Boolean)
@@ -163,6 +174,18 @@ function Dashboard({
                 <strong>{user.fullName}</strong>
                 <small>{roleLabel}</small>
               </div>
+              {user.availableRoles?.length > 1 && (
+                <button
+                  type="button"
+                  className="logout-option"
+                  onClick={() => {
+                    setIsAccountMenuOpen(false);
+                    setChoosingRole(true);
+                  }}
+                >
+                  Cambiar de rol
+                </button>
+              )}
               <button
                 className="logout-option"
                 onClick={() => go(CHANGE_PASSWORD_PATH)}
@@ -187,6 +210,16 @@ function Dashboard({
           </button>
         </div>
       )}
+      {choosingRole && (
+        <RoleChooser
+          user={user}
+          onSelect={async (role) => {
+            await onSwitchRole(role);
+            setChoosingRole(false);
+          }}
+          onClose={() => setChoosingRole(false)}
+        />
+      )}
       <section className="home-content">{children}</section>
     </main>
   );
@@ -198,33 +231,70 @@ function Dashboard({
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     session,
     isRestoringSession,
     isEndingSession,
+    contextSuspended,
     sessionValidationError,
     retrySession,
     login,
     logout,
+    switchRole,
   } = useAuth();
+  const context = sessionContextKey(session);
+  const [route, setRoute] = useState({ context, returning: false });
+  if (route.context !== context)
+    setRoute({
+      context,
+      returning: Boolean(route.context && context && pathname !== "/"),
+    });
+  else if (route.returning && pathname === "/")
+    setRoute({ context, returning: false });
+  useEffect(() => {
+    if (route.returning && pathname !== "/") router.replace("/");
+  }, [pathname, route.returning, router]);
   async function logoutToHome() {
     await logout();
     router.replace("/");
   }
-  if (isRestoringSession || isEndingSession)
+  if (contextSuspended && sessionValidationError)
     return (
-      <main className="app-loading" aria-live="polite">
-        {isEndingSession ? "Cerrando sesión…" : "Cargando sesión…"}
+      <main className="app-loading">
+        <div className={styles.sessionAlert} role="alert">
+          <p>{sessionValidationError}</p>
+          <button type="button" onClick={() => void retrySession()}>Reintentar</button>
+          <button type="button" onClick={() => void logoutToHome()}>Cerrar sesión</button>
+        </div>
+      </main>
+    );
+  if (isRestoringSession || isEndingSession || contextSuspended || route.returning)
+    return (
+      <main className="app-loading">
+        <Loading variant="screen">
+          {isEndingSession ? "Cerrando sesión…" : "Cargando sesión…"}
+        </Loading>
       </main>
     );
   if (!session) return <LoginScreen onLogin={login} />;
   if (session.user.requiresPasswordChange)
     return <ChangePassword onLogout={logoutToHome} />;
-  return (
-    <SessionUserProvider value={session.user}>
-      <Dashboard
+  if (!session.user.role)
+    return (
+      <RoleChooser
         user={session.user}
+        onSelect={switchRole}
+        onClose={() => void logoutToHome()}
+      />
+    );
+  const user = { ...session.user, role: session.user.role };
+  return (
+    <SessionUserProvider key={context} value={user}>
+      <Dashboard
+        user={user}
         onLogout={logoutToHome}
+        onSwitchRole={switchRole}
         validationError={sessionValidationError}
         onRetryValidation={retrySession}
       >

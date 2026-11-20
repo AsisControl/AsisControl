@@ -76,8 +76,8 @@ class ModuloAccessGuardTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("sin-persona","x",List.of()));
         assertThatThrownBy(guard::personaIdActual).isInstanceOf(AccessDeniedException.class);
         var p=new Persona(); p.setId(20L); var r=new Rol(); r.setNombre("DOCENTE");
-        var u=new AccesoUsuario(); u.setPersona(p); u.setRol(r);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(new AuthenticatedUser(u),"x",List.of()));
+        var u=new AccesoUsuario(); u.setPersona(p);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(new AuthenticatedUser(u, r),"x",List.of()));
         assertThat(guard.personaIdActual()).isEqualTo(20L);
     }
 }

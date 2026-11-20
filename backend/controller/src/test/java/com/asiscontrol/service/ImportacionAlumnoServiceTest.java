@@ -18,6 +18,7 @@ import static org.mockito.Mockito.*;
 
 class ImportacionAlumnoServiceTest {
     private PersonaService personas;
+    private AccesoImportacionService accesos;
     private ImportacionAlumnoService service;
     private ValidatorFactory factory;
     private final List<String> headers = List.of("codigoAlumno", "nombres", "apellidoPaterno",
@@ -27,7 +28,12 @@ class ImportacionAlumnoServiceTest {
     @BeforeEach void setup() {
         personas = mock(PersonaService.class);
         factory = Validation.buildDefaultValidatorFactory();
-        service = new ImportacionAlumnoService(personas, factory.getValidator(), mock(AuditoriaService.class));
+        accesos = mock(AccesoImportacionService.class);
+        when(accesos.alumno(org.mockito.ArgumentMatchers.anyInt(), any())).thenReturn(
+                new com.asiscontrol.dto.persona.PersonaDtos.CredencialAcceso(2, "Maria Torres Flores", "ALUMNO", "EST20260001",
+                        "maria.torres", "est20260001@asiscontrol.edu.pe", "Temporal2026x", null, false));
+        service = new ImportacionAlumnoService(
+                personas, factory.getValidator(), mock(AuditoriaService.class), accesos);
     }
     @AfterEach void close() { factory.close(); }
 
@@ -53,8 +59,7 @@ class ImportacionAlumnoServiceTest {
         assertThat(content).isNotEmpty();
         var result = service.importStudents(new MockMultipartFile("file", "plantilla.xlsx", null, content));
         assertThat(result.importedRows()).isEqualTo(1);
-        verify(personas).createAlumno(argThat(r -> r.codigoAlumno().equals("EST-0001")
-                && r.persona().fechaNacimiento().equals(LocalDate.of(2012, 5, 15))));
+        verify(accesos).alumno(org.mockito.ArgumentMatchers.anyInt(), argThat(r -> r.persona().fechaNacimiento().equals(LocalDate.of(2012, 5, 15))));
     }
 
     @Test void importaFilasValidasYOmiteFilasVacias() throws Exception {
@@ -65,7 +70,7 @@ class ImportacionAlumnoServiceTest {
         }));
         assertThat(result.totalRows()).isEqualTo(1);
         assertThat(result.importedRows()).isEqualTo(1);
-        verify(personas).createAlumno(argThat(r -> r.persona().nacionalidadId().equals(5L)));
+        verify(accesos).alumno(org.mockito.ArgumentMatchers.anyInt(), argThat(r -> r.persona().nacionalidadId().equals(5L)));
     }
 
     @Test void admiteFechaNativaDeExcelYOpcionalesAusentes() throws Exception {
@@ -82,21 +87,21 @@ class ImportacionAlumnoServiceTest {
             }
         }));
         assertThat(result.importedRows()).isEqualTo(1);
-        verify(personas).createAlumno(argThat(r -> r.persona().nacionalidadId() == null
+        verify(accesos).alumno(org.mockito.ArgumentMatchers.anyInt(), argThat(r -> r.persona().nacionalidadId() == null
                 && r.persona().telefono() == null));
     }
 
     @ParameterizedTest
-    @CsvSource({"0,''", "4,INVALIDO", "6,abc", "6,10.01", "6,0", "7,INVALIDO", "8,no-es-fecha", "8,30/02/2012", "10,correo-invalido", "8,2099-01-01"})
+    @CsvSource({"1,''", "4,INVALIDO", "6,abc", "6,10.01", "6,0", "7,INVALIDO", "8,no-es-fecha", "8,30/02/2012", "10,correo-invalido", "8,2099-01-01"})
     void reportaFilaInvalidaSinPersistir(int column, String value) throws Exception {
         var result = service.importStudents(file(w -> base(w).getRow(1).getCell(column).setCellValue(value)));
         assertThat(result.rejectedRows()).isEqualTo(1);
         assertThat(result.issues()).hasSize(1);
-        verifyNoInteractions(personas);
+        verifyNoInteractions(accesos);
     }
 
     @Test void reportaErrorDeNegocioYContinuaConLasDemasFilas() throws Exception {
-        when(personas.createAlumno(any())).thenThrow(new ConflictException("DUPLICADO", "Documento repetido"));
+        when(accesos.alumno(org.mockito.ArgumentMatchers.anyInt(), any())).thenThrow(new ConflictException("DUPLICADO", "Documento repetido"));
         var result = service.importStudents(file(this::base));
         assertThat(result.importedRows()).isZero();
         assertThat(result.issues().getFirst().message()).isEqualTo("Documento repetido");
@@ -130,7 +135,7 @@ class ImportacionAlumnoServiceTest {
     @Test void rechazaBinarioCorruptoYSanitizaErroresTecnicosPorFila() throws Exception {
         var corrupto=new MockMultipartFile("file","x.xlsx",null,new byte[]{1,2,3});
         assertThatThrownBy(()->service.importStudents(corrupto)).isInstanceOf(BusinessRuleException.class);
-        when(personas.createAlumno(any())).thenThrow(new IllegalStateException("SQL password=secreto"));
+        when(accesos.alumno(org.mockito.ArgumentMatchers.anyInt(), any())).thenThrow(new IllegalStateException("SQL password=secreto"));
         var result=service.importStudents(file(this::base));
         assertThat(result.issues().getFirst().message()).doesNotContain("SQL","password","secreto");
     }

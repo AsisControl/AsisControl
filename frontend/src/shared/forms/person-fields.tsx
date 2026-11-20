@@ -76,7 +76,6 @@ export function PersonFields({ person }: { person?: Persona }) {
         label="Correo de contacto"
         name="personaCorreo"
         type="email"
-        required
         maxLength={150}
         defaultValue={person?.correo}
       />
@@ -105,7 +104,7 @@ export function personData(form: FormData, nationality: number | null = null) {
     numeroDocumento: str("numeroDocumento"),
     fechaNacimiento: str("fechaNacimiento"),
     sexo: str("sexo"),
-    correo: str("personaCorreo"),
+    correo: str("personaCorreo") || null,
     telefono: str("telefono") || null,
     direccion: str("direccion") || null,
     nacionalidadId: nationality,

@@ -4,6 +4,7 @@ package com.asiscontrol.dto.asistencia;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public final class SesionClaseDtos {
@@ -39,7 +40,8 @@ public final class SesionClaseDtos {
             boolean puedeTomar,
             boolean puedeVer,
             boolean puedeEditar,
-            long version
+            long version,
+            LocalDateTime limiteEdicion
     ) {
     }
 }

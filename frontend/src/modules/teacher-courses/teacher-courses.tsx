@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { countLabel } from "@/shared/lib/formatters";
-import { Feedback, PageHeader, StatusPill, TabNav, type TabItem } from "@/shared/ui";
+import { Feedback, Loading, PageHeader, Skeleton, StatusPill, TabNav, type TabItem } from "@/shared/ui";
 import { listarMisCursos } from "./services/curso-service";
 import styles from "./teacher-courses.module.css";
 import type { CursoAsignado, PeriodoCurso } from "./types";
@@ -59,6 +59,39 @@ function CursoCard({ curso }: { curso: CursoAsignado }) {
   );
 }
 
+/** Tarjetas de espera con las mismas clases que CursoCard, para que no salte el diseño al cargar. */
+function CourseCardSkeleton() {
+  return (
+    <article className={styles.card} aria-hidden="true">
+      <div className={styles.cardTop}>
+        <Skeleton width={40} height={40} radius={8} />
+        <Skeleton width={56} height={22} radius={999} />
+      </div>
+      <Skeleton width="58%" height={18} />
+      <Skeleton width="36%" height={14} className={styles.esqueletoSeccion} />
+      <div className={styles.detalles}>
+        {["44%", "62%", "38%", "50%"].map((ancho) => (
+          <Skeleton key={ancho} width={ancho} height={12} />
+        ))}
+      </div>
+      <div className={styles.acciones}>
+        <Skeleton height={38} radius={8} />
+        <Skeleton height={38} radius={8} />
+      </div>
+    </article>
+  );
+}
+
+function CourseCardsSkeleton() {
+  return (
+    <div className={styles.grilla}>
+      {[0, 1, 2].map((tarjeta) => (
+        <CourseCardSkeleton key={tarjeta} />
+      ))}
+    </div>
+  );
+}
+
 /** Cursos del docente con su filtro; cada tarjeta lleva a sus evaluaciones y a su asistencia. */
 export function TeacherCourses() {
   const [periodo, setPeriodo] = useState<PeriodoCurso>("VIGENTES");
@@ -103,7 +136,7 @@ export function TeacherCourses() {
           </button>
         </div>
       )}
-      {!error && !cursos && <p role="status">Cargando cursos…</p>}
+      {!error && !cursos && <Loading skeleton={<CourseCardsSkeleton />}>Cargando cursos…</Loading>}
       {!error && cursos?.length === 0 && <p className={styles.vacio}>{SIN_CURSOS[periodo]}</p>}
       {!error && !!cursos?.length && (
         <div className={styles.grilla}>

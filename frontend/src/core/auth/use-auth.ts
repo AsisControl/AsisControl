@@ -1,23 +1,29 @@
 "use client";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { API_BASE_URL, message } from "@/core/api/client";
+import { API_BASE_URL, ApiError, message } from "@/core/api/client";
 import {
   httpAuthService,
   mapAuth,
   type UserSummary,
 } from "./http-auth-service";
 import {
+  announceRoleContextChange,
   clearSession,
   getServerSessionSnapshot,
   getSessionSnapshot,
+  readContextRevision,
   readSession,
   registerSessionRenewal,
+  roleContextEventKey,
   saveSession,
   setSessionStatus,
+  sessionContextKey,
   subscribeSession,
+  suspendRoleContext,
   synchronizeSessionInvalidation,
 } from "./session-storage";
-import type { AuthSession, LoginCredentials } from "./types";
+import type { AuthSession, LoginCredentials, UserRole } from "./types";
+import { scheduleRenewal } from "./renewal-timer";
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const REVALIDATION_INTERVAL_MS = 2 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 20000;
@@ -26,9 +32,9 @@ const RENEWAL_MARGIN_MS = 60 * 1000;
 let pendingValidation: { session: AuthSession; promise: Promise<void> } | null =
   null;
 let pendingRefresh: Promise<boolean> | null = null;
-/** Aumenta en cada login o logout: una respuesta antigua no afecta a la sesión nueva. */
+/** Invalida comprobaciones que empezaron en un contexto anterior. */
 let generation = 0;
-/** Solo cambia con login o logout: una renovación no se descarta por un /me en curso. */
+/** Una renovación no se descarta por un /me en curso de la misma sesión. */
 let sessionEpoch = 0;
 let lastActivity = Date.now();
 let lastValidation = Date.now();
@@ -54,6 +60,19 @@ function withRefreshLock<T>(task: () => Promise<T>): Promise<T> {
     ? (locks.request("asiscontrol:session-refresh", task) as Promise<T>)
     : task();
 }
+async function synchronizeRoleContext() {
+  if (synchronizeSessionInvalidation()) {
+    ++sessionEpoch;
+    ++generation;
+    return;
+  }
+  if (!readSession()) return;
+  const epoch = ++sessionEpoch;
+  ++generation;
+  suspendRoleContext();
+  if (pendingRefresh) await pendingRefresh;
+  if (epoch === sessionEpoch && readSession()) await refreshSession();
+}
 /**
  * Pide un access token nuevo con la cookie HttpOnly. Devuelve true si la
  * sesión sigue. Una sola renovación a la vez: si el servidor recibe dos veces
@@ -63,13 +82,15 @@ function withRefreshLock<T>(task: () => Promise<T>): Promise<T> {
 function refreshSession(): Promise<boolean> {
   if (pendingRefresh) return pendingRefresh;
   const requestEpoch = sessionEpoch;
+  const revision = readContextRevision();
   const previous = readSession();
   // Sin un token vigente que mostrar, el shell espera en "Cargando sesión…".
   if (!previous || isExpired(previous)) setSessionStatus("checking");
   pendingRefresh = (async () => {
     try {
       const renewed = await withRefreshLock(() => httpAuthService.refresh());
-      if (requestEpoch !== sessionEpoch) return readSession() !== null;
+      if (requestEpoch !== sessionEpoch || revision !== readContextRevision())
+        return readSession() !== null;
       if (!renewed) {
         // Sin sesión en esta pestaña no se avisa a las demás: quizá nunca la hubo.
         if (readSession()) clearSession();
@@ -78,10 +99,17 @@ function refreshSession(): Promise<boolean> {
       }
       if (!previous) lastActivity = Date.now();
       lastValidation = Date.now();
+      const previousContext = readSession();
+      const receivedNotification = getSessionSnapshot().contextSuspended;
       saveSession(renewed);
+      if (
+        previousContext &&
+        !receivedNotification &&
+        sessionContextKey(previousContext) !== sessionContextKey(renewed)
+      ) announceRoleContextChange();
       return true;
     } catch (error) {
-      if (requestEpoch === sessionEpoch)
+      if (requestEpoch === sessionEpoch && revision === readContextRevision())
         setSessionStatus("error", connectionMessage(error));
       return false;
     } finally {
@@ -103,7 +131,15 @@ function renewOrEnd() {
  * de una sesión anterior; el resto de llamadas usa el 401 de api().
  */
 async function revalidateSession(): Promise<void> {
-  synchronizeSessionInvalidation();
+  if (synchronizeSessionInvalidation()) {
+    ++sessionEpoch;
+    ++generation;
+    return;
+  }
+  if (getSessionSnapshot().contextSuspended) {
+    await refreshSession();
+    return;
+  }
   const candidate = readSession();
   if (!candidate) {
     // Tras un cierre de sesión el estado queda "ready" y no se reintenta.
@@ -144,13 +180,16 @@ async function revalidateSession(): Promise<void> {
       }
       if (!response.ok)
         throw new Error(body?.message || "No se pudo comprobar la sesión.");
-      saveSession(
-        mapAuth({
-          accessToken: candidate.accessToken,
-          expiresAt: candidate.expiresAt ?? "",
-          user: body as UserSummary,
-        }),
-      );
+      const updated = mapAuth({
+        accessToken: candidate.accessToken,
+        expiresAt: candidate.expiresAt ?? "",
+        user: body as UserSummary,
+      });
+      if (sessionContextKey(updated) !== sessionContextKey(candidate)) {
+        await synchronizeRoleContext();
+        return;
+      }
+      saveSession(updated);
       lastValidation = Date.now();
     } catch (error) {
       if (requestGeneration !== generation || readSession() !== candidate)
@@ -174,16 +213,20 @@ export function useAuth() {
   useEffect(() => {
     // Al volver a la pestaña o desde la caché del navegador se confirma la sesión.
     const revalidate = () => void revalidateSession();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === roleContextEventKey) void synchronizeRoleContext();
+      else revalidate();
+    };
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") revalidate();
     };
     window.addEventListener("pageshow", revalidate);
-    window.addEventListener("storage", revalidate);
+    window.addEventListener("storage", onStorage);
     document.addEventListener("visibilitychange", onVisibilityChange);
     revalidate();
     return () => {
       window.removeEventListener("pageshow", revalidate);
-      window.removeEventListener("storage", revalidate);
+      window.removeEventListener("storage", onStorage);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
@@ -216,20 +259,15 @@ export function useAuth() {
       if (isInactive()) clearSession();
       else if (isExpired(session)) void refreshSession();
     }, 15000);
-    const renewalTimer = session.expiresAt
-      ? window.setTimeout(
+    const cancelRenewal = session.expiresAt
+      ? scheduleRenewal(
+          new Date(session.expiresAt).getTime() - RENEWAL_MARGIN_MS,
           renewOrEnd,
-          Math.max(
-            0,
-            new Date(session.expiresAt).getTime() -
-              Date.now() -
-              RENEWAL_MARGIN_MS,
-          ),
         )
       : undefined;
     return () => {
       window.clearInterval(inactivityTimer);
-      if (renewalTimer !== undefined) window.clearTimeout(renewalTimer);
+      cancelRenewal?.();
       events.forEach((name) => window.removeEventListener(name, onActivity));
     };
   }, [state.session]);
@@ -255,15 +293,37 @@ export function useAuth() {
       setIsEndingSession(false);
     }
   }
+  async function switchRole(role: UserRole) {
+    const previousContext = sessionContextKey(readSession());
+    const epoch = sessionEpoch;
+    await withRefreshLock(async () => {
+      if (!previousContext || sessionContextKey(readSession()) !== previousContext)
+        throw new Error("La sesión cambió. Revisa tus roles disponibles.");
+      try {
+        const updated = await httpAuthService.switchRole(role);
+        if (epoch !== sessionEpoch || sessionContextKey(readSession()) !== previousContext)
+          return;
+        ++generation;
+        saveSession(updated);
+        if (sessionContextKey(updated) !== previousContext) announceRoleContextChange();
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401)
+          void synchronizeRoleContext();
+        throw error;
+      }
+    });
+  }
   const session =
     state.session && !isExpired(state.session) ? state.session : null;
   return {
     session,
     isRestoringSession: state.status === "checking" && !session,
+    contextSuspended: state.contextSuspended,
     isEndingSession,
     sessionValidationError: state.status === "error" ? state.error : "",
     retrySession: revalidateSession,
     login,
     logout,
+    switchRole,
   };
 }

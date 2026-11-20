@@ -2,7 +2,6 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.persona.PersonaDtos;
-import com.asiscontrol.entity.AccesoUsuario;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
 import com.asiscontrol.entity.Apoderado;
@@ -10,23 +9,17 @@ import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Nacionalidad;
 import com.asiscontrol.entity.Persona;
 import com.asiscontrol.entity.enums.Especialidad;
-import com.asiscontrol.entity.enums.EstadoAcceso;
-import com.asiscontrol.entity.enums.EstadoSesion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.FormFieldException;
 import com.asiscontrol.exception.ResourceNotFoundException;
-import com.asiscontrol.repository.AccesoUsuarioRepository;
-import com.asiscontrol.repository.AdministradorRepository;
 import com.asiscontrol.repository.AlumnoApoderadoRepository;
 import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.ApoderadoRepository;
-import com.asiscontrol.repository.ContadorCodigoAlumnoRepository;
 import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.NacionalidadRepository;
 import com.asiscontrol.repository.PersonaRepository;
-import com.asiscontrol.repository.SesionAccesoRepository;
 import com.asiscontrol.util.PageUtils;
 
 import jakarta.validation.ConstraintViolationException;
@@ -61,12 +54,10 @@ public class PersonaService {
     private final DocenteRepository docenteRepository;
     private final ApoderadoRepository apoderadoRepository;
     private final AlumnoApoderadoRepository alumnoApoderadoRepository;
-    private final AccesoUsuarioRepository usuarioRepository;
-    private final SesionAccesoRepository sesionRepository;
+    private final CicloCuentaService cuentas;
     private final AuditoriaService auditoriaService;
     private final Validator validator;
-    private final ContadorCodigoAlumnoRepository contadorCodigoAlumnoRepository;
-    private final AdministradorRepository administradorRepository;
+    private final CodigoInstitucionalService codigos;
 
     public PersonaService(
             PersonaRepository personaRepository,
@@ -75,37 +66,44 @@ public class PersonaService {
             DocenteRepository docenteRepository,
             ApoderadoRepository apoderadoRepository,
             AlumnoApoderadoRepository alumnoApoderadoRepository,
-            AccesoUsuarioRepository usuarioRepository,
-            SesionAccesoRepository sesionRepository,
+            CicloCuentaService cuentas,
             AuditoriaService auditoriaService,
             Validator validator,
-            ContadorCodigoAlumnoRepository contadorCodigoAlumnoRepository,
-            AdministradorRepository administradorRepository) {
+            CodigoInstitucionalService codigos) {
         this.personaRepository = personaRepository;
         this.nacionalidadRepository = nacionalidadRepository;
         this.alumnoRepository = alumnoRepository;
         this.docenteRepository = docenteRepository;
         this.apoderadoRepository = apoderadoRepository;
         this.alumnoApoderadoRepository = alumnoApoderadoRepository;
-        this.usuarioRepository = usuarioRepository;
-        this.sesionRepository = sesionRepository;
+        this.cuentas = cuentas;
         this.auditoriaService = auditoriaService;
         this.validator = validator;
-        this.contadorCodigoAlumnoRepository = contadorCodigoAlumnoRepository;
-        this.administradorRepository = administradorRepository;
+        this.codigos = codigos;
     }
 
     @Transactional
     public PersonaDtos.AlumnoResponse createAlumno(PersonaDtos.AlumnoCreateRequest request) {
         validateStudentRequest(request);
-        String codigoAlumno = resolveAlumnoCode(request.codigoAlumno());
-        Persona persona = createPersona(request.persona());
+        if (request.persona().tipoDocumento() == null) {
+            throw new FormFieldException("persona.tipoDocumento", "Selecciona un tipo de documento");
+        }
+        if (blankToNull(request.persona().numeroDocumento()) == null) {
+            throw new FormFieldException("persona.numeroDocumento", "Ingresa el número de documento");
+        }
+        codigos.bloquearSecuenciaCuentas();
+        Persona persona = resolvePersona(request.persona());
+        if (alumnoRepository.existsByPersonaId(persona.getId())) {
+            throw new ConflictException("DOCUMENTO_DUPLICADO",
+                    "Ya hay una ficha de estudiante registrada con este documento");
+        }
+        String codigoAlumno = codigos.siguiente(CodigoInstitucionalService.Prefijo.EST);
         Alumno alumno = new Alumno();
         alumno.setPersona(persona);
         alumno.setCodigoAlumno(codigoAlumno);
         Alumno saved = alumnoRepository.save(alumno);
         auditCreate("Alumno", saved.getId());
-        return toAlumnoResponse(saved);
+        return toAlumnoResponse(saved, cuentas.altaDesdeFicha(persona, "ALUMNO", codigoAlumno));
     }
 
     @Transactional(readOnly = true)
@@ -164,32 +162,6 @@ public class PersonaService {
         return toAlumnoResponse(saved);
     }
 
-    /** El alta web genera códigos; las importaciones internas conservan su código legado. */
-    private String resolveAlumnoCode(String requestedCode) {
-        String codigoAlumno = upperOrNull(requestedCode);
-        if (codigoAlumno == null) {
-            return generateAlumnoCode();
-        }
-        if (alumnoRepository.findByCodigoAlumnoIgnoreCase(codigoAlumno).isPresent()) {
-            throw new ConflictException(
-                    "CODIGO_ALUMNO_DUPLICADO", "El código del alumno ya existe");
-        }
-        return codigoAlumno;
-    }
-
-    /** El bloqueo y el guardado del contador pertenecen a la transacción del alta. */
-    private String generateAlumnoCode() {
-        contadorCodigoAlumnoRepository.initializeCounter();
-        var contador = contadorCodigoAlumnoRepository.lockCounter();
-        String codigoAlumno;
-        do {
-            contador.setUltimoValor(Math.incrementExact(contador.getUltimoValor()));
-            codigoAlumno = String.format(Locale.ROOT, "ESTU-%06d", contador.getUltimoValor());
-        } while (alumnoRepository.findByCodigoAlumnoIgnoreCase(codigoAlumno).isPresent());
-        contadorCodigoAlumnoRepository.save(contador);
-        return codigoAlumno;
-    }
-
     private void validateInstitutionalCode(Alumno alumno, String requestedCode) {
         if (requestedCode != null && !requestedCode.equals(alumno.getCodigoAlumno())) {
             throw new FormFieldException(
@@ -227,7 +199,7 @@ public class PersonaService {
         Alumno alumno = findAlumno(id);
         alumno.setActivo(false);
         alumnoRepository.save(alumno);
-        deactivateProfile(alumno.getPersona(), "ALUMNO");
+        cuentas.revocarDesdeFicha(alumno.getPersona().getId(), "ALUMNO");
         auditDelete("Alumno", id);
     }
 
@@ -237,24 +209,20 @@ public class PersonaService {
             throw new BusinessRuleException(
                     "FECHA_INGRESO_INVALIDA", "La fecha de ingreso no puede estar en el futuro");
         }
-        if (docenteRepository
-                .findByCodigoDocenteIgnoreCase(request.codigoDocente().trim())
-                .isPresent()) {
-            throw new ConflictException(
-                    "CODIGO_DOCENTE_DUPLICADO", "El codigo del docente ya existe");
-        }
+        codigos.bloquearSecuenciaCuentas();
         Persona persona = resolvePersona(request.persona());
         if (docenteRepository.existsByPersonaId(persona.getId())) {
             throw duplicateProfile("docente");
         }
         Docente docente = new Docente();
         docente.setPersona(persona);
-        docente.setCodigoDocente(request.codigoDocente().trim().toUpperCase());
+        docente.setCodigoDocente(codigos.siguiente(CodigoInstitucionalService.Prefijo.DOC));
         docente.setFechaIngreso(request.fechaIngreso());
         docente.setEspecialidad(request.especialidad());
         Docente saved = docenteRepository.save(docente);
         auditCreate("Docente", saved.getId());
-        return toDocenteResponse(saved);
+        return toDocenteResponse(saved,
+                cuentas.altaDesdeFicha(persona, "DOCENTE", saved.getCodigoDocente()));
     }
 
     @Transactional(readOnly = true)
@@ -291,18 +259,15 @@ public class PersonaService {
                     "FECHA_INGRESO_INVALIDA", "La fecha de ingreso no puede estar en el futuro");
         }
         Docente docente = findDocente(id);
-        docenteRepository
-                .findByCodigoDocenteIgnoreCase(request.codigoDocente().trim())
-                .filter(existing -> !existing.getId().equals(id))
-                .ifPresent(
-                        existing -> {
-                            throw new ConflictException(
-                                    "CODIGO_DOCENTE_DUPLICADO", "El codigo del docente ya existe");
-                        });
+        if (request.codigoDocente() != null
+                && !request.codigoDocente().trim().equalsIgnoreCase(docente.getCodigoDocente())) {
+            throw new FormFieldException(
+                    "codigoDocente",
+                    "El código institucional es permanente y no se puede modificar");
+        }
         java.util.Map<String, Object> personaAntes = snapshotPersona(docente.getPersona());
         String anterior = describirDocente(docente);
         updatePersona(docente.getPersona(), request.persona());
-        docente.setCodigoDocente(request.codigoDocente().trim().toUpperCase());
         docente.setFechaIngreso(request.fechaIngreso());
         docente.setEspecialidad(request.especialidad());
         Docente saved = docenteRepository.save(docente);
@@ -316,22 +281,60 @@ public class PersonaService {
         Docente docente = findDocente(id);
         docente.setActivo(false);
         docenteRepository.save(docente);
-        deactivateProfile(docente.getPersona(), "DOCENTE");
+        cuentas.revocarDesdeFicha(docente.getPersona().getId(), "DOCENTE");
         auditDelete("Docente", id);
     }
 
     @Transactional
     public PersonaDtos.ApoderadoResponse createApoderado(
             PersonaDtos.ApoderadoCreateRequest request) {
-        Persona persona = resolvePersona(request.persona());
+        codigos.bloquearSecuenciaCuentas();
+        return createApoderado(resolvePersona(request.persona()));
+    }
+
+    private PersonaDtos.ApoderadoResponse createApoderado(Persona persona) {
         if (apoderadoRepository.existsByPersonaId(persona.getId())) {
             throw duplicateProfile("apoderado");
         }
         Apoderado apoderado = new Apoderado();
         apoderado.setPersona(persona);
+        apoderado.setCodigoApoderado(codigos.siguiente(CodigoInstitucionalService.Prefijo.APO));
         Apoderado saved = apoderadoRepository.save(apoderado);
         auditCreate("Apoderado", saved.getId());
-        return toApoderadoResponse(saved);
+        return toApoderadoResponse(saved,
+                cuentas.altaDesdeFicha(persona, "APODERADO", saved.getCodigoApoderado()));
+    }
+
+    /**
+     * Apoderado de una importación: si el documento ya es de un apoderado habilitado con la misma
+     * identidad, lo reutiliza en lugar de rechazar la fila. Así un apoderado con varios hijos, o
+     * repetido en el archivo, queda con un solo perfil y una sola cuenta.
+     */
+    @Transactional
+    public PersonaDtos.ApoderadoResponse registrarOReutilizarApoderado(
+            PersonaDtos.ApoderadoCreateRequest request) {
+        codigos.bloquearSecuenciaCuentas();
+        Persona persona = resolvePersona(request.persona());
+        var existente = apoderadoRepository.findByPersonaIdAndActivoTrue(persona.getId());
+        if (existente.isEmpty()) return createApoderado(persona);
+        Apoderado apoderado = existente.get();
+        return toApoderadoResponse(apoderado,
+                cuentas.altaDesdeFicha(persona, "APODERADO", apoderado.getCodigoApoderado()));
+    }
+
+    /** Id de la nacionalidad habilitada con ese nombre, sin distinguir mayúsculas. */
+    @Transactional(readOnly = true)
+    public Long nacionalidadPorNombre(String nombre) {
+        return nacionalidadRepository
+                .findByNombreIgnoreCase(nombre.trim())
+                .filter(nacionalidad -> nacionalidad.isActivo())
+                .map(nacionalidad -> nacionalidad.getId())
+                .orElseThrow(
+                        () ->
+                                new BusinessRuleException(
+                                        "NACIONALIDAD_NO_ENCONTRADA",
+                                        "No hay una nacionalidad registrada con el nombre "
+                                                + nombre.trim()));
     }
 
     @Transactional(readOnly = true)
@@ -371,7 +374,7 @@ public class PersonaService {
         Apoderado apoderado = findApoderado(id);
         apoderado.setActivo(false);
         apoderadoRepository.save(apoderado);
-        deactivateProfile(apoderado.getPersona(), "APODERADO");
+        cuentas.revocarDesdeFicha(apoderado.getPersona().getId(), "APODERADO");
         alumnoApoderadoRepository
                 .findAllByApoderadoIdAndActivoTrue(id)
                 .forEach(
@@ -393,6 +396,10 @@ public class PersonaService {
                                 new BusinessRuleException(
                                         "ALUMNO_INACTIVO", "El estudiante no está habilitado"));
         Apoderado apoderado = findApoderado(request.apoderadoId());
+        if (alumno.getPersona().getId().equals(apoderado.getPersona().getId())) {
+            throw new BusinessRuleException("VINCULO_MISMA_PERSONA",
+                    "El estudiante y su apoderado deben ser personas distintas");
+        }
         if (alumnoApoderadoRepository
                 .findByAlumnoIdAndApoderadoIdAndActivoTrue(alumnoId, apoderado.getId())
                 .isPresent()) {
@@ -513,13 +520,13 @@ public class PersonaService {
     }
 
     /**
-     * Persona para un perfil de docente o apoderado. Si el tipo y numero de documento ya estan
-     * registrados, reutiliza a esa persona (por ejemplo, una docente que tambien es apoderada)
+     * Si el tipo y número de documento ya están registrados, reutiliza a la persona
+     * (por ejemplo, una docente que también es apoderada)
      * en lugar de duplicarla, y conserva sus datos registrados. El documento por si solo no basta:
      * un digito mal escrito asignaria el perfil a otra persona, asi que tambien deben coincidir
-     * los nombres, el primer apellido y la fecha de nacimiento. Los estudiantes no se reutilizan.
+     * los nombres, el primer apellido y la fecha de nacimiento.
      */
-    private Persona resolvePersona(PersonaDtos.PersonaRequest request) {
+    public Persona resolvePersona(PersonaDtos.PersonaRequest request) {
         String numeroDocumento = upperOrNull(request.numeroDocumento());
         if (request.tipoDocumento() == null || numeroDocumento == null) {
             return createPersona(request);
@@ -543,12 +550,9 @@ public class PersonaService {
                     "El documento ya esta registrado con otros nombres o fecha de nacimiento."
                             + " Verifica el documento");
         }
-        if (alumnoRepository.findByPersonaIdAndActivoTrue(existing.getId()).isPresent()) {
-            throw new ConflictException(
-                    "DOCUMENTO_DE_ESTUDIANTE",
-                    "El documento pertenece a un estudiante; no puede registrarse con otro perfil");
-        }
-        return existing;
+        return personaRepository.lockActiveById(existing.getId())
+                .orElseThrow(() -> new ConflictException("PERSONA_INHABILITADA",
+                        "La persona está inhabilitada. Reactívala antes de registrarle otro perfil"));
     }
 
     private boolean sameIdentity(Persona persona, PersonaDtos.PersonaRequest request) {
@@ -645,35 +649,6 @@ public class PersonaService {
                         });
     }
 
-    private void deactivateProfile(Persona persona, String role) {
-        boolean tieneOtroPerfil =
-                alumnoRepository.findByPersonaIdAndActivoTrue(persona.getId()).isPresent()
-                        || docenteRepository
-                                .findByPersonaIdAndActivoTrue(persona.getId())
-                                .isPresent()
-                        || apoderadoRepository
-                                .findByPersonaIdAndActivoTrue(persona.getId())
-                                .isPresent()
-                        || administradorRepository
-                                .findByPersonaIdAndActivoTrue(persona.getId())
-                                .isPresent();
-        if (!tieneOtroPerfil) {
-            persona.setActivo(false);
-            personaRepository.save(persona);
-        }
-        usuarioRepository.findAllByPersonaIdAndActivoTrue(persona.getId()).stream()
-                .filter(usuario -> role.equals(usuario.getRol().getNombre()))
-                .forEach(this::deactivateUser);
-    }
-
-    private void deactivateUser(AccesoUsuario usuario) {
-        usuario.setActivo(false);
-        usuario.setEstado(EstadoAcceso.DESACTIVADO);
-        usuarioRepository.save(usuario);
-        sesionRepository.revokeAllByUsuarioId(
-                usuario.getId(), EstadoSesion.REVOCADA, Instant.now());
-    }
-
     private Alumno findAlumno(Long id) {
         return alumnoRepository
                 .findByIdAndActivoTrue(id)
@@ -702,6 +677,11 @@ public class PersonaService {
     }
 
     private PersonaDtos.AlumnoResponse toAlumnoResponse(Alumno alumno) {
+        return toAlumnoResponse(alumno, null);
+    }
+
+    private PersonaDtos.AlumnoResponse toAlumnoResponse(
+            Alumno alumno, PersonaDtos.CredencialAcceso credencial) {
         List<PersonaDtos.ApoderadoVinculadoResponse> guardians =
                 alumnoApoderadoRepository.findAllByAlumnoIdAndActivoTrue(alumno.getId()).stream()
                         .map(this::toGuardianLink)
@@ -711,20 +691,32 @@ public class PersonaService {
                 alumno.getCodigoAlumno(),
                 toPersonaResponse(alumno.getPersona()),
                 guardians,
-                alumno.isActivo());
+                  alumno.isActivo(),
+                  credencial);
     }
 
     private PersonaDtos.DocenteResponse toDocenteResponse(Docente docente) {
+        return toDocenteResponse(docente, null);
+    }
+
+    private PersonaDtos.DocenteResponse toDocenteResponse(
+            Docente docente, PersonaDtos.CredencialAcceso credencial) {
         return new PersonaDtos.DocenteResponse(
                 docente.getId(),
                 docente.getCodigoDocente(),
                 docente.getFechaIngreso(),
                 docente.getEspecialidad(),
                 toPersonaResponse(docente.getPersona()),
-                docente.isActivo());
+                  docente.isActivo(),
+                  credencial);
     }
 
     private PersonaDtos.ApoderadoResponse toApoderadoResponse(Apoderado apoderado) {
+        return toApoderadoResponse(apoderado, null);
+    }
+
+    private PersonaDtos.ApoderadoResponse toApoderadoResponse(
+            Apoderado apoderado, PersonaDtos.CredencialAcceso credencial) {
         List<PersonaDtos.AlumnoVinculadoResponse> students =
                 alumnoApoderadoRepository
                         .findAllByApoderadoIdAndActivoTrue(apoderado.getId())
@@ -741,9 +733,11 @@ public class PersonaService {
                         .toList();
         return new PersonaDtos.ApoderadoResponse(
                 apoderado.getId(),
+                apoderado.getCodigoApoderado(),
                 toPersonaResponse(apoderado.getPersona()),
                 students,
-                apoderado.isActivo());
+                  apoderado.isActivo(),
+                  credencial);
     }
 
     private PersonaDtos.PersonaResponse toPersonaResponse(Persona persona) {

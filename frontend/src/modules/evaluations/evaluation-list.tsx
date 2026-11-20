@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, StatusPill } from "@/shared/ui";
+import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, StatusPill, Loading } from "@/shared/ui";
 import type { MenuOption } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
 import { usePaged } from "@/shared/hooks/use-paged";
@@ -201,7 +201,7 @@ export function EvaluationList({
         />
         <Feedback error={list.error} success={success} />
         {list.loading ? (
-          <p role="status">Cargando evaluaciones…</p>
+          <Loading>Cargando evaluaciones…</Loading>
         ) : list.data?.content.length ? (
           <div className="user-table-wrap">
             <table className="user-table">

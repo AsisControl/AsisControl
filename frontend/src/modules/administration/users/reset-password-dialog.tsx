@@ -3,7 +3,6 @@ import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { passwordError } from "@/core/auth/password-policy";
 import { Dialog, Feedback, PasswordField } from "@/shared/ui";
-import { roleLabel } from "@/shared/lib/formatters";
 import type { Account } from "../types";
 import { restablecerContrasena } from "./services/usuarioService";
 /** Asigna una contraseña temporal tras verificar la identidad del titular. */
@@ -22,7 +21,7 @@ export function ResetPasswordDialog({
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const password = String(form.get("password") || "");
-    const policy = passwordError(password, account.username);
+    const policy = passwordError(password, account.codigo);
     if (policy) {
       setError(policy);
       return;
@@ -45,7 +44,7 @@ export function ResetPasswordDialog({
     <Dialog title="Restablecer contraseña" onClose={onClose} busy={busy}>
       <form onSubmit={save}>
         <p>
-          {account.nombreCompleto} · {roleLabel(account.rol)}
+          {account.nombreCompleto} · {account.codigo}
         </p>
         <Feedback error={error} />
         <label className="check-field">
@@ -65,7 +64,7 @@ export function ResetPasswordDialog({
           autoComplete="new-password"
         />
         <p className="hint">
-          Vence en 24 horas y requiere cambio al ingresar. Entrega esta
+          Vence en 14 días y requiere cambio al ingresar. Entrega esta
           contraseña al titular una sola vez. Sus sesiones anteriores serán
           revocadas.
         </p>

@@ -1,59 +1,20 @@
 package com.asiscontrol.service;
-
-import com.asiscontrol.dto.RiesgoDto;
-import com.asiscontrol.entity.Alumno;
-import com.asiscontrol.entity.enums.IndicadorRiesgo;
-import com.asiscontrol.exception.ConflictException;
-import com.asiscontrol.repository.AlertaRiesgoRepository;
-import com.asiscontrol.repository.AlumnoRepository;
-import com.asiscontrol.repository.CriterioRiesgoRepository;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
+import com.asiscontrol.entity.enums.OperadorComparacion;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
+import static org.assertj.core.api.Assertions.assertThat;
 class RiesgoServiceTest {
-
-    @Mock
-    private CriterioRiesgoRepository criterioRiesgoRepository;
-    @Mock
-    private AlertaRiesgoRepository alertaRiesgoRepository;
-    @Mock
-    private AlumnoRepository alumnoRepository;
-
-    @Mock
-    private AuditoriaService auditoria;
-
-    @InjectMocks
-    private RiesgoService riesgoService;
-
-    @Test
-    void rechazaElMismoIndicadorMasDeUnaVezEnLaEvaluacion() {
-        Alumno alumno = new Alumno();
-        alumno.setId(5L);
-        when(alumnoRepository.findByIdAndActivoTrue(5L)).thenReturn(Optional.of(alumno));
-        RiesgoDto.IndicadorValor primero = new RiesgoDto.IndicadorValor(
-                IndicadorRiesgo.INASISTENCIAS,
-                new BigDecimal("4")
-        );
-        RiesgoDto.IndicadorValor repetido = new RiesgoDto.IndicadorValor(
-                IndicadorRiesgo.INASISTENCIAS,
-                new BigDecimal("5")
-        );
-
-        assertThatThrownBy(() -> riesgoService.evaluar(
-                new RiesgoDto.EvaluacionRequest(5L, List.of(primero, repetido))
-        ))
-                .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("aparece mas de una vez");
+    @ParameterizedTest
+    @CsvSource({
+        "MENOR_QUE,4,true", "MENOR_QUE,5,false", "MENOR_QUE,6,false",
+        "MENOR_IGUAL,4,true", "MENOR_IGUAL,5,true", "MENOR_IGUAL,6,false",
+        "MAYOR_QUE,4,false", "MAYOR_QUE,5,false", "MAYOR_QUE,6,true",
+        "MAYOR_IGUAL,4,false", "MAYOR_IGUAL,5,true", "MAYOR_IGUAL,6,true",
+        "IGUAL,4,false", "IGUAL,5,true", "IGUAL,6,false"
+    })
+    void comparaAntesEnYDespuesDelUmbral(OperadorComparacion operador, String valor, boolean esperado) {
+        assertThat(CalculoRiesgoService.cumple(operador, new BigDecimal(valor), new BigDecimal("5.0000")))
+                .isEqualTo(esperado);
     }
 }

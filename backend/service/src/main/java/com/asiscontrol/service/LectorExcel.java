@@ -120,9 +120,35 @@ final class LectorExcel {
             return new PersonaDtos.ImportResult(total, importadas, total - importadas, issues);
         }
 
+        PersonaDtos.ImportResult resultado(
+                List<PersonaDtos.CredencialAcceso> credenciales,
+                List<PersonaDtos.ImportIssue> observaciones) {
+            return new PersonaDtos.ImportResult(
+                    total, importadas, total - importadas, issues,
+                    List.copyOf(credenciales), List.copyOf(observaciones));
+        }
+
         /** Un registro por archivo; cada alta o vinculo ya deja su propio registro de auditoria. */
         void auditar(
                 AuditoriaService auditoria, String accion, String entidad, MultipartFile file) {
+            auditar(auditoria, accion, entidad, file, List.of());
+        }
+
+        /**
+         * Igual, con el número de accesos creados y reutilizados. Nunca se registran contraseñas:
+         * cada cuenta nueva ya deja su CREAR_USUARIO con el mismo correlacionId.
+         */
+        void auditar(
+                AuditoriaService auditoria,
+                String accion,
+                String entidad,
+                MultipartFile file,
+                List<PersonaDtos.CredencialAcceso> credenciales) {
+            long creados = credenciales.stream().filter(c -> !c.existing()).count();
+            String accesos = credenciales.isEmpty()
+                    ? ""
+                    : ",accesosCreados=" + creados
+                            + ",accesosExistentes=" + (credenciales.size() - creados);
             String filasConError = issues.stream()
                     .map(issue -> String.valueOf(issue.row()))
                     .collect(Collectors.joining(","));
@@ -139,7 +165,8 @@ final class LectorExcel {
                     "archivo=" + file.getOriginalFilename()
                             + ",filas=" + total
                             + ",importados=" + importadas
-                            + ",fallidos=" + (total - importadas));
+                            + ",fallidos=" + (total - importadas)
+                            + accesos);
         }
     }
 

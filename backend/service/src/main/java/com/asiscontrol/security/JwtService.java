@@ -1,6 +1,7 @@
 package com.asiscontrol.security;
 
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.SesionAcceso;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -29,30 +30,34 @@ public class JwtService {
         this.expirationMinutes = Math.min(expirationMinutes, 15);
     }
 
-    public GeneratedToken generate(AuthenticatedUser authenticatedUser) {
-        AccesoUsuario usuario = authenticatedUser.getUsuario();
+    public GeneratedToken generate(SesionAcceso sesion) {
+        AccesoUsuario usuario = sesion.getUsuario();
+        AuthenticatedUser principal = new AuthenticatedUser(usuario, sesion.getRolActivo());
         // JWT utiliza segundos; la misma precisión evita diferencias al persistir DATETIME(6).
         Instant issuedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant expiresAt = issuedAt.plus(expirationMinutes, ChronoUnit.MINUTES);
         List<String> authorities =
-                authenticatedUser.getAuthorities().stream()
+                principal.getAuthorities().stream()
                         .map(authority -> authority.getAuthority())
                         .toList();
-        JwtClaimsSet claims =
+        JwtClaimsSet.Builder claims =
                 JwtClaimsSet.builder()
                         .id(java.util.UUID.randomUUID().toString())
                         .issuer("asiscontrol-backend")
                         .issuedAt(issuedAt)
                         .expiresAt(expiresAt)
-                        .subject(usuario.getUsername())
+                        .subject(usuario.getCodigo())
                         .claim("usuarioId", usuario.getId())
                         .claim("personaId", usuario.getPersona().getId())
-                        .claim("rol", usuario.getRol().getNombre())
+                        .claim("sesionId", sesion.getId())
+                        .claim("versionContexto", sesion.getVersionContexto())
                         .claim("requiereCambioContrasena", usuario.isRequiereCambioContrasena())
-                        .claim("authorities", authorities)
-                        .build();
+                        .claim("authorities", authorities);
+        if (sesion.getRolActivo() != null) {
+            claims.claim("rol", sesion.getRolActivo().getNombre());
+        }
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
-        String value = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        String value = jwtEncoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
         return new GeneratedToken(value, issuedAt, expiresAt);
     }
 

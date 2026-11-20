@@ -1,94 +1,122 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Eye } from "@/shared/ui";
 import type { useAuth } from "@/core/auth/use-auth";
-import { AuthIdentityPanel } from "./auth-identity-panel";
-import identityStyles from "./auth-identity-panel.module.css";
+import { AccessArrow, AccessBrand } from "./access-brand";
+import access from "./access.module.css";
+import styles from "./login-screen.module.css";
 export function LoginScreen({
   onLogin,
 }: {
   onLogin: ReturnType<typeof useAuth>["login"];
 }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState<{ message: string; field?: "username" } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setIsSubmitting(true);
+    if (isSubmitting) return;
+    setError(null);
     const form = new FormData(event.currentTarget);
+    setIsSubmitting(true);
     const result = await onLogin({
-      username: String(form.get("username") ?? ""),
+      username: String(form.get("username") ?? "").trim(),
       password: String(form.get("password") ?? ""),
     });
     setIsSubmitting(false);
-    if (!result.ok) setError(result.message);
+    if (!result.ok) setError({ message: result.message });
   }
 
   return (
-    <main className={identityStyles.screen}>
-      <AuthIdentityPanel />
-      <section className="login-form-panel">
-        <form className="login-form" onSubmit={login}>
-          <h2>Iniciar sesión</h2>
-          <p>Ingresa tus credenciales institucionales</p>
-          <label>
-            Usuario <i>*</i>
-            <input
-              name="username"
-              maxLength={150}
-              required
-              autoComplete="username"
-              placeholder="Ingresa tu usuario"
-              disabled={isSubmitting}
-            />
-          </label>
-          <label>
-            Contraseña <i>*</i>
-            <span className="password-field">
+    <main className={`${access.surface} ${styles.screen}`}>
+      <AccessBrand className={styles.masthead} />
+      <div className={styles.stage}>
+        <aside className={styles.hero} aria-label="Gestión escolar">
+          <div className={styles.art} aria-hidden="true">
+            <Image src="/brand/registro-escolar.webp" alt="" fill unoptimized loading="eager" />
+          </div>
+          <div className={styles.story}>
+            <p className={styles.headline}>La jornada escolar, <span>en un solo lugar.</span></p>
+            <p className={styles.caption}>Matrícula, asistencia, evaluaciones, tareas y pagos.</p>
+          </div>
+        </aside>
+        <section className={styles.formArea} aria-labelledby="login-title">
+          <form className={styles.form} onSubmit={login}>
+            <header className={styles.formHeader}>
+              <h1 id="login-title">Iniciar sesión</h1>
+              <p>Accede con tus credenciales del colegio.</p>
+            </header>
+            <div className={styles.field}>
+              <div className={styles.fieldHeader}>
+                <label htmlFor="login-username">Usuario o correo</label>
+                <span id="login-username-hint" className={styles.hint}>Código, usuario o correo</span>
+              </div>
               <input
-                name="password"
-                maxLength={72}
+                id="login-username"
+                name="username"
+                maxLength={150}
                 required
-                autoComplete="current-password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Ingresa tu contraseña"
+                autoComplete="username"
+                placeholder="Código, usuario o correo"
+                aria-describedby={error?.field ? "login-username-hint login-error" : "login-username-hint"}
+                aria-invalid={error?.field === "username" || undefined}
+                value={username}
+                onChange={(event) => {
+                  setUsername(event.currentTarget.value);
+                  if (error?.field === "username") setError(null);
+                }}
                 disabled={isSubmitting}
               />
-              <button
-                type="button"
-                aria-label={
-                  showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-                }
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={isSubmitting}
-              >
-                <Eye crossed={showPassword} />
-              </button>
-            </span>
-          </label>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <Link className="forgot" href="/recuperar-contrasena">
-            ¿Olvidaste tu contraseña?
-          </Link>
-          <button
-            className="login-button"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Validando acceso…" : "Iniciar sesión"}
-          </button>
-          <div className="login-help">
-            ¿Problemas para acceder? Contacta a la administración del colegio.
-          </div>
-        </form>
-      </section>
+            </div>
+            <div className={styles.field}>
+              <label htmlFor="login-password">Contraseña</label>
+              <span className={styles.password}>
+                <input
+                  id="login-password"
+                  name="password"
+                  maxLength={72}
+                  required
+                  autoComplete="current-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Ingresa tu contraseña"
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  aria-label={
+                    showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                  }
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  disabled={isSubmitting}
+                >
+                  <Eye crossed={showPassword} />
+                </button>
+              </span>
+            </div>
+            {error && (
+              <p id="login-error" className={styles.error} role="alert">
+                {error.message}
+              </p>
+            )}
+            <Link className={styles.forgot} href="/recuperar-contrasena">
+              ¿Olvidaste tu contraseña?
+            </Link>
+            <button
+              className={`${access.primary} ${styles.submit}`}
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Validando acceso…" : "Iniciar sesión"}
+              <AccessArrow />
+            </button>
+            <p className={styles.help}>¿Problemas para acceder? Contacta a la administración del colegio.</p>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }

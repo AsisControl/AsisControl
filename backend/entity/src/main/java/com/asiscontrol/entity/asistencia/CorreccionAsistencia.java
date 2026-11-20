@@ -46,6 +46,15 @@ public class CorreccionAsistencia extends AuditableEntity {
             foreignKey = @ForeignKey(name = "fk_correccion_asistencia_docente"))
     private Docente docente;
 
+    @Column(name = "actor_identificador", length = 100)
+    private String actorIdentificador;
+
+    @Column(name = "actor_nombre", length = 300)
+    private String actorNombre;
+
+    @Column(name = "actor_rol", length = 30)
+    private String actorRol;
+
     @Column(name = "motivo", nullable = false, length = 500)
     private String motivo;
 

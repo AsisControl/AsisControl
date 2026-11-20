@@ -21,6 +21,7 @@ export type Student = {
   fechaCreacion?: string | null;
   fechaActualizacion?: string | null;
   version?: number;
+  credencialAcceso?: AccessCredential;
   // BE2 debe exponerlas después de implementar el ciclo de vida seguro (OBS-039).
   accionesPermitidas?: {
     editar?: boolean;
@@ -42,6 +43,26 @@ export type ImportResult = {
   importedRows: number;
   rejectedRows: number;
   issues: { row: number; field: string | null; message: string }[];
+  /** Accesos de las filas registradas; la contraseña solo llega al guardar. */
+  credentials?: AccessCredential[];
+  /** Observaciones de filas registradas, por ejemplo un apoderado sin contacto. */
+  warnings?: { row: number; field: string | null; message: string }[];
+};
+/** PersonaDtos.CredencialAcceso. */
+export type AccessCredential = {
+  row: number;
+  fullName: string;
+  role: string;
+  code: string | null;
+  /** Código permanente de la cuenta (AAAANNNN): sirve para iniciar sesión. */
+  accessCode?: string | null;
+  username: string;
+  email: string;
+  /** Solo se devuelve cuando se crea la cuenta. */
+  temporaryPassword: string | null;
+  expiresAt: string | null;
+  /** Ya tenía una cuenta institucional. */
+  existing: boolean;
 };
 export type FamilyImportSlot = "estudiantes" | "apoderados" | "parentescos";
 /** Respuesta de POST /api/alumnos/importaciones/familias (PersonaDtos.FamilyImportResult). */
