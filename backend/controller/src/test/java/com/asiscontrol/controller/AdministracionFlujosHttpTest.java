@@ -61,7 +61,7 @@ class AdministracionFlujosHttpTest extends ApiIntegrationSupport {
         assertThat(result.path("content").size()).isGreaterThanOrEqualTo(1);
         putOk("/api/auditoria/errores/"+error.getId(),data("estado","EN_SEGUIMIENTO","observacionSeguimiento","Investigando causa","version",0));
         assertThat(getOk("/api/auditoria/errores/"+error.getId()+"/seguimientos")).hasSize(1);
-        var notification=notificaciones.create(admin.getId(),"Aviso","Mensaje institucional",TipoNotificacion.values()[0],"/inicio");
+        var notification=notificaciones.create(admin.getId(),"Aviso","Mensaje institucional",TipoNotificacion.values()[0],"/inicio","ADMINISTRADOR");
         assertThat(getOk("/api/notificaciones/resumen").path("noLeidas").asInt()).isGreaterThanOrEqualTo(0);
         getOk("/api/notificaciones");
         assertThat(putOk("/api/notificaciones/"+notification.id()+"/leida",null).path("leida").asBoolean()).isTrue();

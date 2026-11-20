@@ -37,6 +37,10 @@ public class Notificacion extends AuditableEntity {
     @JoinColumn(name = "id_acceso_usuario", nullable = false)
     private AccesoUsuario destinatario;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_rol_destinatario")
+    private Rol rolDestinatario;
+
     @Column(name = "titulo", nullable = false, length = 160)
     private String titulo;
 

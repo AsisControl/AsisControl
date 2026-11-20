@@ -108,7 +108,7 @@ class PlantillasFamiliaHttpTest {
     }
 
     private Workbook download(String path, String filename) throws Exception {
-        byte[] content = mvc.perform(get(path).with(user("secretaria-prueba").roles("SECRETARIA")))
+        byte[] content = mvc.perform(get(path).with(user("admin-prueba").roles("ADMINISTRADOR")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition",
                         "attachment; filename=\"" + filename + "\""))

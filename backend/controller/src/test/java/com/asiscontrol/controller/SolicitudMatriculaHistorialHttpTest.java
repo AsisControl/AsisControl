@@ -4,6 +4,7 @@ import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
 import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.RegistroAuditoria;
+import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.SolicitudMatricula;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
@@ -272,7 +273,8 @@ class SolicitudMatriculaHistorialHttpTest extends ApiIntegrationSupport {
     private RegistroAuditoria evento(String entidad, Long id, String accion, String fecha) {
         RegistroAuditoria evento = new RegistroAuditoria();
         evento.setActorIdentificador("administrador-prueba");
-        evento.setRolActor(admin.getRol());
+        evento.setRolActor(em.createQuery("from Rol where nombre = 'ADMINISTRADOR'", Rol.class)
+                .getSingleResult());
         evento.setEntidad(entidad);
         evento.setRegistroId(id.toString());
         evento.setAccion(accion);

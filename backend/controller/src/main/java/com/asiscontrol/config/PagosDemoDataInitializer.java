@@ -1,17 +1,14 @@
 package com.asiscontrol.config;
 
 import com.asiscontrol.dto.PagoDto;
-import com.asiscontrol.entity.AccesoUsuario;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
 import com.asiscontrol.entity.Apoderado;
 import com.asiscontrol.entity.GradoAcademico;
 import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.Persona;
-import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.Seccion;
 import com.asiscontrol.entity.SolicitudMatricula;
-import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
@@ -20,6 +17,8 @@ import com.asiscontrol.entity.enums.Parentesco;
 import com.asiscontrol.entity.enums.TipoComprobante;
 import com.asiscontrol.entity.enums.TipoDocumento;
 import com.asiscontrol.entity.planificacion.AnioAcademico;
+import com.asiscontrol.service.CicloCuentaService;
+import com.asiscontrol.service.CodigoInstitucionalService;
 import com.asiscontrol.service.CompromisoPagoService;
 import com.asiscontrol.service.PagoService;
 import jakarta.persistence.EntityManager;
@@ -30,7 +29,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,16 +46,19 @@ public class PagosDemoDataInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger(PagosDemoDataInitializer.class);
     private static final ZoneId LIMA = ZoneId.of("America/Lima");
     private final EntityManager em;
-    private final PasswordEncoder passwords;
+    private final CicloCuentaService cuentas;
+    private final CodigoInstitucionalService codigos;
     private final CompromisoPagoService compromisos;
     private final PagoService pagos;
     private final String password;
 
-    public PagosDemoDataInitializer(EntityManager em, PasswordEncoder passwords,
+    public PagosDemoDataInitializer(EntityManager em, CicloCuentaService cuentas,
+            CodigoInstitucionalService codigos,
             CompromisoPagoService compromisos, PagoService pagos,
             @Value("${app.pagos.demo.password:}") String password) {
         this.em = em;
-        this.passwords = passwords;
+        this.cuentas = cuentas;
+        this.codigos = codigos;
         this.compromisos = compromisos;
         this.pagos = pagos;
         this.password = password;
@@ -69,19 +70,21 @@ public class PagosDemoDataInitializer {
         if (!password.matches("(?=.{12,64}$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])[^\\s]+")) {
             throw new IllegalStateException("La demo de pagos requiere PAYMENTS_DEMO_PASSWORD de 12 a 64 caracteres, con mayúscula, minúscula y número.");
         }
-        if (em.createQuery("select count(a) from AccesoUsuario a where a.username in :usuarios", Long.class)
-                .setParameter("usuarios", java.util.List.of("demo.pagos.1", "demo.pagos.2"))
-                .getSingleResult() == 2) {
+        codigos.bloquearSecuenciaCuentas();
+        if (familiaPreparada(1) && familiaPreparada(2)) {
             LOGGER.info("La demo de pagos ya está preparada; se conservan cuentas, claves y pagos.");
             return;
         }
-        var rol = em.createQuery("select r from Rol r where r.nombre='APODERADO' and r.activo=true", Rol.class)
-                .getSingleResult();
         var anio = anio();
         var seccion = seccion(anio);
-        familia(1, "Carla", "Ramos", rol, seccion, 2);
-        familia(2, "Jorge", "Torres", rol, seccion, 1);
-        LOGGER.info("Demo de pagos preparada: demo.pagos.1 y demo.pagos.2, con estudiantes distintos. Las claves no se registran en logs.");
+        familia(1, "Carla", "Ramos", seccion, 2);
+        familia(2, "Jorge", "Torres", seccion, 1);
+    }
+
+    private boolean familiaPreparada(int numero) {
+        return em.createQuery("select count(a) from Alumno a where a.codigoAlumno=:codigo", Long.class)
+                .setParameter("codigo", "DEMO-PAGOS-" + numero + "-1")
+                .getSingleResult() > 0;
     }
 
     private AnioAcademico anio() {
@@ -125,25 +128,18 @@ public class PagosDemoDataInitializer {
         return seccion;
     }
 
-    private void familia(int numero, String nombre, String apellido, Rol rol, Seccion seccion, int hijos) {
-        String username = "demo.pagos." + numero;
-        if (em.createQuery("select count(a) from AccesoUsuario a where a.username=:usuario", Long.class)
-                .setParameter("usuario", username).getSingleResult() > 0) return;
+    private void familia(int numero, String nombre, String apellido, Seccion seccion, int hijos) {
+        if (familiaPreparada(numero)) return;
         var persona = persona("9000000" + numero, nombre, apellido, LocalDate.of(1985, 5, 10));
         var apoderado = new Apoderado();
         apoderado.setPersona(persona);
+        apoderado.setCodigoApoderado(codigos.siguiente(CodigoInstitucionalService.Prefijo.APO));
         em.persist(apoderado);
-        var acceso = new AccesoUsuario();
-        acceso.setPersona(persona);
-        acceso.setRol(rol);
-        acceso.setUsername(username);
-        acceso.setCorreo(username + "@example.test");
-        acceso.setContrasenaHash(passwords.encode(password));
-        acceso.setEstado(EstadoAcceso.ACTIVO);
-        acceso.setCorreoVerificado(true);
-        acceso.setRequiereCambioContrasena(false);
-        em.persist(acceso);
+        var credencial = cuentas.altaConfigurada(persona, "APODERADO", apoderado.getCodigoApoderado(),
+                "demo.pagos." + numero + "@example.test", password, false);
         for (int hijo = 1; hijo <= hijos; hijo++) estudiante(numero, hijo, apellido, apoderado, seccion);
+        LOGGER.info("Cuenta de demostración de pagos {}: {}. Cambia la temporal al ingresar.",
+                numero, credencial.username());
     }
 
     private Persona persona(String documento, String nombre, String apellido, LocalDate nacimiento) {

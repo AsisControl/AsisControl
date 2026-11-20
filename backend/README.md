@@ -76,16 +76,16 @@ $env:SPRING_PROFILES_ACTIVE = "local"
 $env:BOOTSTRAP_ENABLED = "true"
 $env:BOOTSTRAP_ADMIN_DOCUMENT = "00000000"
 $env:BOOTSTRAP_ADMIN_EMAIL = "admin@colegio.test"
-$env:BOOTSTRAP_ADMIN_USERNAME = "admin"
 $env:BOOTSTRAP_ADMIN_PASSWORD = "Temporal2026Clave"
 
 .\mvnw.cmd -DskipTests install
 .\mvnw.cmd -f controller\pom.xml spring-boot:run
 ```
 
-La contraseña temporal debe tener entre 8 y 64 caracteres, mayúscula, minúscula y número; no puede
-tener espacios ni contener el nombre de usuario. Al iniciar sesión, el usuario debe cambiarla antes
-de acceder al resto de módulos.
+El log de arranque muestra el código de ocho dígitos cuando crea la cuenta del administrador inicial.
+La contraseña temporal debe tener entre 8 y 64 caracteres y contener mayúscula, minúscula y número.
+Usa una temporal sin espacios y distinta del identificador. Cámbiala al iniciar sesión para acceder
+al resto de módulos.
 
 Cuando el log muestre que Tomcat inició en el puerto `8080`, verifica:
 
@@ -127,7 +127,6 @@ $env:JWT_SECRET = [Convert]::ToBase64String($jwtBytes)
 $env:BOOTSTRAP_ENABLED = "true"
 $env:BOOTSTRAP_ADMIN_DOCUMENT = "00000000"
 $env:BOOTSTRAP_ADMIN_EMAIL = "admin@colegio.test"
-$env:BOOTSTRAP_ADMIN_USERNAME = "admin"
 $env:BOOTSTRAP_ADMIN_PASSWORD = "Temporal2026Clave"
 
 .\mvnw.cmd -DskipTests install
@@ -142,6 +141,8 @@ El perfil `mysql` usa Flyway para versionar el esquema y `ddl-auto=validate` par
 compruebe la compatibilidad. En una base vacía, Flyway aplica
 `V1__baseline_schema.sql`, que es la versión oficial actual del esquema. No modifiques una migración
 ya aplicada: Flyway valida su checksum.
+
+Si actualizas una instalación con cuentas existentes, revisa el corte de autenticación. [Autenticación unificada](../docs/AUTENTICACION_UNIFICADA.md#migración-y-puesta-en-servicio)
 
 Los archivos recibidos externamente, incluidos SQL que no estén dentro de
 `controller/src/main/resources/db/migration`, no se ejecutan automáticamente y no deben mezclarse

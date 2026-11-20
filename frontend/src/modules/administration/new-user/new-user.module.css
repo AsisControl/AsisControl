@@ -25,20 +25,14 @@
   font-size: 14px;
   margin: 4px 0 0;
 }
-.layout {
-  align-items: start;
+
+.steps {
   border: 0;
   display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
   margin: 0;
   min-width: 0;
   padding: 0;
-}
-.steps {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
 }
 .card {
   background: #fff;
@@ -48,27 +42,7 @@
   padding: 22px 24px;
 }
 .stepHeading {
-  align-items: flex-start;
-  display: flex;
-  gap: 12px;
   margin-bottom: 16px;
-}
-.stepNumber {
-  align-items: center;
-  background: #eff6ff;
-  border-radius: 50%;
-  color: var(--blue);
-  display: flex;
-  flex: none;
-  font-size: 13px;
-  font-weight: 700;
-  height: 28px;
-  justify-content: center;
-  width: 28px;
-}
-.stepDone {
-  background: var(--blue);
-  color: #fff;
 }
 .stepHeading h3 {
   color: var(--ink);
@@ -199,213 +173,4 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
-}
-.roleGrid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.roleCard {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px;
-}
-.roleCard small {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-.roleCardHeader {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-}
-.note {
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: #475569;
-  font-size: 13px;
-  margin: 14px 0 0;
-  padding: 10px 12px;
-}
-.warning {
-  background: #fef3c7;
-  border-color: #fcd34d;
-  color: #92400e;
-}
-.subsection {
-  border-top: 1px solid #e2e8f0;
-  margin-top: 16px;
-  padding-top: 4px;
-}
-.passwordRow {
-  align-items: end;
-  display: flex;
-  gap: 10px;
-}
-.passwordRow > :first-child {
-  flex: 1;
-}
-.generateButton {
-  background: #fff;
-  border: 1px solid #93c5fd;
-  border-radius: 6px;
-  color: var(--blue);
-  font-size: 13px;
-  font-weight: 600;
-  margin: 12px 0;
-  min-height: 40px;
-  padding: 0 14px;
-  white-space: nowrap;
-}
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.chip {
-  align-items: center;
-  background: #eff6ff;
-  border: 1px solid #93c5fd;
-  border-radius: 999px;
-  color: #1d4ed8;
-  display: inline-flex;
-  font-size: 12px;
-  gap: 6px;
-  padding: 3px 4px 3px 10px;
-}
-.chip button {
-  background: none;
-  border: 0;
-  border-radius: 50%;
-  color: inherit;
-  font-size: 14px;
-  height: 20px;
-  line-height: 1;
-  padding: 0;
-  width: 20px;
-}
-.chip button:hover {
-  background: #dbeafe;
-}
-.summary {
-  position: sticky;
-  top: 20px;
-}
-.summary h3 {
-  font-size: 15px;
-  margin: 0 0 12px;
-}
-.summary dl {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 16px;
-}
-.summary dt {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.summary dd {
-  color: var(--ink);
-  font-size: 13px;
-  margin: 2px 0 0;
-  overflow-wrap: anywhere;
-}
-.summaryActions {
-  display: grid;
-  gap: 8px;
-}
-.summaryActions button {
-  width: 100%;
-}
-.secondaryButton {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: #475569;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 14px;
-}
-.missing {
-  color: var(--muted);
-  font-size: 12px;
-  margin: 0 0 12px;
-}
-.success {
-  margin: 0 auto;
-  max-width: 560px;
-  text-align: center;
-}
-.successIcon {
-  align-items: center;
-  background: #dcfce7;
-  border-radius: 50%;
-  color: #15803d;
-  display: inline-flex;
-  height: 56px;
-  justify-content: center;
-  margin-bottom: 12px;
-  width: 56px;
-}
-.success h2 {
-  margin: 0 0 6px;
-}
-.success > p {
-  color: var(--muted);
-  font-size: 14px;
-  margin: 0 0 16px;
-}
-.success dl {
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0 0 16px;
-  padding: 14px;
-  text-align: left;
-}
-.success dt {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.success dd {
-  font-size: 13px;
-  margin: 2px 0 0;
-}
-.successActions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-@media (max-width: 1000px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .summary {
-    position: static;
-  }
-}
-@media (max-width: 600px) {
-  .roleGrid,
-  .success dl {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .passwordRow {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .generateButton {
-    margin-top: 0;
-  }
 }

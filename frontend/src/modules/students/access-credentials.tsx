@@ -1,5 +1,6 @@
 "use client";
 import { countLabel, roleLabel, shortDateLabel } from "@/shared/lib/formatters";
+import { Dialog } from "@/shared/ui";
 import type { AccessCredential } from "./types";
 import styles from "./import-dialog.module.css";
 
@@ -46,6 +47,32 @@ primer ingreso, antes de la fecha de vencimiento. Guarda esta hoja en un lugar s
   return true;
 }
 
+export function NewAccountCredentials({
+  credential,
+  onClose,
+}: {
+  credential: AccessCredential;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog title="Credenciales iniciales" onClose={onClose}>
+      <p>Entrega estos datos únicamente a {credential.fullName}.</p>
+      <dl className="detail-grid">
+        <div><dt>Usuario institucional</dt><dd>{credential.username}</dd></div>
+        <div><dt>Contraseña temporal</dt><dd><code>{credential.temporaryPassword}</code></dd></div>
+        <div><dt>Vencimiento</dt><dd>{shortDateLabel(credential.expiresAt)}</dd></div>
+      </dl>
+      <p>La contraseña solo se muestra ahora y debe cambiarse en el primer ingreso.</p>
+      <div className="form-actions">
+        <button type="button" onClick={() => printCredentials([credential])}>
+          Imprimir o guardar PDF
+        </button>
+        <button className="primary-action" type="button" onClick={onClose}>Entendido</button>
+      </div>
+    </Dialog>
+  );
+}
+
 /**
  * Accesos de una importación. Antes de guardar muestra el usuario que recibirá cada persona;
  * después de guardar muestra una sola vez las contraseñas temporales para imprimirlas.
@@ -75,14 +102,13 @@ export function AccessCredentials({
           : `Se ${created === 1 ? "creará" : "crearán"} ${countLabel(created, "acceso", "accesos")}`}
         {existing > 0 &&
           ` y se ${saved ? "conservaron" : "conservarán"} ${countLabel(existing, "acceso existente", "accesos existentes")}`}
-        . El usuario y el correo se generan con el nombre y el código institucional.
+        . Cada cuenta conserva su usuario institucional al agregarle otro rol.
       </p>
       {printable && (
         <div className={styles.credentialsWarning} role="note">
           <strong>Las contraseñas temporales solo se muestran ahora.</strong>{" "}
-          Imprímelas o guárdalas como PDF antes de cerrar. Vencen en 14 días y
-          se cambian en el primer ingreso; si se pierden, restablécelas desde
-          Usuarios.
+          Imprímelas o guárdalas como PDF antes de cerrar y entrega a cada
+          titular únicamente la suya. Si se pierden, restablécelas desde Usuarios.
           <div>
             <button
               type="button"

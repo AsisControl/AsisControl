@@ -61,8 +61,19 @@
   line-height: 14px;
   padding: 1px 6px;
 }
-.header :global(.brand) > span:last-child {
-  min-width: 0;
+.dashboardBrand {
+  align-items: flex-start;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+}
+.dashboardBrand img {
+  display: block;
+  height: auto;
+  margin-inline-start: -3px;
+  max-width: 100%;
+  width: 144px;
 }
 /* Entre 1000 y 1280 px el menú con iconos no cabe en una fila: pasa debajo,
    igual que hace globals.css por debajo de 1000 px. */
@@ -97,23 +108,12 @@
     min-height: 60px;
     padding: 8px 16px;
   }
-  .header :global(.brand) {
+  .dashboardBrand {
     flex: 1 1 0;
-    gap: 8px;
     min-width: 0;
   }
-  .header :global(.brand) > span:last-child {
-    display: block;
-    min-width: 0;
-  }
-  .header :global(.brand b) {
-    font-size: 14px;
-    overflow-wrap: anywhere;
-  }
-  .header :global(.brand small) {
-    display: block;
-    font-size: 10px;
-    line-height: 14px;
+  .dashboardBrand img {
+    width: 124px;
   }
   .header :global(.account-trigger) {
     gap: 6px;
@@ -187,9 +187,6 @@
 @media (max-width: 420px) {
   .header:global(.top-nav) {
     padding-inline: 12px;
-  }
-  .header :global(.brand-icon) {
-    display: none;
   }
 }
 /* Aviso no bloqueante: la pantalla actual se conserva mientras se reintenta. */

@@ -6,16 +6,20 @@ export type SessionSnapshot = {
   session: AuthSession | null;
   status: SessionStatus;
   error: string;
+  contextSuspended: boolean;
 };
 const serverSnapshot: SessionSnapshot = {
   session: null,
   status: "checking",
   error: "",
+  contextSuspended: false,
 };
 const invalidationKey = "asiscontrol:session-invalidation";
+export const roleContextEventKey = "asiscontrol:role-context-changed";
 const listeners = new Set<() => void>();
 let snapshot = serverSnapshot;
-/** Solo se guarda una marca de cierre en localStorage, nunca tokens ni datos del usuario. */
+let contextRevision = 0;
+/** Las marcas entre pestañas nunca incluyen tokens ni información de la cuenta. */
 function readInvalidation(): string | null {
   try {
     return typeof window === "undefined"
@@ -49,30 +53,59 @@ export const renewSession = () =>
 export function readSession(): AuthSession | null {
   return snapshot.session;
 }
+export function sessionContextKey(session: AuthSession | null) {
+  if (!session) return null;
+  const user = session.user;
+  return JSON.stringify([
+    user?.id, user?.sessionId ?? user?.id, user?.contextVersion ?? 0, user?.role,
+  ]);
+}
+export function readContextRevision() {
+  return contextRevision;
+}
+export function suspendRoleContext() {
+  contextRevision++;
+  publish({ ...snapshot, contextSuspended: true, status: "checking", error: "" });
+}
+export function announceRoleContextChange() {
+  try {
+    window.localStorage.setItem(roleContextEventKey, newContextMarker());
+  } catch {
+    // El contexto se revalida con el servidor al volver a la pestaña.
+  }
+}
+function newContextMarker() {
+  return String(Date.now()) + ":" + Math.random();
+}
 export function saveSession(session: AuthSession) {
   observedInvalidation = readInvalidation();
-  publish({ session, status: "ready", error: "" });
+  if (sessionContextKey(snapshot.session) !== sessionContextKey(session))
+    contextRevision++;
+  publish({ session, status: "ready", error: "", contextSuspended: false });
 }
 export function setSessionStatus(status: SessionStatus, error = "") {
-  publish({ session: snapshot.session, status, error });
+  publish({ ...snapshot, status, error });
 }
 /** Cierra la sesión de esta pestaña si otra pestaña cerró sesión. */
 export function synchronizeSessionInvalidation() {
   const value = readInvalidation();
-  if (value === observedInvalidation) return;
+  if (value === observedInvalidation) return false;
   observedInvalidation = value;
-  publish({ session: null, status: "ready", error: "" });
+  contextRevision++;
+  publish({ session: null, status: "ready", error: "", contextSuspended: false });
+  return true;
 }
 export function clearSession() {
   try {
     if (typeof window !== "undefined") {
-      observedInvalidation = `${Date.now()}:${Math.random()}`;
+      observedInvalidation = newContextMarker();
       window.localStorage.setItem(invalidationKey, observedInvalidation);
     }
   } catch {
     // Sin almacenamiento del navegador, el backend sigue rechazando el token revocado.
   }
-  publish({ session: null, status: "ready", error: "" });
+  contextRevision++;
+  publish({ session: null, status: "ready", error: "", contextSuspended: false });
   if (typeof window !== "undefined")
     window.dispatchEvent(new Event("asiscontrol:session-cleared"));
 }

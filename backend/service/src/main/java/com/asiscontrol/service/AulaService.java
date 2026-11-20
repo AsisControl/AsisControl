@@ -94,7 +94,7 @@ public class AulaService {
         aula.setTipoAula(request.tipoAula());
         aula.setCapacidad(request.capacidad());
         aula.setUbicacion(ubicacion);
-        Aula guardada = aulaRepository.save(aula);
+        Aula guardada = aulaRepository.saveAndFlush(aula);
         if (!nuevo.isEmpty()) {
             auditar("ACTUALIZAR_AULA", guardada, null, anterior.toString(), nuevo.toString());
         }
@@ -122,7 +122,7 @@ public class AulaService {
                     "No se puede inhabilitar un aula con horarios activos", enUso);
         }
         aula.setActivo(false);
-        Aula guardada = aulaRepository.save(aula);
+        Aula guardada = aulaRepository.saveAndFlush(aula);
         auditar("INHABILITAR_AULA", guardada, motivo, "activo=true", "activo=false");
         return mapear(guardada);
     }
@@ -135,7 +135,7 @@ public class AulaService {
             throw new ConflictException("AULA_YA_HABILITADA", "El aula ya se encuentra habilitada");
         }
         aula.setActivo(true);
-        Aula guardada = aulaRepository.save(aula);
+        Aula guardada = aulaRepository.saveAndFlush(aula);
         String motivo = request.motivo() == null || request.motivo().isBlank() ? null : request.motivo().trim();
         auditar("HABILITAR_AULA", guardada, motivo, "activo=false", "activo=true");
         return mapear(guardada);

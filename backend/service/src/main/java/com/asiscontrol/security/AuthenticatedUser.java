@@ -1,6 +1,7 @@
 package com.asiscontrol.security;
 
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Rol;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -16,8 +17,12 @@ public class AuthenticatedUser implements UserDetails {
     private final Set<GrantedAuthority> authorities;
 
     public AuthenticatedUser(AccesoUsuario usuario) {
+        this(usuario, null);
+    }
+
+    public AuthenticatedUser(AccesoUsuario usuario, Rol rolActivo) {
         this.usuario = usuario;
-        this.authorities = buildAuthorities(usuario);
+        this.authorities = buildAuthorities(rolActivo);
     }
 
     public AccesoUsuario getUsuario() {
@@ -59,7 +64,7 @@ public class AuthenticatedUser implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        if (!usuario.isActivo()) {
+        if (!usuario.isActivo() || !usuario.getPersona().isActivo()) {
             return false;
         }
         if (usuario.getEstado() == com.asiscontrol.entity.enums.EstadoAcceso.ACTIVO) {
@@ -71,12 +76,13 @@ public class AuthenticatedUser implements UserDetails {
                 && usuario.getBloqueadoHasta().isBefore(java.time.Instant.now());
     }
 
-    private Set<GrantedAuthority> buildAuthorities(AccesoUsuario accesoUsuario) {
+    private Set<GrantedAuthority> buildAuthorities(Rol rol) {
+        if (rol == null) return Set.of();
         Set<GrantedAuthority> result = new LinkedHashSet<>();
         result.add(
                 new SimpleGrantedAuthority(
-                        "ROLE_" + accesoUsuario.getRol().getNombre().toUpperCase()));
-        accesoUsuario.getRol().getPermisos().stream()
+                        "ROLE_" + rol.getNombre()));
+        rol.getPermisos().stream()
                 .filter(permission -> permission.isActivo())
                 .map(permission -> new SimpleGrantedAuthority(permission.getCodigo()))
                 .forEach(result::add);
