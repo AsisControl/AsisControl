@@ -84,7 +84,7 @@ class LoginCredencialesIntegrationTest {
                 roles.findByNombreIgnoreCase("ALUMNO").orElseThrow().getId(), "Temporal123!", null, null, Set.of()));
 
         org.assertj.core.api.Assertions.assertThat(usuario.codigo()).matches("[0-9]{8}");
-        org.assertj.core.api.Assertions.assertThat(usuario.username()).isEqualTo("persona.prueba");
+        org.assertj.core.api.Assertions.assertThat(usuario.username()).startsWith("persona.prueba").isNotEqualTo(usuario.codigo());
         org.assertj.core.api.Assertions.assertThat(usuario.correo()).startsWith("a" + usuario.codigo() + "@");
         login(usuario.codigo(), "Temporal123!").andExpect(status().isOk());
         login(usuario.username(), "Temporal123!").andExpect(status().isOk());

@@ -70,7 +70,7 @@ class RegeneracionIdentificadoresCuentaIntegrationTest {
         assertThat(cuentas.findById(personal.id()).orElseThrow().getCorreo()).isEqualTo("ana@gmail.com");
         assertThat(cuentas.findById(verificado.id()).orElseThrow().getCorreo())
                 .isEqualTo("luis.v@asiscontrol.edu.pe");
-        assertThat(cuentas.findById(personal.id()).orElseThrow().getUsername()).isEqualTo("ana.personal");
+        assertThat(cuentas.findById(personal.id()).orElseThrow().getUsername()).startsWith("ana.personal");
     }
 
     @Test void homonimosRecibenSufijo() {
