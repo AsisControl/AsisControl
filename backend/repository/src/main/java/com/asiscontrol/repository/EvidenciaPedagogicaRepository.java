@@ -14,6 +14,21 @@ import java.util.Optional;
 
 public interface EvidenciaPedagogicaRepository extends JpaRepository<EvidenciaPedagogica, Long> {
 
+    /** El vinculo explicito con la evaluacion es obligatorio: no basta coincidir por competencia. */
+    @Query("""
+            SELECT DISTINCT e FROM EvidenciaPedagogica e JOIN e.evaluaciones v
+            LEFT JOIN FETCH e.archivo
+            WHERE e.activo = true AND v.id = :evaluacion
+              AND e.asignacion.id = :asignacion AND e.alumno.id = :alumno
+              AND e.competencia.id = :competencia AND e.periodo.id = :periodo
+              AND (:id IS NULL OR e.id = :id)
+            ORDER BY e.id
+            """)
+    java.util.List<EvidenciaPedagogica> buscarSustento(
+            @Param("asignacion") Long asignacion, @Param("alumno") Long alumno,
+            @Param("competencia") Long competencia, @Param("periodo") Long periodo,
+            @Param("evaluacion") Long evaluacion, @Param("id") Long id);
+
     @EntityGraph(attributePaths = {"asignacion", "asignacion.curso", "archivo"})
     @Query("""
             SELECT e FROM EvidenciaPedagogica e

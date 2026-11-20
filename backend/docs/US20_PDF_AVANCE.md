@@ -70,6 +70,8 @@ seccion ni etiquetas/fechas del periodo: la cabecera consulta esas relaciones.
 El instante de renderizado tambien cambia en cada descarga. Por tanto se conserva
 el resultado academico, no una copia binaria identica del PDF ni toda su cabecera.
 Las referencias de origen quedan guardadas; no se agrega un visor de evidencias.
+El contrato de consulta y descarga autorizada por fila esta implementado y
+documentado en [US20_SUSTENTO_FILA.md](US20_SUSTENTO_FILA.md).
 
 ## Verificacion
 
