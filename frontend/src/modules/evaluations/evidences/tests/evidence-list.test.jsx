@@ -199,3 +199,15 @@ test("Distingue competencias de igual nombre mostrando el código en selectores 
   expect(within(dialog).getByRole("option", { name: "Matemática (MAT-C1)" })).toBeTruthy();
   expect(within(dialog).getByRole("option", { name: "Matemática (MAT-C2)" })).toBeTruthy();
 });
+
+test("Si la respuesta no trae el código de la competencia, muestra solo el nombre", async () => {
+  backend({
+    "GET /api/cursos-competencias": page([
+      { cursoId: 100, competenciaId: 1, competenciaNombre: "Resuelve problemas", orden: 1, activo: true },
+    ]),
+    "GET /api/evidencias-pedagogicas": page([evidence()]),
+  });
+  open();
+  await chooseStudent();
+  expect(await screen.findByRole("cell", { name: "Resuelve problemas" })).toBeTruthy();
+});
