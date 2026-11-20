@@ -129,12 +129,19 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         var e = evaluacionConNota(LocalDate.of(2090,3,15), true); em.flush();
         var body = json.writeValueAsString(data("idAsignacionCurso",assignment.getId(),"idPeriodoAcademico",p.getId()));
         String params = "?idAlumno="+student.getId()+"&idAsignacionCurso="+assignment.getId()+"&idPeriodoAcademico="+p.getId();
+        String estadoUrl = "/api/calificaciones/informes/estado?idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + p.getId();
         for (int n = 0; n < 2; n++) {
             mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/generar")
                     .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isOk());
         }
         assertThat(em.createQuery("select count(i) from InformeProgreso i", Long.class).getSingleResult()).isEqualTo(1);
         assertThat(em.createQuery("select count(d) from DetalleInformeProgreso d", Long.class).getSingleResult()).isEqualTo(1);
+        mvc.perform(get(estadoUrl).with(como("DOCENTE", teacher.getPersona().getId())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.publicable").value(true))
+                .andExpect(jsonPath("$.alumnos[0].borrador").value(true));
+        mvc.perform(get(estadoUrl).with(como("DOCENTE", person().getId()))).andExpect(status().isForbidden());
+        mvc.perform(get(estadoUrl).with(como("APODERADO", guardian.getPersona().getId()))).andExpect(status().isForbidden());
         mvc.perform(get("/api/calificaciones/informes/borrador"+params).with(como("DOCENTE",teacher.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("A"));
         for (String rol : new String[]{"ALUMNO", "APODERADO"}) {
@@ -150,12 +157,19 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 .setParameter("e",e).getSingleResult();
         nota.setNivelLogro(NivelLogro.AD); nota.setObservacion("Resultado corregido");
         e.setTitulo("Titulo corregido"); em.flush();
+        mvc.perform(get(estadoUrl).with(asAdmin())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.desactualizada").value(true))
+                .andExpect(jsonPath("$.publicable").value(false))
+                .andExpect(jsonPath("$.alumnos[0].publicada").value(true));
         mvc.perform(get("/api/calificaciones/avance"+params).with(como("ALUMNO",student.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("A"))
                 .andExpect(jsonPath("$.filas[0].evaluacion").value("Practica"));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/generar")
                 .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isOk());
         nota.setObservacion("Cambio posterior al borrador"); em.flush();
+        mvc.perform(get(estadoUrl).with(asAdmin())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicable").value(false))
+                .andExpect(jsonPath("$.alumnos[0].borrador").value(true));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
                 .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("INFORME_DESACTUALIZADO"));
@@ -169,6 +183,13 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         mvc.perform(get("/api/calificaciones/avance"+params).with(como("ALUMNO",student.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("AD"))
                 .andExpect(jsonPath("$.filas[0].observacion").value("Resultado corregido"));
+        mvc.perform(get(estadoUrl).with(asAdmin())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.desactualizada").value(false))
+                .andExpect(jsonPath("$.publicable").value(false));
+        mvc.perform(get("/api/calificaciones/reporte-avance" + params).with(asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.matchesPattern("attachment; filename=\"Avance_[A-Za-z0-9_]+_Periodo_V2\\.pdf\"")));
         var versiones = em.createQuery("select i from InformeProgreso i order by i.numeroVersion",com.asiscontrol.entity.InformeProgreso.class).getResultList();
         assertThat(versiones).hasSize(2);
         assertThat(versiones).allMatch(i -> i.getEstado() == EstadoInformeProgreso.PUBLICADA && i.getFechaPublicacion() != null);
