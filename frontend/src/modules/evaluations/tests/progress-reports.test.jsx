@@ -1,5 +1,5 @@
 import { test, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProgressReports, PublishPeriod } from "../progress-reports";
 import { fakeBackend, reply } from "../../../../tests/support/backend.js";
@@ -41,14 +41,12 @@ test("publicar requiere confirmar y envia curso y periodo", async () => {
   expect(calls.find(c => c.path.endsWith("/avance")).query).toEqual({idAlumno:"9",idAsignacionCurso:"3",idPeriodoAcademico:"4"});
 });
 
-test("publica los cursos propios de una sección y muestra el fallo de un curso sin ocultar los demás", async () => {
+test("publicar una sección solo envía el curso elegido y muestra su error de validación", async () => {
   const first = { id: 3, curso: "Matemática", seccion: "A", seccionId: 11, anioAcademico: 2026 };
   const calls = fakeBackend({
     "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
     "GET /api/calificaciones/informes-disponibles": [],
-    "POST /api/calificaciones/informes/publicar": ({ body }) => body.idAsignacionCurso === 3
-      ? reply(422, { message: "Completa los niveles de logro" })
-      : { informesProcesados: 2 },
+    "POST /api/calificaciones/informes/publicar": reply(422, { message: "Completa los niveles de logro" }),
   });
   render(<PublishPeriod canWrite assignments={[
     first,
@@ -59,19 +57,15 @@ test("publica los cursos propios de una sección y muestra el fallo de un curso 
   await user.selectOptions(screen.getByLabelText("Curso y sección"), "3");
   await screen.findByRole("option", { name: "Bimestre 1" });
   await user.selectOptions(screen.getByLabelText("Período académico"), "4");
-  await user.click(screen.getByRole("button", { name: "Publicar mis cursos de esta sección" }));
-  const plan = screen.getByRole("list");
-  expect(within(plan).getByText("Ciencia")).toBeTruthy();
-  expect(within(plan).queryByText("Historia")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Publicar mis cursos de esta sección" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Publicar libretas" }));
+  expect(screen.getByText(/libretas pendientes de Matemática, sección A, para Bimestre 1/)).toBeTruthy();
   expect(calls.some(call => call.method === "POST")).toBe(false);
   await user.click(screen.getByRole("button", { name: "Confirmar publicación" }));
-  await screen.findByText(/Cursos con respuesta confirmada: 1 de 2/);
-  const results = within(screen.getByRole("table", { name: "Resultado por curso" }));
-  expect(within(results.getByRole("row", { name: /Matemática/ })).getByText(/sin confirmar.*Completa los niveles/)).toBeTruthy();
-  expect(within(results.getByRole("row", { name: /Ciencia/ })).getByText("Libretas publicadas: 2")).toBeTruthy();
+  expect((await screen.findByRole("alert")).textContent).toContain("Completa los niveles de logro");
+  expect(screen.queryByText(/Se publicaron/)).toBeNull();
   expect(calls.filter(call => call.method === "POST").map(call => call.body)).toEqual([
     { idAsignacionCurso: 3, idPeriodoAcademico: 4 },
-    { idAsignacionCurso: 5, idPeriodoAcademico: 4 },
   ]);
 });
 
