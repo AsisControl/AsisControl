@@ -52,7 +52,8 @@ import java.util.stream.Collectors;
 
 /**
  * Toma de asistencia de una sesión de clase: borrador, finalización y corrección de una
- * asistencia TOMADA. Solo el docente asignado escribe (R01); cada operación es una unidad
+ * asistencia TOMADA. El docente asignado registra y finaliza; el administrador autorizado
+ * también puede corregir una asistencia finalizada (US-32). Cada operación es una unidad
  * transaccional con su auditoría y bloquea la fila de la sesión para serializar a quien
  * escriba a la vez.
  */
@@ -176,7 +177,7 @@ public class AsistenciaSesionService {
      */
     @Transactional
     public SesionAsistenciaResponse corregir(Long sesionId, CorregirAsistenciaRequest request) {
-        SesionClase sesion = bloquearParaEscribir(sesionId, request.version());
+        SesionClase sesion = bloquearParaEscribir(sesionId, request.version(), true);
         if (sesion.getEstado() != EstadoSesionClase.TOMADA) {
             throw new BusinessRuleException(
                     "ASISTENCIA_NO_TOMADA", "Solo se corrige una asistencia finalizada");
@@ -214,6 +215,9 @@ public class AsistenciaSesionService {
         CorreccionAsistencia correccion = new CorreccionAsistencia();
         correccion.setSesionClase(sesion);
         correccion.setDocente(sesion.getAsignacionCurso().getDocente());
+        correccion.setActorIdentificador(accessGuard.identificadorActual());
+        correccion.setActorNombre(accessGuard.nombrePersonaActual());
+        correccion.setActorRol(accessGuard.esAdministradorAsistencia() ? "ADMINISTRADOR" : "DOCENTE");
         correccion.setMotivo(request.motivo().trim());
         correccion.setFechaHora(LocalDateTime.now(reloj));
         correccion.setActivo(true);
@@ -247,6 +251,9 @@ public class AsistenciaSesionService {
                 c.getDocente().getId(),
                 c.getDocente().getPersona().nombreCompleto(),
                 c.getMotivo(),
+                c.getActorIdentificador(),
+                c.getActorNombre(),
+                c.getActorRol(),
                 detalles.getOrDefault(c.getId(), List.of()).stream().map(d -> new CambioAsistenciaResponse(
                         d.getAlumno().getId(),
                         d.getAlumno().getPersona().nombreLista(),
@@ -266,10 +273,15 @@ public class AsistenciaSesionService {
      * versión sube en cada escritura, también cuando solo cambian las filas de los estudiantes.
      */
     private SesionClase bloquearParaEscribir(Long sesionId, Long version) {
+        return bloquearParaEscribir(sesionId, version, false);
+    }
+
+    private SesionClase bloquearParaEscribir(Long sesionId, Long version, boolean correccion) {
         SesionClase sesion = sesionRepository.bloquear(sesionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "SESION_CLASE_NO_ENCONTRADA", "No existe una sesión de clase activa con id " + sesionId));
-        accessGuard.verificarDocenteTitular(sesion.getAsignacionCurso());
+        if (correccion) accessGuard.verificarCorreccionAsistencia(sesion.getAsignacionCurso());
+        else accessGuard.verificarDocenteTitular(sesion.getAsignacionCurso());
         calendarioService.exigirAnioDictado(sesion.getAsignacionCurso());
         if (version != null && sesion.getVersion() != version) {
             throw new ConflictException(

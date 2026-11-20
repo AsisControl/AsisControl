@@ -96,6 +96,9 @@ public final class AsistenciaSesionDtos {
             Long docenteId,
             String docente,
             String motivo,
+            String actorIdentificador,
+            String actorNombre,
+            String actorRol,
             List<CambioAsistenciaResponse> cambios
     ) {
     }

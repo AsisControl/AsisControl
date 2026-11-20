@@ -7,12 +7,25 @@ import { resumenMarcaciones } from "./services/asistencia-docente-service";
 import { TeacherCheckInReview } from "./teacher-check-in-review";
 import type { ResumenMarcacion } from "./types";
 import styles from "./teacher-check-in.module.css";
+import { TabNav } from "@/shared/ui";
+import { AttendanceReports } from "../reports/attendance-reports";
 
 /** Cada cuánto se refrescan el resumen y la tabla mientras la pantalla está abierta. */
 export const REFRESH_MS = 30000;
 
 /** Asistencia docente (administración): resumen del día, marcaciones y punto de marcación con QR. */
 export function AttendanceAdmin({ canWrite }: { canWrite: boolean }) {
+  const [tab, setTab] = useState("marcacion");
+  return <>
+    <div className="page-title"><div><h1>Asistencia</h1><p>Marcación docente e informes institucionales</p></div></div>
+    <TabNav label="Secciones de asistencia" current={tab} onSelect={setTab} tabs={[
+      { id: "marcacion", label: "Marcación docente" }, { id: "reportes", label: "Reportes de asistencia" },
+    ]} />
+    {tab === "reportes" ? <AttendanceReports canCorrect={canWrite} /> : <TeacherMarkingAdmin canWrite={canWrite} />}
+  </>;
+}
+
+function TeacherMarkingAdmin({ canWrite }: { canWrite: boolean }) {
   const [day, setDay] = useState(todayInLima);
   const [refreshKey, setRefreshKey] = useState(0);
   const [summary, setSummary] = useState<ResumenMarcacion | null>(null);
@@ -39,13 +52,6 @@ export function AttendanceAdmin({ canWrite }: { canWrite: boolean }) {
 
   return (
     <>
-      <div className="page-title">
-        <div>
-          <h1>Asistencia</h1>
-          <p>Marcación de docentes con QR institucional</p>
-        </div>
-      </div>
-
       {summaryError && <p role="alert" className={styles.error}>{summaryError}</p>}
       <div className={styles.summary} aria-label="Resumen del día">
         <div className={styles.metric}>
