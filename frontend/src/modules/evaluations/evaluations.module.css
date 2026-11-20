@@ -5,6 +5,11 @@
   margin-top: 16px;
   padding: 16px;
 }
+.reportObservation {
+  min-width: 200px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .filtersFive {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
@@ -245,35 +250,50 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.reportEvidenceAction {
-  margin-top: .45rem;
-}
+.reportStack { display: grid; gap: 1rem; }
+.reportHeading h2, .reportCover h2 { margin: 0; color: var(--ink); font-size: clamp(1.25rem, 3vw, 1.65rem); }
+.reportHeading p { margin: .3rem 0 0; color: var(--muted); }
+.reportPanel { padding: clamp(.85rem, 2.5vw, 1.4rem); margin-bottom: .75rem; min-width: 0; }
+.reportStack .reportPanel { margin-bottom: 0; }
+.reportFilters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem 1rem; }
+.reportStack .reportFilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reportFilters :global(.field) { min-width: 0; margin: 0; }
+.reportFilters select { width: 100%; min-width: 0; }
+.reportActions, .reportMeta { display: flex; gap: .45rem .75rem; flex-wrap: wrap; align-items: center; }
+.reportPanel > .reportActions, .reportNotice .reportActions { margin-top: .8rem; }
+.reportActions button { max-width: 100%; white-space: normal; }
+.reportNotice { margin: 0; padding: .8rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: .65rem; color: var(--ink); }
+.reportPanel > .reportNotice { margin-top: .8rem; }
+.reportNotice p { margin: 0; }
+.reportWarning { border-inline-start: .25rem solid #b45309; }
+.reportRoster, .reportResults table { width: 100%; border-collapse: collapse; }
+.reportRoster caption, .reportResults caption { text-align: left; font-weight: 700; padding: 0 0 .65rem; }
+.reportRoster th, .reportRoster td, .reportResults th, .reportResults td { border-bottom: 1px solid var(--border); padding: .65rem .45rem; text-align: left; overflow-wrap: anywhere; }
+.reportRoster tbody th { font-weight: 500; }
+.reportRoster thead, .reportResults thead { background: var(--surface); }
+.reportDocument { margin-top: 1rem; padding: clamp(.9rem, 3vw, 1.65rem); min-width: 0; }
+.reportCover { display: grid; gap: .6rem; padding: clamp(.9rem, 2.5vw, 1.35rem); border: 1px solid var(--border); border-inline-start: .25rem solid var(--blue); border-radius: .65rem; background: var(--surface); overflow-wrap: anywhere; }
+.reportCover p { margin: 0; }
+.reportMeta { color: var(--muted); font-size: .9rem; }
+.reportLegend { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin: 1rem 0; color: var(--muted); font-size: .85rem; }
+.reportLegend div { display: flex; gap: .3rem; }
+.reportLegend dt { font-weight: 700; color: var(--ink); }
+.reportLegend dd { margin: 0; }
+.reportGrade { display: inline-block; min-width: 2rem; text-align: center; border-radius: .35rem; padding: .15rem .35rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); font-weight: 700; }
+.reportEvidenceAction { margin-top: .45rem; }
+.reportEvidenceAction button { max-width: 100%; white-space: normal; }
+.reportEvidenceList { display: grid; gap: .75rem; margin: 0; padding-inline-start: 1.25rem; }
+.reportEvidenceList li { overflow-wrap: anywhere; min-width: 0; }
+.reportEvidenceList p { margin: 0 0 .35rem; white-space: pre-wrap; }
+.reportSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.reportSpinner { display: inline-block; width: .8em; height: .8em; margin-inline-end: .25em; border: 2px solid currentColor; border-inline-end-color: transparent; border-radius: 50%; animation: reportSpin .7s linear infinite; }
+@keyframes reportSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .reportSpinner { animation: none; } }
 
-.reportEvidenceAction button {
-  max-width: 100%;
-  white-space: normal;
-}
-
-.reportEvidenceList {
-  display: grid;
-  gap: .75rem;
-  margin: 0;
-  padding-inline-start: 1.25rem;
-}
-
-.reportEvidenceList li {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.reportEvidenceList p {
-  margin: 0 0 .35rem;
-  white-space: pre-wrap;
-}
-
-.reportActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .5rem;
+@media (max-width: 760px) {
+  .reportFilters, .reportStack .reportFilters { grid-template-columns: minmax(0, 1fr); }
+  .reportRoster thead, .reportResults thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .reportRoster tbody tr, .reportResults tbody tr { display: grid; gap: .4rem; border: 1px solid var(--border); border-radius: .55rem; padding: .7rem; margin-bottom: .5rem; }
+  .reportRoster tbody th, .reportRoster td, .reportResults tbody th, .reportResults td { border: 0; padding: 0; }
+  .reportResults td::before { content: attr(data-label); display: block; color: var(--muted); font-size: .75rem; font-weight: 600; }
 }

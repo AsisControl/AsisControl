@@ -1,92 +1,117 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
+import { ReportContent } from "../report-content";
 import { ProgressReports } from "../progress-reports";
 import { fakeBackend, reply, signIn } from "../../../../tests/support/backend.js";
+import { availableReport, progressReport } from "./report-fixture";
 
-const evidencePath = "/api/calificaciones/informes/41/filas/203/evidencias";
-const attachmentPath = `${evidencePath}/51/archivo`;
-const report = {
-  periodo: "Primer bimestre | Version 1 | PUBLICADA",
-  filas: [{
-    idInforme: 41, idDetalleInforme: 203, competencia: "Resuelve problemas",
-    evaluacion: "Práctica", fecha: "15/03/2026", resultado: "A",
-    ponderacion: "30 %", observacion: "Buen avance",
-  }],
+const row = {
+  ...progressReport.filas[0],
+  idInforme: 41, idDetalleInforme: 203, idEvaluacion: 18, idCompetencia: 7, idCalificacion: null,
 };
+const draft = { ...progressReport, periodo: "Primer bimestre | Version 1 | BORRADOR", filas: [row] };
+const published = { ...draft, periodo: "Primer bimestre | Version 1 | PUBLICADA" };
+const path = "/api/calificaciones/informes/41/filas/203/evidencias";
+const filePath = `${path}/51/archivo`;
+const openEvidence = () => userEvent.click(screen.getByRole("button", { name: /^Ver sustento de/ }));
 
-function routes(detail) {
-  return {
-    "GET /api/calificaciones/informes-disponibles": [{
-      idAlumno: 8, alumno: "Ana", idAsignacionCurso: 5, curso: "Matemática",
-      anio: 2026, idPeriodoAcademico: 40, periodo: "Primer bimestre",
-    }],
-    "GET /api/familia/estudiantes": [{ id: 8, nombreCompleto: "Ana" }],
-    "GET /api/calificaciones/avance": detail,
-  };
-}
+test("un docente consulta el sustento del borrador y descarga el adjunto con su sesión", async () => {
+  signIn({ role: "DOCENTE", permissions: ["CALIFICACIONES_LEER"] });
+  const calls = fakeBackend({
+    [`GET ${path}`]: {
+      evidencias: [
+        { idEvidencia: 51, descripcion: "Trabajo de clase", archivo: {
+          idArchivo: 67, nombreOriginal: "Trabajo.pdf", tipoMime: "application/pdf", tamanioBytes: 123, urlDescarga: filePath,
+        } },
+        { idEvidencia: 52, descripcion: "Referencia de observación", archivo: null },
+      ],
+    },
+    [`GET ${filePath}`]: {},
+  });
+  URL.createObjectURL = vi.fn(() => "blob:trabajo");
+  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  render(<ReportContent report={draft} draft sustento="docente" />);
+  expect(calls).toHaveLength(0);
+  await openEvidence();
+  await screen.findByText("Trabajo de clase");
+  expect(screen.getByText("Referencia de observación")).toBeTruthy();
+  expect(screen.getByText("Sin archivo adjunto.")).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: /^Descargar/ })).toHaveLength(1);
+  await userEvent.click(screen.getByRole("button", { name: "Descargar Trabajo.pdf" }));
+  await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1));
+  expect(HTMLAnchorElement.prototype.click.mock.instances[0].download).toBe("Trabajo.pdf");
+  expect(calls.map(call => call.path)).toEqual([path, filePath]);
+  expect(new Headers(fetch.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer test-token");
+});
 
-async function openReport(guardian) {
-  const user = userEvent.setup();
+test("una respuesta vacía se distingue de un error", async () => {
+  fakeBackend({ [`GET ${path}`]: { evidencias: [] } });
+  render(<ReportContent report={published} sustento="docente" />);
+  await openEvidence();
+  expect(await screen.findByText("No hay sustento disponible para esta competencia.")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test.each([
+  [403, "No tienes permiso para consultar este sustento."],
+  [404, "La fila de la libreta ya no está disponible."],
+])("muestra el error HTTP %s sin evidencias", async (status, message) => {
+  fakeBackend({ [`GET ${path}`]: reply(status) });
+  render(<ReportContent report={published} sustento="docente" />);
+  await openEvidence();
+  expect((await screen.findByRole("alert")).textContent).toBe(message);
+  expect(screen.queryByRole("button", { name: /^Descargar/ })).toBeNull();
+});
+
+test("al cambiar de alumno y fila descarta la respuesta anterior", async () => {
+  let finish;
+  const nextRow = { ...row, idInforme: 42, idDetalleInforme: 204, competencia: "Argumenta" };
+  const next = { ...published, alumno: "Luis", filas: [nextRow] };
+  fakeBackend({
+    [`GET ${path}`]: () => new Promise(resolve => { finish = resolve; }),
+    "GET /api/calificaciones/informes/42/filas/204/evidencias": {
+      evidencias: [{ idEvidencia: 2, descripcion: "Sustento de Luis", archivo: null }],
+    },
+  });
+  const view = render(<ReportContent report={published} sustento="docente" />);
+  await openEvidence();
+  expect(screen.getByRole("status").textContent).toContain("Consultando sustento");
+  view.rerender(<ReportContent report={next} sustento="docente" />);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await openEvidence();
+  await screen.findByText("Sustento de Luis");
+  await act(async () => finish({ evidencias: [{ idEvidencia: 1, descripcion: "Sustento anterior", archivo: null }] }));
+  expect(screen.queryByText("Sustento anterior")).toBeNull();
+  expect(screen.getByText("Sustento de Luis")).toBeTruthy();
+});
+
+test.each([
+  ["APODERADO", true, published],
+  ["ESTUDIANTE", false, published],
+  ["APODERADO", true, draft],
+  ["ESTUDIANTE", false, draft],
+])("Progreso de %s solo permite abrir sustento de publicaciones", async (role, guardian, report) => {
+  signIn({ role, permissions: ["CALIFICACIONES_LEER"] });
+  fakeBackend({
+    "GET /api/familia/estudiantes": [{ id: availableReport.idAlumno, nombreCompleto: availableReport.alumno }],
+    "GET /api/calificaciones/informes-disponibles": [availableReport],
+    "GET /api/calificaciones/avance": report,
+    [`GET ${path}`]: { evidencias: [] },
+  });
   render(<ProgressReports guardian={guardian} />);
+  const user = userEvent.setup();
   await screen.findByRole("option", { name: "Primer bimestre · 2026" });
   await user.selectOptions(screen.getByLabelText("Período académico"), "2026-40");
   await user.selectOptions(screen.getByLabelText("Curso"), "5");
   await user.click(screen.getByRole("button", { name: "Ver notas" }));
-  return user;
-}
-
-test("el estudiante consulta el sustento de la fila y descarga el adjunto con su sesión", async () => {
-  signIn({ role: "ESTUDIANTE", permissions: ["CALIFICACIONES_LEER"] });
-  const calls = fakeBackend({
-    ...routes(report),
-    [`GET ${evidencePath}`]: { evidencias: [
-      { idEvidencia: 51, descripcion: "Trabajo de clase", archivo: { nombreOriginal: "Trabajo.pdf" } },
-      { idEvidencia: 52, descripcion: "Nota del docente", archivo: null },
-    ] },
-    [`GET ${attachmentPath}`]: {},
-  });
-  const previousCreate = URL.createObjectURL;
-  const previousRevoke = URL.revokeObjectURL;
-  URL.createObjectURL = vi.fn(() => "blob:trabajo");
-  URL.revokeObjectURL = vi.fn();
-  const link = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-  try {
-    const user = await openReport(false);
-    const action = await screen.findByRole("button", { name: /^Ver sustento de Resuelve problemas/ });
-    expect(calls.some(call => call.path === evidencePath)).toBe(false);
-    await user.click(action);
-    await screen.findByText("Trabajo de clase");
-    expect(screen.getByText("Nota del docente")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Descargar Trabajo.pdf" }));
-    await waitFor(() => expect(link.mock.instances[0]?.download).toBe("Trabajo.pdf"));
-    expect(calls.at(-1).path).toBe(attachmentPath);
-    const request = fetch.mock.calls.find(([url]) => String(url).endsWith(attachmentPath));
-    expect(new Headers(request[1].headers).get("Authorization")).toBe("Bearer test-token");
-  } finally {
-    link.mockRestore();
-    URL.createObjectURL = previousCreate;
-    URL.revokeObjectURL = previousRevoke;
+  if (report === draft) {
+    await screen.findByText("No hay una libreta publicada para este período y curso.");
+    expect(screen.queryByText("BORRADOR")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Ver sustento de/ })).toBeNull();
+  } else {
+    await user.click(await screen.findByRole("button", { name: /^Ver sustento de/ }));
+    await screen.findByText("No hay sustento disponible para esta competencia.");
   }
-});
-
-test.each([
-  [{ evidencias: [] }, "No hay sustento disponible para esta competencia."],
-  [reply(403), "No tienes permiso para consultar este sustento."],
-])("el apoderado distingue sustento vacío de acceso denegado", async (response, message) => {
-  signIn({ role: "APODERADO", permissions: ["CALIFICACIONES_LEER"] });
-  fakeBackend({ ...routes(report), [`GET ${evidencePath}`]: response });
-  const user = await openReport(true);
-  await user.click(await screen.findByRole("button", { name: /^Ver sustento de/ }));
-  await screen.findByText(message);
-  expect(screen.queryByRole("button", { name: /^Descargar archivo/ })).toBeNull();
-});
-
-test("la libreta familiar no revela las filas de un borrador", async () => {
-  const calls = fakeBackend(routes({ ...report, periodo: "Primer bimestre | Version 1 | BORRADOR" }));
-  await openReport(false);
-  await screen.findByText("No hay una libreta publicada para este período y curso.");
-  expect(screen.queryByText("Buen avance")).toBeNull();
-  expect(screen.queryByRole("button", { name: /^Ver sustento de/ })).toBeNull();
-  expect(calls.some(call => call.path === evidencePath)).toBe(false);
 });

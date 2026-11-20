@@ -155,9 +155,11 @@ export async function api<T>(
 export async function apiBlob(
   path: string,
   options: ApiOptions = {},
+  onHeaders?: (headers: Headers) => void,
 ): Promise<Blob> {
   const revision = readSession() ? readContextRevision() : undefined;
   const response = await request(path, options, true, "*/*", revision);
+  onHeaders?.(response.headers);
   const result = await response.blob();
   ensureContext(revision, path);
   return result;
