@@ -90,6 +90,11 @@ public class PlanEstudiosService {
         comprobarPertenencia(curso, seccion);
     }
 
+    // inscripcion cursos: cursos vigentes del plan de un año y grado (los de "Mis cursos")
+    public List<Curso> cursosDelPlan(int anio, int numero) {
+        return cursosVigentes(buscarGrado(anio, numero));
+    }
+
     void comprobarPertenencia(Curso curso, Seccion seccion) {
         var grado = buscarGrado(seccion.getAnioAcademico(), seccion.getGrado());
         boolean autorizado = cursosVigentes(grado).stream().anyMatch(c -> c.getId().equals(curso.getId()));
