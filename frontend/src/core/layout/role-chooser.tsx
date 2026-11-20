@@ -1,12 +1,13 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { AuthFormLayout } from "@/core/auth/auth-form-layout";
 import type { SessionUser, UserRole } from "@/core/auth/types";
 import { roleLabels } from "@/core/navigation/navigation";
 import { Dialog, Feedback } from "@/shared/ui";
+import { AccessArrow, AccessBrand } from "./access-brand";
 import { SpaceIcon } from "./role-context";
 import { roleSpaces } from "./role-space";
+import access from "./access.module.css";
 import styles from "./role-chooser.module.css";
 
 export function RoleChooser({
@@ -18,14 +19,18 @@ export function RoleChooser({
   onSelect: (role: UserRole) => Promise<void>;
   onClose: () => void;
 }) {
+  const id = useId();
   const [selected, setSelected] = useState<UserRole | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const roles = user.availableRoles ?? [];
+  const switching = user.role !== null;
   const canSubmit = Boolean(selected && selected !== user.role && roles.includes(selected));
-  const title = user.role
-    ? "Cambiar de rol"
-    : roles.length ? "Elige con qué rol ingresar" : "Cuenta sin roles habilitados";
+  let submitLabel = canSubmit && selected
+    ? `Continuar como ${roleLabels[selected].toLocaleLowerCase("es")}`
+    : "Continuar";
+  if (switching) submitLabel = "Cambiar rol";
+  if (busy) submitLabel = switching ? "Cambiando rol…" : "Ingresando…";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,52 +47,86 @@ export function RoleChooser({
   }
 
   const form = (
-    <form className={styles.form} onSubmit={submit}>
+    <form className={`${access.surface} ${styles.form}`} onSubmit={submit}>
       <Feedback error={error} />
       <fieldset className={styles.roles} disabled={busy} aria-label="Roles disponibles">
         {roles.map((role) => (
-          <label className={styles.role} key={role}>
+          <label className={styles.role} data-role={role} key={role}>
             <input
               type="radio"
               name="rol"
               value={role}
+              aria-labelledby={`${id}-${role}-name`}
+              aria-describedby={`${id}-${role}-description${switching ? "" : ` ${id}-${role}-shortcuts`}`}
               checked={selected === role}
               disabled={user.role === role}
               onChange={() => setSelected(role)}
             />
             <span className={styles.icon} aria-hidden="true">
-              <SpaceIcon icon={roleSpaces[role].icon} size={18} />
+              <SpaceIcon icon={roleSpaces[role].icon} size={switching ? 18 : 26} />
             </span>
-            <span>
-              <strong>{roleLabels[role]}{user.role === role ? " (actual)" : ""}</strong>
-              <small>{roleSpaces[role].description}</small>
+            <span className={styles.roleText}>
+              <strong id={`${id}-${role}-name`}>{roleLabels[role]}{user.role === role ? " (actual)" : ""}</strong>
+              <small id={`${id}-${role}-description`}>{roleSpaces[role].description}</small>
             </span>
+            {!switching && (
+              <>
+                <span className={styles.indicator} aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m5 12 4 4L19 6" />
+                  </svg>
+                </span>
+                <span id={`${id}-${role}-shortcuts`} className={styles.shortcuts}>
+                  {(role === "DOCENTE" ? ["Mis cursos", "Evaluaciones", "Asistencia"] : roleSpaces[role].shortcuts)
+                    .map((shortcut) => <span key={shortcut}>{shortcut}</span>)}
+                </span>
+              </>
+            )}
           </label>
         ))}
       </fieldset>
       <div className={styles.actions}>
-        <button type="button" onClick={onClose} disabled={busy}>
-          {user.role ? "Cancelar" : "Cerrar sesión"}
-        </button>
-        <button className="primary-action" disabled={!canSubmit || busy}>
-          {busy ? "Cambiando rol…" : user.role ? "Cambiar rol" : "Continuar"}
+        {switching && (
+          <button type="button" onClick={onClose} disabled={busy}>Cancelar</button>
+        )}
+        <button className={access.primary} type="submit" disabled={!canSubmit || busy}>
+          {submitLabel}
+          {!switching && <AccessArrow />}
         </button>
       </div>
     </form>
   );
 
-  if (user.role)
-    return <Dialog title={title} onClose={() => { if (!busy) onClose(); }}>{form}</Dialog>;
+  if (switching)
+    return <Dialog title="Cambiar de rol" onClose={onClose} busy={busy}>{form}</Dialog>;
+
+  const title = roles.length ? "¿Con qué rol quieres ingresar?" : "Cuenta sin roles habilitados";
+  const names = user.fullName.trim().split(/\s+/);
+  const initials = names.slice(0, 2).map((name) => Array.from(name)[0]).join("").toLocaleUpperCase("es");
+  const roleCount = roles.length === 1 ? "1 rol disponible" : `${roles.length} roles disponibles`;
 
   return (
-    <AuthFormLayout label={title} icon="shield" compact>
-      <h1>{title}</h1>
-      {roles.length ? form : (
-        <>
-          <p>Tu cuenta aún no tiene roles habilitados. Contacta a la administración del colegio.</p>
-          <button type="button" onClick={onClose}>Cerrar sesión</button>
-        </>
-      )}
-    </AuthFormLayout>
+    <main className={`${access.surface} ${styles.page}`}>
+      <div className={styles.masthead}>
+        <AccessBrand className={styles.mastheadContent} />
+      </div>
+      <div className={styles.workspace}>
+        <div className={styles.intro}>
+          <span className={styles.avatar} aria-hidden="true">{initials}</span>
+          {names[0] && <p className={styles.greeting}>Hola, {names[0]}</p>}
+          <h1>{title}</h1>
+          <p className={styles.description}>
+            {roles.length
+              ? `Tu cuenta tiene ${roleCount}.${roles.length > 1 ? " Puedes cambiar de rol desde tu menú de usuario." : ""}`
+              : "Tu cuenta aún no tiene roles habilitados. Contacta a la administración del colegio."}
+          </p>
+        </div>
+        {roles.length > 0 && form}
+        <footer className={styles.account}>
+          <span>Sesión iniciada como <strong>{user.fullName}</strong></span>
+          <button type="button" onClick={onClose} disabled={busy}>Cerrar sesión</button>
+        </footer>
+      </div>
+    </main>
   );
 }

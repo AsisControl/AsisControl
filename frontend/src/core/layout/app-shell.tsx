@@ -18,7 +18,7 @@ import {
 } from "@/core/navigation/navigation";
 import { NavIcon } from "@/core/navigation/nav-icons";
 import { Loading } from "@/shared/ui";
-import { Brand } from "./brand";
+import { AsisControlLogo } from "./brand";
 import { LoginScreen } from "./login-screen";
 import { SessionUserProvider } from "./session-user";
 import { RoleContext } from "./role-context";
@@ -124,7 +124,10 @@ function Dashboard({
             )}
           </svg>
         </button>
-        <Brand compact name="AsisControl" subtitle={<RoleContext role={user.role} />} />
+        <div className={styles.dashboardBrand}>
+          <AsisControlLogo inverse />
+          <RoleContext role={user.role} />
+        </div>
         <nav
           id="main-navigation"
           className={`${styles.navBar} ${isMobileMenuOpen ? styles.open : ""}`}
