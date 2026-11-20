@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { GuardianPayments } from "../guardian-payments";
@@ -182,13 +182,13 @@ test("una confirmación de tarjeta con respuesta perdida se recupera por sondeo 
   expect(screen.queryByText("Se perdió la respuesta de confirmación")).toBeNull();
 });
 
-test("el historial muestra órdenes, continúa pendientes y sólo ofrece comprobante para aprobadas", async () => {
-  backend({ "GET /api/pagos/ordenes": page([complete(), order({ id: 11, codigo: "OP-11" }), order({ id: 12, codigo: "OP-12", estado: "RECHAZADO" })]), "GET /api/pagos/ordenes/10/comprobante": receipt() });
+test("seguimiento permite continuar órdenes en curso sin repetir comprobantes ni rechazos", async () => {
+  backend({ "GET /api/pagos/ordenes": page([order({ id: 11, codigo: "OP-11" })]) });
   const user = userEvent.setup(); render(<GuardianPayments />);
   await user.click(screen.getByRole("tab", { name: "Seguimiento de pagos" }));
-  await user.click(await screen.findByRole("button", { name: "Ver comprobante" }));
-  expect(await screen.findByText("Referencias: REC-000022")).toBeTruthy();
-  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cerrar", exact: true }));
+  await screen.findByRole("button", { name: "Continuar pago" });
+  expect(screen.queryByRole("button", { name: /Ver comprobante/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Ver resultado" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Continuar pago" }));
   expect(await screen.findByRole("button", { name: /Confirmar pago/ })).toBeTruthy();
 });

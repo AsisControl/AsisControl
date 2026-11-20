@@ -21,6 +21,12 @@ public final class PagosFamiliaDto {
     public enum EscenarioTarjeta { APROBADO, FONDOS_INSUFICIENTES, RECHAZADO, REQUIERE_AUTENTICACION }
     public enum AccionQr { APROBAR, RECHAZAR }
     public enum TipoObligacion { PENSION, OTRO }
+    public enum ResultadoHistorial { APROBADO, RECHAZADO, VENCIDO }
+
+    public record HistorialPagoResponse(Long id, Long idComprobante, String codigo, Instant fechaEmision,
+            BigDecimal montoTotal, String moneda, String alumno, String concepto, Integer numeroCuota,
+            String codigoCompromiso, MedioPago medioPago, Long idOrden, String codigoOrden,
+            ResultadoHistorial estado, String mensaje) {}
 
     public record InicioRequest(
             @NotEmpty @Size(max = 20) List<@NotNull @Positive Long> obligacionesIds,

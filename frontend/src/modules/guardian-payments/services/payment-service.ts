@@ -5,6 +5,7 @@ import type { FamilyStudent, ObligationDetail, OrderReceipt, PaymentMethod, Paym
 export const OBLIGATIONS_PATH = "/api/apoderado/obligaciones";
 export const ORDERS_PATH = "/api/pagos/ordenes";
 export const RECEIPTS_PATH = "/api/apoderado/comprobantes";
+export const PAYMENT_HISTORY_PATH = "/api/apoderado/pagos/historial";
 export const getIndividualReceipt = (id: number) => api<ReceiptHistoryItem>(`${RECEIPTS_PATH}/${id}`);
 export async function downloadIndividualReceipt(id: number, code: string) {
   const blob = await apiBlob(`${RECEIPTS_PATH}/${id}/descargar`);

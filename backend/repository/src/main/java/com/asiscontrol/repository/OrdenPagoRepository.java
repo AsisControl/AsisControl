@@ -35,6 +35,9 @@ public interface OrdenPagoRepository extends JpaRepository<OrdenPago, Long> {
     @Query("""
             select o from OrdenPago o
             where o.activo=true and o.apoderado.id=:apoderadoId
+              and o.estado in (com.asiscontrol.entity.enums.EstadoOrdenPago.PENDIENTE,
+                               com.asiscontrol.entity.enums.EstadoOrdenPago.REQUIERE_AUTENTICACION)
+              and o.expiraEn>:ahora
               and not exists (
                 select d.id from OrdenPagoDetalle d where d.orden=o
                   and not exists (
@@ -48,5 +51,6 @@ public interface OrdenPagoRepository extends JpaRepository<OrdenPago, Long> {
                 where d2.orden=o and d2.compromiso.matricula.alumno.id=:idAlumno))
             """)
     Page<OrdenPago> buscarPropias(@Param("apoderadoId") Long apoderadoId, @Param("idAlumno") Long idAlumno,
+                                  @Param("ahora") Instant ahora,
                                   Pageable pageable);
 }

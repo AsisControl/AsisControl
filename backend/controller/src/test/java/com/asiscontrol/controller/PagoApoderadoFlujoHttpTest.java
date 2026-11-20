@@ -112,7 +112,8 @@ class PagoApoderadoFlujoHttpTest extends PagosFamiliaIntegrationSupport {
         familia("GET", rutaOrden(orden) + "/comprobante", null, 422);
         var nuevoIntento = iniciar("TARJETA", propio.getId());
         assertThat(confirmar(nuevoIntento, "RECHAZADO").path("estado").asText()).isEqualTo("RECHAZADO");
-        assertThat(familia("GET", PAGOS + "/ordenes", null, 200).path("content")).hasSize(2);
+        assertThat(familia("GET", PAGOS + "/ordenes", null, 200).path("content")).isEmpty();
+        assertThat(familia("GET", "/api/apoderado/pagos/historial?estado=RECHAZADO", null, 200).path("content")).hasSize(2);
     }
 
     @Test
