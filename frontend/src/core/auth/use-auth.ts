@@ -23,6 +23,7 @@ import {
   synchronizeSessionInvalidation,
 } from "./session-storage";
 import type { AuthSession, LoginCredentials, UserRole } from "./types";
+import { scheduleRenewal } from "./renewal-timer";
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const REVALIDATION_INTERVAL_MS = 2 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 20000;
@@ -258,20 +259,15 @@ export function useAuth() {
       if (isInactive()) clearSession();
       else if (isExpired(session)) void refreshSession();
     }, 15000);
-    const renewalTimer = session.expiresAt
-      ? window.setTimeout(
+    const cancelRenewal = session.expiresAt
+      ? scheduleRenewal(
+          new Date(session.expiresAt).getTime() - RENEWAL_MARGIN_MS,
           renewOrEnd,
-          Math.max(
-            0,
-            new Date(session.expiresAt).getTime() -
-              Date.now() -
-              RENEWAL_MARGIN_MS,
-          ),
         )
       : undefined;
     return () => {
       window.clearInterval(inactivityTimer);
-      if (renewalTimer !== undefined) window.clearTimeout(renewalTimer);
+      cancelRenewal?.();
       events.forEach((name) => window.removeEventListener(name, onActivity));
     };
   }, [state.session]);
