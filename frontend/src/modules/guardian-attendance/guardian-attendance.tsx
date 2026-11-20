@@ -2,7 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, Loading } from "@/shared/ui";
+import { Feedback, Loading, initialsOf } from "@/shared/ui";
 import { AttendanceRecord } from "./attendance-record";
 import { JustifyDialog } from "./justify-dialog";
 import { listarAsistencias, listarEstudiantes } from "./services/asistencia-apoderado-service";
@@ -83,7 +83,24 @@ export function GuardianAttendance() {
       {!error && !estudiantes && <Loading>Cargando estudiantes…</Loading>}
       {estudiantes?.length === 0 && <p className={styles.vacio}>No tienes estudiantes asociados.</p>}
       {estudiantes && estudiantes.length > 1 && alumnoId === null && (
-        <p className={styles.vacio}>Elige a uno de tus estudiantes para ver su asistencia.</p>
+        <section className={styles.elegir} aria-labelledby="elegir-estudiante">
+          <h3 id="elegir-estudiante">¿De quién quieres ver la asistencia?</h3>
+          <p>Elige a uno de tus estudiantes para ver su asistencia.</p>
+          <ul className={styles.estudiantes}>
+            {estudiantes.map((item) => (
+              <li key={item.id}>
+                <button type="button" className={styles.estudiante} onClick={() => cambiarEstudiante(item.id)}>
+                  <span className={styles.avatar} aria-hidden="true">{initialsOf(item.nombreCompleto)}</span>
+                  <span className={styles.estudianteDatos}>
+                    <strong>{item.nombreCompleto}</strong>
+                    <small>{item.codigoAlumno}</small>
+                  </span>
+                  <span className={styles.estudianteAccion}>Ver asistencia →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {!error && alumnoId !== null && !asistencias && <Loading>Cargando asistencia…</Loading>}
       {asistencias && (

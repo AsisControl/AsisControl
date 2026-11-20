@@ -19,3 +19,6 @@
 .detail dd { margin: 0; }
 .lastCorrection { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border, #dbe3ee); }
 .lastCorrection dd { overflow-wrap: anywhere; white-space: pre-wrap; }
+.unavailable { display: grid; gap: 10px; max-width: 640px; margin: 8px 0; padding: 22px 24px; border: 1px solid var(--border, #cbd5e1); border-left: 4px solid #d97706; border-radius: 12px; background: var(--surface, white); }
+.unavailable h3 { margin: 0; font-size: 18px; }
+.unavailable p { margin: 0; line-height: 1.6; color: var(--muted); }

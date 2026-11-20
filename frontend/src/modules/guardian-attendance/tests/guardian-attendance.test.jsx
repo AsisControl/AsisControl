@@ -138,6 +138,7 @@ test("Con varios estudiantes exige elegir uno antes de cargar su asistencia", as
   const calls = fakeBackend({ [ESTUDIANTES]: [luis, ana], [ASISTENCIAS]: page(FILAS) });
   render(<GuardianAttendance />);
   expect(await screen.findByText("Elige a uno de tus estudiantes para ver su asistencia.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Luis García/ })).toBeTruthy();
   const selector = screen.getByLabelText("Estudiante:");
   expect(selector.value).toBe("");
   expect([...selector.options].map((opcion) => opcion.textContent)).toEqual([
@@ -201,4 +202,13 @@ test("En Personalizado, Desde y Hasta se escriben como dd/mm/aaaa y filtran la t
   expect(screen.getByRole("alert").textContent).toBe("Fecha no válida");
   await userEvent.clear(desde);
   expect(screen.getByText("Vie, 28 Ago 2026")).toBeTruthy();
+});
+
+test("Las tarjetas del estado vacío permiten elegir al estudiante sin usar la lista", async () => {
+  const calls = fakeBackend({ [ESTUDIANTES]: [luis, ana], [ASISTENCIAS]: page(FILAS) });
+  render(<GuardianAttendance />);
+  await userEvent.click(await screen.findByRole("button", { name: /Ana García/ }));
+  expect(await screen.findByText("57%")).toBeTruthy();
+  expect(calls.find((call) => call.path === "/api/asistencias/alumnos").query.alumnoId).toBe("6");
+  expect(screen.queryByText("¿De quién quieres ver la asistencia?")).toBeNull();
 });

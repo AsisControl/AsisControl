@@ -15,7 +15,7 @@ const session = {
     { alumnoId: 2, nombreCompleto: "Mateo Silva", codigoAlumno: "E2", estado: "TARDANZA", asistenciaId: 2, justificacionId: null },
   ],
 };
-function backend({ conflict = false, attendanceId = 1 } = {}) {
+function backend({ conflict = false, attendanceId = 1, plazoVencido = false } = {}) {
   let saved = false;
   const calls = fakeBackend({
     "GET /api/reportes/asistencia/filtros": { periodos: [], secciones: [] },
@@ -24,7 +24,8 @@ function backend({ conflict = false, attendanceId = 1 } = {}) {
       pagina: 0, totalPaginas: 1, totalDetalle: 1,
       registros: [{ id: attendanceId, personaId: attendanceId, persona: attendanceId === 2 ? "Mateo Silva" : "Lucía Prado", fecha: "2026-11-19", hora: "09:00:00", curso: "Matemática", seccion: "1° A", estado: saved ? "PRESENTE" : "INASISTENCIA", origen: "REGISTRO", sesionId: 7 }],
     }),
-    "GET /api/asistencias/sesiones/7": session,
+    "GET /api/asistencias/sesiones/7": plazoVencido
+      ? { ...session, puedeEditar: false, limiteEdicion: "2026-11-20T00:00:00" } : session,
     "GET /api/asistencias/sesiones/7/correcciones": [],
     "PUT /api/asistencias/sesiones/7": () => {
       if (conflict) return { status: 409, body: { message: "La asistencia cambió; vuelva a cargarla" }, isReply: true };
@@ -83,4 +84,16 @@ test("seleccionar al segundo alumno no muestra ni permite editar al primero", as
   expect(await screen.findByRole("group", { name: "Asistencia de Mateo Silva" })).toBeTruthy();
   expect(screen.queryByText("Lucía Prado")).toBeNull();
   expect(screen.queryByPlaceholderText("Buscar por nombre o apellido")).toBeNull();
+});
+
+test("con el plazo vencido explica por qué no se corrige y permite volver al reporte", async () => {
+  const user = userEvent.setup(); backend({ plazoVencido: true }); render(<AttendanceReports canCorrect />);
+  await user.click(await screen.findByRole("button", { name: "Ver detalle de Lucía Prado" }));
+  await user.click(screen.getByRole("button", { name: "Corregir asistencia", exact: true }));
+  const aviso = await screen.findByRole("status");
+  expect(within(aviso).getByRole("heading", { name: "Corrección no disponible" })).toBeTruthy();
+  expect(aviso.textContent).toMatch(/plazo para corregir esta asistencia ya venció/);
+  expect(aviso.textContent).toMatch(/hasta el final del día/);
+  await user.click(within(aviso).getByRole("button", { name: "Volver al reporte" }));
+  expect(await screen.findByRole("button", { name: "Aplicar filtros" })).toBeTruthy();
 });
