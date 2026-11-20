@@ -54,7 +54,7 @@ export function ReportEvidenceDialog({ row, onClose }: { row: ProgressReportRow;
     {result && ("error" in result ? <Feedback error={result.error} /> : result.evidence.length
       ? <ul className={styles.reportEvidenceList}>
           {result.evidence.map(evidence => <li key={evidence.idEvidencia}>
-            <p>{evidence.descripcion}</p>
+            {evidence.descripcion && <p>{evidence.descripcion}</p>}
             {evidence.archivo ? <div className={styles.reportActions}>
               <span>{evidence.archivo.nombreOriginal}</span>
               <button type="button" className="secondary-action"

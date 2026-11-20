@@ -36,7 +36,7 @@ export type EvidenceAttachment = {
 
 export type ReportEvidence = {
   idEvidencia: number;
-  descripcion: string;
+  descripcion: string | null;
   archivo: EvidenceAttachment | null;
 };
 
