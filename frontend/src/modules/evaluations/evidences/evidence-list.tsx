@@ -2,10 +2,11 @@
 import { useState, type FormEvent } from "react";
 import { descargarArchivo } from "@/modules/tasks";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { countLabel, shortDateLabel } from "@/shared/lib/formatters";
+import { countLabel } from "@/shared/lib/formatters";
 import { Feedback, FormDialog, Loading, Pager, PanelHeading, RowMenu } from "@/shared/ui";
 import type { CourseCompetency, OwnAssignment } from "../types";
 import { EvidenceFormDialog } from "./evidence-form-dialog";
+import { evidenceDate } from "./lib/format";
 import { evidenceError } from "./lib/messages";
 import { EVIDENCIAS_PATH, evidenceFilters, inactivarEvidencia } from "./services/evidence-service";
 import type { Evidence, EvidencePeriod, EvidenceStudent } from "./types";
@@ -101,7 +102,7 @@ export function EvidenceList({
             <tbody>
               {list.data.content.map((item) => (
                 <tr key={item.id}>
-                  <td data-label="Fecha">{shortDateLabel(`${item.fechaCreacion}-05:00`)}</td>
+                  <td data-label="Fecha">{evidenceDate(item.fechaCreacion)}</td>
                   <td data-label="Competencia">{competencyName(item.competenciaId)}</td>
                   <td data-label="Período">{periodName(item.periodoId)}</td>
                   <td data-label="Descripción">

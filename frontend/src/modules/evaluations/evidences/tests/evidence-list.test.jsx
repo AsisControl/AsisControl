@@ -165,3 +165,18 @@ test("El rol sin CALIFICACIONES_ESCRIBIR solo consulta", async () => {
   expect(screen.queryByRole("button", { name: /Más acciones para evidencia/ })).toBeNull();
   expect(screen.queryByRole("button", { name: "+ Nueva evidencia" })).toBeNull();
 });
+
+test("Muestra la fecha de un instante UTC con microsegundos en hora de Lima y tolera valores vacíos o inválidos", async () => {
+  backend({
+    "GET /api/evidencias-pedagogicas": page([
+      evidence({ id: 80, fechaCreacion: "2026-11-20T04:01:54.728339Z" }),
+      evidence({ id: 81, fechaCreacion: "" }),
+      evidence({ id: 82, fechaCreacion: "no-es-fecha" }),
+    ]),
+  });
+  open();
+  await chooseStudent();
+  expect(await screen.findByText("19/11/2026")).toBeTruthy();
+  expect(screen.queryByText(/Invalid Date/)).toBeNull();
+  expect(screen.getAllByRole("cell", { name: "—" }).length).toBeGreaterThanOrEqual(2);
+});
