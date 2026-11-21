@@ -92,7 +92,7 @@ export function TimetableGrid({
                               itemName={name}
                               options={[
                                 { label: "Editar", onSelect: () => onEdit(block) },
-                                { label: "Eliminar", danger: true, onSelect: () => onDelete(block) },
+                                { label: "Retirar", danger: true, onSelect: () => onDelete(block) },
                               ]}
                             />
                           </div>

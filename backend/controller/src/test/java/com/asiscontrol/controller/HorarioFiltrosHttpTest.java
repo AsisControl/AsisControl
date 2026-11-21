@@ -137,7 +137,7 @@ class HorarioFiltrosHttpTest extends ApiIntegrationSupport {
         String path = "/api/horarios/" + primero.getId();
         putOk(path, data("asignacionCursoId", assignment.getId(), "aulaId", aulaA.getId(),
                 "diaSemana", "LUNES", "horaInicio", "12:00:00", "horaFin", "13:00:00",
-                "version", getOk(path).path("version").asLong()));
+                "version", getOk(path).path("version").asLong(), "motivo", "Cambio de hora"));
         JsonNode respuesta = getOk("/api/horarios?seccionId=" + section.getId() + "&aulaId=" + aulaA.getId());
         assertThat(respuesta.path("content").findValuesAsText("id")).containsExactly(id(primero));
         assertThat(respuesta.path("content").get(0).path("horaInicio").asText()).startsWith("12:00");

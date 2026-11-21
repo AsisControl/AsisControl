@@ -130,6 +130,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         String ruta = RUTA + "/" + creado.path("id").asLong();
         Map<String, Object> cambios = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:15");
         cambios.put("version", creado.path("version").asLong());
+        cambios.put("motivo", "Ajuste de hora");
         JsonNode error = request("PUT", ruta, cambios, 422);
         assertThat(error.path("code").asText()).isEqualTo("HORARIO_FIN_INVALIDO");
         assertThat(getOk(ruta).path("horaFin").asText()).startsWith("09:00");
@@ -215,6 +216,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         String ruta = RUTA + "/" + segundo.path("id").asLong();
         Map<String, Object> cambios = bloque(otraAsignacion, aulaPrincipal, "LUNES", "08:00", "09:00");
         cambios.put("version", segundo.path("version").asLong());
+        cambios.put("motivo", "Cambio de aula");
         request("PUT", ruta, cambios, 409);
         assertThat(getOk(ruta).path("aulaId").asLong()).isEqualTo(otraAula.getId());
         assertThat(cantidadHorarios()).isEqualTo(2);
@@ -227,6 +229,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         String ruta = RUTA + "/" + primero.path("id").asLong();
         Map<String, Object> cambios = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:30");
         cambios.put("version", primero.path("version").asLong());
+        cambios.put("motivo", "Ajuste de hora");
         JsonNode editado = putOk(ruta, cambios);
         assertThat(editado.path("version").asLong()).isGreaterThan(primero.path("version").asLong());
         request("PUT", ruta, cambios, 409);
@@ -241,7 +244,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         tomada.setEstado(EstadoSesionClase.TOMADA);
         tomada.setDocenteRegistrador(teacher);
         em.flush();
-        deleteOk(RUTA + "/" + creado.path("id").asLong());
+        request("DELETE", RUTA + "/" + creado.path("id").asLong(), data("motivo", "Fin de prueba"), 204);
         assertThat(em.find(Horario.class, creado.path("id").asLong()).isActivo()).isFalse();
         assertThat(sesionesActivas()).isEqualTo(1);
         assertThat(tomada.isActivo()).isTrue();
@@ -259,6 +262,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isForbidden());
         Map<String, Object> edicion = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:00");
         edicion.put("version", 0);
+        edicion.put("motivo", "Cambio no autorizado");
         mvc.perform(put(RUTA + "/1").with(lector).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsBytes(edicion)))
                 .andExpect(status().isForbidden());

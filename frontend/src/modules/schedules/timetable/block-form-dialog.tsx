@@ -34,6 +34,8 @@ import {
 } from "./services/horarioService";
 /** Espera antes de consultar los cruces mientras se escribe. */
 const CHECK_DELAY_MS = 250;
+/** Mismo límite que ReasonField: el motivo queda en el historial de cambios (US-27). */
+const MAX_REASON_LENGTH = 700;
 /** Resultado de la consulta de cruces para una combinación de docente, aula, día y horas. */
 type CheckResult = { key: string; blocks: ScheduleBlock[] | null };
 type Check =
@@ -75,6 +77,8 @@ export function BlockFormDialog({
     horaFin: block ? hour(block.horaFin) : "",
   });
   const [errors, setErrors] = useState<BlockErrors>({});
+  const [motivo, setMotivo] = useState("");
+  const [motivoError, setMotivoError] = useState("");
   const [result, setResult] = useState<CheckResult | null>(null);
   const [rejected, setRejected] = useState<Conflict | null>(null);
   const [busy, setBusy] = useState(false);
@@ -160,8 +164,11 @@ export function BlockFormDialog({
     event.preventDefault();
     if (sending.current) return;
     const found = validateBlock(values);
+    const reason = motivo.trim();
+    const reasonError = block && !reason ? "Indique el motivo del cambio." : "";
     setErrors(found);
-    if (Object.keys(found).length) return;
+    setMotivoError(reasonError);
+    if (Object.keys(found).length || reasonError) return;
     if (blocking.length) {
       setError("Resuelve los conflictos antes de confirmar el bloque.");
       return;
@@ -178,13 +185,15 @@ export function BlockFormDialog({
     setError("");
     setRejected(null);
     try {
-      onSaved(await (block ? actualizarHorario(block, input) : crearHorario(input)));
+      onSaved(await (block ? actualizarHorario(block, input, reason) : crearHorario(input)));
     } catch (e) {
       // Criterio 7: otro administrador pudo tomar el recurso; el servidor decide.
       const item = serverConflict(e);
       if (item) {
+        const fields = fieldErrorsOf(e);
         setRejected(item);
-        setErrors(fieldErrorsOf(e));
+        setErrors(fields);
+        setMotivoError(fields.motivo ?? "");
         if (needsReload(item)) onStale();
       } else setError(message(e));
       sending.current = false;
@@ -351,6 +360,32 @@ export function BlockFormDialog({
           )}
         </label>
       ))}
+      {block && (
+        <label className="field full-field">
+          <span>
+            Motivo del cambio<span className="field-required"> *</span>
+          </span>
+          <textarea
+            name="motivo"
+            rows={3}
+            maxLength={MAX_REASON_LENGTH}
+            value={motivo}
+            aria-invalid={motivoError ? true : undefined}
+            onChange={(event) => {
+              setMotivo(event.target.value);
+              setMotivoError("");
+              setError("");
+            }}
+          />
+          {motivoError ? (
+            <small className="field-error" role="alert">{motivoError}</small>
+          ) : (
+            <small className="field-hint">
+              Se registra en el historial de cambios del horario. Máximo 700 caracteres.
+            </small>
+          )}
+        </label>
+      )}
     </FormDialog>
   );
 }

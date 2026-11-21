@@ -35,7 +35,7 @@ test("El estudiante consulta solo su horario y abre el detalle desde cualquier p
   expect(within(table).getByText("Matemática")).toBeTruthy();
   expect(within(table).getByText("3° A")).toBeTruthy();
   expect(screen.queryByText(/Nuevo bloque/)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Editar|Eliminar/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Editar|Retirar/ })).toBeNull();
   const article = within(table).getByRole("button", { name: /Ver detalle de Matemática/ }).closest("article");
   fireEvent.click(article);
   const dialog = screen.getByRole("dialog", { name: "Detalle del bloque" });
