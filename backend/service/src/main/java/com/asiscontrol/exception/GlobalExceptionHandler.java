@@ -345,6 +345,12 @@ public class GlobalExceptionHandler {
                 List.of(new FieldValidationError(exception.getField(), exception.getMessage())));
     }
 
+    @ExceptionHandler(InterrupcionPagoSimuladoException.class)
+    public ResponseEntity<ApiError> handleInterrupcionPagoSimulado(
+            InterrupcionPagoSimuladoException exception, HttpServletRequest request) {
+        return build(exception.getEstadoHttp(), exception.getCodigo(), exception.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiError> handleBusinessRule(
             BusinessRuleException exception, HttpServletRequest request) {

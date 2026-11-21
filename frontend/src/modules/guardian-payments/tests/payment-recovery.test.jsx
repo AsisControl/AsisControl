@@ -7,6 +7,7 @@ import { PaymentCheckout } from "../payment-checkout";
 import { ReceiptPanel } from "../receipt-panel";
 import { paymentRequestKey } from "../payment-request-key";
 import { complete, obligation, order, receipt, student } from "./fixtures";
+import { enterTestCard, payWithCard } from "./card-form-support";
 
 const OBLIGATIONS = "GET /api/apoderado/obligaciones";
 beforeEach(() => signIn({ role: "APODERADO", permissions: ["PAGOS_LEER"] }));
@@ -150,12 +151,13 @@ test("un sondeo atrasado no revierte una aprobación ni abre consultas superpues
   const calls = backend({ "GET /api/pagos/ordenes/10": () => new Promise((resolve) => { finishPoll = resolve; }),
     "POST /api/pagos/ordenes/10/confirmar-tarjeta": complete(), "GET /api/pagos/ordenes/10/comprobante": receipt() });
   const user = userEvent.setup(); render(<PaymentCheckout obligations={[obligation()]} initialOrder={order()} onClose={vi.fn()} onSettled={vi.fn()} />);
+  await enterTestCard(user);
   await act(async () => vi.advanceTimersByTimeAsync(4000));
   expect(calls.filter((call) => call.path === "/api/pagos/ordenes/10")).toHaveLength(1);
-  await user.click(screen.getByRole("button", { name: /Confirmar pago/ }));
+  await user.click(await payWithCard());
   expect(await screen.findByText("Referencias: REC-000022")).toBeTruthy();
   await act(async () => { finishPoll(order()); await Promise.resolve(); });
-  expect(screen.queryByRole("button", { name: /Confirmar pago/ })).toBeNull();
+  expect(screen.queryByLabelText("Número de tarjeta")).toBeNull();
   expect(screen.getByText("Referencias: REC-000022")).toBeTruthy();
 });
 

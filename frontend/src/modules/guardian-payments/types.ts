@@ -3,11 +3,17 @@ import type { PaymentCommitment } from "@/modules/finance";
 export type FamilyStudent = { id: number; codigoAlumno: string; nombreCompleto: string };
 export type PaymentMethod = "TARJETA" | "QR";
 export type OrderStatus = "PENDIENTE" | "REQUIERE_AUTENTICACION" | "COMPLETADO" | "RECHAZADO" | "EXPIRADO";
+export type OrderItem = {
+  idCompromiso: number; codigoCompromiso: string; alumno: string; concepto: string;
+  numeroCuota: number | null; monto: number;
+  mes?: number | null; anioAcademico?: number | null; referenciaCobro?: string | null;
+  tipo?: "PENSION" | "OTRO" | null;
+};
 export type PaymentOrder = {
   id: number; codigo: string; metodo: PaymentMethod; estado: OrderStatus; moneda: "PEN";
   montoBase: number; mora: number; montoTotal: number; creadaEn: string; expiraEn: string;
   pagadaEn: string | null; institucion: string; apoderado: string;
-  items: Array<{ idCompromiso: number; codigoCompromiso: string; alumno: string; concepto: string; numeroCuota: number | null; monto: number }>;
+  items: OrderItem[];
   qrUrl: string | null; paymentIntentId: string | null; clientSecret: string | null;
   mensaje: string | null; simulador: boolean;
 };

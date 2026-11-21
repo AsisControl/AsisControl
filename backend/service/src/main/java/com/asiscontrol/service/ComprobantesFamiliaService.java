@@ -52,7 +52,7 @@ public class ComprobantesFamiliaService {
     public String descargar(Long id) {
         var c = obtener(id);
         var item = new PagosFamiliaDto.ItemResponse(null, c.codigoCompromiso(), c.alumno(),
-                c.concepto(), c.numeroCuota(), c.montoTotal());
+                c.concepto(), c.numeroCuota(), c.montoTotal(), null, null, null, null);
         return ConstanciaPagoHtml.crear(c.institucion(), c.codigo(), c.apoderado(), c.fechaEmision(),
                 medio(c.medioPago()), c.moneda(), List.of(item), c.montoTotal(), List.of(c.codigo()));
     }
