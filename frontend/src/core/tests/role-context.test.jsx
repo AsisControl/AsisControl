@@ -54,11 +54,16 @@ test.each([
   expect(screen.queryByRole("complementary", { name: "Espacio del usuario" })).toBeNull();
   const mainNav = screen.getByRole("navigation", { name: "Navegación principal" });
   expect(within(mainNav).getAllByRole("button").map((button) => button.textContent)).toEqual(roleDetails[role].nav);
-  const actions = screen.getByRole("region", { name: "Acciones rápidas" });
-  expect(actions.closest(".home-content")).not.toBeNull();
-  expect(screen.getAllByRole("heading", { name: "Acciones rápidas" })).toHaveLength(1);
-  expect(within(actions).getAllByRole("link")).toHaveLength(shortcuts.length);
-  for (const label of shortcuts) expect(within(actions).getByRole("link", { name: label })).toBeTruthy();
+  if (role === "ESTUDIANTE" || role === "APODERADO") {
+    expect(screen.queryByRole("region", { name: "Acciones rápidas" })).toBeNull();
+    expect(screen.getByRole("heading", { name: role === "ESTUDIANTE" ? "Bienvenido, Ana Ramos" : "Panel del Apoderado" })).toBeTruthy();
+  } else {
+    const actions = screen.getByRole("region", { name: "Acciones rápidas" });
+    expect(actions.closest(".home-content")).not.toBeNull();
+    expect(screen.getAllByRole("heading", { name: "Acciones rápidas" })).toHaveLength(1);
+    expect(within(actions).getAllByRole("link")).toHaveLength(shortcuts.length);
+    for (const label of shortcuts) expect(within(actions).getByRole("link", { name: label })).toBeTruthy();
+  }
   expect(screen.queryByRole("navigation", { name: /Accesos rápidos|Acciones rápidas/ })).toBeNull();
 });
 
