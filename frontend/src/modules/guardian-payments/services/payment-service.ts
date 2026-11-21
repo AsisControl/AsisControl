@@ -16,8 +16,8 @@ export const getObligation = (id: number) => api<ObligationDetail>(`${OBLIGATION
 export const startOrder = (obligacionesIds: number[], metodo: PaymentMethod, key: string) =>
   api<PaymentOrder>("/api/pagos/iniciar", { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify({ obligacionesIds, metodo }) });
 export const getOrder = (id: number) => api<PaymentOrder>(`${ORDERS_PATH}/${id}`);
-export const confirmCard = (id: number) =>
-  api<PaymentOrder>(`${ORDERS_PATH}/${id}/confirmar-tarjeta`, { method: "POST", body: JSON.stringify({}) });
+export const confirmCard = (id: number, tarjetaPrueba: string) =>
+  api<PaymentOrder>(`${ORDERS_PATH}/${id}/confirmar-tarjeta`, { method: "POST", body: JSON.stringify({ tarjetaPrueba }) });
 export const authenticateCard = (id: number, aprobar: boolean) =>
   api<PaymentOrder>(`${ORDERS_PATH}/${id}/autenticar`, { method: "POST", body: JSON.stringify({ aprobar }) });
 export const getReceipt = (id: number) => api<OrderReceipt>(`${ORDERS_PATH}/${id}/comprobante`);

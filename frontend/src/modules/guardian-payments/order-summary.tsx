@@ -1,11 +1,11 @@
-import { moneyLabel, quotaLabel } from "./payment-format";
+import { moneyLabel, paymentLine } from "./payment-format";
 import type { PaymentOrder } from "./types";
 import styles from "./guardian-payments.module.css";
 export function OrderSummary({ order }: { order: PaymentOrder }) {
   return <>
     <p className={styles.orderCode}>Orden <strong>{order.codigo}</strong></p>
     <ul className={styles.itemList}>{order.items.map((item) => <li key={item.idCompromiso}>
-      <span><strong>{item.alumno}</strong><small>{item.concepto}{item.numeroCuota != null && ` · ${quotaLabel(item.numeroCuota)}`}</small></span>
+      <span><strong>{item.alumno}</strong><small>{paymentLine(item)}</small></span>
       <strong>{moneyLabel(item.monto, "PEN")}</strong>
     </li>)}</ul>
     <dl className={styles.totals}><div><dt>Obligaciones seleccionadas</dt><dd>{moneyLabel(order.montoBase, "PEN")}</dd></div>

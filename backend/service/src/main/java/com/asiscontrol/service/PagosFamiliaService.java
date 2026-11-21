@@ -5,6 +5,7 @@ import com.asiscontrol.entity.*;
 import com.asiscontrol.entity.enums.*;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
+import com.asiscontrol.exception.InterrupcionPagoSimuladoException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.*;
 import jakarta.persistence.EntityManager;
@@ -12,6 +13,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -192,34 +194,58 @@ public class PagosFamiliaService {
         return respuesta(orden, false);
     }
 
-    @Transactional(noRollbackFor = TransicionPagoInvalida.class)
+    @Transactional(noRollbackFor = {TransicionPagoInvalida.class, InterrupcionPagoSimuladoException.class})
     public PagosFamiliaDto.OrdenResponse confirmarTarjeta(Long id, PagosFamiliaDto.TarjetaRequest request) {
         verificarHabilitado();
         OrdenPago orden = propia(id);
         if (orden.getMetodo() != MetodoPagoSimulado.TARJETA) {
             throw new BusinessRuleException("METODO_PAGO_INCORRECTO", "La orden no corresponde a un pago con tarjeta.");
         }
-        var escenario = request == null || request.escenario() == null
-                ? PagosFamiliaDto.EscenarioTarjeta.APROBADO : request.escenario();
-        if (escenario != PagosFamiliaDto.EscenarioTarjeta.APROBADO) verificarEscenariosCliente();
+        CasoTarjetaSimulada caso = resolverTarjeta(request);
         expirar(orden);
-        var destino = switch (escenario) {
-            case APROBADO -> EstadoOrdenPago.COMPLETADO;
-            case FONDOS_INSUFICIENTES, RECHAZADO -> EstadoOrdenPago.RECHAZADO;
-            case REQUIERE_AUTENTICACION -> EstadoOrdenPago.REQUIERE_AUTENTICACION;
-        };
-        if (orden.getEstado() == destino) return respuesta(orden, false);
+        if (orden.getEstado() == caso.destino() && orden.getEstado() != EstadoOrdenPago.PENDIENTE) {
+            return respuesta(orden, false);
+        }
         if (orden.getEstado() != EstadoOrdenPago.PENDIENTE) throw new TransicionPagoInvalida(orden.getEstado());
-        switch (escenario) {
-            case APROBADO -> aprobar(orden);
-            case FONDOS_INSUFICIENTES -> rechazar(orden, "Pago rechazado por fondos insuficientes.");
-            case RECHAZADO -> rechazar(orden, "La tarjeta fue rechazada. Puedes iniciar otro intento.");
-            case REQUIERE_AUTENTICACION -> {
-                cambiarEstado(orden, EstadoOrdenPago.REQUIERE_AUTENTICACION,
-                        "Confirma la autenticación para continuar.", "AUTENTICACION_PAGO_REQUERIDA");
+        switch (caso) {
+            case APROBADA, CONFIRMACION_NO_RECIBIDA -> {
+                aprobar(orden);
+                // La aprobación se guarda aunque el cliente simule perder la respuesta.
+                if (caso == CasoTarjetaSimulada.CONFIRMACION_NO_RECIBIDA
+                        && orden.getEstado() == EstadoOrdenPago.COMPLETADO) {
+                    throw new InterrupcionPagoSimuladoException(HttpStatus.GATEWAY_TIMEOUT,
+                            "PAGO_CONFIRMACION_NO_RECIBIDA", caso.mensaje());
+                }
             }
+            case REQUIERE_AUTENTICACION -> cambiarEstado(orden, caso.destino(),
+                    caso.mensaje(), "AUTENTICACION_PAGO_REQUERIDA");
+            case SERVICIO_NO_DISPONIBLE -> throw new InterrupcionPagoSimuladoException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "PAGO_SERVICIO_NO_DISPONIBLE", caso.mensaje());
+            default -> rechazar(orden, caso.mensaje());
         }
         return respuesta(orden, false);
+    }
+
+    private CasoTarjetaSimulada resolverTarjeta(PagosFamiliaDto.TarjetaRequest request) {
+        if (request != null && request.escenario() != null) {
+            verificarEscenariosCliente();
+            if (request.tarjetaPrueba() != null) {
+                throw new BusinessRuleException("TARJETA_PRUEBA_INVALIDA",
+                        "Envía solo la referencia de la tarjeta de prueba.", "tarjetaPrueba");
+            }
+            return switch (request.escenario()) {
+                case APROBADO -> CasoTarjetaSimulada.APROBADA;
+                case FONDOS_INSUFICIENTES -> CasoTarjetaSimulada.FONDOS_INSUFICIENTES;
+                case RECHAZADO -> CasoTarjetaSimulada.RECHAZO_GENERICO;
+                case REQUIERE_AUTENTICACION -> CasoTarjetaSimulada.REQUIERE_AUTENTICACION;
+            };
+        }
+        if (request == null || request.tarjetaPrueba() == null || request.tarjetaPrueba().isBlank()) {
+            if (escenariosClienteHabilitados) return CasoTarjetaSimulada.APROBADA;
+            throw new BusinessRuleException("TARJETA_PRUEBA_REQUERIDA",
+                    "Ingresa los datos de una tarjeta de prueba para continuar.", "tarjetaPrueba");
+        }
+        return CasoTarjetaSimulada.buscar(request.tarjetaPrueba());
     }
 
     @Transactional(noRollbackFor = TransicionPagoInvalida.class)
@@ -344,9 +370,17 @@ public class PagosFamiliaService {
             exigirTransicion(orden, EstadoOrdenPago.COMPLETADO);
             if (compromiso == null || !acceso.asociado(compromiso.getMatricula().getAlumno().getId(), orden.getApoderado())
                     || compromiso.getEstadoAdministrativo() != EstadoAdministrativoCompromiso.ACTIVO
-                    || !"PEN".equals(compromiso.getMoneda()) || saldo(compromiso).compareTo(fila.getMonto()) != 0
-                    || saldo(compromiso).signum() <= 0) {
-                rechazar(orden, "Las obligaciones cambiaron. Revisa los importes pendientes e inicia un nuevo pago.");
+                    || !"PEN".equals(compromiso.getMoneda())) {
+                rechazar(orden, "Uno de los cargos ya no está disponible. Actualiza y revisa tu selección.");
+                return;
+            }
+            if (obligacionPagada(compromiso)) {
+                rechazar(orden, "Uno de los cargos ya está pagado. Consulta su constancia en Historial.");
+                return;
+            }
+            BigDecimal saldoVigente = saldo(compromiso);
+            if (saldoVigente.compareTo(fila.getMonto()) != 0 || saldoVigente.signum() <= 0) {
+                rechazar(orden, "El importe disponible para pagar cambió. Actualiza y revisa tu selección.");
                 return;
             }
             bloqueados.add(compromiso);
@@ -414,10 +448,19 @@ public class PagosFamiliaService {
     }
 
     private void validarPagable(CompromisoPago compromiso) {
+        if (obligacionPagada(compromiso)) {
+            throw new BusinessRuleException("OBLIGACION_YA_PAGADA",
+                    "Uno de los cargos ya está pagado. Consulta su constancia en Historial.");
+        }
         if (compromiso.getEstadoAdministrativo() != EstadoAdministrativoCompromiso.ACTIVO
                 || saldo(compromiso).signum() <= 0 || !"PEN".equals(compromiso.getMoneda())) {
             throw new BusinessRuleException("OBLIGACION_NO_PAGABLE", "Selecciona obligaciones en soles pendientes de pago.");
         }
+    }
+
+    private boolean obligacionPagada(CompromisoPago compromiso) {
+        return EstadoFinancieroCompromiso.visible(compromiso, EstadoFinancieroCompromiso.hoy())
+                == EstadoCompromisoPago.PAGADO;
     }
 
     private BigDecimal saldo(CompromisoPago compromiso) {
@@ -426,10 +469,8 @@ public class PagosFamiliaService {
 
     private PagosFamiliaDto.OrdenResponse respuesta(OrdenPago orden, boolean publico) {
         boolean capacidadVencida = publico && !orden.getExpiraEn().isAfter(Instant.now());
-        List<PagosFamiliaDto.ItemResponse> lineas = capacidadVencida ? List.of() : items(orden).stream().map(fila -> new PagosFamiliaDto.ItemResponse(
-                fila.getCompromiso().getId(), fila.getCodigoCompromiso(),
-                publico ? fila.getCompromiso().getMatricula().getAlumno().getPersona().getNombres() : fila.getAlumno(),
-                fila.getConcepto(), fila.getNumeroCuota(), fila.getMonto())).toList();
+        List<PagosFamiliaDto.ItemResponse> lineas = capacidadVencida ? List.of() : items(orden).stream()
+                .map(fila -> presentarItem(fila, publico)).toList();
         boolean qrDisponible = !publico && orden.getMetodo() == MetodoPagoSimulado.QR && !orden.getEstado().esTerminal();
         String qrReferencia = orden.getQrReferencia() == null ? orden.getCodigo() : orden.getQrReferencia();
         String qrUrl = qrDisponible ? frontendUrl + "/pagar-qr/" + tokens.generar(qrReferencia) : null;
@@ -441,6 +482,18 @@ public class PagosFamiliaService {
                 lineas, qrUrl, publico ? null : orden.getPaymentIntentId(),
                 publico || orden.getPaymentIntentId() == null ? null : tokens.secretoTarjeta(orden.getPaymentIntentId()),
                 mensajePresentacion(orden), true);
+    }
+
+    private PagosFamiliaDto.ItemResponse presentarItem(OrdenPagoDetalle fila, boolean publico) {
+        var compromiso = fila.getCompromiso();
+        var matricula = compromiso.getMatricula();
+        var concepto = publico ? null : compromiso.getConceptoCobro();
+        var tipo = concepto == null ? null : concepto.isEsPension()
+                ? PagosFamiliaDto.TipoObligacion.PENSION : PagosFamiliaDto.TipoObligacion.OTRO;
+        return new PagosFamiliaDto.ItemResponse(compromiso.getId(), fila.getCodigoCompromiso(),
+                publico ? matricula.getAlumno().getPersona().getNombres() : fila.getAlumno(),
+                fila.getConcepto(), fila.getNumeroCuota(), fila.getMonto(), publico ? null : compromiso.getMes(),
+                publico ? null : matricula.getAnioAcademico(), publico ? null : compromiso.getReferenciaCobro(), tipo);
     }
 
     private String mensajePresentacion(OrdenPago orden) {

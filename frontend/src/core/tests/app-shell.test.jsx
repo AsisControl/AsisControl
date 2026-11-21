@@ -332,16 +332,16 @@ test("Horarios transmite AUDITORIA_LEER y protege la ruta del historial", async 
 test("Cada rol ve su menú y su pantalla de inicio", async () => {
   for (const [role, rol, title] of [
     ["DOCENTE", "DOCENTE", "Bienvenido/a, Ana Ramos"],
-    ["ESTUDIANTE", "ALUMNO", "Bienvenido/a, Ana Ramos"],
+    ["ESTUDIANTE", "ALUMNO", "Bienvenido, Ana Ramos"],
     ["APODERADO", "APODERADO", "Panel del Apoderado"],
   ]) {
     backend({ "GET /api/auth/me": summary({ rol, permisos: [] }) });
     sessionFor({ role, permissions: [] });
     const { unmount } = renderApp();
     expect(await screen.findByText(title)).toBeTruthy();
-    // El docente tiene su propio inicio (con datos del backend); los demás, el aviso genérico.
-    if (role === "DOCENTE") expect(screen.getByRole("button", { name: "Actualizar" })).toBeTruthy();
-    else expect(screen.getByText(/Has ingresado como/)).toBeTruthy();
+    if (role === "APODERADO") expect(screen.getByText("Información de tus estudiantes asociados")).toBeTruthy();
+    else expect(screen.getByRole("button", { name: "Actualizar" })).toBeTruthy();
+    expect(screen.queryByText(/Has ingresado como/)).toBeNull();
     unmount();
   }
 });

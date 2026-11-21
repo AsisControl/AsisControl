@@ -63,9 +63,12 @@ stateDiagram-v2
 
 | Resultado | Estado de cuenta y detalle | Historial de pagos | Seguimiento de pagos |
 | --- | --- | --- | --- |
-| Orden pendiente | El importe continúa pendiente. El detalle muestra el intento. | Solo comprobantes aprobados. | Muestra la orden vigente, con la opción de continuar. |
-| Orden completada | Actualiza importe pagado, saldo y estado en el mismo cierre. | Aparece la constancia de cada obligación pagada. | Muestra la orden completada y acceso a su constancia. |
-| Orden rechazada o expirada | Conserva la deuda y registra el resultado del intento. | Conserva solo las constancias aprobadas. | Muestra el motivo y permite iniciar otra orden con las obligaciones todavía pendientes. |
+| Orden pendiente | El importe continúa pendiente. El detalle muestra el intento. | Se incorpora cuando termina. | Muestra la orden vigente, con la opción de continuar. |
+| Orden completada | Actualiza importe pagado, saldo y estado en el mismo cierre. | Aparece la constancia de cada obligación pagada. | La orden sale de la lista de operaciones en curso. |
+| Orden rechazada | Conserva la deuda y registra el resultado del intento. | Muestra el resultado y el motivo del rechazo. | La orden sale de la lista de operaciones en curso. |
+| Orden expirada | Conserva la deuda y permite iniciar otra orden desde Obligaciones. | Muestra el intento como **Vencido**. | La orden sale de la lista de operaciones en curso. |
+
+Si la orden expira con la ventana de pago abierta, el aviso **Se acabó el tiempo para pagar** aparece cuando el servidor confirma el estado. **Volver a Obligaciones** cierra la ventana y permite iniciar otra orden.
 
 El servidor rechaza con **409 TRANSICION_PAGO_INVALIDA** las transiciones fuera de secuencia, como aprobar una orden vencida o rechazar una orden ya completada. Repetir la confirmación ya asentada de un mismo resultado permite recuperar la respuesta sin duplicar transacciones ni comprobantes. Una autenticación adicional exige un desafío pendiente. Los registros históricos que usen otros estados permanecen consultables según sus reglas.
 
@@ -73,10 +76,30 @@ La pantalla familiar de obligaciones permite filtrar **Pensiones** y **Actividad
 
 ## Experiencia de pago y alcance de la simulación
 
-- **Tarjeta virtual.** El apoderado revisa el importe y confirma. La aplicación usa una tarjeta virtual de la plataforma. El formulario se limita a los datos necesarios para este flujo simulado.
+- **Tarjeta.** El apoderado revisa el estudiante, concepto e importe de cada obligación y completa número, titular, vencimiento y código de seguridad con datos ficticios. El botón muestra el total en soles. El navegador envía únicamente la referencia de la tarjeta de prueba.
 - **QR.** El código lleva a la billetera de la institución, en el celular o en el mismo dispositivo. La billetera presenta el importe y la confirmación. El QR tiene vigencia de cinco minutos y el checkout consulta el estado mientras espera. Seguimiento refresca las órdenes vigentes y las otras vistas cargan el resultado al visitarlas.
-- La interfaz identifica de forma discreta el carácter simulado. Los escenarios de error, autenticación y rechazo se comprueban mediante pruebas del backend. `PAYMENTS_SIMULATOR_ALLOW_TEST_SCENARIOS` permanece desactivada por defecto. Para una presentación se mantiene ese valor y se habilita el checkout con la configuración existente `PAYMENTS_SIMULATOR_ENABLED`.
+- La interfaz identifica el carácter simulado. Los distintos resultados se reproducen ingresando las tarjetas del catálogo. `PAYMENTS_SIMULATOR_ALLOW_TEST_SCENARIOS` permanece desactivada por defecto y controla las acciones de prueba directas del API. Para una presentación se mantiene ese valor y se habilita el checkout con `PAYMENTS_SIMULATOR_ENABLED`.
 - Se conserva el cálculo en PEN por el servidor, la identidad de sesión y las asociaciones familiares, la protección ante órdenes que se superponen, la vigencia del QR firmado y los comprobantes internos. Una pasarela real queda como mejora opcional.
+
+### Cómo probar el formulario de tarjeta
+
+Selecciona una pensión o un cargo de **Actividades y servicios** y elige **Tarjeta**. Usa un titular ficticio, por ejemplo **Ana Prueba**, y un mes vigente, por ejemplo **12/35**. Los ejemplos de 16 dígitos usan el CVV ficticio **123**. El ejemplo de 15 dígitos usa **1234**.
+
+| Número ficticio | Resultado esperado |
+| --- | --- |
+| `4242 4242 4242 4242` o `3782 822463 10005` | Aprobación y acceso a las constancias. |
+| `4000 0000 0000 9995` | Fondos insuficientes. |
+| `4000 0000 0000 0069` | El simulador devuelve tarjeta vencida aunque se haya ingresado una fecha vigente. Una fecha pasada produce un error en el campo antes de confirmar. |
+| `4000 0000 0000 0002` | Tarjeta bloqueada o inválida. |
+| `4000 0000 0000 0127` | Código de seguridad incorrecto. |
+| `4000 0000 0000 0119` | Límite excedido. |
+| `4000 0000 0000 0341` | Compras por internet no habilitadas. |
+| `4100 0000 0000 0019` | Rechazo genérico por seguridad. |
+| `4000 0025 0000 3155` | Verificación adicional dentro de la misma orden. |
+| `4000 0000 0000 0259` | Servicio temporalmente no disponible. Consulta la orden antes de volver a confirmar. |
+| `4000 0000 0000 0077` | Respuesta de confirmación agotada. Consulta la misma orden para recuperar el resultado. |
+
+**Seguimiento** permite recuperar una orden vigente o con resultado por confirmar. **Historial** muestra los intentos finalizados y permite abrir las constancias de los pagos aprobados. Un rechazo conserva el estado financiero de cada obligación y una aprobación cierra todos los cargos de la orden en una transacción. El formulario trabaja sobre el saldo pendiente de cada cargo en soles.
 
 ## Evidencia y preguntas para el equipo
 
@@ -93,7 +116,7 @@ La migración **V17** registra promociones y trámites conservando las matrícul
 
 Para demostrar la renovación, enviar desde el perfil del apoderado y abrir el trámite desde el perfil administrativo. Después de confirmar la revisión, volver al perfil del apoderado y consultar el resultado. En el caso aprobado, comprobar las diez pensiones del nuevo año en Estado de cuenta.
 
-Para demostrar el QR, seleccionar una pensión y abrir el checkout en la computadora. Escanear con un celular que pueda acceder a `FRONTEND_URL`, confirmar desde la billetera y comprobar que el checkout muestra la constancia sin recargar. Después, revisar la pensión en Estado de cuenta, la orden en Seguimiento y la constancia en Historial. En otra obligación, se puede dejar vencer el QR y comprobar que la deuda sigue pendiente. Para usar tarjeta, elegir el otro método y confirmar la tarjeta virtual.
+Para demostrar el QR, seleccionar una pensión y abrir el checkout en la computadora. Escanear con un celular que pueda acceder a `FRONTEND_URL`, confirmar desde la billetera y comprobar que el checkout muestra la constancia sin recargar. Después, revisar la pensión en Estado de cuenta, la salida de la orden de Seguimiento y la constancia en Historial. En otra obligación, se puede dejar vencer el QR y comprobar que la deuda sigue pendiente.
 
 La verificación tras integrar `develop` pasó con 661 pruebas del backend y 759 del frontend, con los umbrales de cobertura del proyecto. La migración se comprobó en H2 en modo MySQL. La validación en MySQL y el escaneo desde un celular quedan pendientes de prueba manual.
 

@@ -4,6 +4,7 @@ import com.asiscontrol.entity.enums.EstadoOrdenPago;
 import com.asiscontrol.entity.enums.MetodoPagoSimulado;
 import com.asiscontrol.entity.enums.TipoComprobante;
 import com.asiscontrol.entity.enums.MedioPago;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
@@ -37,14 +38,20 @@ public final class PagosFamiliaDto {
         }
     }
 
-    public record TarjetaRequest(EscenarioTarjeta escenario) {}
+    public record TarjetaRequest(String tarjetaPrueba, EscenarioTarjeta escenario) {
+        @JsonAnySetter
+        public void rechazarCampoDesconocido(String campo, Object valor) {
+            throw new IllegalArgumentException("Envía solo la referencia de la tarjeta de prueba.");
+        }
+    }
     public record AutenticacionRequest(@NotNull Boolean aprobar) {}
     public record QrConfirmacionRequest(@NotNull AccionQr accion) {}
 
     public record EstudianteResponse(Long id, String codigoAlumno, String nombreCompleto) {}
 
     public record ItemResponse(Long idCompromiso, String codigoCompromiso, String alumno,
-                               String concepto, Integer numeroCuota, BigDecimal monto) {}
+                               String concepto, Integer numeroCuota, BigDecimal monto, Integer mes,
+                               Integer anioAcademico, String referenciaCobro, TipoObligacion tipo) {}
 
     public record OrdenResponse(Long id, String codigo, MetodoPagoSimulado metodo,
                                 EstadoOrdenPago estado, String moneda, BigDecimal montoBase,

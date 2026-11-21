@@ -47,6 +47,12 @@
 .cardMethod { align-items: center; display: flex; gap: 14px; }
 .cardMethod h4 { color: #0f172a; margin: 0 0 4px; }
 .cardMethod p { color: #475569; line-height: 1.5; margin: 0; }
+.cardForm { display: grid; gap: 14px; margin-top: 20px; }
+.cardFieldRow { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cardForm input { font-variant-numeric: tabular-nums; min-height: 44px; }
+.cardSubmit { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: end; }
+.cardSubmit p { flex: 1 0 190px; margin: 0; }
+.cardSubmit button { min-height: 44px; }
 .cardIcon { background: var(--blue); border-radius: 6px; display: block; flex: 0 0 42px; height: 30px; position: relative; }
 .cardIcon::before, .cardIcon::after { background: #fff; content: ""; height: 3px; left: 0; position: absolute; right: 0; top: 7px; }
 .cardIcon::after { border-radius: 2px; height: 4px; left: 6px; right: auto; top: 19px; width: 9px; }
@@ -73,6 +79,8 @@
   .filters { grid-template-columns: 1fr; }
   .selectionBar > button { flex: 1; }
   .summary { grid-template-columns: 1fr; }
+  .cardFieldRow { grid-template-columns: 1fr; }
+  .cardSubmit button { width: 100%; }
   .historyList li { align-items: start; flex-direction: column; }
   .historyList li > span:last-child { align-items: start; }
   .qrPanel { padding: 16px 8px; }

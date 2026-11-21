@@ -39,11 +39,15 @@ El flujo de confirmación y las transiciones vigentes se explican en
   El folio visible es OP-000001 (ID con un mínimo de seis dígitos). La referencia
   firmada del QR es independiente e inmutable; V12 preserva las URLs anteriores.
 - `GET /api/pagos/ordenes/{id}`: `OrdenPago` propia; evalúa expiración.
-- `POST /api/pagos/ordenes/{id}/confirmar-tarjeta`:
-  la interfaz envía `{}`. La confirmación aprueba una orden vigente si las
-  obligaciones conservan su importe y siguen siendo pagables. Solo el perfil de
-  pruebas o una configuración explícita permite escoger escenarios negativos o
-  solicitar autenticación. Una transición incompatible devuelve 409.
+- `POST /api/pagos/ordenes/{id}/confirmar-tarjeta` recibe
+  `{tarjetaPrueba: "TP-001"}`. El servidor resuelve la referencia ficticia y vuelve a
+  verificar propiedad, vigencia, importes y estado de la orden. El número, el
+  titular, el vencimiento y el CVV se usan en el formulario y quedan fuera de la
+  solicitud. Una referencia inválida produce 422 y una transición incompatible
+  devuelve 409. El caso simulado de servicio no disponible devuelve 503 y mantiene
+  la orden pendiente. El caso de confirmación sin respuesta devuelve 504 después
+  de registrar la aprobación. En ambos casos, consultar
+  `GET /api/pagos/ordenes/{id}` sobre la misma orden antes de volver a confirmar.
 - `POST /api/pagos/ordenes/{id}/autenticar`:
   `{aprobar: boolean}`. Completa o rechaza el desafío 3DS simulado.
 - `GET /api/pagos/ordenes/{id}/comprobante`: `ReciboOrden`, solo completadas.
@@ -90,6 +94,10 @@ El flujo de confirmación y las transiciones vigentes se explican en
     concepto: string;
     numeroCuota: number | null;
     monto: number;
+    mes?: number | null;
+    anioAcademico?: number | null;
+    referenciaCobro?: string | null;
+    tipo?: "PENSION" | "OTRO" | null;
   }>;
   qrUrl: string | null;
   paymentIntentId: string | null; // pi_sim_... identifica intento local

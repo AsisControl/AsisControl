@@ -2,3 +2,4 @@
 export { Enrollments } from "./enrollments";
 export { GuardianEnrollment } from "./guardian-enrollment";
 export { GuardianEnrollmentPortal } from "./renewals/renewal-navigation";
+export type { GuardianRequest } from "./guardian-enrollment-track";

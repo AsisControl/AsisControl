@@ -10,8 +10,9 @@ import type { PaymentOrder } from "./types";
 import styles from "./guardian-payments.module.css";
 
 /** Pagos iniciados que incluyen cuotas del estudiante elegido o, sin estudiante, de toda la familia. */
-export function OrdersHistory({ onRefreshObligations, studentId = "", scope = "mis estudiantes" }: {
+export function OrdersHistory({ onRefreshObligations, onReturnToObligations, studentId = "", scope = "mis estudiantes" }: {
   onRefreshObligations: () => void;
+  onReturnToObligations: () => void;
   studentId?: string;
   scope?: string;
 }) {
@@ -34,7 +35,7 @@ export function OrdersHistory({ onRefreshObligations, studentId = "", scope = "m
       actions={<button type="button" className="secondary-action" disabled={list.loading} onClick={list.refresh}>Actualizar seguimiento</button>} />
     <Feedback error={list.error} />
     <p className={styles.hint}>Puedes continuar una orden durante sus cinco minutos de vigencia. Cuando termina, se consulta en Historial de pagos.</p>
-    {list.loading ? <Loading>Cargando seguimiento…</Loading> : !list.error && !list.data?.content.length ? <p className="empty">No hay órdenes en curso para la selección.</p> : list.data && <div className={styles.tableWrap}>
+    {list.loading && !list.data ? <Loading>Cargando seguimiento…</Loading> : !list.loading && !list.error && !list.data?.content.length ? <p className="empty">No hay órdenes en curso para la selección.</p> : list.data && <div className={styles.tableWrap}>
       <table className={`user-table ${styles.historyTable}`} aria-label="Seguimiento de mis pagos"><thead><tr><th>Referencia y fecha</th><th>Estudiantes</th><th>Medio</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
         {list.data.content.map((order) => <tr key={order.id}>
           <td><strong>{order.codigo}</strong><small>{dateLabel(order.creadaEn)}</small></td>
@@ -45,6 +46,7 @@ export function OrdersHistory({ onRefreshObligations, studentId = "", scope = "m
       </tbody></table>
     </div>}
     <Pager data={list.data} loading={list.loading} setPage={list.setPage} />
-    {selected && <PaymentCheckout obligations={[]} initialOrder={selected} onClose={() => { setSelected(null); settled(); }} onSettled={settled} />}
+    {selected && <PaymentCheckout obligations={[]} initialOrder={selected} onClose={() => { setSelected(null); settled(); }}
+      onSettled={settled} onExpired={onReturnToObligations} />}
   </section>;
 }

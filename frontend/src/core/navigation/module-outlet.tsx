@@ -20,6 +20,7 @@ import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { StudentCourses } from "@/modules/student-courses";
 import { StudentTasks } from "@/modules/student-tasks";
+import { StudentHome, GuardianHome } from "@/modules/role-home";
 import { TasksModule } from "@/modules/tasks";
 import { TeacherCoursesModule } from "@/modules/teacher-courses";
 import { TeacherHome } from "@/modules/teacher-home";
@@ -39,6 +40,7 @@ type Screen = (context: ScreenContext) => ReactNode;
  */
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
+    Inicio: ({ user }) => <StudentHome fullName={user.fullName} />,
     Progreso: ({ user }) => <ProgressReports key={user.id} />,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
@@ -106,6 +108,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
+    Inicio: () => <GuardianHome />,
     Pagos: () => <GuardianPayments />,
     Progreso: ({ user }) => <ProgressReports key={user.id} guardian />,
     Matrícula: ({ user, subpath: [tab] }) => (
