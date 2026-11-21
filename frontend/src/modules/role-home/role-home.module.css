@@ -1,0 +1,74 @@
+.home { color: #0f172a; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.header h1 { font-size: clamp(24px, 2.5vw, 30px); line-height: 1.2; margin: 0 0 7px; font-weight: 700; }
+.header p { color: #475569; margin: 0; font-size: 14px; }
+.header span { display: block; color: #94a3b8; font-size: 12px; margin-top: 5px; }
+.header button { border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #334155; font: inherit; font-size: 13px; font-weight: 600; padding: 9px 16px; cursor: pointer; }
+.header button:disabled { opacity: .55; cursor: default; }
+.studentSelect { display: flex; align-items: center; gap: 10px; color: #475569; font-size: 13px; font-weight: 600; }
+.studentSelect select { max-width: 250px; min-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; background: #fff; color: #0f172a; font: inherit; }
+.error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; padding: 14px 16px; margin-bottom: 20px; font-size: 14px; }
+.error button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.skeletonText { display: grid; gap: 6px; min-width: 0; }
+.skeletonRows { display: grid; gap: 10px; margin-top: 17px; }
+.skeletonRow { display: grid; gap: 7px; padding: 12px; min-height: 56px; border: 1px solid #e2e8f0; border-radius: 9px; background: #f8fafc; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.metric { display: flex; align-items: center; gap: 14px; min-width: 0; min-height: 104px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 1px 2px #0f172a0d; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+.metric:hover { border-color: #94a3b8; transform: translateY(-1px); }
+.metricIcon { width: 42px; height: 42px; display: grid; place-items: center; flex: none; border-radius: 9px; }
+.metricIcon svg { width: 22px; height: 22px; }
+.metricText { display: grid; min-width: 0; gap: 3px; }
+.metricText strong { font-size: 25px; line-height: 1.15; font-weight: 700; text-transform: capitalize; overflow-wrap: anywhere; }
+.metricText span { color: #64748b; font-size: 12px; line-height: 1.4; }
+.amber .metricIcon { color: #d97706; background: #fffbeb; }
+.amber .metricText strong { color: #b45309; }
+.blue .metricIcon { color: #2563eb; background: #eff6ff; }
+.blue .metricText strong { color: #1d4ed8; }
+.green .metricIcon { color: #16a34a; background: #f0fdf4; }
+.green .metricText strong { color: #15803d; }
+.purple .metricIcon { color: #9333ea; background: #faf5ff; }
+.purple .metricText strong { color: #7e22ce; }
+.studentColumns, .guardianColumns { display: grid; gap: 16px; align-items: start; }
+.studentColumns { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr); }
+.guardianColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stack { display: grid; gap: 16px; }
+.card { min-width: 0; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 1px 2px #0f172a0d; }
+.cardHead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.cardHead h2 { font-size: 16px; line-height: 1.3; margin: 0; font-weight: 700; }
+.cardHead a, .task a { color: #1d4ed8; font-size: 12px; font-weight: 600; white-space: nowrap; text-decoration: none; }
+.cardHead a:hover, .task a:hover { text-decoration: underline; }
+.empty { color: #64748b; font-size: 13px; line-height: 1.5; margin: 16px 0 4px; }
+.classRow { display: flex; justify-content: space-between; gap: 10px; padding: 13px; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.classActive { background: #f0fdf4; border-color: #86efac; }
+.classRow strong, .task strong, .obligation strong, .absence strong, .reportRow strong { display: block; font-size: 13px; line-height: 1.4; }
+.classRow span, .task span, .obligation span, .absence span, .reportRow span { color: #64748b; font-size: 12px; }
+.classTime { display: grid; align-content: start; justify-items: end; gap: 5px; flex: none; }
+.classTime time { color: #475569; font-size: 12px; white-space: nowrap; }
+.classTime em { border-radius: 999px; background: #dcfce7; color: #15803d; font-size: 10px; font-style: normal; font-weight: 700; padding: 3px 7px; }
+.task { display: grid; gap: 5px; margin-top: 10px; padding: 13px; border: 1px solid #e2e8f0; border-radius: 9px; }
+.task .subject { color: #1d4ed8; font-weight: 700; }
+.task .due { color: #b45309; }
+.task a { margin-top: 4px; }
+.reportList { display: grid; }
+.reportRow, .absence { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.reportRow:last-child, .absence:last-child { border-bottom: 0; }
+.reportRow div, .absence div { display: grid; gap: 3px; }
+.published { border-radius: 999px; background: #eff6ff; color: #1d4ed8 !important; font-size: 10px !important; font-weight: 700; padding: 4px 7px; white-space: nowrap; }
+.attendanceStats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.attendanceStats span { display: grid; justify-items: center; gap: 4px; color: #64748b; font-size: 11px; text-align: center; }
+.attendanceStats strong { color: #0f172a; font-size: 20px; }
+.attendanceStats span:nth-child(1) strong { color: #16a34a; }
+.attendanceStats span:nth-child(2) strong { color: #d97706; }
+.attendanceStats span:nth-child(3) strong { color: #dc2626; }
+.studentName { color: #64748b; font-size: 12px; margin: -8px 0 14px; }
+.obligation { display: grid; gap: 5px; margin-top: 10px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.obligation div { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 5px; }
+.obligation b { color: #b45309; font-size: 16px; }
+.obligation em, .absence em { background: #fef3c7; border-radius: 999px; color: #92400e; font-size: 10px; font-style: normal; font-weight: 700; padding: 4px 8px; text-transform: capitalize; white-space: nowrap; }
+.absence em { background: #fef2f2; color: #b91c1c; }
+.primaryLink { display: block; margin-top: 18px; padding: 10px; border-radius: 7px; background: #1e3a8a; color: white; text-align: center; text-decoration: none; font-size: 12px; font-weight: 700; }
+.primaryLink:hover { background: #1d4ed8; }
+@media (max-width: 1100px) { .studentColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stack { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 850px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guardianColumns { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .header { align-items: stretch; flex-direction: column; } .studentSelect { align-items: stretch; flex-direction: column; } .studentSelect select { max-width: none; width: 100%; } .studentColumns, .stack { grid-template-columns: 1fr; } .stack { grid-column: auto; } }
+@media (max-width: 420px) { .metrics { gap: 10px; } .metric { padding: 12px; min-height: 90px; gap: 8px; } .metricIcon { width: 34px; height: 34px; } .metricText strong { font-size: 20px; } .card { padding: 16px; } }

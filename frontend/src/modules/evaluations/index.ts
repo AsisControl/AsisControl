@@ -2,3 +2,4 @@
 export { Evaluations } from "./evaluations";
 export { ProgressPreview } from "./progress-preview";
 export { ProgressReports } from "./progress-reports";
+export type { AvailableReport } from "./report-types";
