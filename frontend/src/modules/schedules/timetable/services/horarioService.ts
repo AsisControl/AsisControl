@@ -66,13 +66,21 @@ export function crearHorario(input: ScheduleBlockInput) {
     body: JSON.stringify(input),
   });
 }
-export function actualizarHorario(block: ScheduleBlock, input: ScheduleBlockInput) {
+/** US-27: el motivo es obligatorio y queda en el historial de cambios del bloque. */
+export function actualizarHorario(
+  block: ScheduleBlock,
+  input: ScheduleBlockInput,
+  motivo: string,
+) {
   return api<ScheduleBlock>(`${HORARIOS_PATH}/${block.id}`, {
     method: "PUT",
-    body: JSON.stringify({ ...input, version: block.version }),
+    body: JSON.stringify({ ...input, version: block.version, motivo }),
   });
 }
-/** Baja lógica: el bloque deja de aparecer en la matriz. */
-export function eliminarHorario(id: number) {
-  return api<null>(`${HORARIOS_PATH}/${id}`, { method: "DELETE" });
+/** Baja lógica (retiro): el bloque deja de aparecer en la matriz; el motivo queda en el historial. */
+export function retirarHorario(id: number, motivo: string) {
+  return api<null>(`${HORARIOS_PATH}/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({ motivo }),
+  });
 }

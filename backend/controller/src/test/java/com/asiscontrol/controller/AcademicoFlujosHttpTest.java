@@ -46,8 +46,8 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         String hp="/api/horarios/"+h.path("id").asLong();
         getOk("/api/horarios"); getOk(hp);
         request("POST","/api/horarios",data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","LUNES","horaInicio","08:30:00","horaFin","09:30:00"),409);
-        putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0));
-        deleteOk(hp);
+        putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0,"motivo","Cambio de dia"));
+        request("DELETE",hp,data("motivo","Fin de prueba"),204);
         // US-58: el retiro exige motivo y version, y solo procede sin bloques de horario activos.
         long versionAsignacion = getOk(asp).path("version").asLong();
         request("PATCH", asp + "/retirar", data("motivo", "Fin de prueba", "version", versionAsignacion), 200);

@@ -91,7 +91,7 @@ class CalendarioSesionHttpTest extends ApiIntegrationSupport {
         request("PUT", "/api/horarios/" + horario.path("id").asLong(), data("asignacionCursoId", assignment.getId(),
                 "aulaId", horario.path("aulaId").asLong(), "diaSemana", DiaSemana.MARTES,
                 "horaInicio", LocalTime.of(8, 0), "horaFin", LocalTime.of(10, 0),
-                "version", horario.path("version").asLong()), 200);
+                "version", horario.path("version").asLong(), "motivo", "Cambio de dia"), 200);
 
         var lista = listar();
         assertThat(lista).hasSize(1 + dias(DayOfWeek.TUESDAY).size());
@@ -105,7 +105,7 @@ class CalendarioSesionHttpTest extends ApiIntegrationSupport {
     @Test void eliminarHorarioRetiraLasPendientesYReactivaAlVolverAProgramar() throws Exception {
         var aula = aula();
         var horario = crearHorario(aula, DiaSemana.LUNES, 8, 10);
-        request("DELETE", "/api/horarios/" + horario.path("id").asLong(), null, 204);
+        request("DELETE", "/api/horarios/" + horario.path("id").asLong(), data("motivo", "Fin de prueba"), 204);
         assertThat(listar()).isEmpty();
 
         crearHorario(aula, DiaSemana.LUNES, 8, 10);

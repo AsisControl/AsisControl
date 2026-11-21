@@ -177,7 +177,7 @@ class AsignacionDocenteIntegrationTest {
                                     h -> assertThat(h.horarioId()).isEqualTo(bloque));
                 });
 
-        horarios.eliminar(bloque);
+        horarios.eliminar(bloque, "Cambio de carga");
         AsignacionCursoResponse retirada = asignaciones.retirar(asignacion.id(),
                 new RetirarAsignacionCursoRequest("Cambio de carga", version));
         assertThat(retirada.activo()).isFalse();
