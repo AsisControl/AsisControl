@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudentHome, GuardianHome } from "@/modules/role-home";
 import { loadStudentHome, loadHomeStudents, loadGuardianHome } from "../data";
@@ -13,12 +13,16 @@ vi.mock("../data", () => ({
 beforeEach(() => vi.clearAllMocks());
 
 test("el inicio del alumno muestra sus datos y enlaces a las pantallas reales", async () => {
-  loadStudentHome.mockResolvedValue({
+  let resolveHome;
+  loadStudentHome.mockReturnValue(new Promise((resolve) => { resolveHome = resolve; }));
+  render(<StudentHome fullName="Luis García" />);
+  expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+  expect(screen.getByRole("status").textContent).toContain("Cargando tu panel");
+  await act(async () => resolveHome({
     tasks: { content: [{ curso: "Matemática", tarea: { id: 4, nombre: "Ejercicios", fechaLimite: "2026-11-25T18:00:00" } }], totalElements: 1 },
     schedule: [], attendance: [],
     reports: [{ idAlumno: 5, idAsignacionCurso: 9, idPeriodoAcademico: 2, curso: "Comunicación", periodo: "Bimestre II", anio: 2026 }],
-  });
-  render(<StudentHome fullName="Luis García" />);
+  }));
   expect(await screen.findByRole("heading", { name: "Bienvenido, Luis García" })).toBeTruthy();
   expect(await screen.findByText("Ejercicios")).toBeTruthy();
   expect(screen.getByText("No hay clases programadas para hoy.")).toBeTruthy();
@@ -32,14 +36,22 @@ test("el apoderado cambia de estudiante y consulta solo el panel seleccionado", 
     { id: 5, nombreCompleto: "Luis García" },
     { id: 6, nombreCompleto: "María García" },
   ]);
-  loadGuardianHome.mockImplementation(async (id) => ({
+  let resolveSecond;
+  loadGuardianHome.mockImplementation((id) => id === 6 ? new Promise((resolve) => { resolveSecond = resolve; }) : Promise.resolve({
     obligations: [{ id, concepto: id === 5 ? "Pensión Luis" : "Pensión María", fechaVencimiento: "2026-11-25", saldo: 850, estadoAdministrativo: "ACTIVO", estadoFinanciero: "PENDIENTE" }],
     requests: [], attendance: [], reports: [],
   }));
   render(<GuardianHome />);
+  expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
   const select = await screen.findByRole("combobox", { name: "Estudiante" });
   expect(await screen.findByText("Pensión Luis")).toBeTruthy();
   await userEvent.selectOptions(select, "6");
+  expect(screen.getByRole("status").getAttribute("aria-busy")).toBe("true");
+  expect(screen.queryByText("Pensión Luis")).toBeNull();
+  await act(async () => resolveSecond({
+    obligations: [{ id: 6, concepto: "Pensión María", fechaVencimiento: "2026-11-25", saldo: 850, estadoAdministrativo: "ACTIVO", estadoFinanciero: "PENDIENTE" }],
+    requests: [], attendance: [], reports: [],
+  }));
   expect(await screen.findByText("Pensión María")).toBeTruthy();
   expect(screen.queryByText("Pensión Luis")).toBeNull();
   expect(loadGuardianHome.mock.calls.map(([id]) => id)).toEqual([5, 6]);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { NavIcon } from "@/core/navigation/nav-icons";
+import { Loading, Skeleton } from "@/shared/ui";
 import { fechaCorta, resumir, estadoBase, type AsistenciaEstudiante } from "@/modules/guardian-attendance";
 import type { AvailableReport } from "@/modules/evaluations";
 import { loadGuardianHome, loadHomeStudents, loadStudentHome, type GuardianHomeData, type HomeStudent, type StudentHomeData } from "./data";
@@ -38,6 +39,30 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className={styles.empty}>{children}</p>;
 }
 
+/** Mantiene la distribución de indicadores y tarjetas mientras llegan los datos. */
+function HomeSkeleton({ guardian }: { guardian?: boolean }) {
+  const columns = guardian ? styles.guardianColumns : styles.studentColumns;
+  return <div aria-hidden="true">
+    <div className={styles.metrics}>
+      {[0, 1, 2, 3].map((item) => <div className={styles.metric} key={item}>
+        <Skeleton width={42} height={42} radius={9} />
+        <div className={styles.skeletonText}><Skeleton width={72} height={25} /><Skeleton width={120} height={12} /></div>
+      </div>)}
+    </div>
+    <div className={columns}>
+      {[0, 1, 2].map((card) => <div className={styles.card} key={card}>
+        <Skeleton width="62%" height={18} />
+        <div className={styles.skeletonRows}>
+          {[0, 1, 2].map((row) => <div className={styles.skeletonRow} key={row}>
+            <Skeleton width={row === 1 ? "54%" : "72%"} height={14} />
+            <Skeleton width="42%" height={11} />
+          </div>)}
+        </div>
+      </div>)}
+    </div>
+  </div>;
+}
+
 function ReportList({ reports }: { reports: AvailableReport[] }) {
   const latest = latestReports(reports);
   if (!latest.length) return <Empty>Aún no hay informes de progreso publicados.</Empty>;
@@ -58,6 +83,7 @@ export function StudentHome({ fullName }: { fullName: string }) {
   const [data, setData] = useState<StudentHomeData | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  function refresh() { setData(null); setError(""); setRevision((value) => value + 1); }
   useEffect(() => {
     let active = true;
     loadStudentHome().then((value) => { if (active) { setData(value); setError(""); } })
@@ -72,10 +98,10 @@ export function StudentHome({ fullName }: { fullName: string }) {
   return <section className={styles.home}>
     <header className={styles.header}>
       <div><h1>Bienvenido, {fullName}</h1><p>{homeDate()}</p><span>Tu actividad académica de un vistazo.</span></div>
-      <button type="button" onClick={() => setRevision((value) => value + 1)} disabled={!data && !error}>Actualizar</button>
+      <button type="button" onClick={refresh} disabled={!data && !error}>Actualizar</button>
     </header>
-    {error && <div className={styles.error} role="alert">No se pudo cargar el panel. {error} <button onClick={() => setRevision((value) => value + 1)}>Reintentar</button></div>}
-    {!data && !error && <p role="status" className={styles.loading}>Cargando tu panel…</p>}
+    {error && <div className={styles.error} role="alert">No se pudo cargar el panel. {error} <button onClick={refresh}>Reintentar</button></div>}
+    {!data && !error && <Loading skeleton={<HomeSkeleton />}>Cargando tu panel…</Loading>}
     {data && <>
       <div className={styles.metrics}>
         <Metric icon="Tareas" value={data.tasks.totalElements} label="Tareas pendientes" tone="amber" href="/tareas" />
@@ -119,6 +145,7 @@ export function GuardianHome() {
   const [data, setData] = useState<GuardianHomeData | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  function refresh() { setData(null); setError(""); setRevision((value) => value + 1); }
   useEffect(() => {
     let active = true;
     loadHomeStudents().then((items) => {
@@ -146,15 +173,18 @@ export function GuardianHome() {
   return <section className={styles.home}>
     <header className={styles.header}>
       <div><h1>Panel del Apoderado</h1><p>Información de tus estudiantes asociados</p></div>
+      {!students && !error && <div aria-hidden="true"><Skeleton width={210} height={38} radius={8} /></div>}
       {students && students.length > 0 && <label className={styles.studentSelect}>Estudiante
-        <select value={selected} onChange={(event) => { setData(null); setSelected(event.target.value); }}>
+        <select value={selected} onChange={(event) => { setData(null); setError(""); setSelected(event.target.value); }}>
           {students.map((item) => <option value={item.id} key={item.id}>{item.nombreCompleto}</option>)}
         </select>
       </label>}
     </header>
-    {error && <div className={styles.error} role="alert">No se pudo cargar el panel. {error} <button onClick={() => setRevision((value) => value + 1)}>Reintentar</button></div>}
+    {error && <div className={styles.error} role="alert">No se pudo cargar el panel. {error} <button onClick={refresh}>Reintentar</button></div>}
     {students?.length === 0 && <Empty>No tienes estudiantes asociados. Consulta con la institución para revisar tu vínculo familiar.</Empty>}
-    {selected && !data && !error && <p role="status" className={styles.loading}>Cargando información de {student?.nombreCompleto ?? "tu estudiante"}…</p>}
+    {!data && !error && students?.length !== 0 && <Loading skeleton={<HomeSkeleton guardian />}>
+      {selected ? `Cargando información de ${student?.nombreCompleto ?? "tu estudiante"}…` : "Cargando estudiantes asociados…"}
+    </Loading>}
     {data && <>
       <div className={styles.metrics}>
         <Metric icon="Matrícula" value={request ? request.estado.replaceAll("_", " ").toLowerCase() : "Sin solicitud"} label="Estado de matrícula" tone="amber" href="/matricula" />

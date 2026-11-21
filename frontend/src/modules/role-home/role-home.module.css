@@ -9,7 +9,9 @@
 .studentSelect select { max-width: 250px; min-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; background: #fff; color: #0f172a; font: inherit; }
 .error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; padding: 14px 16px; margin-bottom: 20px; font-size: 14px; }
 .error button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
-.loading { color: #64748b; padding: 24px; }
+.skeletonText { display: grid; gap: 6px; min-width: 0; }
+.skeletonRows { display: grid; gap: 10px; margin-top: 17px; }
+.skeletonRow { display: grid; gap: 7px; padding: 12px; min-height: 56px; border: 1px solid #e2e8f0; border-radius: 9px; background: #f8fafc; }
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
 .metric { display: flex; align-items: center; gap: 14px; min-width: 0; min-height: 104px; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 1px 2px #0f172a0d; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
 .metric:hover { border-color: #94a3b8; transform: translateY(-1px); }
