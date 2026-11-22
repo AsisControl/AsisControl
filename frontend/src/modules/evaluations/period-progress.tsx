@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { message } from "@/core/api/client";
-import { Feedback } from "@/shared/ui";
-import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-types";
+import { useState } from "react";
+import type { AvailableReport, ReportPeriod } from "./report-types";
 import { Empty, ReadPanel } from "./progress-read-panel";
 import { ReportContent } from "./report-content";
-import { getProgressReport, getProgressReportPdf, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
+import { getProgressReport, listAvailableReports, listReportPeriods } from "./services/report-service";
+import { ReportPdfDownload } from "./report-pdf-download";
 import styles from "./evaluations.module.css";
 
 export function PeriodProgress({ assignmentId }: { assignmentId: number }) {
@@ -57,42 +56,11 @@ function ReportStudentSelector({ items }: { items: AvailableReport[] }) {
 
 function StudentReport({ context }: { context: AvailableReport }) {
   const [load] = useState(() => () => getProgressReport(context));
-  return <ReadPanel load={load}>{(report) => <ReportWithDownload context={context} report={report} />}</ReadPanel>;
-}
-
-function ReportWithDownload({ context, report }: { context: AvailableReport; report: ProgressReport }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const active = useRef(false);
-  const downloading = useRef(false);
-  useEffect(() => {
-    active.current = true;
-    return () => { active.current = false; };
-  }, []);
-  async function download() {
-    if (downloading.current) return;
-    downloading.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      const blob = await getProgressReportPdf(context);
-      if (active.current) saveProgressReportPdf(blob);
-    } catch (e) {
-      if (active.current) setError(message(e));
-    } finally {
-      downloading.current = false;
-      if (active.current) setBusy(false);
-    }
-  }
-  return <>
-    <ReportContent report={report} sustento="docente" />
+  return <ReadPanel load={load}>{(report) => <>
     <div className={`panel ${styles.sheet}`}>
-      <Feedback error={error} />
-      <button type="button" className="primary-action" disabled={busy} onClick={download}>
-        {busy ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : error ? "Reintentar descarga PDF" : "Descargar PDF"}
-      </button>
-      {busy && <span role="status" className={styles.reportSrOnly}>Generando PDF…</span>}
-      <p className="hint">El PDF corresponde a la última versión publicada disponible al descargarlo.</p>
+      <ReportPdfDownload context={context} report={report} />
+      <p className="hint">La descarga usa la última versión publicada disponible.</p>
     </div>
-  </>;
+    <ReportContent report={report} sustento="docente" />
+  </>}</ReadPanel>;
 }

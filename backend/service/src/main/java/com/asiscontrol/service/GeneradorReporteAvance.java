@@ -12,23 +12,40 @@ import java.util.*;
 
 @Component
 public class GeneradorReporteAvance {
+    private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private volatile JasperReport plantilla;
 
     public byte[] generar(ReporteAvanceDto reporte) {
+        return generar(reporte, null);
+    }
+
+    public byte[] generar(ReporteAvanceDto reporte, Set<Long> seleccionadas) {
         try {
             // La plantilla solo referencia campos/parametros/variables directamente.
             // Formatear aqui evita depender de javac y su classpath al ejecutar el JAR.
             Map<String, Object> parametros = new HashMap<>();
-            parametros.put("alumno", reporte.alumno() + " | Codigo: " + reporte.codigoAlumno());
-            parametros.put("curso", reporte.curso() + " | " + reporte.grado() + "° " + reporte.seccion() + " | " + reporte.anio());
+            boolean parcial = seleccionadas != null;
+            parametros.put("titulo", parcial ? "REPORTE DE EVALUACIONES SELECCIONADAS" : "Informe de progreso por competencias");
+            String[] periodo = reporte.periodo().split(" \\| ", 3);
+            parametros.put("alumno", reporte.alumno() + " | Código: " + Objects.toString(reporte.codigoAlumno(), "Sin código"));
+            parametros.put("curso", reporte.curso() + " | " + reporte.grado() + "° " + reporte.seccion()
+                    + " | " + periodo[0] + " | " + reporte.anio());
             parametros.put("docente", "Docente: " + reporte.docente());
-            parametros.put("periodo", reporte.periodo() + " | " + reporte.fechas());
+            parametros.put("periodo", periodo.length == 3
+                    ? periodo[1].replace("Version ", "Versión ") + " | " + periodo[2] + " | " + reporte.fechas()
+                    : reporte.fechas());
             parametros.put("generado", "Generado: " + DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
                     .withZone(ZoneId.of("America/Lima")).format(reporte.generadoEn()) + " (Lima)");
             Collection<Map<String, ?>> filas = new ArrayList<>();
-            for (var fila : reporte.filas()) {
-                filas.add(Map.of("competencia", fila.competencia(), "evaluacion", fila.evaluacion() + "\n" + fila.fecha(),
-                        "fecha", fila.fecha(), "resultado", fila.resultado(), "ponderacion", fila.ponderacion(),
+            var ordenadas = reporte.filas().stream()
+                    .filter(fila -> seleccionadas == null || seleccionadas.contains(fila.idEvaluacion()))
+                    .sorted(Comparator
+                    .comparing((ReporteAvanceDto.Fila fila) -> java.time.LocalDate.parse(fila.fecha(), FECHA))
+                    .thenComparing(ReporteAvanceDto.Fila::idEvaluacion)).toList();
+            for (var fila : ordenadas) {
+                filas.add(Map.of("competencia", fila.competencia(), "idEvaluacion", fila.idEvaluacion(),
+                        "evaluacion", fila.evaluacion(), "fecha", "Fecha: " + fila.fecha(),
+                        "resultado", fila.resultado(), "ponderacion", fila.ponderacion(),
                         "observacion", fila.observacion()));
             }
             var documento = JasperFillManager.fillReport(plantilla(), parametros, new JRMapCollectionDataSource(filas));

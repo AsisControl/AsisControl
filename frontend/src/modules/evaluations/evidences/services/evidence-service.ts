@@ -17,6 +17,9 @@ export function crearEvidencia(input: EvidenceInput) {
 export function editarEvidencia(id: number, input: EvidenceEdit) {
   return api<Evidence>(`${EVIDENCIAS_PATH}/${id}`, { method: "PUT", body: JSON.stringify(input) });
 }
+export function vincularEvidencia(id: number, evaluacionId: number) {
+  return api<null>(`${EVIDENCIAS_PATH}/${id}/evaluaciones/${evaluacionId}`, { method: "PUT" });
+}
 export function inactivarEvidencia(id: number) {
   return api<null>(`${EVIDENCIAS_PATH}/${id}`, { method: "DELETE" });
 }

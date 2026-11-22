@@ -11,5 +11,6 @@ public record ReporteAvanceDto(
     public record Fila(Long idInforme, Long idDetalleInforme, Long idEvaluacion,
                        Long idCompetencia, Long idCalificacion,
                        String competencia, String evaluacion, String fecha,
-                       String resultado, String ponderacion, String observacion) { }
+                       String resultado, String ponderacion, String observacion,
+                       String tipoEvaluacion, String estadoEvaluacion) { }
 }

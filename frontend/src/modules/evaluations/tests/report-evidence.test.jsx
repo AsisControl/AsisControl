@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import { ReportContent } from "../report-content";
@@ -37,13 +37,73 @@ test("un docente consulta el sustento del borrador y descarga el adjunto con su 
   await openEvidence();
   await screen.findByText("Trabajo de clase");
   expect(screen.getByText("Referencia de observación")).toBeTruthy();
-  expect(screen.getByText("Sin archivo adjunto.")).toBeTruthy();
+  const dialog = within(screen.getByRole("dialog", { name: "Sustento de la competencia" }));
+  expect(dialog.getByText(row.competencia)).toBeTruthy();
+  expect(dialog.getByText(`${row.evaluacion} · ${row.fecha}`)).toBeTruthy();
+  const [first, second] = dialog.getAllByRole("listitem");
+  expect(within(first).getByRole("heading", { name: "Descripción de la evidencia" })).toBeTruthy();
+  expect(within(first).getByText("Trabajo.pdf")).toBeTruthy();
+  expect(within(first).getByText("PDF · 123 B")).toBeTruthy();
+  expect(within(second).getByText("Esta evidencia no tiene archivo adjunto.")).toBeTruthy();
   expect(screen.getAllByRole("button", { name: /^Descargar/ })).toHaveLength(1);
   await userEvent.click(screen.getByRole("button", { name: "Descargar Trabajo.pdf" }));
   await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1));
   expect(HTMLAnchorElement.prototype.click.mock.instances[0].download).toBe("Trabajo.pdf");
   expect(calls.map(call => call.path)).toEqual([path, filePath]);
   expect(new Headers(fetch.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer test-token");
+});
+
+test("Agrupa por identificador, expande solo la evaluación elegida y abre el sustento de su competencia", async () => {
+  const another = { ...row, idEvaluacion: 19, idDetalleInforme: 204, competencia: "Argumenta" };
+  const same = { ...row, idDetalleInforme: 205, competencia: "Modela" };
+  const calls = fakeBackend({ "GET /api/calificaciones/informes/41/filas/204/evidencias": { evidencias: [] } });
+  const user = userEvent.setup();
+  const { container } = render(<ReportContent report={{ ...draft, filas: [row, another, same] }} sustento="docente" />);
+  const [first, second] = container.querySelectorAll("details");
+  expect(first.open).toBe(true);
+  expect(second.open).toBe(false);
+  expect(within(first).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual([row.competencia, "Modela"]);
+  expect(screen.queryByRole("navigation", { name: "Paginación de evaluaciones" })).toBeNull();
+  await user.click(first.querySelector("summary"));
+  await user.click(second.querySelector("summary"));
+  expect(first.open).toBe(false);
+  expect(second.open).toBe(true);
+  await user.click(within(second).getByRole("button", { name: /Ver sustento de Argumenta/ }));
+  await screen.findByText("No hay sustento disponible para esta competencia.");
+  expect(calls.map((call) => call.path)).toEqual(["/api/calificaciones/informes/41/filas/204/evidencias"]);
+});
+
+test("Numera el listado en orden cronológico, pagina de cinco en cinco y actualiza el contador al filtrar", async () => {
+  const rows = Array.from({ length: 8 }, (_, index) => ({
+    ...row, idEvaluacion: index + 1, idDetalleInforme: index + 1, evaluacion: `Evaluación ${index + 1}`,
+    fecha: `0${index + 1}/04/2027`,
+    tipoEvaluacion: index < 5 ? "EXAMEN" : "PROYECTO", estadoEvaluacion: "BORRADOR",
+  })).reverse();
+  const user = userEvent.setup();
+  const { container } = render(<ReportContent report={{ ...draft, filas: rows }} sustento="docente" />);
+  const groups = () => [...container.querySelectorAll("details")];
+  const numbers = () => groups().map((group) => group.querySelector("summary").firstElementChild.textContent);
+  expect(screen.getByText("8 evaluaciones")).toBeTruthy();
+  expect(numbers()).toEqual(["1.", "2.", "3.", "4.", "5."]);
+  expect(groups()[0].querySelector("summary").textContent).toContain("Evaluación 1");
+  expect(groups()[0].open).toBe(true);
+  await user.click(groups()[1].querySelector("summary"));
+  expect(groups()[1].open).toBe(true);
+  await user.click(groups()[1].querySelector("summary"));
+  expect(groups()[1].open).toBe(false);
+  await user.click(groups()[1].querySelector("summary"));
+  await user.click(screen.getByRole("button", { name: "Siguiente" }));
+  expect(numbers()).toEqual(["6.", "7.", "8."]);
+  expect(groups()[0].querySelector("summary").textContent).toContain("Evaluación 6");
+  expect(groups()[0].open).toBe(true);
+  await user.click(screen.getByRole("button", { name: "Anterior" }));
+  expect(groups()[1].open).toBe(false);
+  await user.selectOptions(screen.getByLabelText("Tipo de evaluación"), "PROYECTO");
+  expect(screen.getByText("3 de 8 evaluaciones")).toBeTruthy();
+  expect(numbers()).toEqual(["1.", "2.", "3."]);
+  expect(groups()[0].querySelector("summary").textContent).toContain("Evaluación 6");
+  expect(groups()[0].querySelector("summary").textContent).toContain("Borrador");
+  expect(screen.queryByRole("navigation", { name: "Paginación de evaluaciones" })).toBeNull();
 });
 
 test("una respuesta vacía se distingue de un error", async () => {

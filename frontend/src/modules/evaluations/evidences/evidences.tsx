@@ -152,7 +152,10 @@ export function Evidences({
           periods={context.periods}
           competenciaId={competenciaId}
           periodoId={periodoId}
-          onClose={() => setCreating(false)}
+          onClose={(refresh) => {
+            setCreating(false);
+            if (refresh) setVersion((value) => value + 1);
+          }}
           onSaved={() => {
             setCreating(false);
             setSuccess("Evidencia registrada.");

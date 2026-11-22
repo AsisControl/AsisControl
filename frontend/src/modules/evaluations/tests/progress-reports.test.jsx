@@ -132,7 +132,7 @@ test("publicar una sección solo envía el curso elegido y muestra su error de v
 test("progreso muestra notas y descarga el informe elegido", async () => {
   const calls = fakeBackend({
     "GET /api/calificaciones/informes-disponibles": [{idAlumno:8,alumno:"Ana",idAsignacionCurso:3,curso:"Matematica",anio:2026,idPeriodoAcademico:4,periodo:"Bimestre 1"}],
-    "GET /api/calificaciones/avance": {...progressReport,alumno:"Ana",curso:"Matematica",filas:[{competencia:"Cantidad",evaluacion:"Practica",fecha:"01/03/2026",resultado:"A",ponderacion:"30 %",observacion:"Buen avance"},{competencia:"Forma",evaluacion:"Practica",fecha:"01/03/2026",resultado:"Sin registrar",ponderacion:"30 %",observacion:"Sin observaciones"}]},
+    "GET /api/calificaciones/avance": {...progressReport,alumno:"Ana",curso:"Matematica",filas:[{idEvaluacion:10,competencia:"Cantidad",evaluacion:"Practica",fecha:"01/03/2026",resultado:"A",ponderacion:"30 %",observacion:"Buen avance"},{idEvaluacion:10,competencia:"Forma",evaluacion:"Practica",fecha:"01/03/2026",resultado:"Sin registrar",ponderacion:"30 %",observacion:"Sin observaciones"}]},
     "GET /api/calificaciones/reporte-avance": {},
   });
   URL.createObjectURL = vi.fn(() => "blob:pdf"); URL.revokeObjectURL = vi.fn();
@@ -145,7 +145,11 @@ test("progreso muestra notas y descarga el informe elegido", async () => {
   await user.click(screen.getByText("Ver notas"));
   await screen.findByText("Buen avance");
   expect(screen.getByText("Sin registrar")).toBeTruthy();
-  await user.click(screen.getByText("Descargar PDF"));
+  const full = screen.getByRole("button", { name: "Descargar libreta completa" });
+  const partial = screen.getByRole("button", { name: "Descargar evaluaciones seleccionadas" });
+  expect(full.parentElement.contains(partial)).toBe(true);
+  expect(partial.compareDocumentPosition(screen.getByRole("article")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await user.click(full);
   expect(calls.find(c => c.path.endsWith("reporte-avance")).query).toEqual({idAlumno:"8",idAsignacionCurso:"3",idPeriodoAcademico:"4"});
 });
 

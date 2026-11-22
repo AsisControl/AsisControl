@@ -20,6 +20,7 @@ import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
+import com.asiscontrol.exception.FormFieldException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.CompetenciaRepository;
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -83,7 +85,7 @@ public class EvaluacionService {
         accessGuard.verificarAsignacionDocente(asignacion);
         return periodos.findByAnioAcademicoAnioOrderByOrden(asignacion.getSeccion().getAnioAcademico()).stream()
                 .filter(p -> p.isActivo() && p.getAnioAcademico().isActivo())
-                .map(p -> new EvaluacionDto.PeriodoInforme(p.getId(), p.getNombre())).toList();
+                .map(p -> new EvaluacionDto.PeriodoInforme(p.getId(), p.getNombre(), p.getFechaInicio(), p.getFechaFin())).toList();
     }
 
     /** Publica el periodo en una transaccion: las restricciones se validan antes de cambiar estados. */
@@ -158,6 +160,7 @@ public class EvaluacionService {
                             calificacion.getId(),
                             calificacion.getCompetencia().getId(),
                             calificacion.getNivelLogro(),
+                            calificacion.getObservacion(),
                             calificacion.getVersion(),
                             corregidas.contains(calificacion.getId())));
         }
@@ -319,6 +322,7 @@ public class EvaluacionService {
                         "No se encontro la asignacion de curso con id " + request.idAsignacionCurso()
                 ));
         accessGuard.verificarAsignacionDocente(asignacion);
+        validarFechaEvaluacion(request.fechaEvaluacion(), asignacion.getSeccion().getAnioAcademico());
         Set<Long> idsUnicos = new LinkedHashSet<>(request.idsCompetencia());
         List<Competencia> competencias = competenciaRepository.findAllByIdInAndActivoTrue(idsUnicos);
         if (competencias.size() != idsUnicos.size()) {
@@ -338,6 +342,21 @@ public class EvaluacionService {
         evaluacion.setFechaEvaluacion(request.fechaEvaluacion());
         evaluacion.setPonderacionPorcentaje(request.ponderacionPorcentaje());
         evaluacion.setCompetencias(new LinkedHashSet<>(competencias));
+    }
+
+    private void validarFechaEvaluacion(LocalDate fecha, int anio) {
+        if (fecha.getYear() < 1900 || fecha.getYear() > 2100) {
+            throw new FormFieldException("fechaEvaluacion", "Ingresa un año entre 1900 y 2100.");
+        }
+        if (fecha.getYear() != anio) {
+            throw new FormFieldException("fechaEvaluacion", "La fecha debe pertenecer al año académico " + anio + ".");
+        }
+        var activos = periodos.findByAnioAcademicoAnioOrderByOrden(anio).stream()
+                .filter(p -> p.isActivo() && p.getAnioAcademico().isActivo()).toList();
+        if (!activos.isEmpty() && activos.stream().noneMatch(p ->
+                !fecha.isBefore(p.getFechaInicio()) && !fecha.isAfter(p.getFechaFin()))) {
+            throw new FormFieldException("fechaEvaluacion", "La fecha debe estar dentro de un período académico activo de la asignación.");
+        }
     }
 
     private void validarCompetenciasDisponibles(AsignacionCurso asignacion, Set<Long> idsCompetencia) {

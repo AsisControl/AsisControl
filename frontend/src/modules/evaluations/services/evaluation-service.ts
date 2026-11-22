@@ -60,14 +60,13 @@ export type DraftGrade = {
   idAlumno: number;
   idCompetencia: number;
   nivelLogro: AchievementLevel;
+  observacion: string | null;
 };
-/** Guarda los niveles de una evaluación en borrador. */
+/** Guarda los niveles y las observaciones de una evaluación en borrador. */
 export function guardarNiveles(grades: DraftGrade[]) {
   return api<unknown[]>(`${CALIFICACIONES_PATH}/lote`, {
     method: "PUT",
-    body: JSON.stringify({
-      calificaciones: grades.map((grade) => ({ ...grade, observacion: null })),
-    }),
+    body: JSON.stringify({ calificaciones: grades }),
   });
 }
 export type GradeCorrection = {

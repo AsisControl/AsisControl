@@ -153,6 +153,7 @@ public class GlobalExceptionHandler {
                 switch (fieldName) {
                     case "fechaNacimiento" ->
                             "Ingresa una fecha de nacimiento válida con día, mes y año completos";
+                    case "fechaEvaluacion" -> "Ingresa una fecha de evaluación válida con día, mes y año completos.";
                     case "tipoDocumento" -> "Selecciona DNI, carné de extranjería o pasaporte";
                     case "sexo" ->
                             "Selecciona una de las opciones de sexo disponibles "

@@ -281,7 +281,8 @@ public class ReporteAvanceService {
                 d.getTituloEvaluacion(), FECHA.format(d.getFechaEvaluacion()),
                 d.getNivelLogro() == null ? "Sin registrar" : d.getNivelLogro().name(),
                 d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
-                d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion())).toList();
+                d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion(),
+                d.getEvaluacion().getTipoEvaluacion().name(), d.getEvaluacion().getEstado().name())).toList();
         return new ReporteAvanceDto(nombre(alumno.getPersona()), alumno.getCodigoAlumno(),
                 asignacion.getCurso().getNombre(), nombre(informe.getDocente().getPersona()),
                 seccion.getGrado(), seccion.getNombre(), seccion.getAnioAcademico(),

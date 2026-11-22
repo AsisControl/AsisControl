@@ -290,7 +290,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     private JsonNode publicada(AsignacionCurso asignacion, String nivel) throws Exception {
         long evaluacion = postOk("/api/evaluaciones", data("idAsignacionCurso", asignacion.getId(),
                 "titulo", "Evaluación de regresión " + key(), "tipoEvaluacion", "EXAMEN",
-                "periodoEvaluacion", "BIMESTRAL", "fechaEvaluacion", LocalDate.now(),
+                "periodoEvaluacion", "BIMESTRAL", "fechaEvaluacion", LocalDate.of(asignacion.getSeccion().getAnioAcademico(), 4, 1),
                 "ponderacionPorcentaje", 100, "idsCompetencia", Set.of(competence.getId())))
                 .path("id").asLong();
         JsonNode nota = postOk(CALIFICACIONES, data("idEvaluacion", evaluacion, "idAlumno", student.getId(),

@@ -41,6 +41,7 @@ export type GradeCell = {
   idCalificacion: number;
   idCompetencia: number;
   nivelLogro: AchievementLevel;
+  observacion: string | null;
   version: number;
   corregida: boolean;
 };

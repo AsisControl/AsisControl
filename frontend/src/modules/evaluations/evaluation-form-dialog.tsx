@@ -2,12 +2,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
 import { Field, FormDialog, Loading } from "@/shared/ui";
+import { countLabel } from "@/shared/lib/formatters";
 import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import {
   actualizarEvaluacion,
   crearEvaluacion,
   listarCompetenciasDelCurso,
 } from "./services/evaluation-service";
+import { listReportPeriods } from "./services/report-service";
+import type { ReportPeriod } from "./report-types";
 import type {
   CourseCompetency,
   Evaluation,
@@ -19,6 +22,21 @@ import styles from "./evaluations.module.css";
 /** El prototipo no pide tipo ni ponderación; todas las evaluaciones pesan igual en el consolidado. */
 const DEFAULT_TYPE = "PRACTICA_CALIFICADA";
 const DEFAULT_WEIGHT = 100;
+
+function validateDate(value: string, year: number | undefined, periods: ReportPeriod[]) {
+  if (!value) return "Indica una fecha de evaluación válida.";
+  const yearNumber = Number(value.split("-")[0]);
+  if (yearNumber < 1900 || yearNumber > 2100) return "Ingresa un año entre 1900 y 2100.";
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    return "Ingresa una fecha de evaluación válida.";
+  }
+  if (year !== undefined && yearNumber !== year) return `La fecha debe pertenecer al año académico ${year}.`;
+  if (periods.length && !periods.some(({ fechaInicio, fechaFin }) => value >= fechaInicio && value <= fechaFin)) {
+    return "La fecha debe estar dentro de un período académico activo de la asignación.";
+  }
+  return "";
+}
 
 /** Alta o edición de una evaluación en borrador. */
 export function EvaluationFormDialog({
@@ -41,11 +59,26 @@ export function EvaluationFormDialog({
   const [competencias, setCompetencias] = useState<number[]>(
     evaluation?.competencias.map((item) => item.id) ?? [],
   );
+  const [search, setSearch] = useState("");
+  const [calendar, setCalendar] = useState<{ id: number; periods: ReportPeriod[] } | null>(null);
   const [descripcion, setDescripcion] = useState(evaluation?.descripcion ?? "");
   const [available, setAvailable] = useState<{ cursoId: string; items: CourseCompetency[] } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const assignment = assignments.find(
+    (item) => String(item.cursoId) === cursoId && String(item.seccionId) === seccionId,
+  );
+  const idAsignacionCurso = assignment?.id ?? evaluation?.idAsignacionCurso;
+  useEffect(() => {
+    if (!idAsignacionCurso) return;
+    let active = true;
+    listReportPeriods(idAsignacionCurso).then(
+      (periods) => { if (active) setCalendar({ id: idAsignacionCurso, periods }); },
+      () => { if (active) setCalendar({ id: idAsignacionCurso, periods: [] }); },
+    );
+    return () => { active = false; };
+  }, [idAsignacionCurso]);
   useEffect(() => {
     if (!cursoId) return;
     let active = true;
@@ -61,10 +94,17 @@ export function EvaluationFormDialog({
     };
   }, [cursoId]);
   const options = available?.cursoId === cursoId ? available.items : null;
+  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es");
+  const query = normalize(search.trim());
+  const visibleOptions = options?.filter((item) => normalize(item.competenciaNombre).includes(query)) ?? [];
+  const academicYear = assignment?.anioAcademico ?? evaluation?.anioAcademico;
+  const currentCalendar = calendar?.id === idAsignacionCurso ? calendar : null;
+  const dateError = validateDate(fecha, academicYear, currentCalendar?.periods ?? []);
   function selectCourse(value: string) {
     setCursoId(value);
     setSeccionId("");
     setCompetencias([]);
+    setSearch("");
   }
   function toggle(id: number) {
     setCompetencias((current) =>
@@ -74,18 +114,18 @@ export function EvaluationFormDialog({
   async function save(grade: boolean) {
     const found: Record<string, string> = {};
     if (!titulo.trim()) found.titulo = "Escribe el nombre de la evaluación.";
-    if (!fecha) found.fechaEvaluacion = "Indica la fecha de evaluación.";
+    if (dateError) found.fechaEvaluacion = dateError;
     if (!cursoId) found.curso = "Selecciona el curso.";
     if (!seccionId) found.seccion = "Selecciona la sección.";
     if (!competencias.length) found.competencias = "Selecciona al menos una competencia.";
     setErrors(found);
     if (Object.keys(found).length) return;
-    const assignment = assignments.find(
-      (item) => String(item.cursoId) === cursoId && String(item.seccionId) === seccionId,
-    );
-    const idAsignacionCurso = assignment?.id ?? evaluation?.idAsignacionCurso;
     if (!idAsignacionCurso) {
       setError("No tienes asignado ese curso en la sección elegida.");
+      return;
+    }
+    if (!currentCalendar) {
+      setError("Espera a que se cargue el calendario académico y vuelve a guardar.");
       return;
     }
     setBusy(true);
@@ -157,8 +197,13 @@ export function EvaluationFormDialog({
         type="date"
         required
         value={fecha}
-        error={errors.fechaEvaluacion}
-        onChange={(event) => setFecha(event.target.value)}
+        min={academicYear ? `${academicYear}-01-01` : "1900-01-01"}
+        max={academicYear ? `${academicYear}-12-31` : "2100-12-31"}
+        error={(fecha && dateError) || errors.fechaEvaluacion}
+        onChange={(event) => {
+          setFecha(event.target.value);
+          setErrors((current) => ({ ...current, fechaEvaluacion: "" }));
+        }}
       />
       <label className="field">
         <span>
@@ -217,16 +262,31 @@ export function EvaluationFormDialog({
         ) : !options.length ? (
           <p className="hint">Este curso aún no tiene competencias asociadas.</p>
         ) : (
-          options.map((item) => (
-            <label key={item.competenciaId}>
-              <input
-                type="checkbox"
-                checked={competencias.includes(item.competenciaId)}
-                onChange={() => toggle(item.competenciaId)}
-              />
-              {item.competenciaNombre}
-            </label>
-          ))
+          <>
+            <Field label="Buscar competencias" type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <div className={styles.competencyToolbar}>
+              <span aria-live="polite">{competencias.length} de {countLabel(options.length, "competencia seleccionada", "competencias seleccionadas")}</span>
+              <button type="button" className="secondary-action" onClick={() => setCompetencias(options.map((item) => item.competenciaId))}>
+                Seleccionar todas
+              </button>
+              <button type="button" className="secondary-action" disabled={!competencias.length} onClick={() => setCompetencias([])}>
+                Limpiar selección
+              </button>
+            </div>
+            <div className={styles.competencyList} role="group" aria-label="Lista de competencias">
+              {visibleOptions.map((item) => (
+                <label key={item.competenciaId}>
+                  <input
+                    type="checkbox"
+                    checked={competencias.includes(item.competenciaId)}
+                    onChange={() => toggle(item.competenciaId)}
+                  />
+                  {item.competenciaNombre}
+                </label>
+              ))}
+              {!visibleOptions.length && <p className="hint">No hay competencias que coincidan con la búsqueda.</p>}
+            </div>
+          </>
         )}
         {errors.competencias && (
           <small className="field-error" role="alert">

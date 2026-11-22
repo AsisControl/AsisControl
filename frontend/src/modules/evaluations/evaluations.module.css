@@ -39,6 +39,7 @@
   display: grid;
   gap: 6px;
   margin: 0;
+  min-width: 0;
   padding: 0;
 }
 .competencies legend {
@@ -49,12 +50,19 @@
   padding: 0 0 4px;
   text-transform: uppercase;
 }
-.competencies label {
+.competencies > :global(.field) { margin: 0; }
+.competencyToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .65rem; color: var(--muted); font-size: .85rem; }
+.competencyToolbar span { margin-inline-end: auto; }
+.competencyList { box-sizing: border-box; height: 10.5rem; min-width: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: .5rem; padding: .25rem .6rem; }
+.competencyList label {
   align-items: center;
   display: flex;
   font-size: 14px;
   gap: 8px;
+  min-height: 2rem;
+  overflow-wrap: anywhere;
 }
+.competencyList input { flex: 0 0 auto; }
 .emptyState {
   align-items: center;
   color: #64748b;
@@ -165,6 +173,11 @@
   display: inline-flex;
   gap: 4px;
 }
+.gradeObservation {
+  margin-top: 8px;
+  min-width: 160px;
+  text-align: left;
+}
 .level {
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -262,6 +275,10 @@
 .reportActions, .reportMeta { display: flex; gap: .45rem .75rem; flex-wrap: wrap; align-items: center; }
 .reportPanel > .reportActions, .reportNotice .reportActions { margin-top: .8rem; }
 .reportActions button { max-width: 100%; white-space: normal; }
+.reportPdfSelection { min-width: 0; border: 0; margin: 0; padding: 0; }
+.reportPdfList { min-width: 0; max-height: min(40vh, 17rem); overflow-y: auto; margin: .65rem 0; padding: .2rem .65rem; border: 1px solid var(--border); border-radius: .5rem; }
+.reportPdfList label { display: flex; align-items: flex-start; gap: .6rem; min-width: 0; padding-block: .5rem; overflow-wrap: anywhere; }
+.reportPdfList input { flex: 0 0 auto; margin-top: .2rem; }
 .reportNotice { margin: 0; padding: .8rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: .65rem; color: var(--ink); }
 .reportPanel > .reportNotice { margin-top: .8rem; }
 .reportNotice p { margin: 0; }
@@ -280,11 +297,35 @@
 .reportLegend dt { font-weight: 700; color: var(--ink); }
 .reportLegend dd { margin: 0; }
 .reportGrade { display: inline-block; min-width: 2rem; text-align: center; border-radius: .35rem; padding: .15rem .35rem; color: var(--ink); background: var(--surface); border: 1px solid var(--border); font-weight: 700; }
-.reportEvidenceAction { margin-top: .45rem; }
+.reportGroups { display: grid; gap: .65rem; }
+.reportTypeFilter { max-width: 19rem; }
+.reportGroupCount { margin: 0 0 .45rem; color: var(--muted); font-size: .85rem; }
+.reportGroup { min-width: 0; border: 1px solid var(--border); border-radius: .65rem; }
+.reportGroupSummary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .25rem .65rem; padding: .65rem .9rem; background: var(--surface); border-radius: inherit; cursor: pointer; list-style: none; overflow-wrap: anywhere; }
+.reportGroupSummary::-webkit-details-marker { display: none; }
+.reportGroup[open] > .reportGroupSummary { border-end-start-radius: 0; border-end-end-radius: 0; border-bottom: 1px solid var(--border); }
+.reportGroupNumber { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.reportChevron { width: .5rem; height: .5rem; border-block-end: 2px solid currentColor; border-inline-end: 2px solid currentColor; transform: rotate(-45deg); }
+.reportGroup[open] .reportChevron { transform: rotate(45deg); }
+.reportGroupMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .5rem; color: var(--muted); font-size: .85rem; }
+@media (max-width: 520px) {
+  .reportGroupSummary { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .reportGroupMeta { grid-column: 2; grid-row: 2; }
+  .reportChevron { grid-column: 3; grid-row: 1; }
+}
+.reportGroupContent { padding: .35rem .65rem; }
+.reportResults tbody tr:last-child > * { border-bottom: 0; }
 .reportEvidenceAction button { max-width: 100%; white-space: normal; }
-.reportEvidenceList { display: grid; gap: .75rem; margin: 0; padding-inline-start: 1.25rem; }
-.reportEvidenceList li { overflow-wrap: anywhere; min-width: 0; }
-.reportEvidenceList p { margin: 0 0 .35rem; white-space: pre-wrap; }
+.reportEvidenceList { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.reportEvidenceList li { display: grid; min-width: 0; gap: .55rem; padding: .8rem; border: 1px solid var(--border); border-radius: .65rem; overflow-wrap: anywhere; }
+.reportEvidenceList h4, .reportEvidenceList p { margin: 0; }
+.reportEvidenceList p { white-space: pre-wrap; }
+.evidenceFileCard { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; min-width: 0; padding: .65rem; border: 1px solid var(--border); border-radius: .55rem; background: var(--surface); }
+.evidenceFileIcon { flex: 0 0 2.4rem; display: grid; place-items: center; min-height: 2.65rem; border: 1px solid var(--border); border-radius: .4rem; color: var(--blue); font-size: .7rem; font-weight: 700; }
+.evidenceFileInfo { display: grid; flex: 1 1 8rem; min-width: 0; gap: .15rem; overflow-wrap: anywhere; }
+.evidenceFileInfo span { color: var(--muted); font-size: .85rem; }
+.evidenceFileActions { max-width: 100%; }
+.evidenceFileActions button { white-space: normal; max-width: 100%; }
 .reportSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .reportSpinner { display: inline-block; width: .8em; height: .8em; margin-inline-end: .25em; border: 2px solid currentColor; border-inline-end-color: transparent; border-radius: 50%; animation: reportSpin .7s linear infinite; }
 @keyframes reportSpin { to { transform: rotate(360deg); } }
@@ -296,4 +337,5 @@
   .reportRoster tbody tr, .reportResults tbody tr { display: grid; gap: .4rem; border: 1px solid var(--border); border-radius: .55rem; padding: .7rem; margin-bottom: .5rem; }
   .reportRoster tbody th, .reportRoster td, .reportResults tbody th, .reportResults td { border: 0; padding: 0; }
   .reportResults td::before { content: attr(data-label); display: block; color: var(--muted); font-size: .75rem; font-weight: 600; }
+  .reportResults tbody tr:last-child { margin-bottom: 0; }
 }

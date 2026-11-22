@@ -82,7 +82,7 @@ const puts = (calls, path) => calls.filter((c) => c.method === "PUT" && c.path =
 
 // --- Niveles en borrador (valor válido AD/A/B/C, se guarda en borrador) ---
 
-test("1. Cada celda ofrece solo AD, A, B y C, sin entrada libre", async () => {
+test("1. Cada celda ofrece AD, A, B y C y un campo separado de observación", async () => {
   backend();
   openSheet();
   const table = await screen.findByRole("table", { name: "Planilla de Examen parcial" });
@@ -90,8 +90,9 @@ test("1. Cada celda ofrece solo AD, A, B y C, sin entrada libre", async () => {
     for (const competency of ["Resuelve problemas", "Razona en geometría"]) {
       const buttons = within(cell(name, competency)).getAllByRole("button");
       expect(buttons.map((button) => button.textContent)).toEqual(["AD", "A", "B", "C"]);
+      const observation = within(table).getByRole("textbox", { name: `Observación: ${name}, ${competency}` });
+      expect(observation.closest("td")).toBe(buttons[0].closest("td"));
     }
-  expect(within(table).queryByRole("textbox")).toBeNull();
   expect(within(table).queryByRole("combobox")).toBeNull();
 });
 

@@ -120,7 +120,7 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
 
     private Map<String,Object> evaluacion(String title) {
         return data("idAsignacionCurso",assignment.getId(),"titulo",title,"descripcion","Prueba por competencias",
-                "tipoEvaluacion","EXAMEN","periodoEvaluacion","BIMESTRAL","fechaEvaluacion",LocalDate.now(),
+                "tipoEvaluacion","EXAMEN","periodoEvaluacion","BIMESTRAL","fechaEvaluacion",LocalDate.of(section.getAnioAcademico(), 4, 1),
                 "ponderacionPorcentaje",100,"idsCompetencia",Set.of(competence.getId()));
     }
     private Map<String,Object> nota(long evaluation,String level) {

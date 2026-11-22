@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
@@ -23,7 +23,7 @@ const evaluation = (overrides = {}) => ({
 });
 const assignment = { id: 5, cursoId: 100, curso: "Matemática", seccionId: 8, seccion: "A", grado: 3, anioAcademico: 2026 };
 const note = (idCalificacion, idCompetencia, nivelLogro, overrides = {}) => ({
-  idCalificacion, idCompetencia, nivelLogro, version: 2, corregida: false, ...overrides,
+  idCalificacion, idCompetencia, nivelLogro, observacion: null, version: 2, corregida: false, ...overrides,
 });
 const student = (idAlumno, nombreCompleto, notas = []) => ({ idAlumno, codigoAlumno: `E-${idAlumno}`, nombreCompleto, notas });
 const sheet = (overrides = {}, alumnos) => ({
@@ -34,6 +34,7 @@ function backend(routes = {}) {
   return fakeBackend({
     "GET /api/asignaciones-cursos/mias": page([assignment]),
     "GET /api/evaluaciones": page([evaluation()]),
+    "GET /api/evaluaciones/periodos-informe": [{ id: 3, nombre: "Bimestre", fechaInicio: "2026-09-01", fechaFin: "2026-10-31" }],
     "GET /api/evaluaciones/:id": evaluation(),
     "GET /api/evaluaciones/:id/planilla": sheet(),
     "GET /api/cursos-competencias": page([
@@ -130,7 +131,6 @@ test("Nueva evaluación pide los datos, ofrece solo competencias del curso y va 
   expect(calls.some((c) => c.method === "POST")).toBe(false);
 
   await user.type(within(dialog).getByLabelText(/Nombre de la evaluación/), "Práctica 3");
-  const { fireEvent } = await import("@testing-library/react");
   fireEvent.change(within(dialog).getByLabelText(/Fecha de evaluación/), { target: { value: "2026-10-01" } });
   await user.selectOptions(within(dialog).getByLabelText(/^Curso/), "100");
   await user.selectOptions(within(dialog).getByLabelText(/^Sección/), "8");
@@ -146,10 +146,64 @@ test("Nueva evaluación pide los datos, ofrece solo competencias del curso y va 
   await waitFor(() => expect(currentUrl()).toBe("/evaluaciones/registro-de-calificaciones/77"));
 });
 
+test("Bloquea fechas inexistentes, años excesivos y fechas fuera del período por ambos modos de guardado", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  render(<Evaluations canWrite />);
+  await user.click(await screen.findByRole("button", { name: "+ Nueva evaluación" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Nueva evaluación" }));
+  const date = dialog.getByLabelText(/Fecha de evaluación/);
+  await user.type(dialog.getByLabelText(/Nombre de la evaluación/), "Práctica");
+  await user.selectOptions(dialog.getByLabelText(/^Curso/), "100");
+  await user.selectOptions(dialog.getByLabelText(/^Sección/), "8");
+  await user.click(await dialog.findByLabelText("Resuelve problemas"));
+  for (const [value, expected, command] of [
+    ["2026-02-30", "Indica una fecha de evaluación válida.", "Crear evaluación"],
+    ["202020-04-01", "Ingresa un año entre 1900 y 2100.", "Guardar borrador"],
+    ["2026-11-01", "La fecha debe estar dentro de un período académico activo de la asignación.", "Crear evaluación"],
+  ]) {
+    fireEvent.change(date, { target: { value } });
+    await user.click(dialog.getByRole("button", { name: command }));
+    expect(await dialog.findByText(expected)).toBeTruthy();
+  }
+  expect(calls.some((call) => call.method === "POST")).toBe(false);
+});
+
+test("Busca por nombre, conserva la selección múltiple y permite seleccionar todas y limpiar", async () => {
+  const names = ["Resuelve problemas", "Razona en geometría", ...Array.from({ length: 13 }, (_, index) => `Competencia ${index + 3}`)];
+  backend({ "GET /api/cursos-competencias": page(names.map((competenciaNombre, index) => ({
+    cursoId: 100, competenciaId: index + 1, competenciaNombre, orden: index + 1, activo: true,
+  }))) });
+  const user = userEvent.setup();
+  render(<Evaluations canWrite />);
+  await user.click(await screen.findByRole("button", { name: "+ Nueva evaluación" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Nueva evaluación" }));
+  await user.selectOptions(dialog.getByLabelText(/^Curso/), "100");
+  const search = await dialog.findByRole("searchbox", { name: "Buscar competencias" });
+  const list = within(dialog.getByRole("group", { name: "Lista de competencias" }));
+  expect(list.getAllByRole("checkbox")).toHaveLength(15);
+  await user.click(dialog.getByRole("checkbox", { name: "Resuelve problemas" }));
+  await user.type(search, "GEOMETRIA");
+  expect(dialog.queryByRole("checkbox", { name: "Resuelve problemas" })).toBeNull();
+  await user.click(dialog.getByRole("checkbox", { name: "Razona en geometría" }));
+  expect(dialog.getByText("2 de 15 competencias seleccionadas")).toBeTruthy();
+  await user.clear(search);
+  expect(list.getByRole("checkbox", { name: "Resuelve problemas" }).checked).toBe(true);
+  expect(list.getByRole("checkbox", { name: "Razona en geometría" }).checked).toBe(true);
+  await user.type(search, "GEOMETRIA");
+  await user.click(dialog.getByRole("button", { name: "Limpiar selección" }));
+  expect(dialog.getByText("0 de 15 competencias seleccionadas")).toBeTruthy();
+  await user.click(dialog.getByRole("button", { name: "Seleccionar todas" }));
+  expect(dialog.getByText("15 de 15 competencias seleccionadas")).toBeTruthy();
+  await user.clear(search);
+  expect(dialog.getAllByRole("checkbox").every((checkbox) => checkbox.checked)).toBe(true);
+  await user.click(dialog.getByRole("button", { name: "Limpiar selección" }));
+  expect(dialog.getAllByRole("checkbox").every((checkbox) => !checkbox.checked)).toBe(true);
+});
+
 test("Guardar borrador no abre la planilla y refresca el listado", async () => {
   const calls = backend({ "POST /api/evaluaciones": ({ body }) => evaluation({ ...body, id: 77 }) });
   const user = userEvent.setup();
-  const { fireEvent } = await import("@testing-library/react");
   render(<Evaluations canWrite />);
   await user.click(await screen.findByRole("button", { name: "+ Nueva evaluación" }));
   const dialog = screen.getByRole("dialog", { name: "Nueva evaluación" });
@@ -197,6 +251,47 @@ test("US-18: en borrador registra niveles y avisa cuántos faltan para publicar"
       { idEvaluacion: 10, idAlumno: 2, idCompetencia: 2, nivelLogro: "B", observacion: null },
     ],
   });
+});
+
+test("Carga, edita, conserva al cambiar el nivel y borra explícitamente la observación de una nota", async () => {
+  const name = "Alvarado Medina, Diego";
+  const competency = "Resuelve problemas";
+  const field = `Observación: ${name}, ${competency}`;
+  let saved = note(50, 1, "A", { observacion: "Explica su procedimiento." });
+  const calls = backend({
+    "GET /api/evaluaciones/:id/planilla": () => sheet({}, [student(1, name, [saved])]),
+    "PUT /api/calificaciones/lote": ({ body }) => {
+      const { nivelLogro, observacion } = body.calificaciones[0];
+      saved = { ...saved, nivelLogro, observacion };
+      return [];
+    },
+  });
+  const user = userEvent.setup();
+  openSheet();
+  expect((await screen.findByRole("textbox", { name: field })).value).toBe("Explica su procedimiento.");
+
+  await user.clear(screen.getByRole("textbox", { name: field }));
+  await user.type(screen.getByRole("textbox", { name: field }), "Justifica sus respuestas.");
+  await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
+  expect(await screen.findByText(/Niveles guardados/)).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: field }).value).toBe("Justifica sus respuestas.");
+
+  await user.click(screen.getByRole("button", { name: level("AD", name, competency) }));
+  await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
+  expect(await screen.findByText(/Niveles guardados/)).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: field }).value).toBe("Justifica sus respuestas.");
+
+  await user.clear(screen.getByRole("textbox", { name: field }));
+  expect(calls.filter((call) => call.method === "PUT")).toHaveLength(2);
+  await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
+  expect(await screen.findByText(/Niveles guardados/)).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: field }).value).toBe("");
+
+  expect(calls.filter((call) => call.method === "PUT").map((call) => call.body.calificaciones)).toEqual([
+    [{ idEvaluacion: 10, idAlumno: 1, idCompetencia: 1, nivelLogro: "A", observacion: "Justifica sus respuestas." }],
+    [{ idEvaluacion: 10, idAlumno: 1, idCompetencia: 1, nivelLogro: "AD", observacion: "Justifica sus respuestas." }],
+    [{ idEvaluacion: 10, idAlumno: 1, idCompetencia: 1, nivelLogro: "AD", observacion: null }],
+  ]);
 });
 
 test("Las columnas conservan su orden aunque el servidor entregue las competencias en otro", async () => {
