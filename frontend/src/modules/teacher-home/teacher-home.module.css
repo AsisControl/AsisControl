@@ -11,64 +11,6 @@
   font-size: 13px;
   margin: 0;
 }
-/* Indicadores: icono en un recuadro de color suave y número con el color de su estado. */
-.indicadores {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-.indicador,
-.tarjeta {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 1px 2px #0000000d;
-}
-.indicador {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  padding: 16px;
-}
-.indicador div {
-  display: grid;
-}
-.indicador strong {
-  font-size: 24px;
-  line-height: 32px;
-}
-.indicador div span {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 16px;
-}
-.indicadorIcono {
-  align-items: center;
-  border-radius: 8px;
-  display: flex;
-  flex: none;
-  height: 40px;
-  justify-content: center;
-  width: 40px;
-}
-.indicadorIcono.primario {
-  background: #eff6ff;
-}
-.indicadorIcono.advertencia {
-  background: #fef3c7;
-}
-.indicadorIcono.info {
-  background: #e0f2fe;
-}
-.primario {
-  color: var(--blue);
-}
-.advertencia {
-  color: #d97706;
-}
-.info {
-  color: #0284c7;
-}
 /* Clases (5), pendientes (4) y acciones rápidas (3) sobre 12 columnas, como en el prototipo. */
 .columnas {
   align-items: start;
@@ -83,6 +25,10 @@
   }
 }
 .tarjeta {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #0000000d;
   padding: 20px;
 }
 .tarjeta h3 {
