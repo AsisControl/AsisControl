@@ -47,8 +47,8 @@ class HistorialHorarioHttpTest extends ApiIntegrationSupport {
         String ruta = "/api/horarios/" + bloque;
         putOk(ruta, data("asignacionCursoId", assignment.getId(), "aulaId", aulaB.getId(),
                 "diaSemana", "MARTES", "horaInicio", "08:00:00", "horaFin", "09:00:00",
-                "version", getOk(ruta).path("version").asLong()));
-        deleteOk(ruta);
+                "version", getOk(ruta).path("version").asLong(), "motivo", "Cambio de aula"));
+        request("DELETE", ruta, data("motivo", "Fin del curso"), 204);
 
         JsonNode pagina = historial("seccionId=" + section.getId());
         assertThat(pagina.path("totalElements").asInt()).isEqualTo(3);
@@ -56,10 +56,12 @@ class HistorialHorarioHttpTest extends ApiIntegrationSupport {
                 "ELIMINAR_HORARIO", "ACTUALIZAR_HORARIO", "CREAR_HORARIO");
 
         JsonNode eliminacion = pagina.path("content").get(0);
+        assertThat(eliminacion.path("motivo").asText()).isEqualTo("Fin del curso");
         assertThat(campo(eliminacion, "aula").path("anterior").asText()).isEqualTo("Aula B");
         assertThat(campo(eliminacion, "aula").path("nuevo").isNull()).isTrue();
 
         JsonNode edicion = pagina.path("content").get(1);
+        assertThat(edicion.path("motivo").asText()).isEqualTo("Cambio de aula");
         assertThat(edicion.path("actorIdentificador").asText()).isEqualTo(admin.getCodigo());
         assertThat(edicion.path("actorNombre").asText())
                 .isEqualTo(admin.getPersona().nombreCompleto());
@@ -145,13 +147,48 @@ class HistorialHorarioHttpTest extends ApiIntegrationSupport {
         assertThat(contar("aulaId=" + aulaB.getId() + "&seccionId=" + otraSeccion.getId())).isEqualTo(1);
     }
 
+
+    @Test
+    void exigeElMotivoAlEditarYAlRetirarSinTocarElBloque() throws Exception {
+        long bloque = crearBloque(assignment, aulaA, "LUNES", "08:00:00");
+        String ruta = "/api/horarios/" + bloque;
+        var cambios = data("asignacionCursoId", assignment.getId(), "aulaId", aulaB.getId(),
+                "diaSemana", "LUNES", "horaInicio", "08:00:00", "horaFin", "09:00:00",
+                "version", getOk(ruta).path("version").asLong());
+        JsonNode sinMotivo = request("PUT", ruta, cambios, 400);
+        assertThat(sinMotivo.path("fieldErrors").findValuesAsText("field")).contains("motivo");
+        cambios.put("motivo", "   ");
+        request("PUT", ruta, cambios, 400);
+        assertThat(request("DELETE", ruta, null, 422).path("code").asText()).isEqualTo("MOTIVO_REQUERIDO");
+        request("DELETE", ruta, data("motivo", "  "), 422);
+
+        assertThat(getOk(ruta).path("aulaId").asLong()).isEqualTo(aulaA.getId());
+        assertThat(historial("seccionId=" + section.getId()).path("content").findValuesAsText("accion"))
+                .containsExactly("CREAR_HORARIO");
+    }
+
+    @Test
+    void guardaElMotivoSinEspaciosSobrantes() throws Exception {
+        long bloque = crearBloque(assignment, aulaA, "LUNES", "08:00:00");
+        String ruta = "/api/horarios/" + bloque;
+        putOk(ruta, data("asignacionCursoId", assignment.getId(), "aulaId", aulaB.getId(),
+                "diaSemana", "LUNES", "horaInicio", "08:00:00", "horaFin", "09:00:00",
+                "version", getOk(ruta).path("version").asLong(), "motivo", "  Cambio de aula  "));
+        request("DELETE", ruta, data("motivo", "  Fin del curso  "), 204);
+
+        JsonNode contenido = historial("seccionId=" + section.getId()).path("content");
+        assertThat(contenido.get(0).path("motivo").asText()).isEqualTo("Fin del curso");
+        assertThat(contenido.get(1).path("motivo").asText()).isEqualTo("Cambio de aula");
+        assertThat(contenido.get(2).path("motivo").isNull()).isTrue();
+    }
+
     @Test
     void encuentraElCambioDeAulaDesdeElAulaAnteriorYLaNueva() throws Exception {
         long bloque = crearBloque(assignment, aulaA, "LUNES", "08:00:00");
         String ruta = "/api/horarios/" + bloque;
         putOk(ruta, data("asignacionCursoId", assignment.getId(), "aulaId", aulaB.getId(),
                 "diaSemana", "LUNES", "horaInicio", "08:00:00", "horaFin", "09:00:00",
-                "version", getOk(ruta).path("version").asLong()));
+                "version", getOk(ruta).path("version").asLong(), "motivo", "Cambio de aula"));
 
         assertThat(historial("aulaId=" + aulaA.getId()).path("content").findValuesAsText("accion"))
                 .containsExactly("ACTUALIZAR_HORARIO", "CREAR_HORARIO");
