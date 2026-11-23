@@ -1,10 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
 import { NavIcon } from "@/core/navigation/nav-icons";
-import { Loading, Skeleton } from "@/shared/ui";
+import {
+  Feedback,
+  HomeCard,
+  HomeCardsSkeleton,
+  HomeColumns,
+  HomeIndicator,
+  HomeIndicators,
+  HomeIndicatorsSkeleton,
+  Loading,
+  PageHeader,
+  Skeleton,
+  type HomeTone,
+} from "@/shared/ui";
+import { timeLabel } from "@/shared/lib/formatters";
 import { fechaCorta, resumir, estadoBase, type AsistenciaEstudiante } from "@/modules/guardian-attendance";
 import type { AvailableReport } from "@/modules/evaluations";
 import { loadGuardianHome, loadHomeStudents, loadStudentHome, type GuardianHomeData, type HomeStudent, type StudentHomeData } from "./data";
@@ -21,18 +34,14 @@ const latestReports = (reports: AvailableReport[]) => [...reports]
   .filter((report, index, sorted) => sorted.findIndex((candidate) => candidate.curso === report.curso) === index)
   .slice(0, 4);
 
+const TONES: Record<string, HomeTone> = { amber: "warning", blue: "primary", green: "success", purple: "info" };
+
 function Metric({ icon, value, label, tone, href }: { icon: string; value: string | number; label: string; tone: string; href: string }) {
-  return <Link href={href} className={`${styles.metric} ${styles[tone]}`}>
-    <span className={styles.metricIcon}><NavIcon label={icon} /></span>
-    <span className={styles.metricText}><strong>{value}</strong><span>{label}</span></span>
-  </Link>;
+  return <HomeIndicator icon={<NavIcon label={icon} />} value={value} label={label} tone={TONES[tone] ?? "primary"} href={href} />;
 }
 
-function Card({ title, action, children }: { title: string; action?: { label: string; href: string }; children: React.ReactNode }) {
-  return <section className={styles.card}>
-    <div className={styles.cardHead}><h2>{title}</h2>{action && <Link href={action.href}>{action.label} <span aria-hidden="true">→</span></Link>}</div>
-    {children}
-  </section>;
+function Card({ title, action, children }: { title: string; action?: { label: string; href: string }; children: ReactNode }) {
+  return <HomeCard as="section" title={title} action={action}>{children}</HomeCard>;
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
@@ -41,25 +50,9 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 /** Mantiene la distribución de indicadores y tarjetas mientras llegan los datos. */
 function HomeSkeleton({ guardian }: { guardian?: boolean }) {
-  const columns = guardian ? styles.guardianColumns : styles.studentColumns;
   return <div aria-hidden="true">
-    <div className={styles.metrics}>
-      {[0, 1, 2, 3].map((item) => <div className={styles.metric} key={item}>
-        <Skeleton width={42} height={42} radius={9} />
-        <div className={styles.skeletonText}><Skeleton width={72} height={25} /><Skeleton width={120} height={12} /></div>
-      </div>)}
-    </div>
-    <div className={columns}>
-      {[0, 1, 2].map((card) => <div className={styles.card} key={card}>
-        <Skeleton width="62%" height={18} />
-        <div className={styles.skeletonRows}>
-          {[0, 1, 2].map((row) => <div className={styles.skeletonRow} key={row}>
-            <Skeleton width={row === 1 ? "54%" : "72%"} height={14} />
-            <Skeleton width="42%" height={11} />
-          </div>)}
-        </div>
-      </div>)}
-    </div>
+    <HomeIndicatorsSkeleton />
+    <HomeCardsSkeleton layout={guardian ? "equal" : "wide"} />
   </div>;
 }
 
@@ -83,10 +76,11 @@ export function StudentHome({ fullName }: { fullName: string }) {
   const [data, setData] = useState<StudentHomeData | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [updated, setUpdated] = useState("");
   function refresh() { setData(null); setError(""); setRevision((value) => value + 1); }
   useEffect(() => {
     let active = true;
-    loadStudentHome().then((value) => { if (active) { setData(value); setError(""); } })
+    loadStudentHome().then((value) => { if (active) { setData(value); setError(""); setUpdated(timeLabel(new Date())); } })
       .catch((cause) => { if (active) setError(message(cause)); });
     return () => { active = false; };
   }, [revision]);
@@ -95,21 +89,22 @@ export function StudentHome({ fullName }: { fullName: string }) {
   const classes = (data?.schedule ?? []).filter((block) => block.diaSemana === weekday)
     .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
   const tasks = [...(data?.tasks.content ?? [])].sort((a, b) => a.tarea.fechaLimite.localeCompare(b.tarea.fechaLimite)).slice(0, 3);
-  return <section className={styles.home}>
-    <header className={styles.header}>
-      <div><h1>Bienvenido, {fullName}</h1><p>{homeDate()}</p><span>Tu actividad académica de un vistazo.</span></div>
-      <button type="button" onClick={refresh} disabled={!data && !error}>Actualizar</button>
-    </header>
-    {error && <div className={styles.error} role="alert">No se pudo cargar el panel. {error} <button onClick={refresh}>Reintentar</button></div>}
+  return <section>
+    <PageHeader
+      title={`Bienvenido, ${fullName}`}
+      description={<>{homeDate()} · Tu actividad académica de un vistazo.{updated && <><br /><small className={styles.updated}>Última actualización: {updated}</small></>}</>}
+      actions={<button type="button" onClick={refresh} disabled={!data && !error}>Actualizar</button>}
+    />
+    <Feedback error={error && `No se pudo cargar el panel. ${error}`} />
     {!data && !error && <Loading skeleton={<HomeSkeleton />}>Cargando tu panel…</Loading>}
     {data && <>
-      <div className={styles.metrics}>
+      <HomeIndicators>
         <Metric icon="Tareas" value={data.tasks.totalElements} label="Tareas pendientes" tone="amber" href="/tareas" />
         <Metric icon="Mis cursos" value={classes.length} label="Clases de hoy" tone="blue" href="/horario" />
         <Metric icon="Asistencia" value={attendance?.current.length ? `${attendance.porcentaje}%` : "—"} label="Asistencia mensual" tone="green" href="/asistencia" />
         <Metric icon="Progreso" value={data.reports.length} label="Informes publicados" tone="purple" href="/progreso" />
-      </div>
-      <div className={styles.studentColumns}>
+      </HomeIndicators>
+      <HomeColumns layout="wide">
         <Card title="Clases de hoy" action={{ label: "Ver horario", href: "/horario" }}>
           {!classes.length ? <Empty>No hay clases programadas para hoy.</Empty> : classes.map((block) => {
             const active = nowHour() >= block.horaInicio.slice(0, 5) && nowHour() < block.horaFin.slice(0, 5);
@@ -134,7 +129,7 @@ export function StudentHome({ fullName }: { fullName: string }) {
             </div> : <Empty>Aún no hay asistencias registradas este mes.</Empty>}
           </Card>
         </div>
-      </div>
+      </HomeColumns>
     </>}
   </section>;
 }
@@ -145,6 +140,7 @@ export function GuardianHome() {
   const [data, setData] = useState<GuardianHomeData | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [updated, setUpdated] = useState("");
   function refresh() { setData(null); setError(""); setRevision((value) => value + 1); }
   useEffect(() => {
     let active = true;
@@ -159,7 +155,7 @@ export function GuardianHome() {
   useEffect(() => {
     if (!selected) return;
     let active = true;
-    loadGuardianHome(Number(selected)).then((value) => { if (active) { setData(value); setError(""); } })
+    loadGuardianHome(Number(selected)).then((value) => { if (active) { setData(value); setError(""); setUpdated(timeLabel(new Date())); } })
       .catch((cause) => { if (active) setError(message(cause)); });
     return () => { active = false; };
   }, [selected, revision]);
@@ -170,29 +166,35 @@ export function GuardianHome() {
   const missed = (data?.attendance ?? []).filter((row) => estadoBase(row) === "INASISTENCIA")
     .sort((a, b) => b.fechaRegistro.localeCompare(a.fechaRegistro)).slice(0, 3);
   const request = [...(data?.requests ?? [])].sort((a, b) => b.anioAcademico - a.anioAcademico || b.id - a.id)[0];
-  return <section className={styles.home}>
-    <header className={styles.header}>
-      <div><h1>Panel del Apoderado</h1><p>Información de tus estudiantes asociados</p></div>
-      {!students && !error && <div aria-hidden="true"><Skeleton width={210} height={38} radius={8} /></div>}
-      {students && students.length > 0 && <label className={styles.studentSelect}>Estudiante
-        <select value={selected} onChange={(event) => { setData(null); setError(""); setSelected(event.target.value); }}>
-          {students.map((item) => <option value={item.id} key={item.id}>{item.nombreCompleto}</option>)}
-        </select>
-      </label>}
-    </header>
-    {error && <div className={styles.error} role="alert">No se pudo cargar el panel. {error} <button onClick={refresh}>Reintentar</button></div>}
+  return <section>
+    <PageHeader
+      title="Panel del Apoderado"
+      description={updated
+        ? <>Información de tus estudiantes asociados<br /><small className={styles.updated}>Última actualización: {updated}</small></>
+        : "Información de tus estudiantes asociados"}
+      actions={<>
+        {!students && !error && <div aria-hidden="true"><Skeleton width={210} height={38} radius={8} /></div>}
+        {students && students.length > 0 && <label className={styles.studentSelect}>Estudiante
+          <select value={selected} onChange={(event) => { setData(null); setError(""); setSelected(event.target.value); }}>
+            {students.map((item) => <option value={item.id} key={item.id}>{item.nombreCompleto}</option>)}
+          </select>
+        </label>}
+        <button type="button" onClick={refresh} disabled={!data && !error}>Actualizar</button>
+      </>}
+    />
+    <Feedback error={error && `No se pudo cargar el panel. ${error}`} />
     {students?.length === 0 && <Empty>No tienes estudiantes asociados. Consulta con la institución para revisar tu vínculo familiar.</Empty>}
     {!data && !error && students?.length !== 0 && <Loading skeleton={<HomeSkeleton guardian />}>
       {selected ? `Cargando información de ${student?.nombreCompleto ?? "tu estudiante"}…` : "Cargando estudiantes asociados…"}
     </Loading>}
     {data && <>
-      <div className={styles.metrics}>
+      <HomeIndicators>
         <Metric icon="Matrícula" value={request ? request.estado.replaceAll("_", " ").toLowerCase() : "Sin solicitud"} label="Estado de matrícula" tone="amber" href="/matricula" />
         <Metric icon="Pagos" value={unpaid[0] ? new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN", maximumFractionDigits: 0 }).format(unpaid[0].saldo) : "Al día"} label="Próximo vencimiento" tone="amber" href="/pagos" />
         <Metric icon="Asistencia" value={attendance?.current.length ? `${attendance.porcentaje}%` : "—"} label="Asistencia mensual" tone="blue" href="/asistencia" />
         <Metric icon="Progreso" value={data.reports.length ? "Disponible" : "Pendiente"} label="Progreso académico" tone="blue" href="/progreso" />
-      </div>
-      <div className={styles.guardianColumns}>
+      </HomeIndicators>
+      <HomeColumns layout="equal">
         <Card title="Próximos compromisos" action={{ label: "Ver pagos", href: "/pagos" }}>
           <p className={styles.studentName}>{student?.nombreCompleto}</p>
           {!unpaid.length ? <Empty>No hay compromisos pendientes.</Empty> : unpaid.slice(0, 3).map((item) => <div className={styles.obligation} key={item.id}>
@@ -211,7 +213,7 @@ export function GuardianHome() {
           <p className={styles.studentName}>{student?.nombreCompleto}</p><ReportList reports={data.reports} />
           {data.reports.length > 0 && <Link className={styles.primaryLink} href="/progreso">Ver informe completo</Link>}
         </Card>
-      </div>
+      </HomeColumns>
     </>}
   </section>;
 }

@@ -3,7 +3,18 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
 import { NavIcon } from "@/core/navigation/nav-icons";
-import { Feedback, Loading, PageHeader, Skeleton, StatusPill, type StatusTone } from "@/shared/ui";
+import {
+  Feedback,
+  HomeIndicator,
+  HomeIndicators,
+  HomeIndicatorsSkeleton,
+  Loading,
+  PageHeader,
+  Skeleton,
+  StatusPill,
+  type HomeTone,
+  type StatusTone,
+} from "@/shared/ui";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { obtenerInicioDocente } from "./services/inicio-docente-service";
 import type { ClaseHoy, InicioDocente, Pendiente } from "./types";
@@ -68,23 +79,6 @@ function describirPendiente(pendiente: Pendiente) {
         href: "/asistencia",
       };
   }
-}
-
-/** Espera de los cuatro indicadores, con las mismas tarjetas que los reales. */
-function IndicadoresSkeleton() {
-  return (
-    <div className={styles.indicadores}>
-      {["Clases", "Asistencias", "Revisar", "Bloques"].map((clave) => (
-        <article className={styles.indicador} key={clave}>
-          <Skeleton width={40} height={40} radius={8} />
-          <div className={styles.esqueletoTexto}>
-            <Skeleton width={36} height={24} />
-            <Skeleton width={120} height={12} />
-          </div>
-        </article>
-      ))}
-    </div>
-  );
 }
 
 /** Espera de «Clases de hoy» y «Pendientes académicos»; el lector ya oye «Cargando tu inicio…». */
@@ -161,10 +155,10 @@ export function TeacherHome({ fullName, quickActions }: { fullName: string; quic
 
   const indicadores = inicio
     ? [
-        { valor: inicio.clasesHoy.length, etiqueta: "Clases del día", icono: "Mis cursos", tono: styles.primario },
-        { valor: inicio.asistenciasPendientes, etiqueta: "Asistencias pendientes", icono: "Asistencia", tono: styles.advertencia },
-        { valor: inicio.porRevisar, etiqueta: "Evaluaciones y tareas por revisar", icono: "Evaluaciones", tono: styles.advertencia },
-        { valor: inicio.bloquesSemanales, etiqueta: "Bloques en mi horario", icono: "Horario", tono: styles.info },
+        { valor: inicio.clasesHoy.length, etiqueta: "Clases del día", icono: "Mis cursos", tono: "primary" as HomeTone },
+        { valor: inicio.asistenciasPendientes, etiqueta: "Asistencias pendientes", icono: "Asistencia", tono: "warning" as HomeTone },
+        { valor: inicio.porRevisar, etiqueta: "Evaluaciones y tareas por revisar", icono: "Evaluaciones", tono: "warning" as HomeTone },
+        { valor: inicio.bloquesSemanales, etiqueta: "Bloques en mi horario", icono: "Horario", tono: "info" as HomeTone },
       ]
     : [];
 
@@ -185,21 +179,13 @@ export function TeacherHome({ fullName, quickActions }: { fullName: string; quic
         }
       />
       <Feedback error={error} />
-      {!inicio && !error && <Loading skeleton={<IndicadoresSkeleton />}>Cargando tu inicio…</Loading>}
+      {!inicio && !error && <Loading skeleton={<HomeIndicatorsSkeleton />}>Cargando tu inicio…</Loading>}
       {inicio && (
-        <div className={styles.indicadores}>
+        <HomeIndicators>
           {indicadores.map(({ valor, etiqueta, icono, tono }) => (
-            <article className={styles.indicador} key={etiqueta}>
-              <span className={`${styles.indicadorIcono} ${tono}`} aria-hidden="true">
-                <NavIcon label={icono} />
-              </span>
-              <div>
-                <strong className={tono}>{valor}</strong>
-                <span>{etiqueta}</span>
-              </div>
-            </article>
+            <HomeIndicator key={etiqueta} icon={<NavIcon label={icono} />} value={valor} label={etiqueta} tone={tono} />
           ))}
-        </div>
+        </HomeIndicators>
       )}
       {/* Las acciones rápidas no dependen de los datos: siguen disponibles aunque el inicio falle. */}
       <div className={styles.columnas}>
