@@ -10,7 +10,7 @@ const DESTINOS: Record<string, DestinoIndicador> = {
   MATRICULAS_ACTIVAS: { icono: "Matrícula", enlace: "/matricula" },
   INASISTENCIAS_HOY: { icono: "Asistencia" },
   PAGOS_VENCIDOS: { icono: "Finanzas", enlace: "/finanzas" },
-  ALERTAS_ACTIVAS: { icono: "Académico" },
+  ALERTAS_ACTIVAS: { icono: "Académico", enlace: "/academico/estudiantes-en-riesgo" },
   NOTIFICACIONES_NO_LEIDAS: { icono: "Inicio" },
 };
 

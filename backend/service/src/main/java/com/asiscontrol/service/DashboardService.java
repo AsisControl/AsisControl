@@ -120,7 +120,7 @@ public class DashboardService {
                         WHERE a.activo = true AND a.id NOT IN :sinDatos AND a.estado IN :estados
                         """, Map.of("estados", EnumSet.of(EstadoAlerta.ACTIVA, EstadoAlerta.EN_SEGUIMIENTO),
                         "sinDatos", alertasConDatosInsuficientes())),
-                TONO_PELIGRO, "/alertas-riesgo"));
+                TONO_PELIGRO, "/academico/estudiantes-en-riesgo"));
         return result;
     }
 

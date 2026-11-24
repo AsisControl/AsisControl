@@ -135,6 +135,10 @@ class RiesgoCriteriosHttpTest extends ApiIntegrationSupport {
         String path = "/api/alertas-riesgo/" + id;
         assertThat(recalcular(p).path("reglas").get(0).path("idAlerta").asLong()).isEqualTo(id);
         assertThat(getOk(path).path("idPeriodo").asLong()).isEqualTo(p.getId());
+        var alertas = getOk("/api/alertas-riesgo?idAlumno=" + student.getId() + "&nivel=ALTO").path("content");
+        assertThat(alertas).hasSize(1);
+        assertThat(alertas.get(0).path("nombreAlumno").asText())
+                .isEqualTo(student.getPersona().nombreCompleto());
         request("DELETE", "/api/criterios-riesgo/" + c.path("id").asLong(), null, 422);
         putOk(path + "/estado", data("estado", "EN_SEGUIMIENTO"));
         request("PUT", path + "/estado", data("estado", "RESUELTA"), 422);

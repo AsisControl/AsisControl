@@ -5,6 +5,7 @@ import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
 import { AssociationsPanel } from "./associations/associations-panel";
 import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
+import { RiskPanel } from "./risk/risk-panel";
 import { StudyPlansPanel } from "./study-plans-panel";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
 const tabs: TabItem[] = [
@@ -30,13 +31,18 @@ const DEFAULT_TAB = "cursos";
 export function Academic({
   tab = DEFAULT_TAB,
   canWrite,
+  canReadRisk = false,
+  canWriteRisk = false,
 }: {
   tab?: string;
   /** Permiso ACADEMICO_ESCRIBIR: sin él la pantalla es de solo consulta. */
   canWrite: boolean;
+  canReadRisk?: boolean;
+  canWriteRisk?: boolean;
 }) {
   const router = useRouter();
-  const current = tabs.find((item) => item.id === tab);
+  const availableTabs = tabs.filter(({ id }) => id !== "estudiantes-en-riesgo" || canReadRisk);
+  const current = availableTabs.find((item) => item.id === tab);
   useEffect(() => {
     if (!current) router.replace(`${ACADEMIC_PATH}/${DEFAULT_TAB}`);
   }, [current, router]);
@@ -49,11 +55,13 @@ export function Academic({
       />
       <TabNav
         label="Secciones de gestión curricular"
-        tabs={tabs}
+        tabs={availableTabs}
         current={current.id}
         onSelect={(id) => router.push(`${ACADEMIC_PATH}/${id}`)}
       />
-      {panels[current.id] ? (
+      {current.id === "estudiantes-en-riesgo" ? (
+        <RiskPanel canWrite={canWriteRisk} />
+      ) : panels[current.id] ? (
         panels[current.id](canWrite)
       ) : (
         <article className="role-message">
