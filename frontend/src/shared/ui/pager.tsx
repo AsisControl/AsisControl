@@ -15,24 +15,24 @@ export function Pager({
         {data.totalElements} registros · Página {data.page + 1} de{" "}
         {Math.max(1, data.totalPages)}
       </span>
-      <div>
-        <button
+      {data.totalPages > 1 && <div>
+        {!data.first && <button
           type="button"
           className="secondary-action"
-          disabled={loading || data.first}
+          disabled={loading}
           onClick={() => setPage(data.page - 1)}
         >
           Anterior
-        </button>
-        <button
+        </button>}
+        {!data.last && <button
           type="button"
           className="secondary-action"
-          disabled={loading || data.last}
+          disabled={loading}
           onClick={() => setPage(data.page + 1)}
         >
           Siguiente
-        </button>
-      </div>
+        </button>}
+      </div>}
     </div>
   );
 }
