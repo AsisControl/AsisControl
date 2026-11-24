@@ -5,7 +5,7 @@ import { message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Dialog, Feedback, Pager } from "@/shared/ui";
 import type { AcademicYear } from "@/modules/academic-config";
-import type { Student } from "@/modules/students/types";
+import type { Student } from "@/modules/students";
 import { evaluateRisk, outcomes, type RiskEvaluation } from "./risk-service";
 
 export function RiskEvaluationDialog({ onClose, onEvaluated }: {
