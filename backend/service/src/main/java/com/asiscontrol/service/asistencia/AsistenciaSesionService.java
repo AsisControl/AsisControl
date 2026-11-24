@@ -410,7 +410,7 @@ public class AsistenciaSesionService {
         return new SesionAsistenciaResponse(
                 sesion.getId(),
                 asignacion.getId(),
-                asignacion.getCurso().getNombre(),
+                asignacion.nombreCurso(),
                 asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
                 sesion.getFecha(),
                 sesion.getHoraInicio(),

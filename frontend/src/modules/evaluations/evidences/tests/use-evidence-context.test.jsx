@@ -2,13 +2,13 @@ import { expect, test, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useEvidenceContext } from "../use-evidence-context";
 import { listarPeriodos, listarEstudiantes } from "../services/evidence-service";
-import { listarCompetenciasDelCurso } from "../../services/evaluation-service";
+import { listarCompetenciasDeAsignacion } from "../../services/evaluation-service";
 
 vi.mock("../services/evidence-service", () => ({ listarPeriodos: vi.fn(), listarEstudiantes: vi.fn() }));
-vi.mock("../../services/evaluation-service", () => ({ listarCompetenciasDelCurso: vi.fn() }));
+vi.mock("../../services/evaluation-service", () => ({ listarCompetenciasDeAsignacion: vi.fn() }));
 
 const assignmentA = { id: 1, cursoId: 100 };
-const assignmentB = { id: 2, cursoId: 200 };
+const assignmentB = { id: 2, cursoId: 100 };
 
 function deferred() {
   let resolve;
@@ -23,7 +23,7 @@ function deferred() {
 /** Cada asignación recibe su propia respuesta controlada a mano (períodos, competencias, estudiantes). */
 function control(byAssignment) {
   listarPeriodos.mockImplementation((id) => byAssignment[id].periods);
-  listarCompetenciasDelCurso.mockImplementation((courseId) => byAssignment[courseId === 100 ? 1 : 2].competencies);
+  listarCompetenciasDeAsignacion.mockImplementation((id) => byAssignment[id].competencies);
   listarEstudiantes.mockImplementation((id) => byAssignment[id].students);
 }
 const settled = (value) => Promise.resolve(value);

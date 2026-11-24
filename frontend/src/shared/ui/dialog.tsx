@@ -53,7 +53,7 @@ export function Dialog({
       node.querySelectorAll<HTMLElement>(
         'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
       ),
-    );
+    ).filter((control) => control.tabIndex >= 0);
     if (controls.length === 0) {
       event.preventDefault();
       node.focus();

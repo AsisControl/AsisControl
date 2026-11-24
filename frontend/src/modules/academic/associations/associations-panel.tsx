@@ -7,16 +7,17 @@ import styles from "../academic.module.css";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
 import { AssociationFormDialog, type Option } from "./association-form-dialog";
+import { ReuseCompetenciesDialog } from "./reuse-competencies-dialog";
 import {
   listarAsociaciones,
   listarOpciones,
   quitarAsociacion,
 } from "./services/asociacionService";
 type AssociationDialog =
-  | { kind: "create" }
+  | { kind: "create" | "reuse" }
   | { kind: "edit" | "remove"; association: CourseCompetency };
 type Catalog = { courses: Option[]; competencies: Option[] };
-/** Pestaña Asociaciones: qué competencias trabaja cada curso y en qué orden. */
+/** Configura las competencias que se sugieren al añadir un curso del catálogo. */
 export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
   const [associations, setAssociations] = useState<CourseCompetency[] | null>(
     null,
@@ -81,7 +82,7 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
     try {
       await quitarAsociacion(dialog.association.id);
       finish(
-        `${dialog.association.competenciaNombre} ya no está asociada a ${dialog.association.cursoNombre}.`,
+        `Se quitó ${dialog.association.competenciaNombre} de las competencias base de ${dialog.association.cursoNombre}.`,
       );
     } catch (e) {
       setError(message(e));
@@ -101,17 +102,19 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
   return (
     <section className="panel">
       <PanelHeading
-        title="Competencias por curso"
+        title="Competencias base por curso"
         summary={
           <>
                 {associations
-                  ? countLabel(visible.length, "asociación", "asociaciones")
-                  : "Relación entre cursos y competencias"}
+                  ? countLabel(visible.length, "competencia base asignada", "competencias base asignadas")
+                  : "Configuración de los cursos del catálogo"}
                 {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
           </>
         }
         actions={
           <>
+              {canWrite && <button type="button" className="secondary-action" disabled={loading || catalog.courses.length < 2}
+                onClick={() => open({ kind: "reuse" })}>Reutilizar competencias</button>}
               <button type="button" disabled={loading} onClick={refresh}>
                 Actualizar
               </button>
@@ -122,12 +125,13 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
                   disabled={!canCreate}
                   onClick={() => open({ kind: "create" })}
                 >
-                  + Nueva asociación
+                  Agregar competencia base
                 </button>
               )}
           </>
         }
       />
+      <p className="hint">Estas competencias se sugieren al agregar un curso del catálogo. Para ajustarlas en un año específico, edita el curso en Plan de estudios.</p>
       <select
         className={styles.search}
         aria-label="Filtrar por curso"
@@ -144,12 +148,12 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
       <Feedback error={loadError} success={success} />
       {canWrite && associations && !canCreate && (
         <p className="hint">
-          Para asociar, registra primero al menos un curso y una competencia en
+          Para agregar competencias base, registra primero al menos un curso y una competencia en
           sus pestañas.
         </p>
       )}
       {loading && !associations ? (
-        <Loading>Cargando asociaciones…</Loading>
+        <Loading>Cargando competencias base…</Loading>
       ) : visible.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>
@@ -191,7 +195,7 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
                           itemName={`${association.competenciaNombre} en ${association.cursoNombre}`}
                           options={[
                             {
-                              label: "Quitar del curso",
+                              label: "Quitar competencia base",
                               danger: true,
                               onSelect: () =>
                                 open({ kind: "remove", association }),
@@ -210,11 +214,14 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
         !loadError && (
           <p className="empty">
             {activeFilter
-              ? "Este curso todavía no tiene competencias asociadas."
-              : "Aún no hay competencias asociadas a los cursos."}
+              ? "Este curso aún no tiene competencias base."
+              : "Aún no hay competencias base asignadas a los cursos."}
           </p>
         )
       )}
+      {dialog?.kind === "reuse" && <ReuseCompetenciesDialog courses={catalog.courses} initialDestination={activeFilter}
+        onClose={close} onSaved={count => finish(count === 1 ? "Se agregó una competencia base al curso."
+          : count > 1 ? `Se agregaron ${count} competencias base al curso.` : "Las competencias seleccionadas ya están en la base del curso.")} />}
       {(dialog?.kind === "create" || dialog?.kind === "edit") && (
         <AssociationFormDialog
           association={dialog.kind === "edit" ? dialog.association : undefined}
@@ -225,16 +232,16 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
           onClose={close}
           onSaved={(saved) =>
             finish(
-              `${saved.competenciaNombre} asociada a ${saved.cursoNombre} en el orden ${saved.orden}.`,
+              `${saved.competenciaNombre} quedó como competencia base de ${saved.cursoNombre} en el orden ${saved.orden}.`,
             )
           }
         />
       )}
       {dialog?.kind === "remove" && (
         <FormDialog
-          title="Quitar competencia del curso"
+          title="Quitar competencia base del curso"
           description={`${dialog.association.cursoNombre} · ${dialog.association.competenciaNombre}`}
-          submitLabel="Quitar del curso"
+          submitLabel="Quitar competencia base"
           danger
           busy={busy}
           error={error}
@@ -242,8 +249,7 @@ export function AssociationsPanel({ canWrite }: { canWrite: boolean }) {
           onSubmit={remove}
         >
           <p className="full-field hint">
-            El curso dejará de trabajar esta competencia. La competencia sigue
-            en el catálogo y puedes volver a asociarla después.
+            Dejará de sugerirse al agregar este curso desde el catálogo. Los planes ya guardados conservan sus competencias.
           </p>
         </FormDialog>
       )}

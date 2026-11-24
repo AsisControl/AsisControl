@@ -37,7 +37,7 @@ public interface AsignacionCursoRepository extends JpaRepository<AsignacionCurso
             JOIN FETCH a.curso c
             JOIN FETCH a.seccion s
             WHERE a.activo = true AND a.docente.persona.id = :personaId
-            ORDER BY s.anioAcademico DESC, c.nombre, s.grado, s.nombre
+            ORDER BY s.anioAcademico DESC, coalesce(a.nombreCursoPlan, c.nombre), s.grado, s.nombre
             """)
     List<AsignacionCurso> buscarPorPersonaDocente(@Param("personaId") Long personaId);
 

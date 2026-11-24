@@ -22,6 +22,10 @@ function renderShell(role = "DOCENTE", granted = permissions) {
     "GET /api/auth/me": { id: 1, username: "ana", nombreCompleto: "Ana Ramos", rol: role === "ESTUDIANTE" ? "ALUMNO" : role,
       permisos: granted, requiereCambioContrasena: false },
     "GET /api/asignaciones-cursos/mias": page([]),
+    "GET /api/dashboard": { indicadores: [
+      { codigo: "ESTUDIANTES_VINCULADOS", etiqueta: "Estudiantes vinculados", valor: 2, tono: "neutral" },
+      { codigo: "PAGOS_PENDIENTES", etiqueta: "Pagos pendientes", valor: 3, tono: "warning" },
+    ] },
   });
   signIn({ ...user, role, permissions: granted });
   return render(<AppShell><ModuleOutlet /></AppShell>);
@@ -73,6 +77,14 @@ test("Una acción de Inicio navega, activa el menú y desaparece junto con la ta
   expect(active.getAttribute("aria-current")).toBe("page");
   expect(screen.queryByRole("region", { name: "Acciones rápidas" })).toBeNull();
   expect(screen.getByRole("group", { name: "Espacio del usuario" }).closest("header")).not.toBeNull();
+});
+
+test("El inicio del apoderado recupera los indicadores y respeta permisos en sus enlaces", async () => {
+  renderShell("APODERADO", ["MATRICULA_LEER"]);
+  const familia = await screen.findByRole("link", { name: "2 Estudiantes vinculados" });
+  expect(familia.getAttribute("href")).toBe("/matricula");
+  expect(screen.getByText("Pagos pendientes")).toBeTruthy();
+  expect(screen.queryByRole("link", { name: /pagos pendientes/i })).toBeNull();
 });
 
 test("Una ruta distinta de Inicio nunca muestra acciones rápidas", async () => {

@@ -51,7 +51,7 @@ class AsignacionDocenteHttpTest extends ApiIntegrationSupport {
         curso.setHorasSemanales(4);
         curso.setGradoAcademico(grade);
         em.persist(curso);
-        grade.getCursosPlan().add(curso);
+        grade.incluirCurso(curso);
         AsignacionCurso asignacion = new AsignacionCurso();
         asignacion.setCurso(curso);
         asignacion.setSeccion(section);

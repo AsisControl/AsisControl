@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.EvaluacionDto;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.CompetenciaPlan;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.service.EvaluacionService;
 import com.asiscontrol.service.ModuloAccessGuard;
@@ -67,6 +68,12 @@ public class EvaluacionController {
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
     public java.util.List<EvaluacionDto.PeriodoInforme> periodosInforme(@RequestParam Long idAsignacionCurso) {
         return evaluacionService.periodosPublicables(idAsignacionCurso);
+    }
+
+    @GetMapping("/competencias")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public java.util.List<CompetenciaPlan> competencias(@RequestParam Long idAsignacionCurso) {
+        return evaluacionService.competenciasDisponibles(idAsignacionCurso);
     }
 
 

@@ -6,7 +6,7 @@ import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import {
   actualizarEvaluacion,
   crearEvaluacion,
-  listarCompetenciasDelCurso,
+  listarCompetenciasDeAsignacion,
 } from "./services/evaluation-service";
 import type {
   CourseCompetency,
@@ -42,25 +42,32 @@ export function EvaluationFormDialog({
     evaluation?.competencias.map((item) => item.id) ?? [],
   );
   const [descripcion, setDescripcion] = useState(evaluation?.descripcion ?? "");
-  const [available, setAvailable] = useState<{ cursoId: string; items: CourseCompetency[] } | null>(null);
+  const [available, setAvailable] = useState<{ assignmentId: number; items: CourseCompetency[] } | null>(null);
+  const [competencyError, setCompetencyError] = useState<{ assignmentId: number; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const idAsignacionCurso = evaluation?.idAsignacionCurso ?? assignments.find(
+    item => String(item.cursoId) === cursoId && String(item.seccionId) === seccionId,
+  )?.id;
   useEffect(() => {
-    if (!cursoId) return;
+    if (!idAsignacionCurso) return;
     let active = true;
-    listarCompetenciasDelCurso(Number(cursoId))
+    listarCompetenciasDeAsignacion(idAsignacionCurso)
       .then((items) => {
-        if (active) setAvailable({ cursoId, items });
+        if (active) setAvailable({ assignmentId: idAsignacionCurso, items });
       })
       .catch((e) => {
-        if (active) setError(message(e));
+        if (active) setCompetencyError({ assignmentId: idAsignacionCurso, text: message(e) });
       });
     return () => {
       active = false;
     };
-  }, [cursoId]);
-  const options = available?.cursoId === cursoId ? available.items : null;
+  }, [idAsignacionCurso]);
+  const options = available?.assignmentId === idAsignacionCurso ? available?.items ?? null : null;
+  const catalogError = competencyError?.assignmentId === idAsignacionCurso ? competencyError?.text : "";
+  const unavailable = (evaluation?.competencias ?? []).filter(item =>
+    options && competencias.includes(item.id) && !options.some(option => option.competenciaId === item.id));
   function selectCourse(value: string) {
     setCursoId(value);
     setSeccionId("");
@@ -78,12 +85,9 @@ export function EvaluationFormDialog({
     if (!cursoId) found.curso = "Selecciona el curso.";
     if (!seccionId) found.seccion = "Selecciona la sección.";
     if (!competencias.length) found.competencias = "Selecciona al menos una competencia.";
+    else if (!options || unavailable.length) found.competencias = "Revisa las competencias disponibles para esta sección.";
     setErrors(found);
     if (Object.keys(found).length) return;
-    const assignment = assignments.find(
-      (item) => String(item.cursoId) === cursoId && String(item.seccionId) === seccionId,
-    );
-    const idAsignacionCurso = assignment?.id ?? evaluation?.idAsignacionCurso;
     if (!idAsignacionCurso) {
       setError("No tienes asignado ese curso en la sección elegida.");
       return;
@@ -191,7 +195,11 @@ export function EvaluationFormDialog({
           value={seccionId}
           disabled={!cursoId || !!evaluation}
           aria-invalid={errors.seccion ? true : undefined}
-          onChange={(event) => setSeccionId(event.target.value)}
+          onChange={(event) => {
+            setSeccionId(event.target.value);
+            setCompetencias([]);
+            setCompetencyError(null);
+          }}
         >
           <option value="">— Selecciona —</option>
           {sectionOptions(assignments, cursoId).map(([id, label]) => (
@@ -210,12 +218,14 @@ export function EvaluationFormDialog({
         <legend>
           Competencias a evaluar<span className="field-required"> *</span>
         </legend>
-        {!cursoId ? (
-          <p className="hint">Selecciona un curso para ver las competencias disponibles.</p>
+        {!idAsignacionCurso ? (
+          <p className="hint">Selecciona un curso y una sección para ver las competencias del plan.</p>
+        ) : catalogError ? (
+          <p className="field-error" role="alert">{catalogError}</p>
         ) : !options ? (
           <Loading variant="inline">Cargando competencias…</Loading>
         ) : !options.length ? (
-          <p className="hint">Este curso aún no tiene competencias asociadas.</p>
+          <p className="hint">El plan de este curso aún no tiene competencias disponibles.</p>
         ) : (
           options.map((item) => (
             <label key={item.competenciaId}>
@@ -228,6 +238,10 @@ export function EvaluationFormDialog({
             </label>
           ))
         )}
+        {unavailable.map(item => <label key={item.id}>
+          <input type="checkbox" checked onChange={() => toggle(item.id)} />
+          {item.nombre} · Retirada del plan
+        </label>)}
         {errors.competencias && (
           <small className="field-error" role="alert">
             {errors.competencias}

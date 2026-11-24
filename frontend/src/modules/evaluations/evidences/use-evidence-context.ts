@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { listarCompetenciasDelCurso } from "../services/evaluation-service";
+import { listarCompetenciasDeAsignacion } from "../services/evaluation-service";
 import type { OwnAssignment } from "../types";
 import { listarEstudiantes, listarPeriodos } from "./services/evidence-service";
 import type { EvidenceCompetency, EvidencePeriod, EvidenceStudent } from "./types";
@@ -19,11 +19,10 @@ export function useEvidenceContext(assignment: OwnAssignment | undefined) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState<{ assignmentId: number; error: string } | null>(null);
   const id = assignment?.id;
-  const courseId = assignment?.cursoId;
   useEffect(() => {
-    if (id === undefined || courseId === undefined) return;
+    if (id === undefined) return;
     let active = true;
-    Promise.all([listarPeriodos(id), listarCompetenciasDelCurso(courseId), listarEstudiantes(id)])
+    Promise.all([listarPeriodos(id), listarCompetenciasDeAsignacion(id), listarEstudiantes(id)])
       .then(([periods, competencies, students]) => {
         if (active) setLoaded({ assignmentId: id, periods, competencies, students });
       })
@@ -33,7 +32,7 @@ export function useEvidenceContext(assignment: OwnAssignment | undefined) {
     return () => {
       active = false;
     };
-  }, [id, courseId]);
+  }, [id]);
   const ready = loaded?.assignmentId === id ? loaded : null;
   const error = failed && failed.assignmentId === id ? failed.error : "";
   return { context: ready, error, loading: id !== undefined && !ready && !error };

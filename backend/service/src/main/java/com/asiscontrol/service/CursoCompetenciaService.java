@@ -16,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -41,7 +43,7 @@ public class CursoCompetenciaService {
 
     @Transactional
     public ResultadoAsociacion crear(CrearCursoCompetenciaRequest request) {
-        Curso curso = buscarCurso(request.cursoId());
+        Curso curso = bloquearCurso(request.cursoId());
         Competencia competencia = buscarCompetencia(request.competenciaId());
         var existente = cursoCompetenciaRepository
                 .findByCursoIdAndCompetenciaId(request.cursoId(), request.competenciaId());
@@ -64,6 +66,44 @@ public class CursoCompetenciaService {
                 creada ? null : "activo=false",
                 "cursoId=" + saved.getCurso().getId() + ",competenciaId=" + saved.getCompetencia().getId());
         return new ResultadoAsociacion(mapear(saved), creada);
+    }
+
+    @Transactional
+    public int reutilizar(Long origen, Long destino, Set<Long> seleccion) {
+        if (origen.equals(destino)) {
+            throw new com.asiscontrol.exception.BusinessRuleException("CURSOS_IGUALES", "Elige dos cursos distintos.");
+        }
+        buscarCurso(origen);
+        bloquearCurso(destino);
+        var candidatas = cursoCompetenciaRepository.findByCursoIdAndActivoTrueOrderByOrdenAscIdAsc(origen).stream()
+                .filter(vinculo -> vinculo.getCompetencia().isActivo() && seleccion.contains(vinculo.getCompetencia().getId()))
+                .toList();
+        if (candidatas.size() != seleccion.size()) {
+            throw new ConflictException("PLANTILLA_DESACTUALIZADA", "Las competencias del curso de origen cambiaron. Revisa la selección.");
+        }
+        var existentes = cursoCompetenciaRepository.findByCursoIdAndActivoTrueOrderByOrdenAscIdAsc(destino);
+        var ids = existentes.stream().map(item -> item.getCompetencia().getId()).collect(java.util.stream.Collectors.toSet());
+        int orden = existentes.stream().mapToInt(CursoCompetencia::getOrden).max().orElse(0);
+        int nuevas = 0;
+        for (var candidata : candidatas) {
+            Long competencia = candidata.getCompetencia().getId();
+            if (ids.add(competencia)) {
+                crear(new CrearCursoCompetenciaRequest(destino, competencia, ++orden));
+                nuevas++;
+            }
+        }
+        return nuevas;
+    }
+
+    public List<CursoCompetenciaResponse> listarCurso(Long curso) {
+        buscarCurso(curso);
+        return cursoCompetenciaRepository.findByCursoIdAndActivoTrueOrderByOrdenAscIdAsc(curso).stream()
+                .filter(vinculo -> vinculo.getCompetencia().isActivo()).map(this::mapear).toList();
+    }
+
+    private Curso bloquearCurso(Long id) {
+        return cursoRepository.bloquearTodos(Set.of(id)).stream().filter(Curso::isActivo).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("CURSO_NO_ENCONTRADO", "No existe un curso activo con id " + id));
     }
 
     @Transactional

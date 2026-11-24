@@ -100,10 +100,9 @@ export async function listarAsignacionesPropias() {
     if (page.last) return items;
   }
 }
-/** El backend no filtra las asociaciones por curso: se filtran aquí. */
-export async function listarCompetenciasDelCurso(cursoId: number) {
-  const page = await api<Page<CourseCompetency>>("/api/cursos-competencias?size=1000");
-  return normalizePage(page)
-    .content.filter((item) => item.cursoId === cursoId && item.activo)
-    .sort((a, b) => a.orden - b.orden);
+export async function listarCompetenciasDeAsignacion(idAsignacionCurso: number): Promise<CourseCompetency[]> {
+  const items = await api<{ id: number; codigo: string; nombre: string }[]>(
+    `${EVALUACIONES_PATH}/competencias?idAsignacionCurso=${idAsignacionCurso}`,
+  );
+  return items.map(item => ({ competenciaId: item.id, competenciaCodigo: item.codigo, competenciaNombre: item.nombre }));
 }

@@ -20,14 +20,30 @@ import {
 } from "../associations/services/asociacionService";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
-import { CURSOS_PATH, desactivarCurso } from "./services/cursoService";
+import { CURSOS_PATH, desactivarCurso, listarAniosDeCursos } from "./services/cursoService";
 import { courseContextLabel } from "./course-context";
 type CourseDialog =
   | { kind: "create" }
   | { kind: "detail" | "edit" | "deactivate"; course: Course };
+const SEARCH_DELAY_MS = 300;
+const GRADES = [1, 2, 3, 4, 5];
 /** Pestaña Cursos de Gestión Curricular: listado, detalle, alta, edición y baja. */
 export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
-  const courses = usePaged<Course>(CURSOS_PATH);
+  const [searchText, setSearchText] = useState("");
+  const [search, setSearch] = useState("");
+  const [year, setYear] = useState("");
+  const [grade, setGrade] = useState("");
+  const [years, setYears] = useState<number[] | null>(null);
+  const [yearsError, setYearsError] = useState(false);
+  const filters = new URLSearchParams();
+  if (search) filters.set("busqueda", search);
+  if (year) filters.set("anio", year);
+  if (grade) filters.set("grado", grade);
+  if (year || grade) filters.set("incluirPlanes", "true");
+  const courses = usePaged<Course>(CURSOS_PATH, "", filters.toString());
+  const { setPage } = courses;
+  const filtered = Boolean(searchText.trim() || year || grade);
+  const searching = courses.loading || searchText.trim() !== search;
   const [competencies, setCompetencies] = useState<Map<
     number,
     CourseCompetency[]
@@ -39,6 +55,23 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  useEffect(() => {
+    const next = searchText.trim();
+    if (next === search) return;
+    const timer = setTimeout(() => { setPage(0); setSearch(next); }, SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [search, searchText, setPage]);
+  useEffect(() => {
+    let active = true;
+    listarAniosDeCursos()
+      .then(items => {
+        if (!active) return;
+        setYears(items);
+        setYearsError(false);
+      })
+      .catch(() => { if (active) setYearsError(true); });
+    return () => { active = false; };
+  }, [reload]);
   useEffect(() => {
     let active = true;
     listarAsociaciones()
@@ -60,6 +93,13 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
   function refresh() {
     courses.refresh();
     setReload((value) => value + 1);
+  }
+  function clearFilters() {
+    setSearchText("");
+    setSearch("");
+    setYear("");
+    setGrade("");
+    setPage(0);
   }
   function open(next: CourseDialog) {
     setError("");
@@ -98,9 +138,12 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
         title="Cursos registrados"
         summary={
           <>
-            {courses.data
-              ? `${total} ${total === 1 ? "curso" : "cursos"} en el sistema`
-              : "Plan curricular de la institución"}
+            <span aria-live="polite">
+              {courses.data && !searching && !courses.error
+                ? filtered ? countLabel(total, "curso encontrado", "cursos encontrados")
+                  : `${countLabel(total, "curso", "cursos")} en el sistema`
+                : searching && filtered ? "Buscando cursos…" : "Plan curricular de la institución"}
+            </span>
             {updatedAt && ` · Última actualización: ${timeLabel(updatedAt)}`}
           </>
         }
@@ -121,21 +164,55 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
           </>
         }
       />
+      <div className={styles.courseFilters} role="search" aria-label="Filtrar cursos">
+        <div className={styles.courseFilterFields}>
+          <label className="field">
+            Buscar por nombre o código
+            <input type="search" value={searchText} onChange={event => setSearchText(event.target.value)}
+              placeholder="Ej. Matemática o MAT-01" />
+          </label>
+          <label className="field">
+            Año académico
+            <select value={year} disabled={!years?.length} onChange={event => {
+              setPage(0);
+              setYear(event.target.value);
+            }}>
+              <option value="">{years || yearsError ? "Todos los años" : "Cargando años…"}</option>
+              {years?.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            Grado
+            <select value={grade} onChange={event => {
+              setPage(0);
+              setGrade(event.target.value);
+            }}>
+              <option value="">Todos los grados</option>
+              {GRADES.map(item => <option key={item} value={item}>{item}.° grado</option>)}
+            </select>
+          </label>
+          <button type="button" className="secondary-action" onClick={clearFilters} disabled={!filtered}>
+            Limpiar filtros
+          </button>
+        </div>
+        <p className="hint">Año y grado incluyen el registro original del curso y los planes que lo usan.</p>
+        {yearsError && <p className="hint">No se pudieron cargar los años. Usa «Actualizar» para reintentar.</p>}
+      </div>
       <Feedback error={courses.error} success={success} />
       {competenciesError && (
         <p className="hint">
           No se pudieron consultar las competencias asociadas.
         </p>
       )}
-      {courses.loading ? (
+      {searching ? (
         <Loading>Cargando cursos…</Loading>
-      ) : courses.data?.content.length ? (
+      ) : !courses.error && courses.data?.content.length ? (
         <div className={styles.tableWrap}>
           <table className={`user-table ${styles.table}`}>
             <thead>
               <tr>
                 <th>Curso</th>
-                <th>Año y grado</th>
+                <th>Año y grado de origen</th>
                 <th>Horas semanales</th>
                 <th>Estado</th>
                 <th>Competencias</th>
@@ -151,7 +228,7 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
                       <strong>{course.nombre}</strong>
                       <small>{course.codigo}</small>
                     </td>
-                    <td data-label="Año y grado">
+                    <td data-label="Año y grado de origen">
                       {course.grado === null ? (
                         <span className="hint">
                           {courseContextLabel(course)}
@@ -222,17 +299,16 @@ export function CoursesPanel({ canWrite }: { canWrite: boolean }) {
         </div>
       ) : (
         !courses.error && (
-          <p className="empty">
-            Aún no hay cursos registrados.
-            {canWrite && " Usa «Nuevo curso» para crear el primero."}
-          </p>
+          <p className="empty">{filtered
+            ? "No hay cursos que coincidan con estos filtros."
+            : `Aún no hay cursos registrados.${canWrite ? " Usa «Nuevo curso» para crear el primero." : ""}`}</p>
         )
       )}
-      <Pager
+      {!courses.error && !searching && courses.data && courses.data.totalPages > 1 && <Pager
         data={courses.data}
-        loading={courses.loading}
+        loading={searching}
         setPage={courses.setPage}
-      />
+      />}
       {dialog?.kind === "detail" && (
         <CourseDetailDialog
           course={dialog.course}

@@ -8,9 +8,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
-import java.util.Set;
+import java.util.List;
+import java.util.Collection;
 
 public interface CursoCompetenciaRepository extends JpaRepository<CursoCompetencia, Long> {
+    List<CursoCompetencia> findByCursoIdAndActivoTrueOrderByOrdenAscIdAsc(Long cursoId);
 
     Optional<CursoCompetencia> findByIdAndActivoTrue(Long id);
 
@@ -39,11 +41,12 @@ public interface CursoCompetenciaRepository extends JpaRepository<CursoCompetenc
     Optional<CursoCompetencia> buscarDisponiblePorId(@Param("id") Long id);
 
     @Query("""
-        SELECT cc.competencia.id FROM CursoCompetencia cc
-        WHERE cc.curso.id = :cursoId
+        SELECT cc FROM CursoCompetencia cc JOIN FETCH cc.competencia
+        WHERE cc.curso.id IN :cursosIds
           AND cc.activo = true
           AND cc.curso.activo = true
           AND cc.competencia.activo = true
+        ORDER BY cc.orden, cc.id
         """)
-    Set<Long> buscarIdsCompetenciasDisponiblesPorCurso(@Param("cursoId") Long cursoId);
+    List<CursoCompetencia> buscarCompetenciasBase(@Param("cursosIds") Collection<Long> cursosIds);
 }

@@ -7,6 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.asiscontrol.entity.Docente;
+import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.Notificacion;
+import com.asiscontrol.entity.Persona;
+import com.asiscontrol.entity.Rol;
+import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.RegistroAuditoria;
 import com.asiscontrol.entity.enums.Especialidad;
 import com.asiscontrol.repository.RegistroAuditoriaRepository;
@@ -28,6 +33,58 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
     private static final String CALIFICACIONES = "/api/calificaciones";
 
     @Autowired RegistroAuditoriaRepository auditorias;
+
+    @Test void unPlanConSeleccionVaciaBloqueaUnaCompetenciaGlobalSinBorrarLaEvaluacionAnterior() throws Exception {
+        long id = nuevaEvaluacion();
+        grade.setPlanDefinido(true);
+        em.flush();
+        String opciones = EVALUACIONES + "/competencias?idAsignacionCurso=" + assignment.getId();
+        assertThat(getOk(opciones)).isEmpty();
+        mvc.perform(get(opciones).with(como("DOCENTE", otroDocente().getPersona().getId(), "CALIFICACIONES_LEER")))
+                .andExpect(status().isForbidden());
+        var error = request("POST", EVALUACIONES, datosEvaluacion("Prueba fuera del plan"), 422);
+        assertThat(error.path("code").asText()).isEqualTo("COMPETENCIA_NO_DISPONIBLE_PARA_CURSO");
+        assertThat(getOk(EVALUACIONES + "/" + id).path("competencias").findValuesAsText("codigo"))
+                .containsExactly(competence.getCodigo());
+    }
+
+    @Test void avisaSoloAlAlumnoYAlApoderadoVinculadoAlPublicarYCorregir() throws Exception {
+        var cuentaAlumno = cuentaAcademica(student.getPersona(), "ALUMNO");
+        var cuentaFamilia = cuentaAcademica(guardian.getPersona(), "APODERADO");
+        var ajena = cuentaAcademica(person(), "APODERADO");
+        long evaluacion = nuevaEvaluacion();
+        var nota = registrarNivel(evaluacion, "B");
+        assertThat(avisos(cuentaAlumno)).isEmpty();
+        request("PUT", EVALUACIONES + "/" + evaluacion + "/estado", data("estado", "PUBLICADA"), 200);
+        request("PUT", EVALUACIONES + "/" + evaluacion + "/estado", data("estado", "PUBLICADA"), 200);
+        assertThat(avisos(cuentaAlumno)).extracting(Notificacion::getTitulo).containsExactly("Resultados publicados");
+        assertThat(avisos(cuentaFamilia)).extracting(Notificacion::getTitulo).containsExactly("Resultados publicados");
+        nota = getOk(CALIFICACIONES + "/" + nota.path("id").asLong());
+        request("POST", CALIFICACIONES + "/correcciones", correccion(nota, "A", "Corrección para probar los avisos."), 200);
+        assertThat(avisos(cuentaAlumno)).extracting(Notificacion::getTitulo)
+                .containsExactly("Resultados publicados", "Resultado actualizado");
+        assertThat(avisos(cuentaFamilia)).hasSize(2);
+        assertThat(avisos(ajena)).isEmpty();
+    }
+
+    private AccesoUsuario cuentaAcademica(Persona persona, String rol) {
+        var cuenta = new AccesoUsuario();
+        cuenta.setPersona(persona);
+        cuenta.setCodigo(key());
+        cuenta.setUsername("demo" + key());
+        cuenta.setCorreo(key() + "@example.test");
+        cuenta.setContrasenaHash("hash-exclusivo-de-prueba");
+        cuenta.setEstado(EstadoAcceso.ACTIVO);
+        em.persist(cuenta);
+        var perfil = em.createQuery("from Rol r where r.nombre = :rol", Rol.class).setParameter("rol", rol).getSingleResult();
+        asignarRol(cuenta, perfil);
+        return cuenta;
+    }
+
+    private List<Notificacion> avisos(AccesoUsuario cuenta) {
+        return em.createQuery("from Notificacion n where n.destinatario.id = :id order by n.id", Notificacion.class)
+                .setParameter("id", cuenta.getId()).getResultList();
+    }
 
     private Map<String, Object> datosEvaluacion(String titulo) {
         return data("idAsignacionCurso", assignment.getId(), "titulo", titulo, "descripcion", null,

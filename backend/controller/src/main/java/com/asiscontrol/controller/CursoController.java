@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/cursos")
 @PreAuthorize("hasAuthority('ACADEMICO_LEER')")
@@ -55,8 +57,14 @@ public class CursoController {
             @RequestParam(required = false) String busqueda,
             @RequestParam(required = false) Integer anio,
             @RequestParam(required = false) Integer grado,
+            @RequestParam(defaultValue = "false") boolean incluirPlanes,
             @PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
-        return cursoService.listar(busqueda, anio, grado, pageable);
+        return cursoService.listar(busqueda, anio, grado, incluirPlanes, pageable);
+    }
+
+    @GetMapping("/anios")
+    public List<Integer> anios() {
+        return cursoService.aniosConsultables();
     }
 
     @DeleteMapping("/{id}")

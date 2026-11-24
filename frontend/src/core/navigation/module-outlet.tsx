@@ -16,6 +16,7 @@ import {
 } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance, StudentAttendance } from "@/modules/guardian-attendance";
+import { GuardianHome } from "@/modules/guardian-home";
 import { GuardianPayments } from "@/modules/guardian-payments";
 import { Schedules, StudentSchedule, TeacherSchedule } from "@/modules/schedules";
 import { StudentCourses } from "@/modules/student-courses";
@@ -106,6 +107,9 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
+    Inicio: ({ user }) => (
+      <GuardianHome key={user.id} user={user} quickActions={<HomeQuickActions user={user} />} />
+    ),
     Pagos: () => <GuardianPayments />,
     Progreso: ({ user }) => <ProgressReports key={user.id} guardian />,
     Matrícula: ({ user, subpath: [tab] }) => (

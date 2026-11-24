@@ -158,7 +158,7 @@ public class CalendarioSesionService {
                 List<Horario> bloques = horarioService.listarActivosPorAsignacion(asignacion.getId());
                 cursos.add(new AsignacionAsistenciaResponse(
                         asignacion.getId(),
-                        asignacion.getCurso().getNombre(),
+                        asignacion.nombreCurso(),
                         asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
                         asignacion.getSeccion().getAnioAcademico(),
                         vigente,

@@ -29,6 +29,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +66,7 @@ public class PagosDemoDataInitializer {
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @Order(0)
     @Transactional
     public void preparar() {
         if (!password.matches("(?=.{12,64}$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])[^\\s]+")) {

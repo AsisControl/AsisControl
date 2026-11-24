@@ -1,0 +1,272 @@
+.context,
+.nameForm,
+.filters {
+  align-items: end;
+  display: grid;
+  gap: 12px 16px;
+}
+.context {
+  grid-template-columns: repeat(2, minmax(0, 240px));
+}
+.nameForm {
+  grid-template-columns: minmax(0, 480px) auto;
+  justify-content: start;
+}
+.filters {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+  margin-bottom: 12px;
+}
+.context label,
+.nameForm label,
+.filters label {
+  margin: 0;
+}
+.planName {
+  margin-top: 16px;
+}
+.nameForm button {
+  min-height: 40px;
+}
+.plan {
+  margin-top: 24px;
+}
+.editor {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+.sectionHeader,
+.sectionTitle,
+.sectionActions,
+.saveActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+.sectionHeader {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.sectionTitle h4,
+.catalog h5 {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+.sectionHeader p,
+.note,
+.hint {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.sectionHeader p {
+  margin: 4px 0 0;
+}
+.note {
+  margin: 0 0 12px;
+}
+.courseList {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.courseList table {
+  background: #fff;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+  width: 100%;
+}
+.courseList th,
+.courseList td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+.courseList thead th {
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.courseList th:nth-child(2),
+.courseList td:nth-child(2) {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  width: 140px;
+}
+.courseList th:nth-child(3),
+.courseList td:nth-child(3) {
+  text-align: right;
+  width: 130px;
+}
+.courseList tbody th,
+.courseList tbody td {
+  border-top: 1px solid var(--border);
+}
+.courseList tbody th {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.courseList strong,
+.courseList small {
+  display: block;
+}
+.courseInput,
+.hoursInput {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 36px;
+  padding: 6px 8px;
+}
+.courseInput {
+  width: min(100%, 460px);
+}
+.hoursInput {
+  font-weight: 400;
+  text-align: center;
+  width: 64px;
+}
+.courseList small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.sectionHeader button,
+.courseList button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.courseList button {
+  min-height: 36px;
+}
+.courseList button[aria-disabled="true"] {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: default;
+}
+.courseActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+@media (min-width: 720px) {
+  .courseList td:has(.courseActions) {
+    width: 245px;
+  }
+}
+.competencyEditor {
+  margin-top: 12px;
+}
+.competencyEditor .sectionHeader h5 {
+  margin: 0;
+}
+.competencyCatalog {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.competencyCatalog > label {
+  max-width: 440px;
+}
+.competencyList {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.competencyList li {
+  align-items: center;
+  display: flex;
+  gap: 8px 16px;
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+.competencyList li + li {
+  border-top: 1px solid var(--border);
+}
+.competencyList small {
+  color: var(--muted);
+  display: block;
+  margin-top: 2px;
+}
+.empty {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  margin: 0;
+  padding: 16px;
+}
+.catalog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+.catalog h5 {
+  margin-bottom: 12px;
+}
+.catalogResults > :global(.pager) {
+  margin-bottom: 0;
+}
+.saveArea {
+  margin-top: 16px;
+}
+.saveArea label {
+  margin-bottom: 4px;
+}
+.saveArea textarea {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  display: block;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  margin-top: 6px;
+  padding: 10px 12px;
+  resize: vertical;
+  width: min(100%, 620px);
+}
+.saveArea textarea:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.saveActions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+@media (max-width: 560px) {
+  .nameForm,
+  .filters {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nameForm button {
+    justify-self: start;
+  }
+  .courseList th,
+  .courseList td {
+    padding-inline: 8px;
+  }
+  .courseList th:nth-child(2),
+  .courseList td:nth-child(2),
+  .courseList th:nth-child(3),
+  .courseList td:nth-child(3) {
+    width: auto;
+  }
+}

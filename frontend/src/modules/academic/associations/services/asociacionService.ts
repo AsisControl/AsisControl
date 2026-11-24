@@ -1,7 +1,7 @@
 import { api } from "@/core/api/client";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
-import type { AssociationInput, CourseCompetency } from "../../types";
+import type { AssociationInput, Course, CourseCompetency } from "../../types";
 export const ASOCIACIONES_PATH = "/api/cursos-competencias";
 /** El backend no filtra por curso ni competencia: se traen en una sola página. */
 const ALL = "size=1000";
@@ -49,7 +49,7 @@ export function quitarAsociacion(id: number) {
 /** Opciones de los selectores: cursos y competencias activos. */
 export async function listarOpciones() {
   const [courses, competencies] = await Promise.all([
-    api<Page<{ id: number; codigo: string; nombre: string }>>(
+    api<Page<Course>>(
       `/api/cursos?${ALL}&sort=nombre`,
     ),
     api<Page<{ id: number; codigo: string; nombre: string }>>(

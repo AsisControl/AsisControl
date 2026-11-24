@@ -18,7 +18,7 @@ type ExcelFilePickerProps = {
   file: File | null;
   error: string;
   /** Cada incremento devuelve el foco al selector si hay error (al enviar sin archivo válido). */
-  focusRequest: number;
+  focusRequest?: number;
   disabled: boolean;
   onChange: (file: File | null) => void;
 };
@@ -138,7 +138,7 @@ export function ExcelFilePicker({
           <button
             ref={buttonRef}
             type="button"
-            className={styles.browse}
+            className={`secondary-action ${styles.browse}`}
             disabled={disabled}
             aria-describedby={describedBy}
             onClick={(event) => {

@@ -13,12 +13,13 @@ import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { PencilIcon } from "../components/pencil-icon";
 import { CompetencyDetailDialog } from "./competency-detail-dialog";
 import { CompetencyFormDialog } from "./competency-form-dialog";
+import { CompetencyImportDialog } from "./competency-import-dialog";
 import {
   competenciasPath,
   desactivarCompetencia,
 } from "./services/competenciaService";
 type CompetencyDialog =
-  | { kind: "create" }
+  | { kind: "create" | "import" }
   | { kind: "detail" | "edit" | "deactivate"; competency: Competency };
 const SEARCH_DELAY_MS = 300;
 /** Pestaña Competencias: catálogo de competencias y los cursos que las trabajan. */
@@ -115,6 +116,9 @@ export function CompetenciesPanel({ canWrite }: { canWrite: boolean }) {
         }
         actions={
           <>
+              {canWrite && <button type="button" className="secondary-action" onClick={() => open({ kind: "import" })}>
+                Importar Excel
+              </button>}
               <button
                 type="button"
                 disabled={competencies.loading}
@@ -237,6 +241,10 @@ export function CompetenciesPanel({ canWrite }: { canWrite: boolean }) {
         loading={competencies.loading}
         setPage={setPage}
       />
+      {dialog?.kind === "import" && <CompetencyImportDialog onClose={close} onImported={() => {
+        setPage(0);
+        refresh();
+      }} />}
       {dialog?.kind === "detail" && (
         <CompetencyDetailDialog
           competency={dialog.competency}

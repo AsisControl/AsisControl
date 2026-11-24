@@ -4,6 +4,7 @@ package com.asiscontrol.controller;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Curso;
+import com.asiscontrol.entity.CursoEnPlan;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.Persona;
 import com.asiscontrol.entity.enums.DiaSemana;
@@ -38,7 +39,7 @@ class MisCursosHttpTest extends ApiIntegrationSupport {
     private Curso curso(String nombre, boolean enPlan) {
         var curso = new Curso(); curso.setCodigo("C" + key()); curso.setNombre(nombre);
         curso.setHorasSemanales(2); curso.setGradoAcademico(grade); em.persist(curso);
-        if (enPlan) grade.getCursosPlan().add(curso);
+        if (enPlan) grade.incluirCurso(curso);
         return curso;
     }
 
@@ -46,6 +47,7 @@ class MisCursosHttpTest extends ApiIntegrationSupport {
         curso("Comunicacion", true);
         curso("Taller fuera del plan", false);
         grade.setPlanDefinido(true);
+        grade.getCursosPlan().put(course, new CursoEnPlan("Matemática del año", 4));
         var aula = new Aula(); aula.setCodigo("AU" + key()); aula.setNombre("Aula 101"); aula.setTipoAula(TipoAula.AULA_REGULAR);
         aula.setCapacidad(30); aula.setUbicacion("Pabellon A"); em.persist(aula);
         var bloque = new Horario(); bloque.setAsignacionCurso(assignment); bloque.setAula(aula);
@@ -56,7 +58,7 @@ class MisCursosHttpTest extends ApiIntegrationSupport {
         assertThat(respuesta.path("anioAcademico").asInt()).isEqualTo(2090);
         assertThat(respuesta.path("seccion").asText()).isEqualTo("1° Grado A");
         var cursos = StreamSupport.stream(respuesta.path("cursos").spliterator(), false).toList();
-        assertThat(cursos).extracting(c -> c.path("curso").asText()).containsExactly("Comunicacion", "Matematica");
+        assertThat(cursos).extracting(c -> c.path("curso").asText()).containsExactly("Comunicacion", "Matemática del año");
 
         var conDocente = cursos.get(1);
         assertThat(conDocente.path("docente").asText()).isEqualTo(teacher.getPersona().nombreCompleto());

@@ -175,7 +175,7 @@ test("muestra cinco matrículas por página, busca con teclado y permite elegir 
   await screen.findByRole("button", { name: "Elegir matrícula de Estudiante 7" });
   expect(choices().getAllByRole("listitem")).toHaveLength(2);
   expect(calls.at(-1).query).toMatchObject({ page: "1", size: "5", busqueda: "EST-" });
-  expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
   expect(screen.queryByText("Selecciona la matrícula del estudiante.")).toBeNull();
   expect(screen.queryByText("Selecciona el concepto del compromiso.")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Anterior" }));

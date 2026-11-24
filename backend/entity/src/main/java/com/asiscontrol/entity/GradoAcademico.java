@@ -5,7 +5,10 @@ import jakarta.persistence.*;
 
 import lombok.Getter;
 import lombok.Setter;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 @Getter
@@ -37,9 +40,21 @@ public class GradoAcademico extends AuditableEntity {
     @Column(name = "plan_definido", nullable = false)
     private boolean planDefinido;
 
-    @ManyToMany
-    @JoinTable(name = "PlanEstudiosCurso",
-            joinColumns = @JoinColumn(name = "id_grado_academico"),
-            inverseJoinColumns = @JoinColumn(name = "id_curso"))
-    private Set<Curso> cursosPlan = new HashSet<>();
+    @ElementCollection
+    @CollectionTable(name = "PlanEstudiosCurso", joinColumns = @JoinColumn(name = "id_grado_academico"))
+    @MapKeyJoinColumn(name = "id_curso", nullable = false)
+    private Map<Curso, CursoEnPlan> cursosPlan = new HashMap<>();
+
+    @ElementCollection
+    @CollectionTable(name = "PlanEstudiosCursoCompetencia", joinColumns = @JoinColumn(name = "id_grado_academico"))
+    private Set<CompetenciaEnPlan> competenciasPlan = new HashSet<>();
+
+    public void incluirCurso(Curso curso) {
+        cursosPlan.putIfAbsent(curso, CursoEnPlan.desdeCatalogo(curso));
+    }
+
+    public void definirCompetencias(Long cursoId, Collection<Competencia> competencias) {
+        competenciasPlan.removeIf(item -> item.cursoId().equals(cursoId));
+        competencias.forEach(competencia -> competenciasPlan.add(new CompetenciaEnPlan(cursoId, competencia)));
+    }
 }

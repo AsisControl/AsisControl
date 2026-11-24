@@ -58,11 +58,36 @@ beforeEach(() => {
   setUrl("/academico/asociaciones");
 });
 
+test("reutiliza solo las competencias marcadas y muestra las que ya están asociadas", async () => {
+  const calls = backend({
+    "GET /api/cursos-competencias/curso/1": [link(1, math, quantity, 1), link(2, math, shape, 2)],
+    "GET /api/cursos-competencias/curso/2": [link(4, science, quantity, 1)],
+    "POST /api/cursos-competencias/copiar": { agregadas: 1 },
+  });
+  const user = userEvent.setup();
+  renderTab();
+  await user.click(await screen.findByRole("button", { name: "Reutilizar competencias" }));
+  await user.selectOptions(screen.getByLabelText("Curso de origen"), "1");
+  await user.selectOptions(screen.getByLabelText("Curso de destino"), "2");
+  const existing = await screen.findByRole("checkbox", { name: /cantidad/ });
+  expect(existing.disabled).toBe(true);
+  const selected = screen.getByRole("checkbox", { name: /forma/ });
+  await user.click(selected);
+  expect(screen.getByRole("button", { name: "Agregar seleccionadas (0)" }).disabled).toBe(true);
+  await user.click(selected);
+  await user.click(screen.getByRole("button", { name: "Agregar seleccionadas (1)" }));
+  await screen.findByText("Se agregó una competencia base al curso.");
+  expect(calls.find(call => call.method === "POST").body).toEqual({ origen: 1, destino: 2, competencias: [6] });
+});
+
 test("Lista las asociaciones vigentes por curso y orden, y filtra por curso", async () => {
   const calls = backend();
   const user = userEvent.setup();
   renderTab();
-  await screen.findByText("3 asociaciones", { exact: false });
+  await screen.findByText("3 competencias base asignadas", { exact: false });
+  expect(screen.getByRole("button", { name: "Competencias base", current: "page" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Competencias base por curso" })).toBeTruthy();
+  expect(screen.getByText(/para ajustarlas en un año específico, edita el curso en Plan de estudios/i)).toBeTruthy();
   expect(rows()).toEqual([
     "CienciaCIE | 1 | Indaga con métodos científicosC3",
     "MatemáticaMAT | 1 | Resuelve problemas de cantidadC1",
@@ -70,7 +95,7 @@ test("Lista las asociaciones vigentes por curso y orden, y filtra por curso", as
   ]);
   await user.selectOptions(screen.getByLabelText("Filtrar por curso"), "1");
   expect(rows()).toHaveLength(2);
-  expect(screen.getByText(/2 asociaciones/)).toBeTruthy();
+  expect(screen.getByText(/2 competencias base asignadas/)).toBeTruthy();
   expect(calls.find((c) => c.path === "/api/cursos").query).toMatchObject({ size: "1000", sort: "nombre" });
 });
 
@@ -80,10 +105,10 @@ test("Crea una asociación en el curso filtrado con el siguiente orden", async (
   });
   const user = userEvent.setup();
   renderTab();
-  await screen.findByText(/3 asociaciones/);
+  await screen.findByText(/3 competencias base asignadas/);
   await user.selectOptions(screen.getByLabelText("Filtrar por curso"), "1");
-  await user.click(screen.getByText("+ Nueva asociación"));
-  const dialog = screen.getByRole("dialog", { name: "Nueva asociación" });
+  await user.click(screen.getByRole("button", { name: "Agregar competencia base" }));
+  const dialog = screen.getByRole("dialog", { name: "Agregar competencia base" });
   expect(within(dialog).getByLabelText(/^Curso/).value).toBe("1");
   const competencySelect = within(dialog).getByLabelText(/^Competencia/);
   expect([...competencySelect.options].map((o) => o.textContent)).toEqual([
@@ -92,9 +117,9 @@ test("Crea una asociación en el curso filtrado con el siguiente orden", async (
   ]);
   expect(within(dialog).getByLabelText(/^Orden en el curso/).value).toBe("3");
   await user.selectOptions(competencySelect, "7");
-  await user.click(within(dialog).getByRole("button", { name: "Asociar competencia" }));
+  await user.click(within(dialog).getByRole("button", { name: "Agregar competencia" }));
   expect(
-    await screen.findByText("Indaga con métodos científicos asociada a Matemática en el orden 3."),
+    await screen.findByText("Indaga con métodos científicos quedó como competencia base de Matemática en el orden 3."),
   ).toBeTruthy();
   expect(calls.find((c) => c.method === "POST").body).toEqual({
     cursoId: 1,
@@ -113,14 +138,14 @@ test("Sin curso elegido la competencia espera y un curso completo lo explica", a
   });
   const user = userEvent.setup();
   renderTab();
-  await screen.findByText(/3 asociaciones/);
-  await user.click(screen.getByText("+ Nueva asociación"));
+  await screen.findByText(/3 competencias base asignadas/);
+  await user.click(screen.getByRole("button", { name: "Agregar competencia base" }));
   const dialog = screen.getByRole("dialog");
   const competencySelect = within(dialog).getByLabelText(/^Competencia/);
   expect(competencySelect.disabled).toBe(true);
   expect(within(dialog).getByText("Primero elige el curso")).toBeTruthy();
   await user.selectOptions(within(dialog).getByLabelText(/^Curso/), "1");
-  expect(within(dialog).getByText("El curso ya trabaja todas las competencias activas.")).toBeTruthy();
+  expect(within(dialog).getByText("Todas las competencias activas ya están en la base de este curso.")).toBeTruthy();
   expect(within(dialog).getByLabelText(/^Orden en el curso/).value).toBe("4");
   await user.selectOptions(within(dialog).getByLabelText(/^Curso/), "2");
   expect(within(dialog).getByLabelText(/^Orden en el curso/).value).toBe("1");
@@ -138,7 +163,7 @@ test("Edita el orden enviando la versión y muestra el rechazo del backend", asy
   const user = userEvent.setup();
   renderTab();
   await user.click(await screen.findByLabelText("Editar Resuelve problemas de forma en Matemática"));
-  const dialog = screen.getByRole("dialog", { name: "Editar asociación" });
+  const dialog = screen.getByRole("dialog", { name: "Editar competencia base del curso" });
   const order = within(dialog).getByLabelText(/^Orden en el curso/);
   expect(order.value).toBe("2");
   expect(within(dialog).getByLabelText(/^Competencia/).value).toBe("6");
@@ -163,11 +188,12 @@ test("Quita una competencia del curso", async () => {
   const user = userEvent.setup();
   renderTab();
   await user.click(await screen.findByLabelText("Más acciones para Indaga con métodos científicos en Ciencia"));
-  await user.click(screen.getByRole("menuitem", { name: "Quitar del curso" }));
-  const dialog = screen.getByRole("dialog", { name: "Quitar competencia del curso" });
-  await user.click(within(dialog).getByRole("button", { name: "Quitar del curso" }));
+  await user.click(screen.getByRole("menuitem", { name: "Quitar competencia base" }));
+  const dialog = screen.getByRole("dialog", { name: "Quitar competencia base del curso" });
+  expect(within(dialog).getByText(/Los planes ya guardados conservan sus competencias/)).toBeTruthy();
+  await user.click(within(dialog).getByRole("button", { name: "Quitar competencia base" }));
   expect(
-    await screen.findByText("Indaga con métodos científicos ya no está asociada a Ciencia."),
+    await screen.findByText("Se quitó Indaga con métodos científicos de las competencias base de Ciencia."),
   ).toBeTruthy();
   expect(calls.find((c) => c.method === "DELETE").path).toBe("/api/cursos-competencias/3");
   await waitFor(() =>
@@ -180,9 +206,9 @@ test("Un error al quitar se muestra y Cancelar cierra la ventana", async () => {
   const user = userEvent.setup();
   renderTab();
   await user.click(await screen.findByLabelText("Más acciones para Indaga con métodos científicos en Ciencia"));
-  await user.click(screen.getByRole("menuitem", { name: "Quitar del curso" }));
+  await user.click(screen.getByRole("menuitem", { name: "Quitar competencia base" }));
   const dialog = screen.getByRole("dialog");
-  await user.click(within(dialog).getByRole("button", { name: "Quitar del curso" }));
+  await user.click(within(dialog).getByRole("button", { name: "Quitar competencia base" }));
   expect((await within(dialog).findByRole("alert")).textContent).toBe("No existe la relacion");
   await user.click(within(dialog).getByText("Cancelar"));
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -195,16 +221,16 @@ test("Solo lectura, vacíos y catálogo incompleto", async () => {
   });
   const user = userEvent.setup();
   const { unmount } = renderTab();
-  expect(await screen.findByText("Aún no hay competencias asociadas a los cursos.")).toBeTruthy();
-  expect(screen.getByText("+ Nueva asociación").disabled).toBe(true);
+  expect(await screen.findByText("Aún no hay competencias base asignadas a los cursos.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Agregar competencia base" }).disabled).toBe(true);
   expect(screen.getByText(/registra primero al menos un curso y una competencia/)).toBeTruthy();
   await user.selectOptions(screen.getByLabelText("Filtrar por curso"), "2");
-  expect(screen.getByText("Este curso todavía no tiene competencias asociadas.")).toBeTruthy();
+  expect(screen.getByText("Este curso aún no tiene competencias base.")).toBeTruthy();
   unmount();
   backend();
   renderTab(false);
-  await screen.findByText(/3 asociaciones/);
-  expect(screen.queryByText("+ Nueva asociación")).toBeNull();
+  await screen.findByText(/3 competencias base asignadas/);
+  expect(screen.queryByRole("button", { name: "Agregar competencia base" })).toBeNull();
   expect(screen.queryByText("Acciones")).toBeNull();
 });
 
@@ -218,5 +244,5 @@ test("Un error al cargar se informa y Actualizar reintenta", async () => {
   renderTab();
   expect((await screen.findByRole("alert")).textContent).toBe("No se pudo consultar");
   await user.click(screen.getByText("Actualizar"));
-  expect(await screen.findByText("Aún no hay competencias asociadas a los cursos.")).toBeTruthy();
+  expect(await screen.findByText("Aún no hay competencias base asignadas a los cursos.")).toBeTruthy();
 });

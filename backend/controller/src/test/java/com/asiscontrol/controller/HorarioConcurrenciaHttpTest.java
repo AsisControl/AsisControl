@@ -118,7 +118,7 @@ class HorarioConcurrenciaHttpTest extends ApiIntegrationSupport {
         curso.setGradoAcademico(grade);
         curso.setHorasSemanales(4);
         em.persist(curso);
-        grade.getCursosPlan().add(curso);
+        grade.incluirCurso(curso);
         AsignacionCurso asignacion = new AsignacionCurso();
         asignacion.setCurso(curso);
         asignacion.setSeccion(seccion);
