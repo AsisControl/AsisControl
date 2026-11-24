@@ -40,6 +40,7 @@ const withNotes = (estado) =>
 function backend(routes = {}) {
   return fakeBackend({
     "GET /api/asignaciones-cursos/mias": page([assignment]),
+    "GET /api/evaluaciones/anio-vigente": { anioActivo: assignment.anioAcademico },
     "GET /api/evaluaciones": page([evaluation()]),
     "GET /api/evaluaciones/:id": evaluation(),
     "GET /api/evaluaciones/:id/planilla": sheet(),
