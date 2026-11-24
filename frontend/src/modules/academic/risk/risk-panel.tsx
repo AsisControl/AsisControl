@@ -47,7 +47,7 @@ export function RiskPanel({ canWrite }: { canWrite: boolean }) {
             <tbody>{list.data.content.map((alert) => <tr key={alert.id}>
               <td>{alert.nombreAlumno}</td><td>{alert.periodo ?? "—"}</td><td>{stateLabel(alert.indicador)}</td>
               <td>{levels[alert.nivelRiesgo]}</td><td><StatusPill state={alert.estado} label={states[alert.estado]} /></td>
-              <td><button className="secondary-action" aria-label={`Ver alerta de ${alert.nombreAlumno}: ${alert.nombreCriterio}`}
+              <td className={styles.actions}><button type="button" className={styles.detailButton} aria-label={`Ver alerta de ${alert.nombreAlumno}: ${alert.nombreCriterio}`}
                 onClick={() => setSelected(alert.id)}>Ver detalle</button></td>
             </tr>)}</tbody>
           </table>

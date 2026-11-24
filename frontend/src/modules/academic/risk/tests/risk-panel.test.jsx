@@ -49,3 +49,31 @@ test("el modo de consulta no ofrece acciones de escritura", async () => {
   await screen.findByText("No hay evaluaciones registradas para esta alerta.");
   expect(screen.queryByLabelText("Nuevo estado")).toBeNull();
 });
+
+test.each([
+  ["EN_RIESGO", "En riesgo"],
+  ["SIN_RIESGO", "Sin riesgo"],
+  ["DATOS_INSUFICIENTES", "Datos insuficientes"],
+])("evalúa un estudiante y muestra el resultado %s", async (resultado, label) => {
+  const user = userEvent.setup();
+  const calls = fakeBackend({
+    "GET /api/alertas-riesgo": page([]),
+    "GET /api/alumnos": page([{ id: 15, activo: true, codigoAlumno: "EST015",
+      persona: { nombres: "Eva", apellidoPaterno: "Flores" } }]),
+    "GET /api/configuracion-academica/anios": page([{ id: 6, anio: 2026,
+      periodos: [{ id: 21, nombre: "Primer bimestre" }] }]),
+    "POST /api/evaluaciones-riesgo": { resultado, reglas: [
+      { idCriterio: 2, nombreCriterio: "Asistencia", resultado, motivo: "Resultado del indicador" },
+    ] },
+  });
+  render(<RiskPanel canWrite />);
+  await user.click(screen.getByRole("button", { name: "Evaluar riesgo" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Evaluar riesgo" }));
+  await dialog.findByRole("option", { name: /EST015/ });
+  await user.selectOptions(dialog.getByLabelText("Estudiante"), "15");
+  await user.selectOptions(dialog.getByLabelText("Año académico"), "2026");
+  await user.selectOptions(dialog.getByLabelText("Período"), "21");
+  await user.click(dialog.getByRole("button", { name: "Ejecutar evaluación" }));
+  expect(await dialog.findByText(label, { selector: "strong" })).toBeTruthy();
+  expect(calls.find(({ method }) => method === "POST").body).toEqual({ idAlumno: 15, idPeriodo: 21 });
+});
