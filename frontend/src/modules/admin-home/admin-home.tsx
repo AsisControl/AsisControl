@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, Loading, PageHeader } from "@/shared/ui";
+import { Feedback, HomeIndicatorsSkeleton, Loading, PageHeader } from "@/shared/ui";
 import { timeLabel } from "@/shared/lib/formatters";
 import { destinoDeIndicador } from "./indicador-destinos";
 import { obtenerPanelIndicadores, type PanelIndicadores } from "@/core/api/dashboard";
-import { DashboardIndicators, IndicadoresSkeleton } from "@/shared/ui/dashboard-indicators";
+import { DashboardIndicators } from "@/shared/ui/dashboard-indicators";
 import styles from "./admin-home.module.css";
 
 function fechaLarga() {
@@ -63,7 +63,7 @@ export function AdminHome({ fullName, quickActions }: { fullName: string; quickA
         }
       />
       <Feedback error={error} />
-      {!panel && !error && <Loading skeleton={<IndicadoresSkeleton cantidad={6} />}>Cargando el panel…</Loading>}
+      {!panel && !error && <Loading skeleton={<HomeIndicatorsSkeleton count={6} />}>Cargando el panel…</Loading>}
       {panel && !panel.indicadores.length && <p className={styles.vacio}>No hay indicadores disponibles.</p>}
       {panel && panel.indicadores.length > 0 && (
         <DashboardIndicators indicadores={panel.indicadores} destino={destinoDeIndicador} />

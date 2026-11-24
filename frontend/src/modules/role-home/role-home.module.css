@@ -1,0 +1,39 @@
+.studentSelect { display: flex; align-items: center; gap: 10px; color: #475569; font-size: 13px; font-weight: 600; }
+.studentSelect select { max-width: 250px; min-width: 180px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 9px 12px; background: #fff; color: #0f172a; font: inherit; }
+.guardianColumns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stack { display: grid; gap: 16px; }
+.empty { color: #64748b; font-size: 13px; line-height: 1.5; margin: 16px 0 4px; }
+.classRow { display: flex; justify-content: space-between; gap: 10px; padding: 13px; margin-top: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.classActive { background: #f0fdf4; border-color: #86efac; }
+.classRow strong, .task strong, .obligation strong, .absence strong, .reportRow strong { display: block; font-size: 13px; line-height: 1.4; }
+.classRow span, .task span, .obligation span, .absence span, .reportRow span { color: #64748b; font-size: 12px; }
+.classTime { display: grid; align-content: start; justify-items: end; gap: 5px; flex: none; }
+.classTime time { color: #475569; font-size: 12px; white-space: nowrap; }
+.classTime em { border-radius: 999px; background: #dcfce7; color: #15803d; font-size: 10px; font-style: normal; font-weight: 700; padding: 3px 7px; }
+.task { display: grid; gap: 5px; margin-top: 10px; padding: 13px; border: 1px solid #e2e8f0; border-radius: 9px; }
+.task .subject { color: #1d4ed8; font-weight: 700; }
+.task .due { color: #b45309; }
+.task a { margin-top: 4px; }
+.reportList { display: grid; }
+.reportRow, .absence { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.reportRow:last-child, .absence:last-child { border-bottom: 0; }
+.reportRow div, .absence div { display: grid; gap: 3px; }
+.published { border-radius: 999px; background: #eff6ff; color: #1d4ed8 !important; font-size: 10px !important; font-weight: 700; padding: 4px 7px; white-space: nowrap; }
+.attendanceStats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.attendanceStats span { display: grid; justify-items: center; gap: 4px; color: #64748b; font-size: 11px; text-align: center; }
+.attendanceStats strong { color: #0f172a; font-size: 20px; }
+.attendanceStats span:nth-child(1) strong { color: #16a34a; }
+.attendanceStats span:nth-child(2) strong { color: #d97706; }
+.attendanceStats span:nth-child(3) strong { color: #dc2626; }
+.studentName { color: #64748b; font-size: 12px; margin: -8px 0 14px; }
+.obligation { display: grid; gap: 5px; margin-top: 10px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.obligation div { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 5px; }
+.obligation b { color: #b45309; font-size: 16px; }
+.obligation em, .absence em { background: #fef3c7; border-radius: 999px; color: #92400e; font-size: 10px; font-style: normal; font-weight: 700; padding: 4px 8px; text-transform: capitalize; white-space: nowrap; }
+.absence em { background: #fef2f2; color: #b91c1c; }
+.primaryLink { display: block; margin-top: 18px; padding: 10px; border-radius: 7px; background: #1e3a8a; color: white; text-align: center; text-decoration: none; font-size: 12px; font-weight: 700; }
+.primaryLink:hover { background: #1d4ed8; }
+.updated { color: #94a3b8; font-size: 12px; }
+.familySummary { display: grid; gap: 10px; margin-bottom: 16px; }
+.familySummary h2 { font-size: 16px; margin: 0; }
+@media (max-width: 650px) { .studentSelect { align-items: stretch; flex-direction: column; } .studentSelect select { max-width: none; width: 100%; } }

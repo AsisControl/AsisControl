@@ -400,6 +400,11 @@ test("Edita un bloque enviando su versión y avisa si otro usuario lo cambió", 
   // El propio bloque no cuenta como conflicto.
   expect(await within(dialog).findByText("Sin conflictos de docente, aula, sección ni aforo.")).toBeTruthy();
   await user.click(within(dialog).getByText("Guardar cambios"));
+  expect(within(dialog).getByText("Indique el motivo del cambio.")).toBeTruthy();
+  expect(calls.some((c) => c.method === "PUT")).toBe(false);
+  await user.type(within(dialog).getByLabelText(/^Motivo del cambio/), "  Cambio de hora  ");
+  expect(within(dialog).queryByText("Indique el motivo del cambio.")).toBeNull();
+  await user.click(within(dialog).getByText("Guardar cambios"));
   expect(await within(dialog).findByText(/^Bloque modificado por otro usuario:/)).toBeTruthy();
   await waitFor(() => expect(horarioCalls(calls, (q) => q.seccionId === "8")).toHaveLength(2));
   stale = false;
@@ -407,8 +412,27 @@ test("Edita un bloque enviando su versión y avisa si otro usuario lo cambió", 
   expect(await screen.findByText("Bloque de Matemática actualizado: Lunes 08:00 – 10:00.")).toBeTruthy();
   expect(calls.filter((c) => c.method === "PUT").at(-1)).toMatchObject({
     path: "/api/horarios/1",
-    body: { asignacionCursoId: 10, aulaId: 1, diaSemana: "LUNES", horaInicio: "08:00", horaFin: "10:00", version: 3 },
+    body: { asignacionCursoId: 10, aulaId: 1, diaSemana: "LUNES", horaInicio: "08:00", horaFin: "10:00", version: 3, motivo: "Cambio de hora" },
   });
+});
+
+test("Muestra junto al campo el rechazo del motivo que devuelve el servidor", async () => {
+  backend({
+    "PUT /api/horarios/:id": () =>
+      reply(400, {
+        code: "DATOS_INVALIDOS",
+        message: "La solicitud contiene datos invalidos",
+        fieldErrors: [{ field: "motivo", message: "El motivo no puede superar 700 caracteres" }],
+      }),
+  });
+  const user = userEvent.setup();
+  renderTimetable();
+  await grid();
+  await chooseBlockAction(user, "Matemática Lunes 08:00", "Editar");
+  const dialog = screen.getByRole("dialog", { name: "Editar bloque" });
+  await user.type(within(dialog).getByLabelText(/^Motivo del cambio/), "Cambio de aula");
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  expect(await within(dialog).findByText("El motivo no puede superar 700 caracteres")).toBeTruthy();
 });
 
 test("No permite guardar un bloque cuyo aula o asignación ya no está disponible", async () => {
@@ -424,6 +448,7 @@ test("No permite guardar un bloque cuyo aula o asignación ya no está disponibl
   const list = within(dialog).getByRole("alert", { name: "Conflictos detectados" });
   expect(list.textContent).toContain("Aula 500 está inhabilitada; elige otra aula.");
   expect(list.textContent).toContain("La asignación de Música con Ana Ruiz ya no está activa.");
+  await user.type(within(dialog).getByLabelText(/^Motivo del cambio/), "Cambio de aula");
   await user.click(within(dialog).getByText("Guardar cambios"));
   expect(within(dialog).getByText("Resuelve los conflictos antes de confirmar el bloque.")).toBeTruthy();
   expect(calls.some((c) => c.method === "PUT")).toBe(false);
@@ -431,7 +456,7 @@ test("No permite guardar un bloque cuyo aula o asignación ya no está disponibl
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-test("Elimina un bloque y muestra el rechazo del servidor", async () => {
+test("Retira un bloque con su motivo y muestra el rechazo del servidor", async () => {
   let missing = true;
   const calls = backend({
     "DELETE /api/horarios/:id": () =>
@@ -440,15 +465,22 @@ test("Elimina un bloque y muestra el rechazo del servidor", async () => {
   const user = userEvent.setup();
   renderTimetable();
   await grid();
-  await chooseBlockAction(user, "Comunicación Martes 08:00", "Eliminar");
-  const dialog = screen.getByRole("dialog", { name: "Eliminar bloque" });
+  await chooseBlockAction(user, "Comunicación Martes 08:00", "Retirar");
+  const dialog = screen.getByRole("dialog", { name: "Retirar bloque" });
   expect(within(dialog).getByText("Comunicación · Martes 08:00 – 09:30")).toBeTruthy();
-  await user.click(within(dialog).getByText("Eliminar bloque", { selector: "button" }));
+  await user.type(within(dialog).getByLabelText(/^Motivo del retiro/), "   ");
+  await user.click(within(dialog).getByText("Retirar bloque", { selector: "button" }));
+  expect(within(dialog).getByText("Indique el motivo del retiro.")).toBeTruthy();
+  expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+  await user.type(within(dialog).getByLabelText(/^Motivo del retiro/), "Cambio de malla");
+  await user.click(within(dialog).getByText("Retirar bloque", { selector: "button" }));
   expect(await within(dialog).findByText("No existe un horario activo con id 3")).toBeTruthy();
   missing = false;
-  await user.click(within(dialog).getByText("Eliminar bloque", { selector: "button" }));
-  expect(await screen.findByText("Bloque de Comunicación eliminado.")).toBeTruthy();
-  expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual(["/api/horarios/3", "/api/horarios/3"]);
+  await user.click(within(dialog).getByText("Retirar bloque", { selector: "button" }));
+  expect(await screen.findByText("Bloque de Comunicación retirado.")).toBeTruthy();
+  const deletes = calls.filter((c) => c.method === "DELETE");
+  expect(deletes.map((c) => c.path)).toEqual(["/api/horarios/3", "/api/horarios/3"]);
+  expect(deletes.at(-1).body).toEqual({ motivo: "Cambio de malla" });
 });
 
 test("Avisa si la sección no tiene asignaciones y enlaza a la pestaña donde se registran", async () => {

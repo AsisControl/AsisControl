@@ -3,3 +3,4 @@ export { Schedules } from "./schedules";
 export { TeacherSchedule } from "./teacher/teacher-schedule";
 export { StudentSchedule } from "./student/student-schedule";
 export type { Classroom, ClassroomSchedule } from "./types";
+export type { ScheduleBlock } from "./types";

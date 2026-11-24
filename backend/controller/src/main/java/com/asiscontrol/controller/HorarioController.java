@@ -4,6 +4,7 @@ import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarHorarioRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearHorarioRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
+import com.asiscontrol.dto.academico.AcademicoDtos.RetirarHorarioRequest;
 import com.asiscontrol.dto.academico.HistorialHorarioDtos.FiltroHistorialHorario;
 import com.asiscontrol.dto.academico.HistorialHorarioDtos.HistorialHorarioResponse;
 import com.asiscontrol.service.HistorialHorarioService;
@@ -111,10 +112,13 @@ public class HorarioController {
                 anioAcademico, seccionId, docenteId, aulaId, cursoId, pageable);
     }
 
+    /** US-27: el retiro recibe el motivo en el cuerpo, como DELETE /api/tareas/{id}. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR') and !hasRole('ALUMNO')")
-    public void eliminar(@PathVariable Long id) {
-        horarioService.eliminar(id);
+    public void eliminar(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) RetirarHorarioRequest request) {
+        horarioService.eliminar(id, request == null ? null : request.motivo());
     }
 }

@@ -22,6 +22,7 @@ function renderShell(role = "DOCENTE", granted = permissions) {
     "GET /api/auth/me": { id: 1, username: "ana", nombreCompleto: "Ana Ramos", rol: role === "ESTUDIANTE" ? "ALUMNO" : role,
       permisos: granted, requiereCambioContrasena: false },
     "GET /api/asignaciones-cursos/mias": page([]),
+    "GET /api/familia/estudiantes": [],
     "GET /api/dashboard": { indicadores: [
       { codigo: "ESTUDIANTES_VINCULADOS", etiqueta: "Estudiantes vinculados", valor: 2, tono: "neutral" },
       { codigo: "PAGOS_PENDIENTES", etiqueta: "Pagos pendientes", valor: 3, tono: "warning" },
@@ -58,11 +59,16 @@ test.each([
   expect(screen.queryByRole("complementary", { name: "Espacio del usuario" })).toBeNull();
   const mainNav = screen.getByRole("navigation", { name: "Navegación principal" });
   expect(within(mainNav).getAllByRole("button").map((button) => button.textContent)).toEqual(roleDetails[role].nav);
-  const actions = screen.getByRole("region", { name: "Acciones rápidas" });
-  expect(actions.closest(".home-content")).not.toBeNull();
-  expect(screen.getAllByRole("heading", { name: "Acciones rápidas" })).toHaveLength(1);
-  expect(within(actions).getAllByRole("link")).toHaveLength(shortcuts.length);
-  for (const label of shortcuts) expect(within(actions).getByRole("link", { name: label })).toBeTruthy();
+  if (role === "ESTUDIANTE") {
+    expect(screen.queryByRole("region", { name: "Acciones rápidas" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Bienvenido, Ana Ramos" })).toBeTruthy();
+  } else {
+    const actions = screen.getByRole("region", { name: "Acciones rápidas" });
+    expect(actions.closest(".home-content")).not.toBeNull();
+    expect(screen.getAllByRole("heading", { name: "Acciones rápidas" })).toHaveLength(1);
+    expect(within(actions).getAllByRole("link")).toHaveLength(shortcuts.length);
+    for (const label of shortcuts) expect(within(actions).getByRole("link", { name: label })).toBeTruthy();
+  }
   expect(screen.queryByRole("navigation", { name: /Accesos rápidos|Acciones rápidas/ })).toBeNull();
 });
 

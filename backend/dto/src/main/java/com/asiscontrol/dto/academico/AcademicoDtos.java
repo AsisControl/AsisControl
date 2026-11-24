@@ -239,13 +239,18 @@ public final class AcademicoDtos {
             @NotNull LocalTime horaInicio,
             @NotNull LocalTime horaFin) {}
 
+    /** US-27: toda edicion de un bloque existente exige el motivo, que queda en el historial. */
     public record ActualizarHorarioRequest(
             @NotNull Long asignacionCursoId,
             @NotNull Long aulaId,
             @NotNull DiaSemana diaSemana,
             @NotNull LocalTime horaInicio,
             @NotNull LocalTime horaFin,
-            @NotNull Long version) {}
+            @NotNull Long version,
+            @NotBlank @Size(max = 700) String motivo) {}
+
+    /** US-27: el retiro de un bloque exige el motivo; el servicio lo valida despues de autorizar. */
+    public record RetirarHorarioRequest(@Size(max = 700) String motivo) {}
 
     public record HorarioResponse(
             Long id,

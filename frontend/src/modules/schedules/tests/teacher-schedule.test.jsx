@@ -54,7 +54,7 @@ test("Es de solo lectura: sin crear, editar ni eliminar, y sin escrituras", asyn
   await screen.findByRole("table", { name: "Mi horario semanal" });
   expect(screen.queryByText(/Nuevo bloque/)).toBeNull();
   expect(screen.queryByLabelText(/Más acciones/)).toBeNull();
-  expect(screen.queryByRole("button", { name: /Editar|Eliminar/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Editar|Retirar/ })).toBeNull();
   await userEvent.setup().click(screen.getByRole("button", { name: "Ver detalle de Matemática, Lunes 08:00" }));
   const dialog = screen.getByRole("dialog", { name: "Detalle del bloque" });
   expect(within(dialog).queryByRole("button", { name: /Editar|Eliminar/ })).toBeNull();

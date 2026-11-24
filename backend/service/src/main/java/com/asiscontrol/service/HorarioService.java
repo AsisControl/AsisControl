@@ -91,7 +91,8 @@ public class HorarioService {
         aplicar(horario, asignacion, aula, request.diaSemana(), request.horaInicio(), request.horaFin());
         Horario saved = horarioRepository.save(horario);
         auditoria.registrar("ACTUALIZAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
-                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
+                id.toString(), ResultadoAuditoria.EXITOSO, request.motivo().trim(),
+                anterior, describir(saved));
         eventos.publishEvent(new HorarioAsignacionCambiadoEvent(
                 Set.copyOf(List.of(asignacionAnteriorId, asignacion.getId()))));
         return mapear(saved);
@@ -121,14 +122,19 @@ public class HorarioService {
                 .map(this::mapear).toList();
     }
 
+    /** US-27: retira el bloque (baja logica) y guarda en el historial su ultimo valor y la causa. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public void eliminar(Long id) {
+    public void eliminar(Long id, String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new BusinessRuleException(
+                    "MOTIVO_REQUERIDO", "Indique el motivo del retiro del bloque.", "motivo");
+        }
         Horario horario = obtenerEntidad(id);
         bloquearPlanificacion(horario.getAsignacionCurso().getSeccion().getAnioAcademico());
         horario.setActivo(false);
         horarioRepository.save(horario);
         auditoria.registrar("ELIMINAR_HORARIO", ModuloAuditoria.HORARIOS, "Horario",
-                id.toString(), ResultadoAuditoria.EXITOSO, null, describir(horario), null);
+                id.toString(), ResultadoAuditoria.EXITOSO, motivo.trim(), describir(horario), null);
         eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(horario.getAsignacionCurso().getId())));
     }
 

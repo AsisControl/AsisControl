@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, PanelHeading, Loading } from "@/shared/ui";
+import { Feedback, FormDialog, PanelHeading, Loading, ReasonField } from "@/shared/ui";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { scheduleSlotLabel } from "../lib/labels";
 import {
@@ -21,11 +21,11 @@ import { BlockDetailDialog } from "./block-detail-dialog";
 import { BlockFormDialog } from "./block-form-dialog";
 import { TimetableGrid } from "./timetable-grid";
 import {
-  eliminarHorario,
   listarAsignaciones,
   listarAulasHabilitadas,
   listarHorarios,
   listarSeccionesActivas,
+  retirarHorario,
 } from "./services/horarioService";
 type BlockDialog =
   | { kind: "create" }
@@ -173,11 +173,16 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   async function remove(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (dialog?.kind !== "delete") return;
+    const motivo = String(new FormData(event.currentTarget).get("motivo") ?? "").trim();
+    if (!motivo) {
+      setError("Indique el motivo del retiro.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await eliminarHorario(dialog.block.id);
-      finish(`Bloque de ${dialog.block.curso} eliminado.`);
+      await retirarHorario(dialog.block.id, motivo);
+      finish(`Bloque de ${dialog.block.curso} retirado.`);
     } catch (e) {
       setError(serverConflict(e)?.detail ?? message(e));
       refresh();
@@ -384,9 +389,9 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
       )}
       {dialog?.kind === "delete" && (
         <FormDialog
-          title="Eliminar bloque"
+          title="Retirar bloque"
           description={`${dialog.block.curso} · ${scheduleSlotLabel(dialog.block)}`}
-          submitLabel="Eliminar bloque"
+          submitLabel="Retirar bloque"
           danger
           busy={busy}
           error={error}
@@ -397,6 +402,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
             El bloque de {dialog.block.curso} con {dialog.block.docente} en{" "}
             {dialog.block.aula} dejará de aparecer en el horario de la sección.
           </p>
+          <ReasonField label="Motivo del retiro" />
         </FormDialog>
       )}
     </section>
