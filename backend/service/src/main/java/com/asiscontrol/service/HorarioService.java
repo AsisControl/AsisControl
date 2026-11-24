@@ -156,7 +156,7 @@ public class HorarioService {
         AsignacionCurso asignacion = horario.getAsignacionCurso();
         return "asignacionCursoId=" + asignacion.getId()
                 + ",cursoId=" + asignacion.getCurso().getId()
-                + ",curso=" + asignacion.getCurso().getNombre()
+                + ",curso=" + asignacion.nombreCurso()
                 + ",seccionId=" + asignacion.getSeccion().getId()
                 + ",seccion=" + AsignacionCursoService.etiquetaSeccion(asignacion.getSeccion())
                 + ",anio=" + asignacion.getSeccion().getAnioAcademico()
@@ -273,7 +273,7 @@ public class HorarioService {
     }
 
     private String describirConflicto(Horario horario) {
-        return "bloque #" + horario.getId() + ", " + horario.getAsignacionCurso().getCurso().getNombre()
+        return "bloque #" + horario.getId() + ", " + horario.getAsignacionCurso().nombreCurso()
                 + ", sección " + horario.getAsignacionCurso().getSeccion().getNombre()
                 + ", " + horario.getAula().getNombre() + ", " + horario.getDiaSemana()
                 + " de " + horario.getHoraInicio() + " a " + horario.getHoraFin();
@@ -297,7 +297,7 @@ public class HorarioService {
         AsignacionCurso asignacion = horario.getAsignacionCurso();
         return new HorarioResponse(
                 horario.getId(), asignacion.getId(), asignacion.getCurso().getId(),
-                asignacion.getCurso().getNombre(), asignacion.getSeccion().getId(),
+                asignacion.nombreCurso(), asignacion.getSeccion().getId(),
                 asignacion.getSeccion().getNombre(), asignacion.getDocente().getId(),
                 asignacion.getDocente().getPersona().nombreCompleto(), horario.getAula().getId(),
                 horario.getAula().getNombre(), horario.getDiaSemana(), horario.getHoraInicio(),

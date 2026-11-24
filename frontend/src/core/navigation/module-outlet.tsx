@@ -108,7 +108,9 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
-    Inicio: () => <GuardianHome />,
+    Inicio: ({ user }) => (
+      <GuardianHome key={user.id} user={user} quickActions={<HomeQuickActions user={user} />} />
+    ),
     Pagos: () => <GuardianPayments />,
     Progreso: ({ user }) => <ProgressReports key={user.id} guardian />,
     Matrícula: ({ user, subpath: [tab] }) => (

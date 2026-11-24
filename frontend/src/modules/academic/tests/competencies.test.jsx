@@ -64,6 +64,33 @@ test("Lista competencias con descripción y cantidad de cursos", async () => {
   expect(screen.getByText(/2 competencias en el sistema/)).toBeTruthy();
 });
 
+test("Permite escoger y quitar un Excel y rechaza archivos de otro formato", async () => {
+  const calls = backend({
+    "POST /api/competencias/importaciones": { total: 1, validas: 1, creadas: 0, omitidas: [], errores: [] },
+  });
+  const user = userEvent.setup({ applyAccept: false });
+  renderTab();
+  await user.click(await screen.findByRole("button", { name: "Importar Excel" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Importar competencias" }));
+  const input = dialog.getByLabelText("Archivo Excel de competencias");
+  const activateInput = vi.spyOn(input, "click");
+  const choose = dialog.getByRole("button", { name: "Seleccionar archivo Excel" });
+  choose.focus();
+  await user.keyboard("{Enter}");
+  expect(activateInput).toHaveBeenCalledOnce();
+
+  await user.upload(input, new File(["datos"], "competencias.csv"));
+  expect(dialog.getByText("El archivo debe tener formato .xlsx.")).toBeTruthy();
+  expect(dialog.getByRole("button", { name: "Revisar archivo" }).disabled).toBe(true);
+  await user.upload(input, new File(["datos"], "competencias.xlsx"));
+  expect(dialog.getByRole("status").textContent).toBe("competencias.xlsx");
+  await user.click(dialog.getByRole("button", { name: "Revisar archivo" }));
+  expect(await dialog.findByText(/1 lista para importar/)).toBeTruthy();
+  expect(calls.find((call) => call.method === "POST").query).toEqual({ confirmar: "false" });
+  await user.click(dialog.getByRole("button", { name: "Quitar competencias.xlsx" }));
+  expect(dialog.getByRole("button", { name: "Revisar archivo" }).disabled).toBe(true);
+});
+
 test("Busca con el parámetro busqueda del backend", async () => {
   const calls = backend();
   const user = userEvent.setup();

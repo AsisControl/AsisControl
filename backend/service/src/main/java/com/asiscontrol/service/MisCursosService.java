@@ -3,8 +3,8 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.academico.MisCursosDtos.CursoInscrito;
 import com.asiscontrol.dto.academico.MisCursosDtos.MisCursosResponse;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.CursoPlan;
 import com.asiscontrol.entity.AsignacionCurso;
-import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.Seccion;
@@ -72,7 +72,7 @@ public class MisCursosService {
         Collator collator = Collator.getInstance(Locale.of("es"));
         List<CursoInscrito> cursos = planEstudiosService
                 .cursosDelPlan(seccion.getAnioAcademico(), seccion.getGrado()).stream()
-                .sorted(Comparator.comparing(Curso::getNombre, collator))
+                .sorted(Comparator.comparing(CursoPlan::nombre, collator))
                 .map(curso -> inscrito(curso, seccion))
                 .toList();
         return new MisCursosResponse(
@@ -81,12 +81,12 @@ public class MisCursosService {
                 cursos);
     }
 
-    private CursoInscrito inscrito(Curso curso, Seccion seccion) {
+    private CursoInscrito inscrito(CursoPlan curso, Seccion seccion) {
         AsignacionCurso asignacion = asignacionRepository
-                .findByCursoIdAndSeccionIdAndActivoTrue(curso.getId(), seccion.getId())
+                .findByCursoIdAndSeccionIdAndActivoTrue(curso.id(), seccion.getId())
                 .orElse(null);
         if (asignacion == null) {
-            return new CursoInscrito(curso.getId(), curso.getNombre(), null, null, null);
+            return new CursoInscrito(curso.id(), curso.nombre(), null, null, null);
         }
         List<Horario> bloques = horarioService.listarActivosPorAsignacion(asignacion.getId()).stream()
                 .sorted(Comparator.comparing(Horario::getDiaSemana).thenComparing(Horario::getHoraInicio))
@@ -99,8 +99,8 @@ public class MisCursosService {
                 .distinct()
                 .collect(Collectors.joining(", "));
         return new CursoInscrito(
-                curso.getId(),
-                curso.getNombre(),
+                curso.id(),
+                curso.nombre(),
                 asignacion.getDocente().getPersona().nombreCompleto(),
                 horario,
                 aula);

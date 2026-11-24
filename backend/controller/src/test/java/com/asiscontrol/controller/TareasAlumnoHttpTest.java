@@ -41,20 +41,23 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
     }
 
     @Test void listaSoloTareasVisiblesDelAlumnoConFiltrosYPaginacion() throws Exception {
+        grade.getCursosPlan().put(course, new CursoEnPlan("Matemática y razonamiento", 4));
         task("Borrador", EstadoPublicacionTarea.BORRADOR);
         var published = task("Fracciones", EstadoPublicacionTarea.PUBLICADA);
         task("Ecuaciones", EstadoPublicacionTarea.PUBLICADA);
         var scheduled = task("Futura", EstadoPublicacionTarea.PUBLICADA);
-        scheduled.setFechaPublicacion(LocalDateTime.now().plusDays(1)); em.flush();
+        scheduled.setFechaPublicacion(LocalDateTime.now().plusDays(1)); em.flush(); em.clear();
         mvc.perform(get("/api/alumnos/me/tareas?size=1&sort=nombre").with(asStudent(student)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.content.length()").value(1));
         mvc.perform(get("/api/alumnos/me/tareas?busqueda=Fracciones&entregada=false").with(asStudent(student)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].tarea.id").value(published.getId()))
                 .andExpect(jsonPath("$.content[0].alumnoId").value(student.getId()))
-                .andExpect(jsonPath("$.content[0].curso").value(course.getNombre()))
+                .andExpect(jsonPath("$.content[0].curso").value("Matemática y razonamiento"))
                 .andExpect(jsonPath("$.content[0].docente").value("Persona Prueba Sistema"))
                 .andExpect(jsonPath("$.content[0].entrega").isEmpty());
+        mvc.perform(get("/api/alumnos/me/tareas?busqueda=razonamiento").with(asStudent(student)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
         var other = new Alumno(); other.setPersona(person()); other.setCodigoAlumno("OTRO" + key()); em.persist(other); em.flush();
         mvc.perform(get("/api/alumnos/me/tareas?alumnoId=" + student.getId()).with(asStudent(other)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));

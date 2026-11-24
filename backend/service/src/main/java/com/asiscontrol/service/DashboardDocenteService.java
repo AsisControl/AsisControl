@@ -126,7 +126,7 @@ public class DashboardDocenteService {
                     return new ClaseHoyResponse(
                             sesion.getId(),
                             asignacion.getId(),
-                            asignacion.getCurso().getNombre(),
+                            asignacion.nombreCurso(),
                             seccion(asignacion.getSeccion()),
                             sesion.getHorario().getAula().getNombre(),
                             sesion.getHoraInicio(),
@@ -160,13 +160,13 @@ public class DashboardDocenteService {
     private List<PendienteResponse> tareasPorCalificar(
             Long personaId, LocalDateTime ahora, Map<Integer, Boolean> aniosActivos) {
         List<Object[]> filas = em.createQuery("""
-                        SELECT t.id, t.nombre, t.fechaLimite, a.id, c.nombre, s.grado, s.nombre,
+                        SELECT t.id, t.nombre, t.fechaLimite, a.id, max(coalesce(a.nombreCursoPlan, c.nombre)), s.grado, s.nombre,
                                s.anioAcademico, COUNT(e)
                         FROM EntregaTarea e
                         JOIN e.tarea t JOIN t.asignacionCurso a JOIN a.curso c JOIN a.seccion s
                         WHERE e.activo = true AND t.activo = true AND a.activo = true
                           AND a.docente.persona.id = :personaId AND e.estado IN :estados
-                        GROUP BY t.id, t.nombre, t.fechaLimite, a.id, c.nombre, s.grado, s.nombre,
+                        GROUP BY t.id, t.nombre, t.fechaLimite, a.id, s.grado, s.nombre,
                                  s.anioAcademico
                         """, Object[].class)
                 .setParameter("personaId", personaId)
@@ -227,7 +227,7 @@ public class DashboardDocenteService {
                     evaluacion.getId(),
                     asignacion.getId(),
                     evaluacion.getTitulo(),
-                    asignacion.getCurso().getNombre() + " · " + seccion(asignacion.getSeccion()),
+                    asignacion.nombreCurso() + " · " + seccion(asignacion.getSeccion()),
                     faltantes,
                     evaluacion.getFechaEvaluacion().isBefore(hoy) ? Prioridad.ALTA : Prioridad.MEDIA));
         }

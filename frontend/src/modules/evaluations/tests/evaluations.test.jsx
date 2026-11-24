@@ -34,14 +34,9 @@ function backend(routes = {}) {
   return fakeBackend({
     "GET /api/asignaciones-cursos/mias": page([assignment]),
     "GET /api/evaluaciones": page([evaluation()]),
+    "GET /api/evaluaciones/competencias": competencies,
     "GET /api/evaluaciones/:id": evaluation(),
     "GET /api/evaluaciones/:id/planilla": sheet(),
-    "GET /api/cursos-competencias": page([
-      { cursoId: 100, competenciaId: 1, competenciaNombre: "Resuelve problemas", orden: 1, activo: true },
-      { cursoId: 100, competenciaId: 2, competenciaNombre: "Razona en geometría", orden: 2, activo: true },
-      { cursoId: 200, competenciaId: 3, competenciaNombre: "Otro curso", orden: 1, activo: true },
-      { cursoId: 100, competenciaId: 4, competenciaNombre: "Retirada", orden: 3, activo: false },
-    ]),
     "GET /api/calificaciones/consolidados": [],
     ...routes,
   });
@@ -123,7 +118,7 @@ test("Nueva evaluación pide los datos, ofrece solo competencias del curso y va 
   render(<Evaluations canWrite />);
   await user.click(await screen.findByRole("button", { name: "+ Nueva evaluación" }));
   const dialog = screen.getByRole("dialog", { name: "Nueva evaluación" });
-  expect(within(dialog).getByText("Selecciona un curso para ver las competencias disponibles.")).toBeTruthy();
+  expect(within(dialog).getByText("Selecciona un curso y una sección para ver las competencias del plan.")).toBeTruthy();
   await user.click(within(dialog).getByRole("button", { name: "Crear evaluación" }));
   expect(within(dialog).getByText("Escribe el nombre de la evaluación.")).toBeTruthy();
   expect(within(dialog).getByText("Selecciona al menos una competencia.")).toBeTruthy();
@@ -135,6 +130,7 @@ test("Nueva evaluación pide los datos, ofrece solo competencias del curso y va 
   await user.selectOptions(within(dialog).getByLabelText(/^Curso/), "100");
   await user.selectOptions(within(dialog).getByLabelText(/^Sección/), "8");
   await user.click(await within(dialog).findByLabelText("Resuelve problemas"));
+  expect(calls.find(c => c.path === "/api/evaluaciones/competencias").query).toEqual({ idAsignacionCurso: "5" });
   expect(within(dialog).queryByLabelText("Otro curso")).toBeNull();
   expect(within(dialog).queryByLabelText("Retirada")).toBeNull();
   await user.click(within(dialog).getByRole("button", { name: "Crear evaluación" }));

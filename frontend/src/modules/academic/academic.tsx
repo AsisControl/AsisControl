@@ -11,7 +11,7 @@ const tabs: TabItem[] = [
   { id: "cursos", label: "Cursos" },
   { id: "plan-estudios", label: "Plan de estudios" },
   { id: "competencias", label: "Competencias" },
-  { id: "asociaciones", label: "Asociaciones" },
+  { id: "asociaciones", label: "Competencias base" },
   { id: "reglas-academicas", label: "Reglas académicas" },
   { id: "estudiantes-en-riesgo", label: "Estudiantes en riesgo" },
   { id: "evaluaciones", label: "Evaluaciones" },
@@ -45,7 +45,7 @@ export function Academic({
     <section>
       <PageHeader
         title="Gestión Curricular"
-        description="Cursos, competencias, asociaciones y reglas académicas"
+        description="Cursos, planes de estudios, competencias y reglas académicas"
       />
       <TabNav
         label="Secciones de gestión curricular"

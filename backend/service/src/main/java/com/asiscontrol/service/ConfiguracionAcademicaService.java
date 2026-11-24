@@ -29,6 +29,7 @@ public class ConfiguracionAcademicaService {
     private final MatriculaRepository matriculas;
     private final SolicitudMatriculaRepository solicitudes;
     private final CursoRepository cursos;
+    private final PlanEstudiosService planes;
     private final DiaNoLectivoRepository diasNoLectivos;
     private final AuditoriaService auditoria;
 
@@ -40,6 +41,7 @@ public class ConfiguracionAcademicaService {
             MatriculaRepository matriculas,
             SolicitudMatriculaRepository solicitudes,
             CursoRepository cursos,
+            PlanEstudiosService planes,
             DiaNoLectivoRepository diasNoLectivos,
             AuditoriaService auditoria) {
         this.anios = anios;
@@ -49,6 +51,7 @@ public class ConfiguracionAcademicaService {
         this.matriculas = matriculas;
         this.solicitudes = solicitudes;
         this.cursos = cursos;
+        this.planes = planes;
         this.diasNoLectivos = diasNoLectivos;
         this.auditoria = auditoria;
     }
@@ -94,7 +97,9 @@ public class ConfiguracionAcademicaService {
                 rechazarConflicto("ANIO_ACTIVO_EXISTENTE", "Ya existe un año académico activo");
             for (var grado : grados.findByAnioAcademicoAnioOrderByNumero(numero)) {
                 if (!grado.isActivo() || grado.isPlanDefinido()) continue;
-                grado.getCursosPlan().addAll(cursos.findAllByGradoAcademicoIdAndActivoTrue(grado.getId()));
+                cursos.findAllByGradoAcademicoIdAndActivoTrue(grado.getId()).forEach(grado::incluirCurso);
+                var cursosIds = grado.getCursosPlan().keySet().stream().map(Curso::getId).toList();
+                planes.competenciasBase(cursosIds).forEach(grado::definirCompetencias);
                 grado.setPlanDefinido(!grado.getCursosPlan().isEmpty());
             }
             anioAcademico.setClaveActiva(1);

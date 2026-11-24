@@ -13,6 +13,7 @@ import com.asiscontrol.entity.Calificacion;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.dto.CompetenciaDto;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.CompetenciaPlan;
 import com.asiscontrol.dto.EvaluacionDto;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Competencia;
@@ -23,7 +24,6 @@ import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsignacionCursoRepository;
 import com.asiscontrol.repository.CompetenciaRepository;
-import com.asiscontrol.repository.CursoCompetenciaRepository;
 import com.asiscontrol.repository.EvaluacionRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,24 +42,26 @@ public class EvaluacionService {
     private final EvaluacionRepository evaluacionRepository;
     private final AsignacionCursoRepository asignacionCursoRepository;
     private final CompetenciaRepository competenciaRepository;
-    private final CursoCompetenciaRepository cursoCompetenciaRepository;
+    private final PlanEstudiosService planes;
     private final CalificacionRepository calificacionRepository;
     private final CorreccionCalificacionRepository correccionRepository;
     private final MatriculaRepository matriculaRepository;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
+    private final AvisosAcademicos avisos;
     private final com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository periodos;
 
     public EvaluacionService(
             EvaluacionRepository evaluacionRepository,
             AsignacionCursoRepository asignacionCursoRepository,
             CompetenciaRepository competenciaRepository,
-            CursoCompetenciaRepository cursoCompetenciaRepository,
+            PlanEstudiosService planes,
             CalificacionRepository calificacionRepository,
             CorreccionCalificacionRepository correccionRepository,
             MatriculaRepository matriculaRepository,
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria,
+            AvisosAcademicos avisos,
             com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository periodos
     ) {
         this.calificacionRepository = calificacionRepository;
@@ -68,9 +70,10 @@ public class EvaluacionService {
         this.evaluacionRepository = evaluacionRepository;
         this.asignacionCursoRepository = asignacionCursoRepository;
         this.competenciaRepository = competenciaRepository;
-        this.cursoCompetenciaRepository = cursoCompetenciaRepository;
+        this.planes = planes;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
+        this.avisos = avisos;
         this.periodos = periodos;
     }
 
@@ -84,6 +87,15 @@ public class EvaluacionService {
         return periodos.findByAnioAcademicoAnioOrderByOrden(asignacion.getSeccion().getAnioAcademico()).stream()
                 .filter(p -> p.isActivo() && p.getAnioAcademico().isActivo())
                 .map(p -> new EvaluacionDto.PeriodoInforme(p.getId(), p.getNombre())).toList();
+    }
+
+    public List<CompetenciaPlan> competenciasDisponibles(Long idAsignacionCurso) {
+        var asignacion = asignacionCursoRepository.findByIdAndActivoTrue(idAsignacionCurso)
+                .orElseThrow(() -> new ResourceNotFoundException("ASIGNACION_CURSO_NO_ENCONTRADA", "No se encontró la asignación del curso"));
+        accessGuard.verificarAsignacionDocente(asignacion);
+        return planes.competenciasDeAsignacion(asignacion).stream()
+                .map(competencia -> new CompetenciaPlan(competencia.getId(), competencia.getCodigo(), competencia.getNombre(), true))
+                .toList();
     }
 
     /** Publica el periodo en una transaccion: las restricciones se validan antes de cambiar estados. */
@@ -237,7 +249,11 @@ public class EvaluacionService {
 
     /** US-18: la auditoria conserva actor, nivel, competencia, estudiante y fecha de cada nivel. */
     private void auditarNivelesPublicados(Evaluacion evaluacion) {
+        var notificados = new java.util.HashSet<Long>();
         for (Calificacion calificacion : calificacionRepository.findAllByEvaluacionIdAndActivoTrue(evaluacion.getId())) {
+            if (notificados.add(calificacion.getAlumno().getId())) {
+                avisos.enviar(calificacion.getAlumno(), "Resultados publicados", evaluacion.getTitulo());
+            }
             auditoria.registrar("PUBLICAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
                     calificacion.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                     "nivelLogro=" + calificacion.getNivelLogro()
@@ -341,13 +357,12 @@ public class EvaluacionService {
     }
 
     private void validarCompetenciasDisponibles(AsignacionCurso asignacion, Set<Long> idsCompetencia) {
-        Set<Long> disponibles = cursoCompetenciaRepository
-                .buscarIdsCompetenciasDisponiblesPorCurso(asignacion.getCurso().getId());
+        Set<Long> disponibles = planes.competenciasDeAsignacion(asignacion).stream().map(Competencia::getId)
+                .collect(java.util.stream.Collectors.toSet());
         if (!disponibles.containsAll(idsCompetencia)) {
             throw new BusinessRuleException(
                     "COMPETENCIA_NO_DISPONIBLE_PARA_CURSO",
-                    "Todas las competencias deben estar asociadas al curso y tanto la relacion "
-                            + "como el curso y la competencia deben estar activos"
+                    "Selecciona competencias activas del plan de estudios de esta sección."
             );
         }
     }
@@ -417,7 +432,7 @@ public class EvaluacionService {
                 evaluacion.getFechaCreacion(),
                 evaluacion.getFechaActualizacion(),
                 evaluacion.getAsignacionCurso().getCurso().getId(),
-                evaluacion.getAsignacionCurso().getCurso().getNombre(),
+                evaluacion.getAsignacionCurso().nombreCurso(),
                 evaluacion.getAsignacionCurso().getSeccion().getId(),
                 AsignacionCursoService.etiquetaSeccion(evaluacion.getAsignacionCurso().getSeccion()),
                 evaluacion.getAsignacionCurso().getSeccion().getAnioAcademico()

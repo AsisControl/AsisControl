@@ -15,7 +15,6 @@ import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.AsignacionCursoRepository;
-import com.asiscontrol.repository.CursoCompetenciaRepository;
 import com.asiscontrol.repository.EvaluacionRepository;
 import com.asiscontrol.repository.EvidenciaPedagogicaRepository;
 import com.asiscontrol.repository.MatriculaRepository;
@@ -33,7 +32,7 @@ public class EvidenciaPedagogicaService {
     private final AsignacionCursoRepository asignaciones;
     private final AlumnoRepository alumnos;
     private final MatriculaRepository matriculas;
-    private final CursoCompetenciaRepository competencias;
+    private final PlanEstudiosService planes;
     private final PeriodoAcademicoRepository periodos;
     private final EvaluacionRepository evaluaciones;
     private final ArchivoStorageService archivos;
@@ -43,14 +42,14 @@ public class EvidenciaPedagogicaService {
     public EvidenciaPedagogicaService(
             EvidenciaPedagogicaRepository evidencias, AsignacionCursoRepository asignaciones,
             AlumnoRepository alumnos, MatriculaRepository matriculas,
-            CursoCompetenciaRepository competencias, PeriodoAcademicoRepository periodos,
+            PlanEstudiosService planes, PeriodoAcademicoRepository periodos,
             EvaluacionRepository evaluaciones, ArchivoStorageService archivos,
             ModuloAccessGuard acceso, AuditoriaService auditoria) {
         this.evidencias = evidencias;
         this.asignaciones = asignaciones;
         this.alumnos = alumnos;
         this.matriculas = matriculas;
-        this.competencias = competencias;
+        this.planes = planes;
         this.periodos = periodos;
         this.evaluaciones = evaluaciones;
         this.archivos = archivos;
@@ -68,11 +67,10 @@ public class EvidenciaPedagogicaService {
             throw new BusinessRuleException("EVIDENCIA_ALUMNO_FUERA_DE_SECCION",
                     "El estudiante debe tener matrícula activa en la sección de la asignación");
         }
-        var competencia = competencias.findByCursoIdAndCompetenciaId(asignacion.getCurso().getId(), request.competenciaId())
-                .filter(vinculo -> vinculo.isActivo() && vinculo.getCompetencia().isActivo())
+        var competencia = planes.competenciasDeAsignacion(asignacion).stream()
+                .filter(item -> item.getId().equals(request.competenciaId())).findFirst()
                 .orElseThrow(() -> new BusinessRuleException("EVIDENCIA_COMPETENCIA_AJENA",
-                        "La competencia debe estar activa y pertenecer al curso"))
-                .getCompetencia();
+                        "La competencia debe estar activa y pertenecer al plan del curso"));
         var periodo = periodos.findById(request.periodoId())
                 .filter(p -> p.isActivo() && p.getAnioAcademico().isActivo()
                         && p.getAnioAcademico().getAnio() == asignacion.getSeccion().getAnioAcademico())
@@ -198,6 +196,7 @@ public class EvidenciaPedagogicaService {
                 archivo.getTipoMime(), archivo.getTamanioBytes());
         return new Respuesta(evidencia.getId(), evidencia.getAsignacion().getId(), evidencia.getAlumno().getId(),
                 evidencia.getAsignacion().getCurso().getId(), evidencia.getCompetencia().getId(),
+                evidencia.getCompetencia().getCodigo(), evidencia.getCompetencia().getNombre(),
                 evidencia.getPeriodo().getId(), evidencia.getAutor().getId(), evidencia.getDescripcion(),
                 adjunto, evidencia.getFechaCreacion(), evidencia.getFechaActualizacion());
     }

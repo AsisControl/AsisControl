@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
+import { obtenerPanelIndicadores, type PanelIndicadores } from "@/core/api/dashboard";
+import type { AuthenticatedUser } from "@/core/auth/types";
+import { canAccess } from "@/core/navigation/access-policy";
 import { NavIcon } from "@/core/navigation/nav-icons";
+import { navPath } from "@/core/navigation/navigation";
 import {
   Feedback,
   HomeCard,
@@ -17,6 +21,7 @@ import {
   Skeleton,
   type HomeTone,
 } from "@/shared/ui";
+import { DashboardIndicators } from "@/shared/ui/dashboard-indicators";
 import { timeLabel } from "@/shared/lib/formatters";
 import { fechaCorta, resumir, estadoBase, type AsistenciaEstudiante } from "@/modules/guardian-attendance";
 import type { AvailableReport } from "@/modules/evaluations";
@@ -35,6 +40,13 @@ const latestReports = (reports: AvailableReport[]) => [...reports]
   .slice(0, 4);
 
 const TONES: Record<string, HomeTone> = { amber: "warning", blue: "primary", green: "success", purple: "info" };
+const FAMILY_DESTINATIONS: Record<string, { icono: string; opcion?: string }> = {
+  ESTUDIANTES_VINCULADOS: { icono: "Matrícula", opcion: "Matrícula" },
+  TAREAS_PENDIENTES: { icono: "Tareas" },
+  PAGOS_PENDIENTES: { icono: "Pagos", opcion: "Pagos" },
+  ALERTAS_ACTIVAS: { icono: "Progreso" },
+  NOTIFICACIONES_NO_LEIDAS: { icono: "Inicio" },
+};
 
 function Metric({ icon, value, label, tone, href }: { icon: string; value: string | number; label: string; tone: string; href: string }) {
   return <HomeIndicator icon={<NavIcon label={icon} />} value={value} label={label} tone={TONES[tone] ?? "primary"} href={href} />;
@@ -134,13 +146,25 @@ export function StudentHome({ fullName }: { fullName: string }) {
   </section>;
 }
 
-export function GuardianHome() {
+export function GuardianHome({ user, quickActions }: { user: AuthenticatedUser; quickActions?: ReactNode }) {
   const [students, setStudents] = useState<HomeStudent[] | null>(null);
   const [selected, setSelected] = useState("");
   const [data, setData] = useState<GuardianHomeData | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [updated, setUpdated] = useState("");
+  const [summary, setSummary] = useState<PanelIndicadores | null>(null);
+  const [summaryError, setSummaryError] = useState("");
+  useEffect(() => {
+    let active = true;
+    obtenerPanelIndicadores().then((panel) => {
+      if (!active) return;
+      setSummary(panel);
+      setSummaryError("");
+    })
+      .catch(() => { if (active) setSummaryError("No se pudo cargar el resumen familiar."); });
+    return () => { active = false; };
+  }, [revision]);
   function refresh() { setData(null); setError(""); setRevision((value) => value + 1); }
   useEffect(() => {
     let active = true;
@@ -179,9 +203,17 @@ export function GuardianHome() {
             {students.map((item) => <option value={item.id} key={item.id}>{item.nombreCompleto}</option>)}
           </select>
         </label>}
-        <button type="button" onClick={refresh} disabled={!data && !error}>Actualizar</button>
+        <button type="button" onClick={refresh} disabled={!data && !error && !summaryError}>Actualizar</button>
       </>}
     />
+    <Feedback error={summaryError} />
+    {!!summary?.indicadores.length && <section className={styles.familySummary} aria-label="Resumen familiar">
+      <h2>Resumen familiar</h2>
+      <DashboardIndicators indicadores={summary.indicadores} destino={(codigo) => {
+        const { icono, opcion } = FAMILY_DESTINATIONS[codigo] ?? { icono: "Inicio" };
+        return { icono, enlace: opcion && canAccess(user, opcion) ? navPath(opcion) : undefined };
+      }} />
+    </section>}
     <Feedback error={error && `No se pudo cargar el panel. ${error}`} />
     {students?.length === 0 && <Empty>No tienes estudiantes asociados. Consulta con la institución para revisar tu vínculo familiar.</Empty>}
     {!data && !error && students?.length !== 0 && <Loading skeleton={<HomeSkeleton guardian />}>
@@ -215,5 +247,6 @@ export function GuardianHome() {
         </Card>
       </HomeColumns>
     </>}
+    {quickActions}
   </section>;
 }

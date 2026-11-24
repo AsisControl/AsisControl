@@ -268,7 +268,7 @@ public class AulaService {
         return new HorarioEnUsoAula(
                 horario.getId(), asignacion.getId(), horario.getDiaSemana(), horario.getHoraInicio(),
                 horario.getHoraFin(), seccion.getId(), seccion.getNombre(), seccion.getGrado(),
-                asignacion.getCurso().getNombre(), seccion.getCapacidadMaxima());
+                asignacion.nombreCurso(), seccion.getCapacidadMaxima());
     }
 
     // Mismo HorarioResponse que HorarioService; el mapeo se replica para no tocar HorarioService.
@@ -276,7 +276,7 @@ public class AulaService {
         AsignacionCurso asignacion = horario.getAsignacionCurso();
         return new HorarioResponse(
                 horario.getId(), asignacion.getId(), asignacion.getCurso().getId(),
-                asignacion.getCurso().getNombre(), asignacion.getSeccion().getId(),
+                asignacion.nombreCurso(), asignacion.getSeccion().getId(),
                 asignacion.getSeccion().getNombre(), asignacion.getDocente().getId(),
                 asignacion.getDocente().getPersona().nombreCompleto(), horario.getAula().getId(),
                 horario.getAula().getNombre(), horario.getDiaSemana(), horario.getHoraInicio(),

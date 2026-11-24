@@ -43,7 +43,7 @@ function backend(routes = {}) {
     "GET /api/evaluaciones": page([evaluation()]),
     "GET /api/evaluaciones/:id": evaluation(),
     "GET /api/evaluaciones/:id/planilla": sheet(),
-    "GET /api/cursos-competencias": page([]),
+    "GET /api/evaluaciones/competencias": [],
     "GET /api/calificaciones/consolidados": [],
     ...routes,
   });

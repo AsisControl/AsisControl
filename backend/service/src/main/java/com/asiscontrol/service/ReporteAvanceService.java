@@ -105,7 +105,7 @@ public class ReporteAvanceService {
         for (var alumno : estudiantes) generar(alumno, asignacion, periodo);
         return new ResultadoPeriodo(estudiantes.size(), estudiantes.stream().map(a ->
                 new InformeDisponibleDto(a.getId(), nombre(a.getPersona()), curso,
-                        asignacion.getCurso().getNombre(), asignacion.getSeccion().getAnioAcademico(),
+                        asignacion.nombreCurso(), asignacion.getSeccion().getAnioAcademico(),
                         periodoId, periodo.getNombre())).toList());
     }
 
@@ -246,7 +246,7 @@ public class ReporteAvanceService {
                 .setParameter("alumno", acceso.restriccionAlumnoPersonaId())
                 .setParameter("apoderado", acceso.restriccionApoderadoPersonaId()).getResultList().stream()
                 .map(i -> new InformeDisponibleDto(i.getAlumno().getId(), nombre(i.getAlumno().getPersona()),
-                        i.getAsignacionCurso().getId(), i.getAsignacionCurso().getCurso().getNombre(),
+                        i.getAsignacionCurso().getId(), i.getAsignacionCurso().nombreCurso(),
                         i.getAsignacionCurso().getSeccion().getAnioAcademico(), i.getPeriodoAcademico().getId(),
                         i.getPeriodoAcademico().getNombre())).distinct().toList();
     }
@@ -283,7 +283,7 @@ public class ReporteAvanceService {
                 d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
                 d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion())).toList();
         return new ReporteAvanceDto(nombre(alumno.getPersona()), alumno.getCodigoAlumno(),
-                asignacion.getCurso().getNombre(), nombre(informe.getDocente().getPersona()),
+                asignacion.nombreCurso(), nombre(informe.getDocente().getPersona()),
                 seccion.getGrado(), seccion.getNombre(), seccion.getAnioAcademico(),
                 periodo.getNombre() + " | Version " + informe.getNumeroVersion() + " | " + informe.getEstado(),
                 FECHA.format(periodo.getFechaInicio()) + " - " + FECHA.format(periodo.getFechaFin()), Instant.now(), filas);

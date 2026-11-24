@@ -2,6 +2,7 @@ import { api } from "@/core/api/client";
 import type { Course, CourseInput } from "../../types";
 /** Ruta base del recurso; el listado paginado se consume con usePaged. */
 export const CURSOS_PATH = "/api/cursos";
+export const listarAniosDeCursos = () => api<number[]>(`${CURSOS_PATH}/anios`);
 export function crearCurso(input: CourseInput) {
   return api<Course>(CURSOS_PATH, {
     method: "POST",

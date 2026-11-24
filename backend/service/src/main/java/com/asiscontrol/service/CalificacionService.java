@@ -50,6 +50,7 @@ public class CalificacionService {
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
+    private final AvisosAcademicos avisos;
 
     public CalificacionService(
             CalificacionRepository calificacionRepository,
@@ -60,7 +61,7 @@ public class CalificacionService {
             CorreccionCalificacionRepository correccionRepository,
             EntityManager entityManager,
             ModuloAccessGuard accessGuard,
-            AuditoriaService auditoria) {
+            AuditoriaService auditoria, AvisosAcademicos avisos) {
         this.correccionRepository = correccionRepository;
         this.entityManager = entityManager;
         this.calificacionRepository = calificacionRepository;
@@ -70,6 +71,7 @@ public class CalificacionService {
         this.matriculaRepository = matriculaRepository;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
+        this.avisos = avisos;
     }
 
     @Transactional(readOnly = true)
@@ -130,6 +132,8 @@ public class CalificacionService {
         Instant ahora = Instant.now();
         List<CalificacionDto.Response> resultados = new ArrayList<>();
         Set<Long> procesadas = new HashSet<>();
+        record ResultadoAvisado(Long evaluacion, Long alumno) {}
+        var notificados = new HashSet<ResultadoAvisado>();
         for (CalificacionDto.CorreccionItem item : request.correcciones()) {
             if (!procesadas.add(item.idCalificacion())) {
                 throw new ConflictException(
@@ -137,7 +141,12 @@ public class CalificacionService {
                         "La correccion incluye mas de una vez la calificacion " + item.idCalificacion()
                 );
             }
-            resultados.add(toResponse(corregirInterno(item, motivo, autor, ahora)));
+            var corregida = corregirInterno(item, motivo, autor, ahora);
+            var evaluacion = corregida.getEvaluacion();
+            if (notificados.add(new ResultadoAvisado(evaluacion.getId(), corregida.getAlumno().getId()))) {
+                avisos.enviar(corregida.getAlumno(), "Resultado actualizado", evaluacion.getTitulo());
+            }
+            resultados.add(toResponse(corregida));
         }
         return resultados;
     }

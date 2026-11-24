@@ -337,7 +337,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         curso.setHorasSemanales(4);
         curso.setGradoAcademico(grado);
         em.persist(curso);
-        grado.getCursosPlan().add(curso);
+        grado.incluirCurso(curso);
         return curso;
     }
 

@@ -1,9 +1,9 @@
+import type { DestinoIndicador } from "@/shared/ui/dashboard-indicators";
+
 /**
  * Opción del menú (icono y, si existe, pantalla de destino) de cada indicador del backend.
  * El backend envía rutas propias de la API; aquí se traducen a las pantallas reales del frontend.
  */
-export type DestinoIndicador = { icono: string; enlace?: string };
-
 const DESTINOS: Record<string, DestinoIndicador> = {
   ALUMNOS_ACTIVOS: { icono: "Matrícula", enlace: "/matricula" },
   DOCENTES_ACTIVOS: { icono: "Administración", enlace: "/administracion" },

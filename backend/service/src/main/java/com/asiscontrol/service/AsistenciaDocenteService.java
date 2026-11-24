@@ -258,7 +258,7 @@ public class AsistenciaDocenteService {
                 .stream()
                 .map(sesion -> new ClaseDiaDocenteResponse(
                         sesion.getId(),
-                        sesion.getAsignacionCurso().getCurso().getNombre(),
+                        sesion.getAsignacionCurso().nombreCurso(),
                         sesion.getAsignacionCurso().getSeccion().getGrado() + "° "
                                 + sesion.getAsignacionCurso().getSeccion().getNombre(),
                         sesion.getHoraInicio(),

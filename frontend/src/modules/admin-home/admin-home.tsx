@@ -1,37 +1,16 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
-import { NavIcon } from "@/core/navigation/nav-icons";
-import { Feedback, HomeIndicator, HomeIndicators, HomeIndicatorsSkeleton, Loading, PageHeader, type HomeTone } from "@/shared/ui";
+import { Feedback, HomeIndicatorsSkeleton, Loading, PageHeader } from "@/shared/ui";
 import { timeLabel } from "@/shared/lib/formatters";
 import { destinoDeIndicador } from "./indicador-destinos";
-import { obtenerPanelIndicadores } from "./services/panel-administrador-service";
-import type { Indicador, PanelIndicadores, TonoIndicador } from "./types";
+import { obtenerPanelIndicadores, type PanelIndicadores } from "@/core/api/dashboard";
+import { DashboardIndicators } from "@/shared/ui/dashboard-indicators";
 import styles from "./admin-home.module.css";
-
-const TONO: Record<TonoIndicador, HomeTone> = {
-  neutral: "primary",
-  success: "success",
-  warning: "warning",
-  danger: "danger",
-};
 
 function fechaLarga() {
   const texto = new Date().toLocaleDateString("es-PE", { timeZone: "America/Lima", dateStyle: "full" });
   return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
-
-function TarjetaIndicador({ indicador }: { indicador: Indicador }) {
-  const { icono, enlace } = destinoDeIndicador(indicador.codigo);
-  return (
-    <HomeIndicator
-      icon={<NavIcon label={icono} />}
-      value={indicador.valor}
-      label={indicador.etiqueta}
-      tone={TONO[indicador.tono] ?? "primary"}
-      href={enlace ?? undefined}
-    />
-  );
 }
 
 /** Inicio del administrador: indicadores institucionales con datos reales de GET /api/dashboard. */
@@ -87,11 +66,7 @@ export function AdminHome({ fullName, quickActions }: { fullName: string; quickA
       {!panel && !error && <Loading skeleton={<HomeIndicatorsSkeleton count={6} />}>Cargando el panel…</Loading>}
       {panel && !panel.indicadores.length && <p className={styles.vacio}>No hay indicadores disponibles.</p>}
       {panel && panel.indicadores.length > 0 && (
-        <HomeIndicators>
-          {panel.indicadores.map((indicador) => (
-            <TarjetaIndicador indicador={indicador} key={indicador.codigo} />
-          ))}
-        </HomeIndicators>
+        <DashboardIndicators indicadores={panel.indicadores} destino={destinoDeIndicador} />
       )}
       {/* Las acciones rápidas no dependen de los datos: siguen disponibles aunque el panel falle. */}
       {quickActions && <div className={styles.acciones}>{quickActions}</div>}

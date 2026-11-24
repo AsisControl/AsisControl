@@ -1,7 +1,9 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.CursoCompetencia;
+import com.asiscontrol.entity.GradoAcademico;
 import com.asiscontrol.entity.Tarea;
+import com.asiscontrol.entity.planificacion.AnioAcademico;
 import org.junit.jupiter.api.Test;
 import java.time.*;
 import java.util.*;
@@ -30,13 +32,40 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         request("GET",cp,null,404);
     }
 
+    @Test void buscaUnCursoPorSuOrigenOSusPlanesSinMezclarAnioYGrado() throws Exception {
+        var siguiente = new AnioAcademico();
+        siguiente.setAnio(2091);
+        siguiente.setFechaInicio(LocalDate.of(2091, 3, 1));
+        siguiente.setFechaFin(LocalDate.of(2091, 12, 31));
+        em.persist(siguiente);
+        var destino = new GradoAcademico();
+        destino.setAnioAcademico(siguiente);
+        destino.setNumero(2);
+        destino.setCapacidadDefault(30);
+        destino.setPlanDefinido(true);
+        destino.incluirCurso(course);
+        em.persist(destino);
+        em.flush();
+
+        var anios = getOk("/api/cursos/anios");
+        assertThat(anios.get(0).asInt()).isEqualTo(2091);
+        assertThat(anios.get(1).asInt()).isEqualTo(2090);
+        String listado = "/api/cursos?busqueda=" + course.getCodigo();
+        assertThat(getOk(listado + "&anio=2090&grado=1&incluirPlanes=true").path("content").findValues("id")).hasSize(1);
+        assertThat(getOk(listado + "&anio=2091&grado=2&incluirPlanes=true").path("content").get(0)
+                .path("id").asLong()).isEqualTo(course.getId());
+        assertThat(getOk(listado + "&anio=2091&grado=2").path("content")).isEmpty();
+        assertThat(getOk(listado + "&anio=2091&grado=1&incluirPlanes=true").path("content")).isEmpty();
+        assertThat(getOk(listado + "&grado=2&incluirPlanes=true").path("content").findValues("id")).hasSize(1);
+    }
+
     @Test void asignaDocenteYAulaValidaCapacidadYEvitaCrucesDeHorario() throws Exception {
         var aula = postOk("/api/aulas",data("codigo","A-101","nombre","Aula 101","tipoAula","AULA_REGULAR","capacidad",35,"ubicacion","Pabellon A"));
         String ap = "/api/aulas/"+aula.path("id").asLong();
         getOk("/api/aulas"); getOk(ap);
         putOk(ap,data("codigo","A-101","nombre","Aula ampliada","tipoAula","AULA_REGULAR","capacidad",40,"ubicacion","Pabellon A","version",0));
         var newCourse = postOk("/api/cursos",data("codigo","ING-1","nombre","Ingles","horasSemanales",4,"gradoAcademicoId",grade.getId()));
-        grade.getCursosPlan().add(em.getReference(com.asiscontrol.entity.Curso.class, newCourse.path("id").asLong()));
+        grade.incluirCurso(em.getReference(com.asiscontrol.entity.Curso.class, newCourse.path("id").asLong()));
         grade.setPlanDefinido(true);
         var as = postOk("/api/asignaciones-cursos",data("cursoId",newCourse.path("id").asLong(),"seccionId",section.getId(),"docenteId",teacher.getId()));
         String asp="/api/asignaciones-cursos/"+as.path("id").asLong();

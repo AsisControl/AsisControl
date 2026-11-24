@@ -7,7 +7,7 @@ import {
   actualizarAsociacion,
   crearAsociacion,
 } from "./services/asociacionService";
-export type Option = { id: number; codigo: string; nombre: string };
+export type Option = { id: number; codigo: string; nombre: string; anioAcademico?: number | null; grado?: number | null };
 /** Asocia una competencia a un curso o cambia esa asociación (curso, competencia u orden). */
 export function AssociationFormDialog({
   association,
@@ -63,13 +63,13 @@ export function AssociationFormDialog({
   }
   return (
     <FormDialog
-      title={association ? "Editar asociación" : "Nueva asociación"}
+      title={association ? "Editar competencia base del curso" : "Agregar competencia base"}
       description={
         association
           ? `${association.cursoNombre} · ${association.competenciaNombre}`
-          : "Indica qué competencia trabaja el curso y en qué orden."
+          : "Elige una competencia para sugerirla al agregar este curso del catálogo."
       }
-      submitLabel={association ? "Guardar cambios" : "Asociar competencia"}
+      submitLabel={association ? "Guardar cambios" : "Agregar competencia"}
       busy={busy}
       error={error}
       onClose={onClose}
@@ -113,8 +113,8 @@ export function AssociationFormDialog({
         </select>
         <small className="field-hint">
           {courseId && !available.length
-            ? "El curso ya trabaja todas las competencias activas."
-            : "Solo se listan las competencias que el curso aún no trabaja."}
+            ? "Todas las competencias activas ya están en la base de este curso."
+            : "Elige una competencia que todavía no esté en la base del curso."}
         </small>
       </label>
       <Field

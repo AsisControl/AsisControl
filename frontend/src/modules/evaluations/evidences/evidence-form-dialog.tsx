@@ -97,6 +97,11 @@ export function EvidenceFormDialog({
         Competencia <span className="field-required">*</span>
         <select required disabled={!!evidence} value={competencia} onChange={(event) => setCompetencia(event.target.value)}>
           <option value="">Selecciona una competencia</option>
+          {evidence?.competenciaNombre && !competencies.some(item => item.competenciaId === evidence.competenciaId) && (
+            <option value={evidence.competenciaId}>{competencyLabel({
+              competenciaNombre: evidence.competenciaNombre, competenciaCodigo: evidence.competenciaCodigo,
+            })}</option>
+          )}
           {competencies.map((item) => (
             <option key={item.competenciaId} value={item.competenciaId}>
               {competencyLabel(item)}

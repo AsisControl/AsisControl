@@ -34,4 +34,6 @@
 .primaryLink { display: block; margin-top: 18px; padding: 10px; border-radius: 7px; background: #1e3a8a; color: white; text-align: center; text-decoration: none; font-size: 12px; font-weight: 700; }
 .primaryLink:hover { background: #1d4ed8; }
 .updated { color: #94a3b8; font-size: 12px; }
+.familySummary { display: grid; gap: 10px; margin-bottom: 16px; }
+.familySummary h2 { font-size: 16px; margin: 0; }
 @media (max-width: 650px) { .studentSelect { align-items: stretch; flex-direction: column; } .studentSelect select { max-width: none; width: 100%; } }

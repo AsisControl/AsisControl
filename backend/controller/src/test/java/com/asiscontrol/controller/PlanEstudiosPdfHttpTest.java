@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.Curso;
+import com.asiscontrol.entity.CursoEnPlan;
 import com.asiscontrol.entity.GradoAcademico;
 import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.lowagie.text.pdf.PdfReader;
@@ -26,16 +27,17 @@ class PlanEstudiosPdfHttpTest extends ApiIntegrationSupport {
 
     @Test
     void exportaCincoGradosConLosCursosYHorasGuardados() throws Exception {
-        course.setNombre("Matemática");
+        course.setNombre("Nombre de catálogo");
         course.setCodigo("MAT-DEMO-1");
-        course.setHorasSemanales(2);
+        grade.getCursosPlan().put(course, new CursoEnPlan("Matemática del plan", 2));
         var nombres = List.of("Arte y Cultura", "Ciencia y Tecnología", "Ciencias Sociales",
                 "Comunicación", "Educación Física", "Inglés");
         for (int numero = 1; numero <= 5; numero++) {
             var grado = numero == 1 ? grade : crearGrado(numero);
             var inicial = obtenerPlan(numero);
             var ids = new ArrayList<Long>();
-            ids.add(numero == 1 ? course.getId() : curso("MAT-DEMO-" + numero, "Matemática", numero + 1, grado).getId());
+            ids.add(numero == 1 ? course.getId()
+                    : curso("MAT-DEMO-" + numero, "Matemática del plan", numero + 1, grado).getId());
             for (int i = 0; i < nombres.size(); i++) {
                 ids.add(curso("PLAN-" + numero + "-" + i, nombres.get(i), 2, grado).getId());
             }
@@ -51,9 +53,9 @@ class PlanEstudiosPdfHttpTest extends ApiIntegrationSupport {
         try {
             var texto = new PdfTextExtractor(pdf);
             assertThat(pdf.getNumberOfPages()).isEqualTo(2);
-            assertThat(texto.getTextFromPage(1)).contains("2090", "5.º de secundaria", "Matemática", "18 h/sem")
+            assertThat(texto.getTextFromPage(1)).contains("2090", "5.º de secundaria", "Matemática del plan", "18 h/sem")
                     .contains("MAT-DEMO-1", "MAT-DEMO-2", "MAT-DEMO-3", "MAT-DEMO-4", "MAT-DEMO-5")
-                    .doesNotContain("BORRADOR DEL PLAN", "CATALOGO-NO-INCLUIDO");
+                    .doesNotContain("BORRADOR DEL PLAN", "CATALOGO-NO-INCLUIDO", "Nombre de catálogo");
             assertThat(texto.getTextFromPage(2)).contains("Condiciones para pasar de grado", "1.º, 3.º y 4.º",
                     "2.º y 5.º", "Recuperación pedagógica", "diciembre", "048-2024-MINEDU");
         } finally {
@@ -72,7 +74,7 @@ class PlanEstudiosPdfHttpTest extends ApiIntegrationSupport {
         for (int numero = 1; numero <= 12; numero++) {
             var guardado = curso("CURSO-PAG-" + numero, "Asignatura " + numero
                     + " con nombre largo para comprobar la distribución", 4, grade);
-            grade.getCursosPlan().add(guardado);
+            grade.incluirCurso(guardado);
         }
         var otroGrado = crearGrado(2);
         curso("SIN-PLAN-DEFINIDO", "Curso del catálogo de referencia", 2, otroGrado);

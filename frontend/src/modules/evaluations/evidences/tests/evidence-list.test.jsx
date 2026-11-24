@@ -183,10 +183,10 @@ test("Muestra la fecha de un instante UTC con microsegundos en hora de Lima y to
 
 test("Distingue competencias de igual nombre mostrando el código en selectores y tabla", async () => {
   backend({
-    "GET /api/cursos-competencias": page([
-      { cursoId: 100, competenciaId: 1, competenciaCodigo: "MAT-C1", competenciaNombre: "Matemática", orden: 1, activo: true },
-      { cursoId: 100, competenciaId: 2, competenciaCodigo: "MAT-C2", competenciaNombre: "Matemática", orden: 2, activo: true },
-    ]),
+    "GET /api/evaluaciones/competencias": [
+      { id: 1, codigo: "MAT-C1", nombre: "Matemática" },
+      { id: 2, codigo: "MAT-C2", nombre: "Matemática" },
+    ],
     "GET /api/evidencias-pedagogicas": page([evidence({ competenciaId: 2 })]),
   });
   open();
@@ -202,12 +202,19 @@ test("Distingue competencias de igual nombre mostrando el código en selectores 
 
 test("Si la respuesta no trae el código de la competencia, muestra solo el nombre", async () => {
   backend({
-    "GET /api/cursos-competencias": page([
-      { cursoId: 100, competenciaId: 1, competenciaNombre: "Resuelve problemas", orden: 1, activo: true },
-    ]),
+    "GET /api/evaluaciones/competencias": [{ id: 1, nombre: "Resuelve problemas" }],
     "GET /api/evidencias-pedagogicas": page([evidence()]),
   });
   open();
   await chooseStudent();
   expect(await screen.findByRole("cell", { name: "Resuelve problemas" })).toBeTruthy();
+});
+
+test("conserva el nombre de una competencia retirada en las evidencias existentes", async () => {
+  backend({ "GET /api/evaluaciones/competencias": [], "GET /api/evidencias-pedagogicas": page([
+    evidence({ competenciaCodigo: "MAT-ANT", competenciaNombre: "Competencia del plan anterior" }),
+  ]) });
+  open();
+  await chooseStudent();
+  expect(await screen.findByRole("cell", { name: "Competencia del plan anterior (MAT-ANT)" })).toBeTruthy();
 });

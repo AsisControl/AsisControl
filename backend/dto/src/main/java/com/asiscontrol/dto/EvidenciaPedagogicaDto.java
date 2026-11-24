@@ -23,6 +23,7 @@ public final class EvidenciaPedagogicaDto {
 
     public record Respuesta(
             Long id, Long asignacionId, Long alumnoId, Long cursoId, Long competenciaId,
+            String competenciaCodigo, String competenciaNombre,
             Long periodoId, Long autorId, String descripcion, Adjunto archivo,
             Instant fechaCreacion, Instant fechaActualizacion) {}
 

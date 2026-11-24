@@ -16,6 +16,8 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.AccessLevel;
+import org.hibernate.annotations.Formula;
 
 @Getter
 @Setter
@@ -42,7 +44,22 @@ public class AsignacionCurso extends AuditableEntity {
     @JoinColumn(name = "id_seccion", nullable = false)
     private Seccion seccion;
 
+    @Setter(AccessLevel.NONE)
+    @Formula("""
+            (select plan.nombre_plan
+             from Seccion s
+             join AnioAcademico anio on anio.anio = s.anio_academico
+             join GradoAcademico grado on grado.id_anio = anio.id_anio_academico and grado.numero = s.grado
+             join PlanEstudiosCurso plan on plan.id_grado_academico = grado.id_grado_academico
+             where s.id_seccion = id_seccion and plan.id_curso = id_curso)
+            """)
+    private String nombreCursoPlan;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_docente", nullable = false)
     private Docente docente;
+
+    public String nombreCurso() {
+        return nombreCursoPlan == null ? curso.getNombre() : nombreCursoPlan;
+    }
 }

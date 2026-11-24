@@ -30,7 +30,8 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
                   AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
                   AND m.alumno.id = :alumnoId AND m.seccion.id = t.asignacionCurso.seccion.id)
               AND (LOWER(t.nombre) LIKE LOWER(CONCAT('%', :busqueda, '%'))
-                  OR LOWER(t.asignacionCurso.curso.nombre) LIKE LOWER(CONCAT('%', :busqueda, '%')))
+                  OR LOWER(coalesce(t.asignacionCurso.nombreCursoPlan, t.asignacionCurso.curso.nombre))
+                      LIKE LOWER(CONCAT('%', :busqueda, '%')))
               AND (:entregada IS NULL
                   OR (:entregada = true AND EXISTS (SELECT e.id FROM EntregaTarea e WHERE e.activo = true
                       AND e.tarea.id = t.id AND e.alumno.id = :alumnoId))

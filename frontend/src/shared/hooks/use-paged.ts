@@ -21,7 +21,13 @@ export function usePaged<T>(path: string, query = "", filters = "", pageSize = 2
       )
         .then((d) => {
           if (!active) return;
-          setData(normalizePage(d));
+          const next = normalizePage(d);
+          const lastPage = Math.max(0, next.totalPages - 1);
+          if (page > lastPage) {
+            setPage(lastPage);
+            return;
+          }
+          setData(next);
           setUpdatedAt(new Date());
         })
         .catch((e) => {

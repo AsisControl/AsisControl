@@ -56,7 +56,7 @@ public class TareasAlumnoService {
                     persona.getApellidoMaterno()).filter(s -> s != null && !s.isBlank())
                     .collect(Collectors.joining(" "));
             return new TareaAlumnoResponse(tareaService.mapResponse(t), alumno.getId(),
-                    asignacion.getCurso().getNombre(), nombre,
+                    asignacion.nombreCurso(), nombre,
                     seccion.getGrado() + "° Grado " + seccion.getNombre() + " · " + seccion.getAnioAcademico(),
                     entrega == null ? null : entregaService.mapResponse(entrega));
         });

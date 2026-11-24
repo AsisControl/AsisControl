@@ -24,6 +24,9 @@ public class AnioAcademico extends AuditableEntity {
     @Column(nullable = false)
     private int anio;
 
+    @Column(name = "nombre_plan_estudios", length = 100)
+    private String nombrePlanEstudios;
+
     @Column(name = "fecha_inicio", nullable = false)
     private java.time.LocalDate fechaInicio;
 

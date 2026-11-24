@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Isolation;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -56,7 +57,9 @@ public class CursoService {
 
     @Transactional
     public CursoResponse actualizar(Long id, ActualizarCursoRequest request) {
-        Curso curso = obtenerEntidad(id);
+        Curso curso = cursoRepository.bloquearTodos(Set.of(id)).stream().filter(Curso::isActivo).findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "CURSO_NO_ENCONTRADO", "No existe un curso activo con id " + id));
         exigirVersion(curso.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
         String anterior = describir(curso);
@@ -72,10 +75,18 @@ public class CursoService {
         return mapear(obtenerEntidad(id));
     }
 
+    public Page<CursoResponse> listar(String busqueda, Integer anio, Integer grado, Pageable pageable) {
+        return listar(busqueda, anio, grado, false, pageable);
+    }
+
     public Page<CursoResponse> listar(
-            String busqueda, Integer anio, Integer grado, Pageable pageable) {
+            String busqueda, Integer anio, Integer grado, boolean incluirPlanes, Pageable pageable) {
         String criterio = busqueda == null || busqueda.isBlank() ? null : busqueda.trim();
-        return cursoRepository.buscar(criterio, anio, grado, pageable).map(this::mapear);
+        return cursoRepository.buscar(criterio, anio, grado, incluirPlanes, pageable).map(this::mapear);
+    }
+
+    public List<Integer> aniosConsultables() {
+        return cursoRepository.aniosConsultables();
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -126,7 +137,15 @@ public class CursoService {
                     "CURSO_CON_ASIGNACIONES",
                     "El curso ya está asignado a secciones; no se puede cambiar su año o grado");
         }
-        curso.setGradoAcademico(gradoId == null ? null : gradoDisponible(gradoId));
+        GradoAcademico destino = gradoId == null ? null : gradoDisponible(gradoId);
+        if (destino != null) {
+            var gradosEnUso = gradoRepository.gradosDeCursos(Set.of(curso.getId()));
+            if (!gradosEnUso.isEmpty() && gradosEnUso.stream().noneMatch(item -> item.getGrado() == destino.getNumero())) {
+                throw new ConflictException("CURSO_EN_PLAN_DE_OTRO_GRADO",
+                        "El curso ya se usa en el plan de otro grado. Registra un curso para el nuevo grado.");
+            }
+        }
+        curso.setGradoAcademico(destino);
     }
 
     private String describir(Curso curso) {

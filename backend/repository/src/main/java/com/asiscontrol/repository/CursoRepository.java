@@ -36,12 +36,25 @@ public interface CursoRepository extends JpaRepository<Curso, Long> {
               AND (:busqueda IS NULL
                    OR LOWER(c.codigo) LIKE LOWER(CONCAT('%', :busqueda, '%'))
                    OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', :busqueda, '%')))
-              AND (:anio IS NULL OR a.anio = :anio)
-              AND (:grado IS NULL OR g.numero = :grado)
+              AND (
+                  ((:anio IS NULL OR a.anio = :anio) AND (:grado IS NULL OR g.numero = :grado))
+                  OR (:incluirPlanes = true AND EXISTS (
+                      SELECT plan.id FROM GradoAcademico plan
+                      JOIN plan.anioAcademico anioPlan
+                      JOIN plan.cursosPlan cursoPlan
+                      WHERE KEY(cursoPlan) = c AND plan.activo = true AND anioPlan.activo = true
+                        AND (:anio IS NULL OR anioPlan.anio = :anio)
+                        AND (:grado IS NULL OR plan.numero = :grado)
+                  ))
+              )
             """)
     Page<Curso> buscar(
             @Param("busqueda") String busqueda,
             @Param("anio") Integer anio,
             @Param("grado") Integer grado,
+            @Param("incluirPlanes") boolean incluirPlanes,
             Pageable pageable);
+
+    @Query("select anio.anio from AnioAcademico anio where anio.activo = true order by anio.anio desc")
+    List<Integer> aniosConsultables();
 }

@@ -75,11 +75,9 @@ export type OwnAssignment = {
   grado: number;
   anioAcademico: number;
 };
-/** Competencia vigente de un curso (CursoCompetenciaResponse). */
+/** Competencia del plan correspondiente a la sección de una asignación docente. */
 export type CourseCompetency = {
-  cursoId: number;
   competenciaId: number;
+  competenciaCodigo: string;
   competenciaNombre: string;
-  orden: number;
-  activo: boolean;
 };

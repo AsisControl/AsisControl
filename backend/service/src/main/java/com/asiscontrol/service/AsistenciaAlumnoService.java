@@ -110,7 +110,7 @@ public class AsistenciaAlumnoService {
                 asistencia.getEstadoAsistencia(),
                 asistencia.getComentario(),
                 asistencia.getVersion(),
-                asistencia.getAsignacionCurso().getCurso().getNombre(),
+                asistencia.getAsignacionCurso().nombreCurso(),
                 justificacion == null ? null : justificacion.getId(),
                 justificacion == null ? null : justificacion.getEstado(),
                 justificacion == null ? null : justificacion.getMotivo(),
