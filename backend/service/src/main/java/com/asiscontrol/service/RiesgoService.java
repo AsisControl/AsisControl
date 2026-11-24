@@ -226,6 +226,7 @@ public class RiesgoService {
         return new RiesgoDto.AlertaResponse(
                 alerta.getId(),
                 alerta.getAlumno().getId(),
+                alerta.getAlumno().getPersona().nombreCompleto(),
                 alerta.getCriterio().getId(),
                 regla == null ? alerta.getCriterio().getNombre() : regla.nombreCriterio(),
                 regla == null ? alerta.getCriterio().getIndicador() : regla.indicador(),

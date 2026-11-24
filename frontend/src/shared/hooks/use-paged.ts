@@ -4,7 +4,13 @@ import { api, message } from "@/core/api/client";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
 export function usePaged<T>(path: string, query = "", filters = "", pageSize = 20) {
+  const requestKey = JSON.stringify([path, query, filters, pageSize]);
   const [page, setPage] = useState(0);
+  const [previousKey, setPreviousKey] = useState(requestKey);
+  if (previousKey !== requestKey) {
+    setPreviousKey(requestKey);
+    setPage(0);
+  }
   const [tick, setTick] = useState(0);
   const [data, setData] = useState<Page<T> | null>(null);
   const [error, setError] = useState("");
@@ -21,13 +27,13 @@ export function usePaged<T>(path: string, query = "", filters = "", pageSize = 2
       )
         .then((d) => {
           if (!active) return;
-          const next = normalizePage(d);
-          const lastPage = Math.max(0, next.totalPages - 1);
+          const result = normalizePage(d);
+          const lastPage = Math.max(0, result.totalPages - 1);
           if (page > lastPage) {
             setPage(lastPage);
             return;
           }
-          setData(next);
+          setData(result);
           setUpdatedAt(new Date());
         })
         .catch((e) => {

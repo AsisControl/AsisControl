@@ -94,6 +94,8 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
       <Academic
         tab={tab}
         canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+        canReadRisk={(user.permissions ?? []).includes("RIESGOS_LEER")}
+        canWriteRisk={(user.permissions ?? []).includes("RIESGOS_ESCRIBIR")}
       />
     ),
     Horarios: ({ user, subpath: [tab] }) => (

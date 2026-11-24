@@ -33,6 +33,7 @@ const sheet = (overrides = {}, alumnos) => ({
 function backend(routes = {}) {
   return fakeBackend({
     "GET /api/asignaciones-cursos/mias": page([assignment]),
+    "GET /api/evaluaciones/anio-vigente": { anioActivo: assignment.anioAcademico },
     "GET /api/evaluaciones": page([evaluation()]),
     "GET /api/evaluaciones/competencias": competencies,
     "GET /api/evaluaciones/:id": evaluation(),
@@ -165,6 +166,39 @@ test("Sin curso elegido el registro orienta al docente", async () => {
   expect(await screen.findByText("Selecciona período, curso y sección para ver las evaluaciones")).toBeTruthy();
   expect(screen.getByLabelText("Sección").disabled).toBe(true);
   expect(screen.getByLabelText("Competencia").disabled).toBe(true);
+});
+
+test("preselecciona el año activo y consulta cada año por su asignación", async () => {
+  const user = userEvent.setup();
+  const historical = evaluation({ id: 20, idAsignacionCurso: 6, titulo: "Examen histórico", anioAcademico: 2025 });
+  const calls = backend({
+    "GET /api/asignaciones-cursos/mias": page([assignment, { ...assignment, id: 6, anioAcademico: 2025 }]),
+    "GET /api/evaluaciones": ({ query }) =>
+      page(query.idAsignacionCurso === "6" ? [historical] : [evaluation()]),
+    "GET /api/evaluaciones/:id/planilla": ({ path }) =>
+      path.includes("/20/") ? { evaluacion: historical, alumnos: [student(3, "Estudiante anterior")] } : sheet(),
+  });
+  render(<Evaluations tab="registro-de-calificaciones" canWrite />);
+  await screen.findByRole("option", { name: "2026 · Vigente" });
+  expect(screen.getByLabelText("Año académico").value).toBe("2026");
+  await user.selectOptions(screen.getByLabelText("Curso"), "100");
+  await user.selectOptions(screen.getByLabelText("Sección"), "8");
+  await screen.findByRole("table", { name: "Planilla de Examen parcial" });
+  await user.selectOptions(screen.getByLabelText("Año académico"), "2025");
+  expect(screen.queryByRole("table", { name: "Planilla de Examen parcial" })).toBeNull();
+  expect(screen.getByLabelText("Curso").value).toBe("");
+  await user.selectOptions(screen.getByLabelText("Curso"), "100");
+  await user.selectOptions(screen.getByLabelText("Sección"), "8");
+  await screen.findByText("Estudiante anterior");
+  expect(calls.filter(({ path }) => path === "/api/evaluaciones").map(({ query }) => query.idAsignacionCurso))
+    .toEqual(["5", "6"]);
+});
+
+test("el enlace a una evaluación anterior conserva su año aunque haya un año vigente distinto", async () => {
+  backend({ "GET /api/evaluaciones/anio-vigente": { anioActivo: 2027 } });
+  openSheet();
+  await screen.findByRole("table", { name: "Planilla de Examen parcial" });
+  expect(screen.getByLabelText("Año académico").value).toBe("2026");
 });
 
 test("US-18: en borrador registra niveles y avisa cuántos faltan para publicar", async () => {

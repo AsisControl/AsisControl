@@ -19,6 +19,7 @@ const CALIFICACIONES_PATH = "/api/calificaciones";
 export type EvaluationFilters = {
   periodo?: string;
   idCurso?: string;
+  idAsignacionCurso?: string;
   idSeccion?: string;
   estado?: string;
   busqueda?: string;
@@ -30,9 +31,18 @@ export function evaluationsPath(filters: EvaluationFilters) {
   return query ? `${EVALUACIONES_PATH}?${query}` : EVALUACIONES_PATH;
 }
 export async function listarEvaluaciones(filters: EvaluationFilters) {
-  const separator = evaluationsPath(filters).includes("?") ? "&" : "?";
-  const page = await api<Page<Evaluation>>(`${evaluationsPath(filters)}${separator}size=100`);
-  return normalizePage(page).content;
+  const path = evaluationsPath(filters);
+  const separator = path.includes("?") ? "&" : "?";
+  const items: Evaluation[] = [];
+  for (let number = 0; ; number++) {
+    const page = normalizePage(await api<Page<Evaluation>>(`${path}${separator}size=100&page=${number}`));
+    items.push(...page.content);
+    if (page.last) return items;
+  }
+}
+export async function obtenerAnioVigente() {
+  const context = await api<{ anioActivo: number | null }>(`${EVALUACIONES_PATH}/anio-vigente`);
+  return context.anioActivo ?? null;
 }
 export function obtenerEvaluacion(id: number) {
   return api<Evaluation>(`${EVALUACIONES_PATH}/${id}`);

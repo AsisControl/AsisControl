@@ -56,6 +56,13 @@ public class ConfiguracionAcademicaService {
         this.auditoria = auditoria;
     }
 
+    @Transactional(readOnly = true)
+    public Integer anioVigente() {
+        return anios.findFirstByActivoTrueAndEstadoOrderByAnioDesc(EstadoAnioAcademico.ACTIVO)
+                .map(AnioAcademico::getAnio)
+                .orElse(null);
+    }
+
     public PageResponse<AnioResponse> listar(Pageable page) {
         return PageResponse.from(anios.findAll(page), this::mapear);
     }

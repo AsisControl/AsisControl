@@ -15,7 +15,7 @@ export function Pager({
         {data.totalElements} registros · Página {data.page + 1} de{" "}
         {Math.max(1, data.totalPages)}
       </span>
-      {data.totalElements > 0 && (!data.first || !data.last) && <div>
+      {data.totalElements > 0 && data.totalPages > 1 && <div>
         {!data.first && <button
           type="button"
           className="secondary-action"

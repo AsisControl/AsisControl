@@ -3,6 +3,7 @@ package com.asiscontrol.controller;
 import com.asiscontrol.dto.EvaluacionDto;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.CompetenciaPlan;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
+import com.asiscontrol.service.ConfiguracionAcademicaService;
 import com.asiscontrol.service.EvaluacionService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import jakarta.validation.Valid;
@@ -30,13 +31,22 @@ public class EvaluacionController {
 
     private final EvaluacionService evaluacionService;
     private final ModuloAccessGuard accessGuard;
+    private final ConfiguracionAcademicaService configuracionAcademica;
 
     public EvaluacionController(
             EvaluacionService evaluacionService,
-            ModuloAccessGuard accessGuard
+            ModuloAccessGuard accessGuard,
+            ConfiguracionAcademicaService configuracionAcademica
     ) {
         this.evaluacionService = evaluacionService;
         this.accessGuard = accessGuard;
+        this.configuracionAcademica = configuracionAcademica;
+    }
+
+    @GetMapping("/anio-vigente")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public EvaluacionDto.AnioVigente anioVigente() {
+        return new EvaluacionDto.AnioVigente(configuracionAcademica.anioVigente());
     }
 
     @GetMapping
