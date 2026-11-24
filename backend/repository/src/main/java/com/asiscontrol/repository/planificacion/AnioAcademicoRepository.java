@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface AnioAcademicoRepository extends JpaRepository<AnioAcademico, Long> {
     Optional<AnioAcademico> findByAnio(int anio);
 
+    Optional<AnioAcademico> findFirstByActivoTrueAndEstadoOrderByAnioDesc(EstadoAnioAcademico estado);
+
     boolean existsByEstado(EstadoAnioAcademico estado);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

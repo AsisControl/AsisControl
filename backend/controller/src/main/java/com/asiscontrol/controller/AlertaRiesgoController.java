@@ -73,7 +73,7 @@ public class AlertaRiesgoController {
     }
 
     @PutMapping("/{id}/estado")
-    @PreAuthorize("hasAuthority('RIESGOS_ESCRIBIR')")
+    @PreAuthorize("hasAuthority('RIESGOS_ESCRIBIR') and @moduloAccessGuard.puedeAccederAlertaRiesgo(#id)")
     public RiesgoDto.AlertaResponse cambiarEstado(
             @PathVariable Long id,
             @Valid @RequestBody RiesgoDto.EstadoAlertaRequest request

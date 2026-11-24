@@ -76,6 +76,13 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         request("DELETE",tp,null,422); request("DELETE",tp,data("motivo","Fin del bimestre"),204);
     }
 
+    @Test void consultaElAnioVigenteParaRegistroDeNotas() throws Exception {
+        assertThat(getOk("/api/evaluaciones/anio-vigente").path("anioActivo").asInt()).isEqualTo(year.getAnio());
+        year.setEstado(com.asiscontrol.entity.enums.EstadoAnioAcademico.CERRADO);
+        em.flush();
+        assertThat(getOk("/api/evaluaciones/anio-vigente").path("anioActivo").isNull()).isTrue();
+    }
+
     @Test void registraNivelesAdABCPorCompetenciaYConsolida() throws Exception {
         var evaluation=postOk("/api/evaluaciones",evaluacion("Diagnostico"));
         String ep="/api/evaluaciones/"+evaluation.path("id").asLong();

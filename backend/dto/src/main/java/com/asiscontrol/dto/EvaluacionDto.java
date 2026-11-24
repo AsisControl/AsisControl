@@ -43,6 +43,8 @@ public final class EvaluacionDto {
     public record EstadoRequest(@NotNull EstadoEvaluacion estado) {
     }
 
+    public record AnioVigente(Integer anioActivo) {}
+
     public record Response(
             Long id,
             Long idAsignacionCurso,
