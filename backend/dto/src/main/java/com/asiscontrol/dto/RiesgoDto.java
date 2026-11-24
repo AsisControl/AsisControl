@@ -73,6 +73,7 @@ public final class RiesgoDto {
     public record AlertaResponse(
             Long id,
             Long idAlumno,
+            String nombreAlumno,
             Long idCriterio,
             String nombreCriterio,
             IndicadorRiesgo indicador,
