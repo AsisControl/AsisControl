@@ -125,11 +125,11 @@ test("Pagina y consulta únicamente el contexto de las tareas de cada página", 
   const user = userEvent.setup();
   render(<Tasks />);
   await screen.findByText("Matemática · 2° B · 2026");
-  expect(screen.getByText("Anterior").disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Anterior" })).toBeNull();
   await user.click(screen.getByText("Siguiente"));
   expect(await screen.findByText("Comunicación · 2° B · 2026")).toBeTruthy();
   expect(screen.queryByText("Práctica de álgebra")).toBeNull();
-  expect(screen.getByText("Siguiente").disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
   expect(screen.getByText("21 registros · Página 2 de 2")).toBeTruthy();
   expect(calls.filter((call) => call.path === "/api/tareas").map((call) => call.query.page)).toEqual(["0", "1"]);
 });
