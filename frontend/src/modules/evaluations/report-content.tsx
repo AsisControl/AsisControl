@@ -42,6 +42,14 @@ export function ReportContent({ report, draft = false, sustento }: {
       {[["AD", "Logro destacado"], ["A", "Logro esperado"], ["B", "En proceso"], ["C", "En inicio"]].map(([level, label]) =>
         <div key={level}><dt>{level}</dt><dd>{label}</dd></div>)}
     </dl>
+    {report.reglaCalificacion && <section aria-label="Consolidado por competencia">
+      <h3>Consolidado por competencia</h3>
+      <p>Regla de calificación · versión {report.reglaCalificacion.numeroVersion}</p>
+      <ul>{report.consolidado?.map((item) => <li key={item.idCompetencia}>
+        {item.nombreCompetencia}: {item.nivelConsolidado ?? "Datos insuficientes"}
+        {item.componentesFaltantes.length > 0 && ` · Faltan: ${item.componentesFaltantes.join(", ")}`}
+      </li>)}</ul>
+    </section>}
     {!report.filas.length ? <p>No hay resultados disponibles en este informe.</p> : <div className={styles.reportResults}>
       <table>
         <caption>{status ? (status === "BORRADOR" ? "Resultados del borrador" : "Resultados de la libreta publicada")

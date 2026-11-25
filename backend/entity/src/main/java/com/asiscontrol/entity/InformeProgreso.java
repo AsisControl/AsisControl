@@ -52,6 +52,14 @@ public class InformeProgreso extends AuditableEntity {
     @JoinColumn(name = "id_docente", nullable = false)
     private Docente docente;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_regla_calificacion")
+    private ReglaCalificacion reglaCalificacion;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
+    @Column(name = "consolidado_regla")
+    private String consolidadoRegla;
+
     @Column(name = "fecha_publicacion")
     private Instant fechaPublicacion;
 }

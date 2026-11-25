@@ -5,6 +5,7 @@ import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
 import { AssociationsPanel } from "./associations/associations-panel";
 import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
+import { GradingRulesPanel } from "./grading-rules/grading-rules-panel";
 import { RiskPanel } from "./risk/risk-panel";
 import { StudyPlansPanel } from "./study-plans-panel";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
@@ -24,6 +25,7 @@ const panels: Record<string, (canWrite: boolean) => ReactNode> = {
   "plan-estudios": (canWrite) => <StudyPlansPanel canWrite={canWrite} />,
   competencias: (canWrite) => <CompetenciesPanel canWrite={canWrite} />,
   asociaciones: (canWrite) => <AssociationsPanel canWrite={canWrite} />,
+  "reglas-academicas": (canWrite) => <GradingRulesPanel canWrite={canWrite} />,
 };
 export const ACADEMIC_PATH = "/academico";
 const DEFAULT_TAB = "cursos";

@@ -76,7 +76,15 @@ public final class CalificacionDto {
             String nombreCompetencia,
             BigDecimal promedioPonderado,
             NivelLogro nivelConsolidado,
-            int evaluacionesConsideradas
+            int evaluacionesConsideradas,
+            Long idAsignacionCurso,
+            Integer numeroVersionRegla,
+            List<String> componentesFaltantes
     ) {
+        public ConsolidadoResponse(Long idCompetencia, String codigoCompetencia, String nombreCompetencia,
+                                   BigDecimal promedioPonderado, NivelLogro nivelConsolidado, int evaluacionesConsideradas) {
+            this(idCompetencia, codigoCompetencia, nombreCompetencia, promedioPonderado,
+                    nivelConsolidado, evaluacionesConsideradas, null, null, List.of());
+        }
     }
 }

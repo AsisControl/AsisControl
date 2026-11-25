@@ -8,6 +8,9 @@ import com.asiscontrol.entity.CorreccionCalificacion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.dto.CalificacionDto;
+import com.asiscontrol.dto.ReglaCalificacionDto;
+import com.asiscontrol.entity.AsignacionCurso;
+import com.asiscontrol.entity.ReglaCalificacion;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.Calificacion;
 import com.asiscontrol.entity.Competencia;
@@ -51,6 +54,7 @@ public class CalificacionService {
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
     private final AvisosAcademicos avisos;
+    private final ReglaCalificacionService reglas;
 
     public CalificacionService(
             CalificacionRepository calificacionRepository,
@@ -61,7 +65,7 @@ public class CalificacionService {
             CorreccionCalificacionRepository correccionRepository,
             EntityManager entityManager,
             ModuloAccessGuard accessGuard,
-            AuditoriaService auditoria, AvisosAcademicos avisos) {
+            AuditoriaService auditoria, AvisosAcademicos avisos, ReglaCalificacionService reglas) {
         this.correccionRepository = correccionRepository;
         this.entityManager = entityManager;
         this.calificacionRepository = calificacionRepository;
@@ -72,6 +76,7 @@ public class CalificacionService {
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
         this.avisos = avisos;
+        this.reglas = reglas;
     }
 
     @Transactional(readOnly = true)
@@ -239,8 +244,62 @@ public class CalificacionService {
                         "No se encontro el alumno con id " + idAlumno
                 ));
 
-        List<Calificacion> calificaciones = calificacionRepository
-                .buscarParaConsolidado(idAlumno, idAsignacionCurso);
+        Long docente = accessGuard.restriccionDocentePersonaId();
+        List<Calificacion> calificaciones = calificacionRepository.buscarParaConsolidado(idAlumno, idAsignacionCurso)
+                .stream().filter(nota -> docente == null || docente.equals(nota.getEvaluacion()
+                        .getAsignacionCurso().getDocente().getPersona().getId())).toList();
+        if (idAsignacionCurso != null) {
+            var asignacion = entityManager.find(AsignacionCurso.class, idAsignacionCurso);
+            if (asignacion != null && tieneMatricula(idAlumno, asignacion)) {
+                accessGuard.verificarConsultaInforme(asignacion, idAlumno);
+                var regla = reglas.vigente(asignacion);
+                if (regla.isPresent()) return consolidarConRegla(idAlumno, asignacion, regla.get());
+            }
+            return consolidarHistorico(calificaciones);
+        }
+        var asignaciones = new java.util.LinkedHashMap<Long, AsignacionCurso>();
+        for (var calificacion : calificaciones) {
+            var asignacion = calificacion.getEvaluacion().getAsignacionCurso();
+            asignaciones.putIfAbsent(asignacion.getId(), asignacion);
+        }
+        var aplicables = new HashMap<Long, ReglaCalificacion>();
+        for (var asignacion : asignaciones.values()) {
+            reglas.vigente(asignacion).ifPresent(regla -> aplicables.put(asignacion.getId(), regla));
+        }
+        if (aplicables.isEmpty()) return consolidarHistorico(calificaciones);
+        var resultados = new ArrayList<>(consolidarHistorico(calificaciones.stream()
+                .filter(nota -> !aplicables.containsKey(nota.getEvaluacion().getAsignacionCurso().getId())).toList()));
+        for (var asignacion : asignaciones.values()) {
+            var regla = aplicables.get(asignacion.getId());
+            if (regla != null) resultados.addAll(consolidarConRegla(idAlumno, asignacion, regla));
+        }
+        return resultados;
+    }
+
+    private boolean tieneMatricula(Long alumno, AsignacionCurso asignacion) {
+        var seccion = asignacion.getSeccion().getId();
+        return matriculaRepository.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(alumno, seccion, EstadoMatricula.ACTIVA)
+                || matriculaRepository.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(alumno, seccion, EstadoMatricula.FINALIZADA);
+    }
+
+    private List<CalificacionDto.ConsolidadoResponse> consolidarConRegla(Long alumno, AsignacionCurso asignacion,
+                                                                       ReglaCalificacion regla) {
+        var muestras = entityManager.createQuery("""
+                select competencia, e.tipoEvaluacion, nota.nivelLogro
+                from Evaluacion e join e.competencias competencia
+                left join Calificacion nota on nota.evaluacion = e and nota.competencia = competencia
+                    and nota.alumno.id = :alumno and nota.activo = true
+                where e.activo = true and e.asignacionCurso.id = :asignacion
+                and e.estado in (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                                 com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
+                """, Object[].class).setParameter("asignacion", asignacion.getId()).setParameter("alumno", alumno)
+                .getResultList().stream().map(fila -> new ReglaCalificacionService.NotaCompetencia(
+                        (Competencia) fila[0], new ReglaCalificacionDto.Muestra(
+                        (com.asiscontrol.entity.enums.TipoEvaluacion) fila[1], (NivelLogro) fila[2]))).toList();
+        return reglas.consolidar(regla, asignacion.getId(), muestras);
+    }
+
+    private List<CalificacionDto.ConsolidadoResponse> consolidarHistorico(List<Calificacion> calificaciones) {
         Map<Long, AcumuladoCompetencia> acumulados = new HashMap<>();
 
         for (Calificacion calificacion : calificaciones) {

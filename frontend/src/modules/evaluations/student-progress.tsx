@@ -73,7 +73,8 @@ export function StudentProgress({
               {progress.levels.map((item) => (
                 <li key={item.idCompetencia}>
                   <span>{item.nombreCompetencia}</span>
-                  <strong>{item.nivelConsolidado}</strong>
+                  <strong>{item.nivelConsolidado ?? "Datos insuficientes"}</strong>
+                  {!!item.componentesFaltantes?.length && <small>Faltan: {item.componentesFaltantes.join(", ")}</small>}
                 </li>
               ))}
             </ul>

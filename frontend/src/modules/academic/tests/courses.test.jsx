@@ -316,11 +316,11 @@ test("Las pestañas navegan por URL y las pendientes lo indican", async () => {
   backend();
   const user = userEvent.setup();
   const { rerender } = renderAcademic();
-  await user.click(screen.getByRole("button", { name: "Reglas académicas" }));
-  expect(currentUrl()).toBe("/academico/reglas-academicas");
-  rerender(<Academic canWrite tab="reglas-academicas" />);
+  await user.click(screen.getByRole("button", { name: "Reportes" }));
+  expect(currentUrl()).toBe("/academico/reportes");
+  rerender(<Academic canWrite tab="reportes" />);
   expect(screen.getByText("Esta sección todavía está pendiente de implementación.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Reglas académicas" }).getAttribute("aria-current")).toBe("page");
+  expect(screen.getByRole("button", { name: "Reportes" }).getAttribute("aria-current")).toBe("page");
   rerender(<Academic canWrite tab="desconocida" />);
   expect(currentUrl()).toBe("/academico/cursos");
 });

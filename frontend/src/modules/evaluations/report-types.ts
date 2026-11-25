@@ -56,6 +56,9 @@ export type ProgressReportRow = ReportRowReferences & {
 
 /** ReporteAvanceDto: contenido de una versión persistida de la libreta. */
 export type ProgressReport = {
+  reglaCalificacion?: { id: number; numeroVersion: number; formula: string } | null;
+  consolidado?: { idCompetencia: number; nombreCompetencia: string; nivelConsolidado: string | null;
+    promedioPonderado: number | null; componentesFaltantes: string[] }[];
   alumno: string;
   codigoAlumno: string | null;
   curso: string;
