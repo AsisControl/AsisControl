@@ -10,6 +10,7 @@ import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-typ
 import { generateReportDrafts, getProgressReportDraft, publishPeriodReports, getProgressReport, getProgressReportPdf, getReportPeriodStatus, type ReportPeriodStatus, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
 import styles from "./evaluations.module.css";
 import { ReportContent, ReportBadge } from "./report-content";
+import { ReportPdfDownload } from "./report-pdf-download";
 
 
 type FamilyStudent = { id: number; nombreCompleto: string };
@@ -106,8 +107,10 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
             {pending === "notes" ? "Consultando…" : "Ver notas"}
           </button>
           <button className="secondary-action" disabled={!option || busy} onClick={() => open(true)}>
-            {pending === "pdf" ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : "Descargar PDF"}
+            {pending === "pdf" ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : "Descargar libreta completa"}
           </button>
+          {detail && option && <ReportPdfDownload key={`${option.idAlumno}:${option.idAsignacionCurso}:${option.idPeriodoAcademico}:${detail.periodo}`}
+            context={option} report={detail} showFull={false} disabled={busy} />}
         </div>}
         {pending && <span className={styles.reportSrOnly} role="status">{pending === "pdf" ? "Generando PDF…" : "Consultando libreta…"}</span>}
       </div>}

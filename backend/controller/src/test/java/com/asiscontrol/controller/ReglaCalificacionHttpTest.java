@@ -152,6 +152,14 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.reglaCalificacion.numeroVersion").value(1))
                 .andExpect(jsonPath("$.consolidado[0].nivelConsolidado").value("A"))
                 .andExpect(jsonPath("$.filas[*].ponderacion", org.hamcrest.Matchers.containsInAnyOrder("40 %", "40 %", "20 %")));
+        var pdf = mvc.perform(get("/api/calificaciones/reporte-avance" + reporte + "&idEvaluacion=" + examen)
+                        .with(como("ALUMNO", student.getPersona())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try (var reader = new com.lowagie.text.pdf.PdfReader(pdf)) {
+            var texto = new com.lowagie.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1);
+            assertThat(texto).contains("EXAMEN", "40 %", "Regla v1")
+                    .doesNotContain("PROYECTO", "80 %", "Consolidado por regla");
+        }
         var historial = getOk(REGLAS + "?idCurso=" + course.getId() + "&idGrado=" + grade.getId());
         assertThat(historial).hasSize(2);
         assertThat(historial.get(1).path("estado").asText()).isEqualTo("HISTORICA");

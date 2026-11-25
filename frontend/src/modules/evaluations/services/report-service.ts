@@ -34,10 +34,16 @@ export function getReportEvidenceAttachment(row: ReportRowContext, evidenceId: n
   return apiBlob(`${evidencePath(row)}/${evidenceId}/archivo`, { timeoutMs: 60000 });
 }
 
-export async function getProgressReportPdf(context: ReportContext) {
-  let filename = "Avance.pdf";
-  const blob = await apiBlob(`/api/calificaciones/reporte-avance?${reportQuery(context)}`, { timeoutMs: 60000 }, headers => {
-    const candidate = headers.get("Content-Disposition")?.match(/filename="(Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/)?.[1];
+export async function getProgressReportPdf(context: ReportContext, evaluationIds?: number[]) {
+  if (evaluationIds?.length === 0) throw new Error("Selecciona al menos una evaluación para descargar el reporte.");
+  const query = reportQuery(context);
+  evaluationIds?.forEach((id) => query.append("idEvaluacion", String(id)));
+  let filename = evaluationIds ? "Reporte_evaluaciones_seleccionadas.pdf" : "Avance.pdf";
+  const filenamePattern = evaluationIds
+    ? /filename="(Evaluaciones_seleccionadas_Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/
+    : /filename="(Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/;
+  const blob = await apiBlob(`/api/calificaciones/reporte-avance?${query}`, { timeoutMs: 60000 }, headers => {
+    const candidate = headers.get("Content-Disposition")?.match(filenamePattern)?.[1];
     if (candidate) filename = candidate;
   });
   return { blob, filename };

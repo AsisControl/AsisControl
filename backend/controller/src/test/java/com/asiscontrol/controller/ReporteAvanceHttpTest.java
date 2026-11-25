@@ -4,14 +4,19 @@ import com.asiscontrol.entity.Calificacion;
 import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.enums.*;
 import com.asiscontrol.entity.planificacion.PeriodoAcademico;
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.parser.PdfTextExtractor;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Instant;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Set;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,6 +96,53 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         mvc.perform(get(url).with(como("APODERADO",guardian.getPersona().getId()))).andExpect(status().isForbidden());
     }
 
+    @Test void descargaParcialFiltraEvaluacionesDeLaLibretaYConservaPermisos() throws Exception {
+        var periodo = new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Primer bimestre");
+        periodo.setOrden(1); periodo.setFechaInicio(LocalDate.of(2090, 3, 1)); periodo.setFechaFin(LocalDate.of(2090, 4, 30));
+        em.persist(periodo);
+        var examen = evaluacionConNota(LocalDate.of(2090, 3, 15), true);
+        var practica = evaluacionConNota(LocalDate.of(2090, 3, 22), true);
+        var proyecto = evaluacionConNota(LocalDate.of(2090, 4, 5), true);
+        examen.setTitulo("Examen de números"); practica.setTitulo("Práctica de formas"); proyecto.setTitulo("Proyecto de medidas");
+        em.flush();
+        request("POST", "/api/calificaciones/informes/publicar",
+                data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId()), 200);
+
+        String url = "/api/calificaciones/reporte-avance?idAlumno=" + student.getId()
+                + "&idAsignacionCurso=" + assignment.getId() + "&idPeriodoAcademico=" + periodo.getId();
+        var alumno = como("ALUMNO", student.getPersona().getId());
+        var completo = mvc.perform(get(url).with(alumno)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"Avance_")))
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(textoPdf(completo)).contains("Informe de progreso por competencias", "Competencia", "Nivel", "Peso", "Observación")
+                .containsSubsequence(examen.getTitulo(), "Fecha: 15/03/2090", practica.getTitulo(), proyecto.getTitulo())
+                .doesNotContain("Evaluación / fecha", "EVALUACIÓN 1", "Título:");
+
+        var parcial = mvc.perform(get(url).param("idEvaluacion", examen.getId().toString(), proyecto.getId().toString()).with(alumno))
+                .andExpect(status().isOk()).andExpect(content().contentType("application/pdf"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"Evaluaciones_seleccionadas_")))
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(textoPdf(parcial)).contains("REPORTE DE EVALUACIONES SELECCIONADAS", "Primer bimestre")
+                .containsSubsequence(examen.getTitulo(), "Fecha: 15/03/2090", proyecto.getTitulo())
+                .doesNotContain("Informe de progreso por competencias", "Evaluación / fecha", "EVALUACIÓN 1", "Título:", practica.getTitulo());
+        Files.createDirectories(Path.of("target", "reportes-prueba"));
+        Files.write(Path.of("target", "reportes-prueba", "avance-parcial.pdf"), parcial);
+
+        mvc.perform(get(url).param("idEvaluacion", "").with(alumno)).andExpect(status().isUnprocessableEntity());
+        mvc.perform(get(url).param("idEvaluacion", "999999").with(alumno)).andExpect(status().isUnprocessableEntity());
+        mvc.perform(get(url).param("idEvaluacion", examen.getId().toString()).with(como("ALUMNO", person().getId())))
+                .andExpect(status().isForbidden());
+    }
+
+    private String textoPdf(byte[] pdf) throws Exception {
+        try (var reader = new PdfReader(pdf)) {
+            var extractor = new PdfTextExtractor(reader);
+            var texto = new StringBuilder();
+            for (int pagina = 1; pagina <= reader.getNumberOfPages(); pagina++) texto.append(extractor.getTextFromPage(pagina));
+            return texto.toString();
+        }
+    }
+
     @Test void publicarExigePlanillasCompletasYRespetaLasFechas() throws Exception {
         var p = new PeriodoAcademico(); p.setAnioAcademico(year); p.setNombre("Periodo"); p.setOrden(1);
         p.setFechaInicio(LocalDate.of(2090,3,1)); p.setFechaFin(LocalDate.of(2090,4,30)); em.persist(p);
@@ -127,6 +179,15 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         var p = new PeriodoAcademico(); p.setAnioAcademico(year); p.setNombre("Periodo"); p.setOrden(1);
         p.setFechaInicio(LocalDate.of(2090,3,1)); p.setFechaFin(LocalDate.of(2090,4,30)); em.persist(p);
         var e = evaluacionConNota(LocalDate.of(2090,3,15), true); em.flush();
+        var comentario = "Explica su procedimiento";
+        var lote = json.writeValueAsString(data("calificaciones", java.util.List.of(data(
+                "idEvaluacion", e.getId(), "idAlumno", student.getId(), "idCompetencia", competence.getId(),
+                "nivelLogro", "A", "observacion", comentario))));
+        var docente = como("DOCENTE", teacher.getPersona().getId());
+        mvc.perform(put("/api/calificaciones/lote").with(docente).contentType("application/json").content(lote))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/evaluaciones/" + e.getId() + "/planilla").with(docente))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.alumnos[0].notas[0].observacion").value(comentario));
         var body = json.writeValueAsString(data("idAsignacionCurso",assignment.getId(),"idPeriodoAcademico",p.getId()));
         String params = "?idAlumno="+student.getId()+"&idAsignacionCurso="+assignment.getId()+"&idPeriodoAcademico="+p.getId();
         String estadoUrl = "/api/calificaciones/informes/estado?idAsignacionCurso=" + assignment.getId()
@@ -143,7 +204,8 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         mvc.perform(get(estadoUrl).with(como("DOCENTE", person().getId()))).andExpect(status().isForbidden());
         mvc.perform(get(estadoUrl).with(como("APODERADO", guardian.getPersona().getId()))).andExpect(status().isForbidden());
         mvc.perform(get("/api/calificaciones/informes/borrador"+params).with(como("DOCENTE",teacher.getPersona().getId())))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("A"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("A"))
+                .andExpect(jsonPath("$.filas[0].observacion").value(comentario));
         for (String rol : new String[]{"ALUMNO", "APODERADO"}) {
             Long persona = rol.equals("ALUMNO") ? student.getPersona().getId() : guardian.getPersona().getId();
             mvc.perform(get("/api/calificaciones/informes/borrador"+params).with(como(rol,persona))).andExpect(status().isForbidden());

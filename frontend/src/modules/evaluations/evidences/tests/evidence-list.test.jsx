@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { page, reply } from "../../../../../tests/support/backend.js";
-import { backend, chooseStudent, evidence, open, pdf, withFile } from "./fixtures.jsx";
+import { backend, chooseStudent, evaluation, evidence, open, pdf, withFile } from "./fixtures.jsx";
 
 vi.mock("next/navigation", () => import("../../../../../tests/support/navigation.js"));
 
@@ -80,6 +80,39 @@ test("Edita la descripción conservando el archivo, sin volver a subirlo", async
   expect(put.path).toBe("/api/evidencias-pedagogicas/70");
   expect(put.body).toEqual({ descripcion: "Nueva descripción", archivoId: 31 });
   expect(calls.some((call) => call.path === "/api/archivos")).toBe(false);
+});
+
+test("Muestra todos los vínculos existentes, los conserva y solo permite agregar evaluaciones nuevas", async () => {
+  const calls = backend({
+    "GET /api/evaluaciones": page([evaluation, { ...evaluation, id: 11, titulo: "Práctica" }]),
+    "GET /api/evidencias-pedagogicas": page([evidence({ evaluaciones: [
+      { id: 10, titulo: "Examen" }, { id: 15, titulo: "Trabajo anterior" },
+    ] })]),
+    "PUT /api/evidencias-pedagogicas/70/evaluaciones/11": reply(204),
+  });
+  open();
+  const user = await chooseStudent();
+  async function edit() {
+    await rowMenu(user, "Más acciones para evidencia 70");
+    await user.click(await screen.findByRole("menuitem", { name: "Editar" }));
+    return within(await screen.findByRole("dialog", { name: /Editar evidencia/ }));
+  }
+  let dialog = await edit();
+  expect(dialog.getByText("Examen")).toBeTruthy();
+  expect(dialog.getByText("Trabajo anterior")).toBeTruthy();
+  expect(dialog.getByLabelText(/Descripción/).readOnly).toBe(true);
+  await user.click(dialog.getByRole("button", { name: "Cerrar", exact: true }));
+  expect(calls.filter((call) => call.method === "PUT")).toHaveLength(0);
+
+  dialog = await edit();
+  await dialog.findByRole("option", { name: "Práctica · 2026-09-22" });
+  const selector = dialog.getByLabelText("Agregar evaluación");
+  expect(within(selector).getAllByRole("option").map((option) => option.value)).toEqual(["", "11"]);
+  await user.selectOptions(selector, "11");
+  await user.click(dialog.getByRole("button", { name: "Guardar cambios" }));
+  expect(await screen.findByText("Evidencia actualizada.")).toBeTruthy();
+  expect(calls.filter((call) => call.method === "PUT").map((call) => call.path))
+    .toEqual(["/api/evidencias-pedagogicas/70/evaluaciones/11"]);
 });
 
 test("Editar permite quitar o reemplazar el archivo", async () => {

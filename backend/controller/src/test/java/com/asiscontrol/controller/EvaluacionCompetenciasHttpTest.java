@@ -14,6 +14,7 @@ import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.RegistroAuditoria;
 import com.asiscontrol.entity.enums.Especialidad;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.repository.RegistroAuditoriaRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -89,8 +90,31 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
     private Map<String, Object> datosEvaluacion(String titulo) {
         return data("idAsignacionCurso", assignment.getId(), "titulo", titulo, "descripcion", null,
                 "tipoEvaluacion", "EXAMEN", "periodoEvaluacion", "BIMESTRAL",
-                "fechaEvaluacion", LocalDate.now(), "ponderacionPorcentaje", 100,
+                "fechaEvaluacion", LocalDate.of(section.getAnioAcademico(), 4, 1), "ponderacionPorcentaje", 100,
                 "idsCompetencia", Set.of(competence.getId()));
+    }
+
+    @Test
+    void validaFechaCalendarioAnioYPeriodoActivo() throws Exception {
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year);
+        periodo.setNombre("Primer período");
+        periodo.setOrden(1);
+        periodo.setFechaInicio(LocalDate.of(year.getAnio(), 3, 1));
+        periodo.setFechaFin(LocalDate.of(year.getAnio(), 4, 30));
+        em.persist(periodo);
+        em.flush();
+
+        var datos = datosEvaluacion("Validación de fecha");
+        for (var caso : Map.of("2090-02-30", "fecha de evaluación válida", "202020-04-01", "fecha de evaluación válida",
+                "+202020-04-01", "1900 y 2100", "2091-04-01", "año académico 2090",
+                "2090-05-01", "período académico activo").entrySet()) {
+            datos.put("fechaEvaluacion", caso.getKey());
+            var error = request("POST", EVALUACIONES, datos, 400);
+            assertThat(error.path("message").asText()).contains(caso.getValue());
+        }
+        datos.put("fechaEvaluacion", "2090-04-30");
+        assertThat(postOk(EVALUACIONES, datos).path("fechaEvaluacion").asText()).isEqualTo("2090-04-30");
     }
 
     private long nuevaEvaluacion() throws Exception {

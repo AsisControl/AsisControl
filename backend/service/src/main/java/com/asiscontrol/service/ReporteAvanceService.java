@@ -376,7 +376,8 @@ public class ReporteAvanceService {
                 d.getPesoResultado() != null ? d.getPesoResultado()
                         : (informe.getReglaCalificacion() == null ? "" : "Histórico: ")
                                 + d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
-                d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion())).toList();
+                d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion(),
+                d.getEvaluacion().getTipoEvaluacion().name(), d.getEvaluacion().getEstado().name())).toList();
         return new ReporteAvanceDto(nombre(alumno.getPersona()), alumno.getCodigoAlumno(),
                 asignacion.nombreCurso(), nombre(informe.getDocente().getPersona()),
                 seccion.getGrado(), seccion.getNombre(), seccion.getAnioAcademico(),

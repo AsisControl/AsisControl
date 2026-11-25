@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 public final class EvaluacionDto {
-    public record PeriodoInforme(Long id, String nombre) { }
+    public record PeriodoInforme(Long id, String nombre, LocalDate fechaInicio, LocalDate fechaFin) { }
     public record PublicarPeriodoRequest(@jakarta.validation.constraints.NotNull Long idAsignacionCurso,
             @jakarta.validation.constraints.NotNull Long idPeriodoAcademico) { }
     public record PublicacionResponse(int evaluacionesPublicadas) { }
@@ -87,6 +87,7 @@ public final class EvaluacionDto {
             Long idCalificacion,
             Long idCompetencia,
             NivelLogro nivelLogro,
+            String observacion,
             long version,
             boolean corregida,
             BigDecimal pesoEfectivo

@@ -10,6 +10,7 @@ import type { AchievementLevel, GradeCell, GradeSheetData, GradeSheetStudent } f
 import styles from "./evaluations.module.css";
 
 const REASON_MAX = 500;
+const OBSERVATION_MAX = 1000;
 const cellKey = (idAlumno: number, idCompetencia: number) => `${idAlumno}:${idCompetencia}`;
 const noteOf = (student: GradeSheetStudent, idCompetencia: number) =>
   student.notas.find((note) => note.idCompetencia === idCompetencia);
@@ -32,6 +33,7 @@ export function GradeSheet({
   const [loadError, setLoadError] = useState("");
   const [tick, setTick] = useState(0);
   const [changes, setChanges] = useState<Map<string, AchievementLevel>>(new Map());
+  const [observations, setObservations] = useState<Map<string, string>>(new Map());
   const [motivo, setMotivo] = useState("");
   const [motivoError, setMotivoError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -80,12 +82,26 @@ export function GradeSheet({
     idCompetencia: number;
     note: GradeCell | undefined;
     level: AchievementLevel;
+    observacion: string | null;
   };
+  const observationWithoutLevel = draft && alumnos.some((person) =>
+    evaluacion.competencias.some((item) => {
+      const key = cellKey(person.idAlumno, item.id);
+      return Boolean(observations.get(key)?.trim()) && !changes.has(key) && !noteOf(person, item.id)?.nivelLogro;
+    }),
+  );
   const pending: Pending[] = alumnos.flatMap((person) =>
     evaluacion.competencias.flatMap((item) => {
-      const level = changes.get(cellKey(person.idAlumno, item.id));
-      return level
-        ? [{ person, competencia: item.nombre, idCompetencia: item.id, note: noteOf(person, item.id), level }]
+      const key = cellKey(person.idAlumno, item.id);
+      const note = noteOf(person, item.id);
+      const changedLevel = changes.get(key);
+      const editedObservation = draft ? observations.get(key)?.trim() : undefined;
+      const savedObservation = note?.observacion ?? null;
+      const observationChanged = editedObservation !== undefined && editedObservation !== (savedObservation ?? "").trim();
+      const level = changedLevel ?? note?.nivelLogro;
+      return level && (changedLevel || observationChanged)
+        ? [{ person, competencia: item.nombre, idCompetencia: item.id, note, level,
+            observacion: observationChanged ? editedObservation || null : savedObservation }]
         : [];
     }),
   );
@@ -121,10 +137,13 @@ export function GradeSheet({
             idAlumno: item.person.idAlumno,
             idCompetencia: item.idCompetencia,
             nivelLogro: item.level,
+            observacion: item.observacion,
           })),
         );
+        setSheet(null);
       }
       setChanges(new Map());
+      setObservations(new Map());
       setMotivo("");
       setSuccess(
         correction
@@ -175,7 +194,7 @@ export function GradeSheet({
               <button
                 type="button"
                 className="primary-action"
-                disabled={busy || !pending.length}
+                disabled={busy || !pending.length || observationWithoutLevel}
                 onClick={() => void save()}
               >
                 {busy ? "Guardando…" : correction ? "Guardar cambios" : "Guardar evaluación"}
@@ -190,6 +209,7 @@ export function GradeSheet({
                 : "Planilla completa."}
             </p>
           )}
+          {observationWithoutLevel && <p className="hint">Selecciona un nivel para cada observación pendiente.</p>}
           {alumnos.length ? (
             <div className={styles.sheetTable}>
               <table aria-label={`Planilla de ${evaluacion.titulo}`}>
@@ -238,6 +258,22 @@ export function GradeSheet({
                                 : note?.pesoEfectivo == null ? "Peso efectivo pendiente"
                                   : `Peso efectivo: ${note.pesoEfectivo.toLocaleString("es-PE", { maximumFractionDigits: 4 })} %`}
                             </small>}
+                            <label className={`field ${styles.gradeObservation}`}>
+                              Observación
+                              <textarea
+                                aria-label={`Observación: ${person.nombreCompleto}, ${item.nombre}`}
+                                rows={2}
+                                maxLength={OBSERVATION_MAX}
+                                value={observations.get(key) ?? note?.observacion ?? ""}
+                                readOnly={!draft || !editable}
+                                disabled={busy}
+                                onChange={(event) => {
+                                  const text = event.target.value;
+                                  setSuccess("");
+                                  setObservations((current) => new Map(current).set(key, text));
+                                }}
+                              />
+                            </label>
                           </td>
                         );
                       })}

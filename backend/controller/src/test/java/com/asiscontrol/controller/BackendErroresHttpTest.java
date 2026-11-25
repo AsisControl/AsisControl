@@ -36,7 +36,7 @@ class BackendErroresHttpTest extends ApiIntegrationSupport {
         invalidTask.put("asignacionCursoId",assignment.getId()); invalidTask.put("fechaLimite",LocalDateTime.now().minusDays(1));
         request("POST","/api/tareas",invalidTask,422);
         request("POST","/api/evaluaciones",data("idAsignacionCurso",assignment.getId(),"titulo","Examen",
-                "tipoEvaluacion","EXAMEN","periodoEvaluacion","ANUAL","fechaEvaluacion",LocalDate.now(),
+                "tipoEvaluacion","EXAMEN","periodoEvaluacion","ANUAL","fechaEvaluacion",LocalDate.of(section.getAnioAcademico(), 4, 1),
                 "ponderacionPorcentaje",100,"idsCompetencia",Set.of(Long.MAX_VALUE)),404);
         request("GET","/api/asistencias/alumnos/"+Long.MAX_VALUE,null,404);
     }

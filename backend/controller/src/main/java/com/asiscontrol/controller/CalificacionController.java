@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.CalificacionDto;
+import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.service.CalificacionService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.service.ReporteAvanceService;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.HashSet;
 
 @RestController
 @RequestMapping("/api/calificaciones")
@@ -97,12 +99,23 @@ public class CalificacionController {
     public ResponseEntity<byte[]> descargarReporteAvance(
             @RequestParam Long idAlumno,
             @RequestParam Long idAsignacionCurso,
-            @RequestParam Long idPeriodoAcademico) {
+            @RequestParam Long idPeriodoAcademico,
+            @RequestParam(required = false) List<Long> idEvaluacion) {
         var datos = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
-        byte[] pdf = generadorReporteAvance.generar(datos);
+        var seleccionadas = idEvaluacion == null ? null : new HashSet<>(idEvaluacion);
+        if (seleccionadas != null) {
+            var disponibles = datos.filas().stream().map(com.asiscontrol.dto.ReporteAvanceDto.Fila::idEvaluacion)
+                    .collect(java.util.stream.Collectors.toSet());
+            if (seleccionadas.isEmpty() || !disponibles.containsAll(seleccionadas)) {
+                throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona al menos una evaluación de esta libreta para descargar el reporte.");
+            }
+        }
+        byte[] pdf = seleccionadas == null ? generadorReporteAvance.generar(datos) : generadorReporteAvance.generar(datos, seleccionadas);
+        String nombre = nombrePdf(datos);
+        if (seleccionadas != null) nombre = "Evaluaciones_seleccionadas_" + nombre;
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header("Content-Disposition", "attachment; filename=\"" + nombrePdf(datos) + "\"")
+                .header("Content-Disposition", "attachment; filename=\"" + nombre + "\"")
                 .cacheControl(CacheControl.noStore())
                 .body(pdf);
     }

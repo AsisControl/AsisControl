@@ -13,6 +13,8 @@ import java.time.*;
 import java.util.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class SustentoInformeHttpTest extends ApiIntegrationSupport {
@@ -67,6 +69,32 @@ class SustentoInformeHttpTest extends ApiIntegrationSupport {
                     .andExpect(content().bytes(contenido)).andExpect(content().contentType("application/pdf"))
                     .andExpect(header().string("Cache-Control","no-store"));
         }
+    }
+
+    @Test void altaSinVinculoNoSustentaLaFilaYElPutIdempotenteLaHaceVisible() throws Exception {
+        evidencia.setActivo(false);
+        var docente = jwt().jwt(j -> j.claim("personaId", teacher.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCENTE"),
+                        new SimpleGrantedAuthority("CALIFICACIONES_LEER"), new SimpleGrantedAuthority("CALIFICACIONES_ESCRIBIR"));
+        String base = "/api/evidencias-pedagogicas";
+        var alta = json.writeValueAsString(data("asignacionId", assignment.getId(), "alumnoId", student.getId(),
+                "competenciaId", competence.getId(), "periodoId", periodo.getId(), "descripcion", "Producto de la evaluación"));
+        var response = mvc.perform(post(base).with(docente).contentType("application/json").content(alta))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.evaluaciones.length()").value(0)).andReturn();
+        var id = json.readTree(response.getResponse().getContentAsString()).path("id").asLong();
+        mvc.perform(get(url()).with(docente)).andExpect(status().isOk()).andExpect(jsonPath("$.evidencias.length()").value(0));
+
+        String vinculo = base + "/" + id + "/evaluaciones/" + evaluacion.getId();
+        mvc.perform(put(vinculo).with(docente)).andExpect(status().isNoContent());
+        mvc.perform(put(vinculo).with(docente)).andExpect(status().isNoContent());
+        mvc.perform(get(base + "/" + id).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.evaluaciones.length()").value(1))
+                .andExpect(jsonPath("$.evaluaciones[0].id").value(evaluacion.getId()))
+                .andExpect(jsonPath("$.evaluaciones[0].titulo").value(evaluacion.getTitulo()));
+        mvc.perform(get(url()).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.evidencias.length()").value(1))
+                .andExpect(jsonPath("$.evidencias[0].idEvidencia").value(id))
+                .andExpect(jsonPath("$.evidencias[0].descripcion").value("Producto de la evaluación"));
     }
 
     @Test void soloIncluyeVinculosExactosYNoAceptaSustituirIds() throws Exception {
