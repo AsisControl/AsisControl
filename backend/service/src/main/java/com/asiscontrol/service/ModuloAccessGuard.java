@@ -1,5 +1,6 @@
 package com.asiscontrol.service;
 
+import com.asiscontrol.repository.VisibilidadSeccionAnterior;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Docente;
@@ -272,6 +273,16 @@ public class ModuloAccessGuard {
                             """, Long.class)
                     .setParameter("id", tareaId)
                     .setParameter("personaId", personaId)
+                    .getSingleResult() > 0
+                    || entityManager.createQuery("""
+                            SELECT COUNT(t) FROM Tarea t, HistorialSeccionMatricula h
+                            WHERE t.id = :id AND t.activo = true
+                              AND t.estadoPublicacion <> com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
+                              AND h.matricula.alumno.persona.id = :personaId
+                              AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE
+                                    + " AND " + VisibilidadSeccionAnterior.TAREA, Long.class)
+                    .setParameter("id", tareaId)
+                    .setParameter("personaId", personaId)
                     .getSingleResult() > 0;
         }
         if (tieneRol("APODERADO")) {
@@ -286,6 +297,17 @@ public class ModuloAccessGuard {
                               AND v.alumno.id = m.alumno.id
                               AND v.apoderado.persona.id = :personaId
                             """, Long.class)
+                    .setParameter("id", tareaId)
+                    .setParameter("personaId", personaId)
+                    .getSingleResult() > 0
+                    || entityManager.createQuery("""
+                            SELECT COUNT(t) FROM Tarea t, HistorialSeccionMatricula h, AlumnoApoderado v
+                            WHERE t.id = :id AND t.activo = true
+                              AND t.estadoPublicacion <> com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
+                              AND v.activo = true AND v.alumno.id = h.matricula.alumno.id
+                              AND v.apoderado.persona.id = :personaId
+                              AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE
+                                    + " AND " + VisibilidadSeccionAnterior.TAREA, Long.class)
                     .setParameter("id", tareaId)
                     .setParameter("personaId", personaId)
                     .getSingleResult() > 0;
@@ -503,6 +525,19 @@ public class ModuloAccessGuard {
                             """, Long.class)
                     .setParameter("id", evaluacionId)
                     .setParameter("personaId", personaId)
+                    .getSingleResult() > 0
+                    || entityManager.createQuery("""
+                            SELECT COUNT(e) FROM Evaluacion e, HistorialSeccionMatricula h
+                            WHERE e.id = :id AND e.activo = true
+                              AND e.estado IN (
+                                  com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                                  com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
+                              )
+                              AND h.matricula.alumno.persona.id = :personaId
+                              AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE
+                                    + " AND " + VisibilidadSeccionAnterior.EVALUACION, Long.class)
+                    .setParameter("id", evaluacionId)
+                    .setParameter("personaId", personaId)
                     .getSingleResult() > 0;
         }
         if (tieneRol("APODERADO")) {
@@ -520,6 +555,20 @@ public class ModuloAccessGuard {
                               AND v.alumno.id = m.alumno.id
                               AND v.apoderado.persona.id = :personaId
                             """, Long.class)
+                    .setParameter("id", evaluacionId)
+                    .setParameter("personaId", personaId)
+                    .getSingleResult() > 0
+                    || entityManager.createQuery("""
+                            SELECT COUNT(e) FROM Evaluacion e, HistorialSeccionMatricula h, AlumnoApoderado v
+                            WHERE e.id = :id AND e.activo = true
+                              AND e.estado IN (
+                                  com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                                  com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
+                              )
+                              AND v.activo = true AND v.alumno.id = h.matricula.alumno.id
+                              AND v.apoderado.persona.id = :personaId
+                              AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE
+                                    + " AND " + VisibilidadSeccionAnterior.EVALUACION, Long.class)
                     .setParameter("id", evaluacionId)
                     .setParameter("personaId", personaId)
                     .getSingleResult() > 0;
@@ -597,6 +646,14 @@ public class ModuloAccessGuard {
                                              AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
                                              AND m.seccion.id = t.asignacionCurso.seccion.id
                                              AND m.alumno.persona.id = :personaId)
+                                OR EXISTS (SELECT t.id FROM Tarea t JOIN t.archivos f, HistorialSeccionMatricula h
+                                           WHERE f.id = a.id
+                                             AND t.estadoPublicacion <>
+                                                 com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
+                                             AND h.matricula.alumno.persona.id = :personaId
+                                             AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE
+                                    + " AND " + VisibilidadSeccionAnterior.TAREA + """
+                                )
                             )
                             """, Long.class)
                     .setParameter("id", archivoId)

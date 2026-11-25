@@ -3,6 +3,7 @@ package com.asiscontrol.controller;
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
+import com.asiscontrol.dto.matricula.MatriculaDtos.FiltroMatriculas;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
 import com.asiscontrol.service.MatriculaService;
 import com.asiscontrol.service.ModuloAccessGuard;
@@ -79,10 +80,12 @@ public class MatriculaController {
 
     @GetMapping
     public Page<MatriculaResponse> listar(
+            FiltroMatriculas filtro,
             @PageableDefault(size = 20, sort = "fechaMatricula") Pageable pageable) {
         return matriculaService.listar(
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
+                filtro,
                 pageable);
     }
 

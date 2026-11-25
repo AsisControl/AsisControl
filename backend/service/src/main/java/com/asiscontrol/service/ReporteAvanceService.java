@@ -299,7 +299,9 @@ public class ReporteAvanceService {
                     where v.activo = true and v.apoderado.activo = true and v.alumno = i.alumno
                     and v.apoderado.persona.id = :apoderado))
                 and exists (select m.id from Matricula m where m.activo = true and m.alumno = i.alumno
-                    and m.seccion = i.asignacionCurso.seccion
+                    and (m.seccion = i.asignacionCurso.seccion or exists (select h.id
+                        from HistorialSeccionMatricula h where h.activo = true and h.matricula = m
+                        and h.seccionAnterior = i.asignacionCurso.seccion))
                     and m.estado in (com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
                                      com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA))
                 order by i.alumno.id, i.asignacionCurso.id, i.periodoAcademico.id, i.numeroVersion desc
@@ -331,8 +333,7 @@ public class ReporteAvanceService {
                 .orElseThrow(() -> new ResourceNotFoundException("ALUMNO_NO_ENCONTRADO", "Alumno no encontrado"));
         var periodo = periodo(periodoId, asignacion);
         var seccion = asignacion.getSeccion();
-        if (Stream.of(EstadoMatricula.ACTIVA, EstadoMatricula.FINALIZADA).noneMatch(estado ->
-                matriculas.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(alumnoId, seccion.getId(), estado))) {
+        if (!matriculas.estuvoEnSeccion(alumnoId, seccion.getId())) {
             throw new BusinessRuleException("ALUMNO_CURSO_INVALIDO", "El alumno no tiene matricula vigente o finalizada en esta seccion");
         }
         var informe = ultimo(alumnoId, curso, periodoId, !borrador)

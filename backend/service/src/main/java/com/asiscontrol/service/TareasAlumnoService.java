@@ -2,9 +2,11 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.tarea.TareaDtos.TareaAlumnoResponse;
 import com.asiscontrol.entity.EntregaTarea;
+import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.EntregaTareaRepository;
+import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.TareaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,16 +24,18 @@ public class TareasAlumnoService {
     private final TareaService tareaService;
     private final EntregaTareaService entregaService;
     private final ModuloAccessGuard guard;
+    private final MatriculaRepository matriculas;
 
     public TareasAlumnoService(AlumnoRepository alumnos, TareaRepository tareas,
             EntregaTareaRepository entregas, TareaService tareaService,
-            EntregaTareaService entregaService, ModuloAccessGuard guard) {
+            EntregaTareaService entregaService, ModuloAccessGuard guard, MatriculaRepository matriculas) {
         this.alumnos = alumnos;
         this.tareas = tareas;
         this.entregas = entregas;
         this.tareaService = tareaService;
         this.entregaService = entregaService;
         this.guard = guard;
+        this.matriculas = matriculas;
     }
 
     public Page<TareaAlumnoResponse> listar(String busqueda, Boolean entregada, Pageable pageable) {
@@ -58,7 +62,9 @@ public class TareasAlumnoService {
             return new TareaAlumnoResponse(tareaService.mapResponse(t), alumno.getId(),
                     asignacion.nombreCurso(), nombre,
                     seccion.getGrado() + "° Grado " + seccion.getNombre() + " · " + seccion.getAnioAcademico(),
-                    entrega == null ? null : entregaService.mapResponse(entrega));
+                    entrega == null ? null : entregaService.mapResponse(entrega),
+                    !matriculas.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(
+                            alumno.getId(), seccion.getId(), EstadoMatricula.ACTIVA));
         });
     }
 }

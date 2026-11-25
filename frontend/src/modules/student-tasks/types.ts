@@ -14,4 +14,6 @@ export type StudentTask = {
     archivos: TaskFile[];
   };
   entrega: TaskDelivery | null;
+  /** Tarea de una sección que el estudiante ya dejó: se consulta, no se entrega. */
+  soloConsulta?: boolean;
 };

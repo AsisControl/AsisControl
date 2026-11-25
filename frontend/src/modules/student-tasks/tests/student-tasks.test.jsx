@@ -36,6 +36,15 @@ describe("Tareas del estudiante", () => {
     expect(screen.queryByLabelText("Selecciona los archivos de tu trabajo")).toBeNull();
   });
 
+  it.each([null, delivery])("muestra solo en consulta las tareas de una sección anterior (%j)", async (entrega) => {
+    backend(() => response(page([{ ...task, entrega, soloConsulta: true }])));
+    render(<StudentTasks />);
+    fireEvent.click(await screen.findByRole("button", { name: "Ver detalle de Fracciones" }));
+    expect(screen.getByText("Esta tarea es de una sección anterior: solo puedes consultarla.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Entregar trabajo" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Editar entrega" })).toBeNull();
+  });
+
   it("edita agregando y retirando archivos con la versión actual, sin enviar comentarios", async () => {
     const second = { ...file, id: 72, nombreOriginal: "nuevo.pdf" };
     const fetch = backend((url, options) => {

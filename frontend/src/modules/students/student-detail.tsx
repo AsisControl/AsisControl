@@ -9,6 +9,8 @@ import {
   RecordSection,
 } from "@/shared/ui";
 import { dateLabel, stateLabel } from "@/shared/lib/formatters";
+import { SectionChangeDialog, type SectionEnrollment } from "@/modules/section-change";
+import { StudentEnrollment } from "./student-enrollment";
 import { canPerform, changeStudentState } from "./services/student-service";
 import { studentErrorMessage } from "./student-errors";
 import { reasonError, studentName } from "./student-rules";
@@ -33,6 +35,15 @@ export function StudentDetail({
   onChanged: (student: Student | null) => void;
 }) {
   const [action, setAction] = useState<StudentAction | null>(null);
+  const [moving, setMoving] = useState<SectionEnrollment | null>(null);
+  if (moving)
+    return (
+      <SectionChangeDialog
+        enrollment={moving}
+        onClose={() => setMoving(null)}
+        onChanged={() => setMoving(null)}
+      />
+    );
   // La confirmación reemplaza a la ficha mientras está abierta: nunca hay dos ventanas apiladas.
   if (action)
     return (
@@ -65,6 +76,7 @@ export function StudentDetail({
         </RecordItem>
       </dl>
       <PersonSections persona={student.persona} />
+      <StudentEnrollment studentId={student.id} onChangeSection={setMoving} />
       <RecordSection title="Apoderados" />
       {student.apoderados?.length ? (
         <div className="user-table-wrap">
