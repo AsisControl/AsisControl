@@ -62,8 +62,10 @@ export type CorrectionEntry = {
 export type ConsolidatedLevel = {
   idCompetencia: number;
   nombreCompetencia: string;
-  nivelConsolidado: AchievementLevel;
+  nivelConsolidado: AchievementLevel | null;
   evaluacionesConsideradas: number;
+  componentesFaltantes?: string[];
+  numeroVersionRegla?: number;
 };
 /** Asignación propia del docente (AsignacionCursoResponse). */
 export type OwnAssignment = {

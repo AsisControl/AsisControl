@@ -1,0 +1,43 @@
+package com.asiscontrol.dto;
+
+import com.asiscontrol.entity.ReglaCalificacion.Estado;
+import com.asiscontrol.entity.ReglaCalificacion.Formula;
+import com.asiscontrol.entity.enums.NivelLogro;
+import com.asiscontrol.entity.enums.TipoEvaluacion;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public final class ReglaCalificacionDto {
+    private ReglaCalificacionDto() {}
+
+    public record Componente(
+            @NotNull TipoEvaluacion tipoEvaluacion,
+            @NotBlank @Size(max = 90) String nombre,
+            @NotNull @DecimalMin("0.01") @DecimalMax("100.00") @Digits(integer = 3, fraction = 2) BigDecimal peso) {}
+
+    public record Borrador(
+            @NotNull @Positive Long idCurso,
+            @NotNull @Positive Long idGrado,
+            @NotNull Formula formula,
+            @NotEmpty @Size(max = 5) List<@NotNull @Valid Componente> componentes,
+            @PositiveOrZero Long version) {}
+
+    public record Activacion(@NotNull @PositiveOrZero Long version) {}
+
+    public record Regla(Long id, Long idCurso, Long idGrado, int numeroVersion, Estado estado,
+                        Formula formula, List<Componente> componentes, long version) {}
+
+    public record Aplicada(Long id, int numeroVersion, Formula formula) {}
+
+    public record Muestra(@NotNull TipoEvaluacion tipoEvaluacion, @NotNull NivelLogro nivel) {}
+
+    public record VistaPrevia(@NotNull Formula formula,
+                             @NotEmpty @Size(max = 5) List<@NotNull @Valid Componente> componentes,
+                             @NotEmpty @Size(max = 50) List<@NotNull @Valid Muestra> muestra) {}
+
+    public record Resultado(BigDecimal promedioPonderado, NivelLogro nivelConsolidado,
+                            int evaluacionesConsideradas, List<String> componentesFaltantes) {}
+}

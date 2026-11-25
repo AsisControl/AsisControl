@@ -1,6 +1,11 @@
 package com.asiscontrol.service;
 
+import com.asiscontrol.dto.CalificacionDto;
 import com.asiscontrol.dto.InformeDisponibleDto;
+import com.asiscontrol.dto.ReglaCalificacionDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.asiscontrol.dto.ReporteAvanceDto;
 import com.asiscontrol.entity.*;
 import com.asiscontrol.entity.enums.*;
@@ -29,11 +34,14 @@ public class ReporteAvanceService {
     private final MatriculaRepository matriculas;
     private final ModuloAccessGuard acceso;
     private final EvaluacionService evaluaciones;
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final TypeReference<List<CalificacionDto.ConsolidadoResponse>> CONSOLIDADO = new TypeReference<>() {};
     private final EntityManager em;
+    private final ReglaCalificacionService reglas;
 
     public ReporteAvanceService(AlumnoRepository alumnos, AsignacionCursoRepository asignaciones,
             PeriodoAcademicoRepository periodos, MatriculaRepository matriculas,
-            ModuloAccessGuard acceso, EvaluacionService evaluaciones, EntityManager em) {
+            ModuloAccessGuard acceso, EvaluacionService evaluaciones, EntityManager em, ReglaCalificacionService reglas) {
         this.alumnos = alumnos;
         this.asignaciones = asignaciones;
         this.periodos = periodos;
@@ -41,6 +49,7 @@ public class ReporteAvanceService {
         this.acceso = acceso;
         this.evaluaciones = evaluaciones;
         this.em = em;
+        this.reglas = reglas;
     }
 
     public record ResultadoPeriodo(int informesProcesados, List<InformeDisponibleDto> informes) { }
@@ -53,6 +62,7 @@ public class ReporteAvanceService {
         var asignacion = asignacion(curso);
         acceso.verificarAsignacionDocente(asignacion);
         var periodo = periodo(periodoId, asignacion);
+        var regla = reglas.vigente(asignacion).orElse(null);
         var alumnosPeriodo = new ArrayList<EstadoAlumno>();
         boolean desactualizada = false;
         boolean tieneBorradores = false;
@@ -64,6 +74,7 @@ public class ReporteAvanceService {
             alumnosPeriodo.add(new EstadoAlumno(alumno.getId(), nombre(alumno.getPersona()), borrador, publicada != null));
             if (publicada != null && !desactualizada) {
                 try {
+                    validarRegla(publicada, regla);
                     validarVigencia(detalles(publicada), asignacion, periodo);
                 } catch (BusinessRuleException e) {
                     desactualizada = true;
@@ -72,7 +83,7 @@ public class ReporteAvanceService {
             if (borrador) {
                 tieneBorradores = true;
                 try {
-                    validarBorrador(actual, asignacion, periodo);
+                    validarBorrador(actual, asignacion, periodo, regla);
                 } catch (BusinessRuleException e) {
                     if (impedimento == null) impedimento = e.getMessage();
                 }
@@ -102,7 +113,8 @@ public class ReporteAvanceService {
         em.lock(asignacion, LockModeType.PESSIMISTIC_WRITE);
         var periodo = periodo(periodoId, asignacion);
         var estudiantes = estudiantes(asignacion);
-        for (var alumno : estudiantes) generar(alumno, asignacion, periodo);
+        var regla = reglas.vigenteParaLibreta(asignacion).orElse(null);
+        for (var alumno : estudiantes) generar(alumno, asignacion, periodo, regla);
         return new ResultadoPeriodo(estudiantes.size(), estudiantes.stream().map(a ->
                 new InformeDisponibleDto(a.getId(), nombre(a.getPersona()), curso,
                         asignacion.nombreCurso(), asignacion.getSeccion().getAnioAcademico(),
@@ -117,12 +129,13 @@ public class ReporteAvanceService {
         em.lock(asignacion, LockModeType.PESSIMISTIC_WRITE);
         var periodo = periodo(periodoId, asignacion);
         var estudiantes = estudiantes(asignacion);
+        var regla = reglas.vigenteParaLibreta(asignacion).orElse(null);
         var pendientes = new ArrayList<InformeProgreso>();
         for (var alumno : estudiantes) {
             var informe = ultimo(alumno.getId(), curso, periodoId, false)
-                    .orElseGet(() -> generar(alumno, asignacion, periodo));
+                    .orElseGet(() -> generar(alumno, asignacion, periodo, regla));
             if (informe.getEstado() == EstadoInformeProgreso.PUBLICADA) continue;
-            validarBorrador(informe, asignacion, periodo);
+            validarBorrador(informe, asignacion, periodo, regla);
             pendientes.add(informe);
         }
         // Mantiene las validaciones existentes de las planillas y publica sus evaluaciones.
@@ -135,13 +148,56 @@ public class ReporteAvanceService {
         return new ResultadoPeriodo(pendientes.size(), List.of());
     }
 
-    private void validarBorrador(InformeProgreso informe, AsignacionCurso asignacion, PeriodoAcademico periodo) {
+    private void validarBorrador(InformeProgreso informe, AsignacionCurso asignacion, PeriodoAcademico periodo,
+                                 ReglaCalificacion regla) {
+        validarRegla(informe, regla);
+        var faltantes = consolidadoGuardado(informe).stream().filter(item -> !item.componentesFaltantes().isEmpty())
+                .map(item -> item.nombreCompetencia() + " (" + String.join(", ", item.componentesFaltantes()) + ")")
+                .toList();
+        if (!faltantes.isEmpty()) {
+            throw new BusinessRuleException("INFORME_REGLA_DATOS_INSUFICIENTES",
+                    "Faltan resultados para los siguientes componentes: " + String.join("; ", faltantes));
+        }
         var filas = detalles(informe);
         if (filas.isEmpty() || filas.stream().anyMatch(d -> d.getNivelLogro() == null || d.getCalificacion() == null)) {
             throw new BusinessRuleException("INFORME_INCOMPLETO",
                     "Completa los niveles de logro y vuelve a generar los borradores antes de publicar");
         }
         validarVigencia(filas, asignacion, periodo);
+        if (regla != null) {
+            var actual = reglas.consolidar(regla, asignacion.getId(), filas.stream()
+                    .map(fila -> new ReglaCalificacionService.NotaCompetencia(fila.getCompetencia(),
+                            new ReglaCalificacionDto.Muestra(fila.getEvaluacion().getTipoEvaluacion(), fila.getNivelLogro())))
+                    .toList());
+            if (!actual.equals(consolidadoGuardado(informe))) {
+                throw new BusinessRuleException("INFORME_DESACTUALIZADO", "El consolidado cambió. Genera nuevamente el borrador");
+            }
+        }
+    }
+
+    private void validarRegla(InformeProgreso informe, ReglaCalificacion vigente) {
+        Long guardada = informe.getReglaCalificacion() == null ? null : informe.getReglaCalificacion().getId();
+        if (!Objects.equals(guardada, vigente == null ? null : vigente.getId())) {
+            throw new BusinessRuleException("INFORME_REGLA_DESACTUALIZADA",
+                    "La regla de calificación cambió. Genera un nuevo borrador para usar la versión vigente");
+        }
+    }
+
+    private List<CalificacionDto.ConsolidadoResponse> consolidadoGuardado(InformeProgreso informe) {
+        if (informe.getConsolidadoRegla() == null) return List.of();
+        try {
+            return JSON.readValue(informe.getConsolidadoRegla(), CONSOLIDADO);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("No se pudo leer el consolidado de la libreta " + informe.getId(), e);
+        }
+    }
+
+    private String serializarConsolidado(List<CalificacionDto.ConsolidadoResponse> consolidado) {
+        try {
+            return JSON.writeValueAsString(consolidado);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("No se pudo guardar el consolidado de la libreta", e);
+        }
     }
 
     private List<Alumno> estudiantes(AsignacionCurso asignacion) {
@@ -155,7 +211,8 @@ public class ReporteAvanceService {
         return estudiantes;
     }
 
-    private InformeProgreso generar(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo) {
+    private InformeProgreso generar(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo,
+                                    ReglaCalificacion regla) {
         var pruebas = evaluacionesDelPeriodo(asignacion, periodo);
         if (pruebas.isEmpty() || pruebas.stream().allMatch(e -> e.getCompetencias().isEmpty())) {
             throw new BusinessRuleException("REPORTE_SIN_CALIFICACIONES", "No hay evaluaciones con competencias en el periodo seleccionado");
@@ -181,6 +238,8 @@ public class ReporteAvanceService {
             em.persist(informe);
         }
         informe.setDocente(asignacion.getDocente());
+        informe.setReglaCalificacion(regla);
+        var muestras = new ArrayList<ReglaCalificacionService.NotaCompetencia>();
         for (var prueba : pruebas) for (var competencia : prueba.getCompetencias()) {
             var nota = notas.get(prueba.getId() + ":" + competencia.getId());
             var detalle = new DetalleInformeProgreso();
@@ -191,7 +250,10 @@ public class ReporteAvanceService {
             detalle.setNivelLogro(nota == null ? null : nota.getNivelLogro());
             detalle.setObservacion(nota == null ? null : nota.getObservacion());
             em.persist(detalle);
+            muestras.add(new ReglaCalificacionService.NotaCompetencia(competencia,
+                    new ReglaCalificacionDto.Muestra(prueba.getTipoEvaluacion(), detalle.getNivelLogro())));
         }
+        informe.setConsolidadoRegla(regla == null ? null : serializarConsolidado(reglas.consolidar(regla, asignacion.getId(), muestras)));
         return informe;
     }
 
@@ -286,7 +348,13 @@ public class ReporteAvanceService {
                 asignacion.nombreCurso(), nombre(informe.getDocente().getPersona()),
                 seccion.getGrado(), seccion.getNombre(), seccion.getAnioAcademico(),
                 periodo.getNombre() + " | Version " + informe.getNumeroVersion() + " | " + informe.getEstado(),
-                FECHA.format(periodo.getFechaInicio()) + " - " + FECHA.format(periodo.getFechaFin()), Instant.now(), filas);
+                FECHA.format(periodo.getFechaInicio()) + " - " + FECHA.format(periodo.getFechaFin()), Instant.now(), filas,
+                reglaAplicada(informe), consolidadoGuardado(informe));
+    }
+
+    private ReglaCalificacionDto.Aplicada reglaAplicada(InformeProgreso informe) {
+        var regla = informe.getReglaCalificacion();
+        return regla == null ? null : new ReglaCalificacionDto.Aplicada(regla.getId(), regla.getNumeroVersion(), regla.getFormula());
     }
 
     private Optional<InformeProgreso> ultimo(Long alumno, Long curso, Long periodo, boolean publicado) {

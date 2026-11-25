@@ -22,7 +22,9 @@ public class GeneradorReporteAvance {
             parametros.put("alumno", reporte.alumno() + " | Codigo: " + reporte.codigoAlumno());
             parametros.put("curso", reporte.curso() + " | " + reporte.grado() + "° " + reporte.seccion() + " | " + reporte.anio());
             parametros.put("docente", "Docente: " + reporte.docente());
-            parametros.put("periodo", reporte.periodo() + " | " + reporte.fechas());
+            var regla = reporte.reglaCalificacion();
+            parametros.put("periodo", reporte.periodo() + " | " + reporte.fechas()
+                    + (regla == null ? "" : " | Regla v" + regla.numeroVersion()));
             parametros.put("generado", "Generado: " + DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
                     .withZone(ZoneId.of("America/Lima")).format(reporte.generadoEn()) + " (Lima)");
             Collection<Map<String, ?>> filas = new ArrayList<>();
@@ -30,6 +32,13 @@ public class GeneradorReporteAvance {
                 filas.add(Map.of("competencia", fila.competencia(), "evaluacion", fila.evaluacion() + "\n" + fila.fecha(),
                         "fecha", fila.fecha(), "resultado", fila.resultado(), "ponderacion", fila.ponderacion(),
                         "observacion", fila.observacion()));
+            }
+            for (var consolidado : reporte.consolidado()) {
+                var nivel = consolidado.nivelConsolidado();
+                filas.add(Map.of("competencia", consolidado.nombreCompetencia(),
+                        "evaluacion", "Consolidado por regla", "fecha", "", "ponderacion", "—",
+                        "resultado", nivel == null ? "Datos insuficientes" : nivel.name(),
+                        "observacion", String.join(", ", consolidado.componentesFaltantes())));
             }
             var documento = JasperFillManager.fillReport(plantilla(), parametros, new JRMapCollectionDataSource(filas));
             return JasperExportManager.exportReportToPdf(documento);
