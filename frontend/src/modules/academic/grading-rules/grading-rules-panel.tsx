@@ -5,6 +5,7 @@ import { api, message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, Loading, Pager, PanelHeading } from "@/shared/ui";
 import type { AcademicYear, Grade } from "@/modules/academic-config";
+import styles from "./grading-rules-panel.module.css";
 
 const PATH = "/api/reglas-calificacion";
 const FORMULA = "PROMEDIO_PONDERADO";
@@ -36,6 +37,7 @@ export function GradingRulesPanel({ canWrite }: { canWrite: boolean }) {
     <PanelHeading title="Reglas académicas"
       summary="Configura cómo se calcula el nivel de logro por competencia en cada curso." />
     <Feedback error={years.error} />
+    <div className={styles.scope}>
     {years.loading ? <Loading skeleton="fields">Cargando años académicos…</Loading> :
       <label className="field">Año académico
         <select value={selectedYear} onChange={(e) => setYear(e.target.value)}>
@@ -43,8 +45,11 @@ export function GradingRulesPanel({ canWrite }: { canWrite: boolean }) {
           {years.data?.content.map((item) => <option key={item.id} value={item.anio}>{item.anio}</option>)}
         </select>
       </label>}
-    <Pager data={years.data} loading={years.loading} setPage={(page) => { setYear(""); years.setPage(page); }} />
     {year && <GradeRules key={year.anio} year={year} canWrite={canWrite} />}
+    <div className={styles.fullWidth}>
+      <Pager data={years.data} loading={years.loading} setPage={(page) => { setYear(""); years.setPage(page); }} />
+    </div>
+    </div>
   </section>;
 }
 
@@ -110,8 +115,8 @@ function RuleEditor({ idCurso, idGrado, canWrite }: { idCurso: number; idGrado: 
     setHistory((rules) => [rule, ...(rules ?? []).filter((item) => item.id !== rule.id).map((item) =>
       rule.estado === "VIGENTE" && item.estado === "VIGENTE" ? { ...item, estado: "HISTORICA" as const } : item)]);
   }
-  return <section aria-label="Fórmula del curso">
-    {active ? <p>Regla vigente · versión {active.numeroVersion}</p> : <p>Este curso todavía no tiene una regla vigente.</p>}
+  return <section className={styles.fullWidth} aria-label="Fórmula del curso">
+    {active ? <p><strong>Regla vigente · versión {active.numeroVersion}</strong></p> : <p>Este curso todavía no tiene una regla vigente.</p>}
     {canWrite && <RuleForm key={draft?.id ?? active?.id ?? "nuevo"} draft={draft} active={active}
       idCurso={idCurso} idGrado={idGrado} onUpdate={update} />}
     {history.length > 0 && <>
@@ -171,11 +176,10 @@ function RuleForm({ draft, active, idCurso, idGrado, onUpdate }: {
     });
   }
 
-  return <form className="form-grid" onSubmit={save}>
+  return <form className={styles.editor} onSubmit={save}>
     <h4>{draft ? `Editar borrador · versión ${draft.numeroVersion}` : "Preparar una nueva versión"}</h4>
     <p>Promedio ponderado. Cada componente promedia las evaluaciones de su tipo. Los pesos deben sumar 100 %.</p>
-    {rows.map((field, index) => <fieldset key={field.tipoEvaluacion} disabled={saving}>
-      <legend>Componente {index + 1}</legend>
+    {rows.map((field, index) => <fieldset className={styles.component} key={field.tipoEvaluacion} disabled={saving} aria-label={`Componente ${index + 1}`}>
       <label className="field">Tipo de evaluación
         <select value={field.tipoEvaluacion} onChange={(e) => change(rows.map((row, i) => i === index ?
           { ...row, tipoEvaluacion: e.target.value as EvaluationType } : row))}>
@@ -200,7 +204,9 @@ function RuleForm({ draft, active, idCurso, idGrado, onUpdate }: {
       {rows.length > 1 && <button type="button" className="secondary-action"
         onClick={() => change(rows.filter((_, i) => i !== index))}>Quitar componente</button>}
     </fieldset>)}
-    <p role="status">Peso total: {total} %</p>
+    <p role="status" className={total === 100 ? styles.complete : styles.incomplete}>
+      Peso total: {total} % · {total === 100 ? "Completo" : "Debe sumar 100 %"}
+    </p>
     <div className="form-actions">
       <button type="button" className="secondary-action" disabled={!nextType || saving} onClick={() => {
         if (nextType) change([...rows, { tipoEvaluacion: nextType, nombre: TYPES[nextType], peso: "", nivel: "A" }]);

@@ -7,18 +7,19 @@ import {
   actualizarEvaluacion,
   crearEvaluacion,
   listarCompetenciasDeAsignacion,
+  obtenerReglaVigente,
 } from "./services/evaluation-service";
 import type {
   CourseCompetency,
   Evaluation,
+  EvaluationGradingRule,
   EvaluationPeriod,
   OwnAssignment,
 } from "./types";
 import styles from "./evaluations.module.css";
 
-/** El prototipo no pide tipo ni ponderación; todas las evaluaciones pesan igual en el consolidado. */
 const DEFAULT_TYPE = "PRACTICA_CALIFICADA";
-const DEFAULT_WEIGHT = 100;
+const percentage = new Intl.NumberFormat("es-PE", { style: "percent", maximumFractionDigits: 2 });
 
 /** Alta o edición de una evaluación en borrador. */
 export function EvaluationFormDialog({
@@ -42,6 +43,14 @@ export function EvaluationFormDialog({
     evaluation?.competencias.map((item) => item.id) ?? [],
   );
   const [descripcion, setDescripcion] = useState(evaluation?.descripcion ?? "");
+  const [tipo, setTipo] = useState(evaluation?.tipoEvaluacion ?? "");
+  const [ruleAttempt, setRuleAttempt] = useState(0);
+  const [ruleResult, setRuleResult] = useState<{
+    assignmentId: number;
+    attempt: number;
+    rule: EvaluationGradingRule | null;
+    error?: string;
+  } | null>(null);
   const [available, setAvailable] = useState<{ assignmentId: number; items: CourseCompetency[] } | null>(null);
   const [competencyError, setCompetencyError] = useState<{ assignmentId: number; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -64,6 +73,26 @@ export function EvaluationFormDialog({
       active = false;
     };
   }, [idAsignacionCurso]);
+  useEffect(() => {
+    if (!idAsignacionCurso) return;
+    let active = true;
+    obtenerReglaVigente(idAsignacionCurso)
+      .then((rule) => {
+        if (active) setRuleResult({ assignmentId: idAsignacionCurso, attempt: ruleAttempt, rule });
+      })
+      .catch((e) => {
+        if (active) setRuleResult({ assignmentId: idAsignacionCurso, attempt: ruleAttempt, rule: null, error: message(e) });
+      });
+    return () => {
+      active = false;
+    };
+  }, [idAsignacionCurso, ruleAttempt]);
+  const currentRule = ruleResult?.assignmentId === idAsignacionCurso && ruleResult?.attempt === ruleAttempt
+    ? ruleResult : null;
+  const rule = currentRule?.rule;
+  const component = rule?.componentes.find(item => item.tipoEvaluacion === tipo);
+  const legacyType = evaluation && rule && !rule.componentes.some(item => item.tipoEvaluacion === evaluation.tipoEvaluacion)
+    ? evaluation.tipoEvaluacion : null;
   const options = available?.assignmentId === idAsignacionCurso ? available?.items ?? null : null;
   const catalogError = competencyError?.assignmentId === idAsignacionCurso ? competencyError?.text : "";
   const unavailable = (evaluation?.competencias ?? []).filter(item =>
@@ -72,6 +101,12 @@ export function EvaluationFormDialog({
     setCursoId(value);
     setSeccionId("");
     setCompetencias([]);
+    resetComponent();
+  }
+  function resetComponent() {
+    setTipo("");
+    setRuleResult(null);
+    setErrors(current => ({ ...current, tipoEvaluacion: "" }));
   }
   function toggle(id: number) {
     setCompetencias((current) =>
@@ -86,22 +121,25 @@ export function EvaluationFormDialog({
     if (!seccionId) found.seccion = "Selecciona la sección.";
     if (!competencias.length) found.competencias = "Selecciona al menos una competencia.";
     else if (!options || unavailable.length) found.competencias = "Revisa las competencias disponibles para esta sección.";
+    if (rule && !component && (!legacyType || tipo !== legacyType)) {
+      found.tipoEvaluacion = "Selecciona un componente.";
+    }
     setErrors(found);
     if (Object.keys(found).length) return;
     if (!idAsignacionCurso) {
       setError("No tienes asignado ese curso en la sección elegida.");
       return;
     }
+    if (!currentRule || currentRule.error) return;
     setBusy(true);
     setError("");
     const input = {
       idAsignacionCurso,
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
-      tipoEvaluacion: evaluation?.tipoEvaluacion ?? DEFAULT_TYPE,
+      tipoEvaluacion: rule ? tipo : evaluation?.tipoEvaluacion ?? DEFAULT_TYPE,
       periodoEvaluacion: periodo,
       fechaEvaluacion: fecha,
-      ponderacionPorcentaje: evaluation?.ponderacionPorcentaje ?? DEFAULT_WEIGHT,
       idsCompetencia: competencias,
     };
     try {
@@ -199,6 +237,7 @@ export function EvaluationFormDialog({
             setSeccionId(event.target.value);
             setCompetencias([]);
             setCompetencyError(null);
+            resetComponent();
           }}
         >
           <option value="">— Selecciona —</option>
@@ -214,6 +253,48 @@ export function EvaluationFormDialog({
           </small>
         )}
       </label>
+      {idAsignacionCurso && !currentRule && (
+        <div className="full-field"><Loading variant="inline">Cargando regla de calificación…</Loading></div>
+      )}
+      {currentRule?.error && (
+        <div className="full-field">
+          <p className="field-error" role="alert">No se pudo consultar la regla de calificación. {currentRule.error}</p>
+          <button type="button" className={styles.linkButton} onClick={() => setRuleAttempt(attempt => attempt + 1)}>
+            Reintentar consulta
+          </button>
+        </div>
+      )}
+      {currentRule && !currentRule.error && !rule && (
+        <p className="hint full-field">Esta asignación no tiene una regla de calificación vigente.</p>
+      )}
+      {rule && <>
+        <label className="field">
+          <span>Componente<span className="field-required"> *</span></span>
+          <select
+            required
+            value={tipo}
+            aria-invalid={errors.tipoEvaluacion ? true : undefined}
+            onChange={(event) => {
+              setTipo(event.target.value);
+              setErrors(current => ({ ...current, tipoEvaluacion: "" }));
+            }}
+          >
+            <option value="">— Selecciona —</option>
+            {legacyType && <option value={legacyType}>{legacyType} · Fuera de la regla vigente</option>}
+            {rule.componentes.map(item => (
+              <option key={item.tipoEvaluacion} value={item.tipoEvaluacion}>{item.nombre}</option>
+            ))}
+          </select>
+          {errors.tipoEvaluacion && <small className="field-error" role="alert">{errors.tipoEvaluacion}</small>}
+        </label>
+        <Field
+          label="Peso del componente"
+          value={component ? percentage.format(component.peso / 100) : "—"}
+          readOnly
+          className={styles.componentWeight}
+          hint="La regla de calificación vigente fija este porcentaje para el componente completo."
+        />
+      </>}
       <fieldset className={`full-field ${styles.competencies}`}>
         <legend>
           Competencias a evaluar<span className="field-required"> *</span>

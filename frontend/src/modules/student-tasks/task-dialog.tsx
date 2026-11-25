@@ -116,7 +116,7 @@ export function TaskDialog({ task, onClose, onSaved }: {
       <div className={styles.taskHeader}>
         <h3>{tarea.nombre}</h3>
         <p>{task.curso} · Prof. {task.docente} · Vence: {taskDate(tarea.fechaLimite)}</p>
-        <small>{task.seccion}</small>
+        <small>{task.seccion} · Sin peso</small>
       </div>
       <p className={styles.description}>{tarea.descripcion}</p>
       {tarea.archivos.length > 0 && <div><h3>Material de la tarea</h3>{attachments(tarea.archivos)}</div>}

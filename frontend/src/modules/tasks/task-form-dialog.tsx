@@ -198,6 +198,7 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     <Field label="Fecha límite" type="datetime-local" step="any" required {...field("fechaLimite")}
       hint={published && deliveryCount ? `La tarea tiene ${deliveryCount} ${deliveryCount === 1 ? "entrega" : "entregas"}: cambiar esta fecha exige un motivo.` : undefined} />
     <Field label="Puntaje máximo" type="number" min={1} max={1000} step={1} required {...field("puntajeMaximo")} />
+    <Field label="Peso en el resultado académico" value="Sin peso" readOnly />
     <Field label="Máximo de archivos por entrega" type="number" min={0} max={20} step={1} required {...field("maxArchivosEntrega")} />
     {limitChanged && <label className="field full-field">Motivo del cambio de fecha límite{reasonRequired && <span className="field-required"> *</span>}
       <textarea name="motivo" rows={2} maxLength={REASON_MAX} value={motivo} aria-invalid={!!errors.motivo}

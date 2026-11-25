@@ -22,6 +22,33 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
     private static final String REGLAS = "/api/reglas-calificacion";
     private static final String INFORMES = "/api/calificaciones/informes/";
 
+    @Test void validaComponentesNuevosYPermiteConservarElTipoHistorico() throws Exception {
+        String evaluaciones = "/api/evaluaciones";
+        var datos = data("idAsignacionCurso", assignment.getId(), "titulo", "Evaluación",
+                "tipoEvaluacion", "PRACTICA_CALIFICADA", "periodoEvaluacion", "BIMESTRAL",
+                "fechaEvaluacion", LocalDate.of(2090, 3, 15), "ponderacionPorcentaje", 75,
+                "idsCompetencia", List.of(competence.getId()));
+        var historica = postOk(evaluaciones, datos);
+        em.find(Evaluacion.class, historica.path("id").asLong()).setPonderacionPorcentaje(BigDecimal.valueOf(75));
+        String detalle = evaluaciones + "/" + historica.path("id").asLong();
+        activar(putOk(REGLAS + "/borrador", entrada(course, null, 60, 40)));
+
+        assertThat(request("POST", evaluaciones, datos, 422).path("code").asText()).isEqualTo("COMPONENTE_NO_VIGENTE");
+        datos.put("titulo", "Borrador anterior editado");
+        assertThat(putOk(detalle, datos).path("tipoEvaluacion").asText()).isEqualTo("PRACTICA_CALIFICADA");
+        datos.put("tipoEvaluacion", "EVALUACION_ORAL");
+        assertThat(request("PUT", detalle, datos, 422).path("code").asText()).isEqualTo("COMPONENTE_NO_VIGENTE");
+
+        datos.put("tipoEvaluacion", "PROYECTO");
+        var nueva = postOk(evaluaciones, datos);
+        assertThat(nueva.path("tipoEvaluacion").asText()).isEqualTo("PROYECTO");
+        assertThat(nueva.path("ponderacionPorcentaje").decimalValue()).isEqualByComparingTo("100");
+        datos.put("tipoEvaluacion", "EXAMEN");
+        var editada = putOk(detalle, datos);
+        assertThat(editada.path("tipoEvaluacion").asText()).isEqualTo("EXAMEN");
+        assertThat(editada.path("ponderacionPorcentaje").decimalValue()).isEqualByComparingTo("75");
+    }
+
     @Test void guardaEditaYActivaReglasConControlDeVersionYPermisos() throws Exception {
         var borrador = putOk(REGLAS + "/borrador", entrada(course, null, 40, 40));
         long id = borrador.path("id").asLong();
@@ -87,7 +114,12 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         em.persist(otraAsignacion);
         activar(putOk(REGLAS + "/borrador", entrada(course, null, 80, 20)));
         activar(putOk(REGLAS + "/borrador", entrada(otroCurso, null, 20, 80)));
+        long examen = registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.AD);
         registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.AD);
+        var planilla = getOk("/api/evaluaciones/" + examen + "/planilla");
+        assertThat(planilla.path("evaluacion").path("pesoComponente").decimalValue()).isEqualByComparingTo("80");
+        assertThat(planilla.path("alumnos").get(0).path("notas").get(0).path("pesoEfectivo").decimalValue())
+                .isEqualByComparingTo("40");
         registrar(otraAsignacion, TipoEvaluacion.EXAMEN, NivelLogro.AD);
         registrar(otraAsignacion, TipoEvaluacion.PROYECTO, NivelLogro.C);
 
@@ -100,6 +132,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         request("POST", INFORMES + "generar", entrada, 200);
         var borrador = getOk(INFORMES + "borrador" + reporte);
         assertThat(borrador.path("consolidado").get(0).path("nivelConsolidado").isNull()).isTrue();
+        assertThat(borrador.path("filas").findValuesAsText("ponderacion")).containsExactly("40 %", "40 %");
         assertThat(getOk(INFORMES + "estado?idAsignacionCurso=" + assignment.getId()
                 + "&idPeriodoAcademico=" + periodo.getId()).path("impedimento").asText()).contains("Proyectos");
         registrar(assignment, TipoEvaluacion.PROYECTO, NivelLogro.C);
@@ -117,7 +150,8 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         assertThat(getOk(consolidado + params).get(0).path("numeroVersionRegla").asInt()).isEqualTo(2);
         mvc.perform(get("/api/calificaciones/avance" + reporte).with(como("ALUMNO", student.getPersona())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.reglaCalificacion.numeroVersion").value(1))
-                .andExpect(jsonPath("$.consolidado[0].nivelConsolidado").value("A"));
+                .andExpect(jsonPath("$.consolidado[0].nivelConsolidado").value("A"))
+                .andExpect(jsonPath("$.filas[*].ponderacion", org.hamcrest.Matchers.containsInAnyOrder("40 %", "40 %", "20 %")));
         var historial = getOk(REGLAS + "?idCurso=" + course.getId() + "&idGrado=" + grade.getId());
         assertThat(historial).hasSize(2);
         assertThat(historial.get(1).path("estado").asText()).isEqualTo("HISTORICA");
@@ -149,7 +183,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
                         new SimpleGrantedAuthority("CALIFICACIONES_LEER"), new SimpleGrantedAuthority("ACADEMICO_ESCRIBIR")));
     }
 
-    private void registrar(AsignacionCurso asignacion, TipoEvaluacion tipo, NivelLogro nivel) {
+    private long registrar(AsignacionCurso asignacion, TipoEvaluacion tipo, NivelLogro nivel) {
         var evaluacion = new Evaluacion();
         evaluacion.setAsignacionCurso(asignacion);
         evaluacion.setTitulo(tipo.name());
@@ -168,5 +202,6 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         nota.setFechaRegistro(Instant.now());
         em.persist(nota);
         em.flush();
+        return evaluacion.getId();
     }
 }

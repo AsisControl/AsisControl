@@ -259,6 +259,13 @@ public class TareaService {
                 .map(this::mapResponse);
     }
 
+    @Transactional(readOnly = true)
+    public Page<com.asiscontrol.dto.tarea.TareaDtos.TareaFamiliaResponse> listarParaFamilia(Long alumnoId, Pageable pageable) {
+        return tareaRepository.buscarParaAlumno(alumnoId, "", null, LocalDateTime.now(), pageable)
+                .map(tarea -> new com.asiscontrol.dto.tarea.TareaDtos.TareaFamiliaResponse(
+                        tarea.getId(), tarea.getNombre(), tarea.getAsignacionCurso().nombreCurso(), tarea.getFechaLimite()));
+    }
+
     public Tarea obtenerEntidad(Long id) {
         return tareaRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException(

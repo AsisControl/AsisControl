@@ -92,6 +92,8 @@ public final class TareaDtos {
     ) {
     }
 
+    public record TareaFamiliaResponse(Long id, String nombre, String curso, LocalDateTime fechaLimite) {}
+
     public record RegistrarEntregaRequest(
             @NotNull Long alumnoId,
             @NotNull @Size(max = 20) Set<Long> archivoIds,

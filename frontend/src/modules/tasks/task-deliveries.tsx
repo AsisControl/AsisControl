@@ -88,6 +88,7 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
       <div className={styles.toolbar}>
         <button type="button" className={styles.refresh} disabled={checking || deliveries.loading} onClick={refresh}>Actualizar</button>
       </div>
+      <p className="hint">Peso en el resultado académico: Sin peso</p>
       {task.estado === "ARCHIVADA" && <p className="hint">Tarea archivada: consulta de solo lectura.</p>}
       {retired && task.estado !== "ARCHIVADA" && <p className="hint">Ya no estás asignado a este curso y sección: consulta de solo lectura.</p>}
       <TaskRoster taskId={task.id} reload={rosterReload} />

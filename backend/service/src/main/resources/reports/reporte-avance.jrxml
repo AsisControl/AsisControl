@@ -35,7 +35,7 @@
 <element kind="textField" x="355" y="3" width="160" height="44" textAdjust="StretchHeight"><expression><![CDATA[$F{observacion}]]></expression></element>
 </band></detail>
 <pageFooter height="42">
-<element kind="staticText" x="0" y="0" width="515" height="15" fontSize="7" forecolor="#526580"><text><![CDATA[Resultados de evaluaciones publicadas o cerradas. Ponderación registrada por evaluación.]]></text></element>
+<element kind="staticText" x="0" y="0" width="515" height="15" fontSize="7" forecolor="#526580"><text><![CDATA[Ponderación por estudiante y competencia según la versión de la libreta.]]></text></element>
 <element kind="textField" x="0" y="21" width="420" height="16" fontSize="8"><expression><![CDATA[$P{generado}]]></expression></element>
 <element kind="staticText" x="435" y="21" width="40" height="16" fontSize="8"><text><![CDATA[Página]]></text></element>
 <element kind="textField" x="475" y="21" width="40" height="16" fontSize="8"><expression><![CDATA[$V{PAGE_NUMBER}]]></expression></element>

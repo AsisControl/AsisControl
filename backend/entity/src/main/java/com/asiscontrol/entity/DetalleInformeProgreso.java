@@ -53,6 +53,9 @@ public class DetalleInformeProgreso extends AuditableEntity {
     @Column(name = "ponderacion_porcentaje", nullable = false, precision = 5, scale = 2)
     private BigDecimal ponderacionPorcentaje;
 
+    @Column(name = "peso_resultado", length = 40)
+    private String pesoResultado;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "nivel_logro", length = 2)
     private NivelLogro nivelLogro;

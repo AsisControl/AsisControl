@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { ApiError, api, message } from "@/core/api/client";
-import { Feedback, Loading, PageHeader } from "@/shared/ui";
+import { Feedback, Loading, PageHeader, Pager } from "@/shared/ui";
+import { usePaged } from "@/shared/hooks/use-paged";
+import { evaluationDate } from "./lib/labels";
 import type { OwnAssignment } from "./types";
 import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-types";
 import { generateReportDrafts, getProgressReportDraft, publishPeriodReports, getProgressReport, getProgressReportPdf, getReportPeriodStatus, type ReportPeriodStatus, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
@@ -118,7 +120,31 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
       </p>}
     </>}
     {detail && <ReportContent report={detail} sustento="publicado" />}
+    {guardian && student && <FamilyTasks key={student} student={student} />}
   </section>;
+}
+
+function FamilyTasks({ student }: { student: string }) {
+  const [open, setOpen] = useState(false);
+  return <details className={`panel ${styles.reportPanel}`} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>Tareas del estudiante</summary>
+    {open && <FamilyTaskList student={student} />}
+  </details>;
+}
+
+function FamilyTaskList({ student }: { student: string }) {
+  const { data, error, loading, setPage } = usePaged<{
+    id: number; nombre: string; curso: string; fechaLimite: string;
+  }>("/api/tareas/familia", "", `alumnoId=${encodeURIComponent(student)}`);
+  return <>
+    <Feedback error={error} />
+    {loading && <Loading variant="inline">Cargando tareas…</Loading>}
+    {data?.content.length === 0 && <p>No hay tareas publicadas para este estudiante.</p>}
+    {!!data?.content.length && <ul>{data.content.map(task => <li key={task.id}>
+      {task.nombre} · {task.curso} · Vence {evaluationDate(task.fechaLimite.slice(0, 10))} · Sin peso
+    </li>)}</ul>}
+    <Pager data={data} loading={loading} setPage={setPage} />
+  </>;
 }
 
 export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssignment[]; canWrite: boolean }) {

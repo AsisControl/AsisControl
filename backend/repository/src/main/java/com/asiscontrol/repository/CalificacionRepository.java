@@ -11,6 +11,22 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CalificacionRepository extends JpaRepository<Calificacion, Long> {
+    interface CantidadPorAlumnoCompetencia {
+        Long getAlumno();
+        Long getCompetencia();
+        long getCantidad();
+    }
+
+    @Query("""
+            select c.alumno.id as alumno, c.competencia.id as competencia, count(c) as cantidad
+            from Calificacion c join c.evaluacion e join e.competencias competencia
+            where e.activo = true and c.activo = true and c.nivelLogro is not null
+              and competencia = c.competencia and e.asignacionCurso.id = :asignacion and e.tipoEvaluacion = :tipo
+              and e.estado in (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                               com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
+            group by c.alumno.id, c.competencia.id
+            """)
+    List<CantidadPorAlumnoCompetencia> contarPorComponente(Long asignacion, com.asiscontrol.entity.enums.TipoEvaluacion tipo);
 
     Optional<Calificacion> findByIdAndActivoTrue(Long id);
 

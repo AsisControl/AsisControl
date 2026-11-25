@@ -6,8 +6,6 @@ import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.NivelLogro;
 import com.asiscontrol.entity.enums.PeriodoEvaluacion;
 import com.asiscontrol.entity.enums.TipoEvaluacion;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -35,7 +33,6 @@ public final class EvaluacionDto {
             @NotNull TipoEvaluacion tipoEvaluacion,
             @NotNull PeriodoEvaluacion periodoEvaluacion,
             @NotNull LocalDate fechaEvaluacion,
-            @NotNull @DecimalMin("0.01") @DecimalMax("100.00") BigDecimal ponderacionPorcentaje,
             @NotEmpty Set<@NotNull Long> idsCompetencia
     ) {
     }
@@ -64,7 +61,10 @@ public final class EvaluacionDto {
             String curso,
             Long idSeccion,
             String seccion,
-            int anioAcademico
+            int anioAcademico,
+            boolean reglaVigente,
+            String componente,
+            BigDecimal pesoComponente
     ) {
     }
 
@@ -88,7 +88,8 @@ public final class EvaluacionDto {
             Long idCompetencia,
             NivelLogro nivelLogro,
             long version,
-            boolean corregida
+            boolean corregida,
+            BigDecimal pesoEfectivo
     ) {
     }
 }

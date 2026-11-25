@@ -4,6 +4,7 @@ import com.asiscontrol.dto.tarea.TareaDtos.ActualizarTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.CrearTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.EliminarTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.TareaResponse;
+import com.asiscontrol.dto.tarea.TareaDtos.TareaFamiliaResponse;
 import com.asiscontrol.service.TareaService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import jakarta.validation.Valid;
@@ -83,6 +84,13 @@ public class TareaController {
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
                 pageable);
+    }
+
+    @GetMapping("/familia")
+    @PreAuthorize("hasAuthority('TAREAS_LEER') and hasRole('APODERADO') and @moduloAccessGuard.puedeAccederAlumno(#alumnoId)")
+    public Page<TareaFamiliaResponse> listarParaFamilia(@RequestParam Long alumnoId,
+            @PageableDefault(size = 20, sort = "fechaLimite") Pageable pageable) {
+        return tareaService.listarParaFamilia(alumnoId, pageable);
     }
 
     @DeleteMapping("/{id}")

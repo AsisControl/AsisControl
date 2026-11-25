@@ -17,7 +17,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 
-/** Ejecuta V20 y V29 en H2/MySQL y persiste con los mapeos JPA actuales. */
+/** Ejecuta las migraciones de libretas en H2/MySQL y persiste con los mapeos JPA actuales. */
 @TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:informe_migracion_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
@@ -34,6 +34,8 @@ class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
                     new ClassPathResource("db/migration/V20__informes_progreso.sql"));
             ScriptUtils.executeSqlScript(connection,
                     new ClassPathResource("db/migration/V29__reglas_calificacion.sql"));
+            ScriptUtils.executeSqlScript(connection,
+                    new ClassPathResource("db/migration/V30__peso_resultado_libreta.sql"));
         });
 
         var periodo = new PeriodoAcademico();

@@ -1,0 +1,45 @@
+.scope, .editor, .component {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.scope {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.component {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.5fr) minmax(5rem, .6fr) minmax(7rem, .7fr) auto;
+  align-items: end;
+  min-width: 0;
+  padding: .65rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: .5rem;
+}
+
+.component input, .component select {
+  min-width: 0;
+}
+
+.complete {
+  color: #166534;
+  font-weight: 600;
+}
+
+.incomplete {
+  color: #92400e;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .component { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 580px) {
+  .scope, .component { grid-template-columns: minmax(0, 1fr); }
+}

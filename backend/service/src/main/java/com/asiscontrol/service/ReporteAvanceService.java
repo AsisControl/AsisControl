@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 @Service
 public class ReporteAvanceService {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private record GrupoPeso(Long competencia, TipoEvaluacion tipo) {}
     private final AlumnoRepository alumnos;
     private final AsignacionCursoRepository asignaciones;
     private final PeriodoAcademicoRepository periodos;
@@ -165,6 +166,14 @@ public class ReporteAvanceService {
         }
         validarVigencia(filas, asignacion, periodo);
         if (regla != null) {
+            var cantidades = filas.stream().collect(Collectors.groupingBy(
+                    fila -> new GrupoPeso(fila.getCompetencia().getId(), fila.getEvaluacion().getTipoEvaluacion()),
+                    Collectors.counting()));
+            if (filas.stream().anyMatch(fila -> !Objects.equals(fila.getPesoResultado(),
+                    pesoResultado(regla, fila, cantidades)))) {
+                throw new BusinessRuleException("INFORME_DESACTUALIZADO",
+                        "La ponderación cambió. Genera nuevamente el borrador");
+            }
             var actual = reglas.consolidar(regla, asignacion.getId(), filas.stream()
                     .map(fila -> new ReglaCalificacionService.NotaCompetencia(fila.getCompetencia(),
                             new ReglaCalificacionDto.Muestra(fila.getEvaluacion().getTipoEvaluacion(), fila.getNivelLogro())))
@@ -240,6 +249,15 @@ public class ReporteAvanceService {
         informe.setDocente(asignacion.getDocente());
         informe.setReglaCalificacion(regla);
         var muestras = new ArrayList<ReglaCalificacionService.NotaCompetencia>();
+        var cantidades = new HashMap<GrupoPeso, Long>();
+        if (regla != null) {
+            for (var prueba : pruebas) for (var competencia : prueba.getCompetencias()) {
+                var nota = notas.get(prueba.getId() + ":" + competencia.getId());
+                if (nota != null && nota.getNivelLogro() != null) {
+                    cantidades.merge(new GrupoPeso(competencia.getId(), prueba.getTipoEvaluacion()), 1L, Long::sum);
+                }
+            }
+        }
         for (var prueba : pruebas) for (var competencia : prueba.getCompetencias()) {
             var nota = notas.get(prueba.getId() + ":" + competencia.getId());
             var detalle = new DetalleInformeProgreso();
@@ -248,6 +266,9 @@ public class ReporteAvanceService {
             detalle.setTituloEvaluacion(prueba.getTitulo()); detalle.setFechaEvaluacion(prueba.getFechaEvaluacion());
             detalle.setPonderacionPorcentaje(prueba.getPonderacionPorcentaje());
             detalle.setNivelLogro(nota == null ? null : nota.getNivelLogro());
+            if (regla != null) {
+                detalle.setPesoResultado(pesoResultado(regla, detalle, cantidades));
+            }
             detalle.setObservacion(nota == null ? null : nota.getObservacion());
             em.persist(detalle);
             muestras.add(new ReglaCalificacionService.NotaCompetencia(competencia,
@@ -255,6 +276,16 @@ public class ReporteAvanceService {
         }
         informe.setConsolidadoRegla(regla == null ? null : serializarConsolidado(reglas.consolidar(regla, asignacion.getId(), muestras)));
         return informe;
+    }
+
+    private String pesoResultado(ReglaCalificacion regla, DetalleInformeProgreso fila, Map<GrupoPeso, Long> cantidades) {
+        var tipo = fila.getEvaluacion().getTipoEvaluacion();
+        var componente = regla.getComponentes().get(tipo);
+        if (componente == null) return "Sin peso";
+        if (fila.getNivelLogro() == null) return "Pendiente";
+        var peso = ReglaCalificacionService.pesoEfectivo(componente.getPeso(),
+                cantidades.getOrDefault(new GrupoPeso(fila.getCompetencia().getId(), tipo), 0L));
+        return peso.setScale(4, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() + " %";
     }
 
     private List<Evaluacion> evaluacionesDelPeriodo(AsignacionCurso asignacion, PeriodoAcademico periodo) {
@@ -342,7 +373,9 @@ public class ReporteAvanceService {
                 d.getCalificacion() == null ? null : d.getCalificacion().getId(), d.getNombreCompetencia(),
                 d.getTituloEvaluacion(), FECHA.format(d.getFechaEvaluacion()),
                 d.getNivelLogro() == null ? "Sin registrar" : d.getNivelLogro().name(),
-                d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
+                d.getPesoResultado() != null ? d.getPesoResultado()
+                        : (informe.getReglaCalificacion() == null ? "" : "Histórico: ")
+                                + d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
                 d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion())).toList();
         return new ReporteAvanceDto(nombre(alumno.getPersona()), alumno.getCodigoAlumno(),
                 asignacion.nombreCurso(), nombre(informe.getDocente().getPersona()),

@@ -297,3 +297,6 @@
   .reportRoster tbody th, .reportRoster td, .reportResults tbody th, .reportResults td { border: 0; padding: 0; }
   .reportResults td::before { content: attr(data-label); display: block; color: var(--muted); font-size: .75rem; font-weight: 600; }
 }
+.componentWeight[readonly] {
+  background-color: #f5f7fa;
+}

@@ -167,6 +167,9 @@ export function GradeSheet({
               <p>
                 {LEVEL_SCALE} · {countLabel(alumnos.length, "estudiante", "estudiantes")}
               </p>
+              {evaluacion.pesoComponente != null && <p>
+                {evaluacion.componente} · Peso del componente: {evaluacion.pesoComponente} %
+              </p>}
             </div>
             {editable && (
               <button
@@ -230,6 +233,11 @@ export function GradeSheet({
                               ))}
                             </div>
                             {note?.corregida && <small className={styles.corrected}>Corregida</small>}
+                            {evaluacion.reglaVigente && <small className={styles.corrected}>
+                              {evaluacion.pesoComponente == null ? "Sin peso"
+                                : note?.pesoEfectivo == null ? "Peso efectivo pendiente"
+                                  : `Peso efectivo: ${note.pesoEfectivo.toLocaleString("es-PE", { maximumFractionDigits: 4 })} %`}
+                            </small>}
                           </td>
                         );
                       })}

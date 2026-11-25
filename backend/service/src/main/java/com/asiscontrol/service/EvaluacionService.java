@@ -43,6 +43,7 @@ public class EvaluacionService {
     private final AsignacionCursoRepository asignacionCursoRepository;
     private final CompetenciaRepository competenciaRepository;
     private final PlanEstudiosService planes;
+    private final ReglaCalificacionService reglas;
     private final CalificacionRepository calificacionRepository;
     private final CorreccionCalificacionRepository correccionRepository;
     private final MatriculaRepository matriculaRepository;
@@ -56,6 +57,7 @@ public class EvaluacionService {
             AsignacionCursoRepository asignacionCursoRepository,
             CompetenciaRepository competenciaRepository,
             PlanEstudiosService planes,
+            ReglaCalificacionService reglas,
             CalificacionRepository calificacionRepository,
             CorreccionCalificacionRepository correccionRepository,
             MatriculaRepository matriculaRepository,
@@ -71,6 +73,7 @@ public class EvaluacionService {
         this.asignacionCursoRepository = asignacionCursoRepository;
         this.competenciaRepository = competenciaRepository;
         this.planes = planes;
+        this.reglas = reglas;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
         this.avisos = avisos;
@@ -89,6 +92,7 @@ public class EvaluacionService {
                 .map(p -> new EvaluacionDto.PeriodoInforme(p.getId(), p.getNombre())).toList();
     }
 
+    @Transactional(readOnly = true)
     public List<CompetenciaPlan> competenciasDisponibles(Long idAsignacionCurso) {
         var asignacion = asignacionCursoRepository.findByIdAndActivoTrue(idAsignacionCurso)
                 .orElseThrow(() -> new ResourceNotFoundException("ASIGNACION_CURSO_NO_ENCONTRADA", "No se encontró la asignación del curso"));
@@ -135,6 +139,7 @@ public class EvaluacionService {
             Pageable pageable
     ) {
         String filtro = busqueda == null || busqueda.isBlank() ? null : busqueda.trim();
+        var reglasPorAsignacion = new HashMap<Long, java.util.Optional<com.asiscontrol.entity.ReglaCalificacion>>();
         return evaluacionRepository.buscar(
                         estado,
                         idAsignacionCurso,
@@ -146,7 +151,9 @@ public class EvaluacionService {
                         personaAlumnoId,
                         personaApoderadoId,
                         pageable)
-                .map(this::toResponse);
+                .map(evaluacion -> toResponse(evaluacion, reglasPorAsignacion.computeIfAbsent(
+                        evaluacion.getAsignacionCurso().getId(),
+                        id -> reglas.vigente(evaluacion.getAsignacionCurso())).orElse(null)));
     }
 
     @Transactional(readOnly = true)
@@ -159,6 +166,16 @@ public class EvaluacionService {
     public EvaluacionDto.PlanillaResponse planilla(Long id) {
         Evaluacion evaluacion = buscarActiva(id);
         List<Calificacion> calificaciones = calificacionRepository.findAllByEvaluacionIdAndActivoTrue(id);
+        var regla = reglas.vigente(evaluacion.getAsignacionCurso()).orElse(null);
+        var componente = regla == null ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
+        record Celda(Long alumno, Long competencia) {}
+        var cantidades = new HashMap<Celda, Long>();
+        var competenciasEvaluadas = evaluacion.getCompetencias().stream().map(Competencia::getId).collect(Collectors.toSet());
+        if (componente != null && !calificaciones.isEmpty()
+                && (evaluacion.getEstado() == EstadoEvaluacion.PUBLICADA || evaluacion.getEstado() == EstadoEvaluacion.CERRADA)) {
+            calificacionRepository.contarPorComponente(evaluacion.getAsignacionCurso().getId(), evaluacion.getTipoEvaluacion())
+                    .forEach(fila -> cantidades.put(new Celda(fila.getAlumno(), fila.getCompetencia()), fila.getCantidad()));
+        }
         Set<Long> corregidas = calificaciones.isEmpty()
                 ? Set.of()
                 : new HashSet<>(correccionRepository.buscarCalificacionesCorregidas(
@@ -171,7 +188,11 @@ public class EvaluacionService {
                             calificacion.getCompetencia().getId(),
                             calificacion.getNivelLogro(),
                             calificacion.getVersion(),
-                            corregidas.contains(calificacion.getId())));
+                            corregidas.contains(calificacion.getId()),
+                            componente == null || calificacion.getNivelLogro() == null
+                                    || !competenciasEvaluadas.contains(calificacion.getCompetencia().getId()) ? null
+                                    : ReglaCalificacionService.pesoEfectivo(componente.getPeso(), cantidades.getOrDefault(
+                                            new Celda(calificacion.getAlumno().getId(), calificacion.getCompetencia().getId()), 0L))));
         }
         List<EvaluacionDto.PlanillaAlumno> alumnos = matriculaRepository
                 .buscarAlumnosActivosDeSeccion(evaluacion.getAsignacionCurso().getSeccion().getId())
@@ -182,7 +203,7 @@ public class EvaluacionService {
                         nombreEnPlanilla(alumno.getPersona()),
                         notas.getOrDefault(alumno.getId(), List.of())))
                 .toList();
-        return new EvaluacionDto.PlanillaResponse(toResponse(evaluacion), alumnos);
+        return new EvaluacionDto.PlanillaResponse(toResponse(evaluacion, regla), alumnos);
     }
 
     private String nombreEnPlanilla(Persona persona) {
@@ -194,6 +215,7 @@ public class EvaluacionService {
     @Transactional
     public EvaluacionDto.Response crear(EvaluacionDto.Request request) {
         Evaluacion evaluacion = new Evaluacion();
+        evaluacion.setPonderacionPorcentaje(java.math.BigDecimal.valueOf(100));
         aplicarDatosEditables(evaluacion, request);
         evaluacion.setEstado(EstadoEvaluacion.BORRADOR);
         Evaluacion saved = evaluacionRepository.save(evaluacion);
@@ -335,6 +357,14 @@ public class EvaluacionService {
                         "No se encontro la asignacion de curso con id " + request.idAsignacionCurso()
                 ));
         accessGuard.verificarAsignacionDocente(asignacion);
+        boolean conservaTipo = evaluacion.getAsignacionCurso() != null
+                && evaluacion.getAsignacionCurso().getId().equals(asignacion.getId())
+                && evaluacion.getTipoEvaluacion() == request.tipoEvaluacion();
+        if (!conservaTipo && reglas.vigente(asignacion)
+                .filter(regla -> !regla.getComponentes().containsKey(request.tipoEvaluacion())).isPresent()) {
+            throw new BusinessRuleException("COMPONENTE_NO_VIGENTE",
+                    "Selecciona un componente de la regla de calificación vigente.", "tipoEvaluacion");
+        }
         Set<Long> idsUnicos = new LinkedHashSet<>(request.idsCompetencia());
         List<Competencia> competencias = competenciaRepository.findAllByIdInAndActivoTrue(idsUnicos);
         if (competencias.size() != idsUnicos.size()) {
@@ -352,7 +382,6 @@ public class EvaluacionService {
         evaluacion.setTipoEvaluacion(request.tipoEvaluacion());
         evaluacion.setPeriodoEvaluacion(request.periodoEvaluacion());
         evaluacion.setFechaEvaluacion(request.fechaEvaluacion());
-        evaluacion.setPonderacionPorcentaje(request.ponderacionPorcentaje());
         evaluacion.setCompetencias(new LinkedHashSet<>(competencias));
     }
 
@@ -404,6 +433,11 @@ public class EvaluacionService {
     }
 
     private EvaluacionDto.Response toResponse(Evaluacion evaluacion) {
+        return toResponse(evaluacion, reglas.vigente(evaluacion.getAsignacionCurso()).orElse(null));
+    }
+
+    private EvaluacionDto.Response toResponse(Evaluacion evaluacion, com.asiscontrol.entity.ReglaCalificacion regla) {
+        var componente = regla == null ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
         Set<CompetenciaDto.Response> competencias = evaluacion.getCompetencias().stream()
                 .map(competencia -> new CompetenciaDto.Response(
                         competencia.getId(),
@@ -435,7 +469,10 @@ public class EvaluacionService {
                 evaluacion.getAsignacionCurso().nombreCurso(),
                 evaluacion.getAsignacionCurso().getSeccion().getId(),
                 AsignacionCursoService.etiquetaSeccion(evaluacion.getAsignacionCurso().getSeccion()),
-                evaluacion.getAsignacionCurso().getSeccion().getAnioAcademico()
+                evaluacion.getAsignacionCurso().getSeccion().getAnioAcademico(),
+                regla != null,
+                componente == null ? null : componente.getNombre(),
+                componente == null ? null : componente.getPeso()
         );
     }
 

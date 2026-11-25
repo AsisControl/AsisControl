@@ -10,6 +10,9 @@ export type EvaluationPeriod =
   | "PERIODO_ACADEMICO"
   | "ANUAL";
 export type EvaluationCompetency = { id: number; codigo: string; nombre: string };
+export type EvaluationGradingRule = {
+  componentes: { tipoEvaluacion: string; nombre: string; peso: number }[];
+};
 export type Evaluation = {
   id: number;
   idAsignacionCurso: number;
@@ -20,6 +23,9 @@ export type Evaluation = {
   estado: EvaluationState;
   fechaEvaluacion: string;
   ponderacionPorcentaje: number;
+  reglaVigente?: boolean;
+  componente?: string | null;
+  pesoComponente?: number | null;
   competencias: EvaluationCompetency[];
   idCurso: number;
   curso: string;
@@ -34,10 +40,10 @@ export type EvaluationInput = {
   tipoEvaluacion: string;
   periodoEvaluacion: EvaluationPeriod;
   fechaEvaluacion: string;
-  ponderacionPorcentaje: number;
   idsCompetencia: number[];
 };
 export type GradeCell = {
+  pesoEfectivo?: number | null;
   idCalificacion: number;
   idCompetencia: number;
   nivelLogro: AchievementLevel;

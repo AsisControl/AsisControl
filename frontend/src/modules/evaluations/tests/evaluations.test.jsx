@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
 import { Evaluations } from "@/modules/evaluations";
+import { EvaluationFormDialog } from "../evaluation-form-dialog";
 import { ModuleOutlet } from "@/core/navigation/module-outlet";
 import { SessionUserProvider } from "@/core/layout/session-user";
 import { canAccess } from "@/core/navigation/access-policy";
@@ -36,6 +37,7 @@ function backend(routes = {}) {
     "GET /api/evaluaciones/anio-vigente": { anioActivo: assignment.anioAcademico },
     "GET /api/evaluaciones": page([evaluation()]),
     "GET /api/evaluaciones/competencias": competencies,
+    "GET /api/reglas-calificacion/vigente": reply(204),
     "GET /api/evaluaciones/:id": evaluation(),
     "GET /api/evaluaciones/:id/planilla": sheet(),
     "GET /api/calificaciones/consolidados": [],
@@ -46,9 +48,110 @@ beforeEach(() => {
   signIn({ role: "DOCENTE", permissions: ["CALIFICACIONES_LEER", "CALIFICACIONES_ESCRIBIR"] });
   setUrl("/evaluaciones");
 });
+const gradingRule = { componentes: [
+  { tipoEvaluacion: "EXAMEN", nombre: "Exámenes", peso: 62.5 },
+  { tipoEvaluacion: "PROYECTO", nombre: "Proyectos", peso: 37.5 },
+] };
+
+test("El alta consulta la regla y envía el componente elegido sin copiar su peso", async () => {
+  const calls = backend({
+    "GET /api/reglas-calificacion/vigente": gradingRule,
+    "POST /api/evaluaciones": ({ body }) => evaluation(body),
+  });
+  const user = userEvent.setup();
+  const onSaved = vi.fn();
+  render(<EvaluationFormDialog assignments={[assignment]} onClose={vi.fn()} onSaved={onSaved} />);
+  await user.type(screen.getByLabelText(/Nombre de la evaluación/), "Proyecto del curso");
+  const { fireEvent } = await import("@testing-library/react");
+  fireEvent.change(screen.getByLabelText(/Fecha de evaluación/), { target: { value: "2026-10-01" } });
+  await user.selectOptions(screen.getByLabelText(/^Curso/), "100");
+  await user.selectOptions(screen.getByLabelText(/^Sección/), "8");
+  const component = await screen.findByRole("combobox", { name: /Componente/ });
+  expect(calls.find(call => call.path === "/api/reglas-calificacion/vigente").query)
+    .toEqual({ idAsignacionCurso: "5" });
+  expect([...component.options].map(option => option.value)).toEqual(["", "EXAMEN", "PROYECTO"]);
+  await user.click(await screen.findByLabelText("Resuelve problemas"));
+  await user.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  expect(screen.getByText("Selecciona un componente.")).toBeTruthy();
+  expect(calls.some(call => call.method === "POST")).toBe(false);
+  const weight = screen.getByRole("textbox", { name: /Peso del componente/ });
+  expect(weight.readOnly).toBe(true);
+  await user.selectOptions(component, "EXAMEN");
+  expect(weight.value).toMatch(/62[.,]5\s*%/);
+  await user.selectOptions(component, "PROYECTO");
+  expect(weight.value).toMatch(/37[.,]5\s*%/);
+  await user.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ tipoEvaluacion: "PROYECTO" }), false));
+  expect(calls.find(call => call.method === "POST").body).not.toHaveProperty("ponderacionPorcentaje");
+});
+
+test.each([
+  ["EXAMEN", gradingRule, "PROYECTO", "PROYECTO"],
+  ["PRACTICA_CALIFICADA", gradingRule, null, "PRACTICA_CALIFICADA"],
+  ["EXAMEN", reply(204), null, "EXAMEN"],
+])("Editar %s conserva la ponderación histórica y respeta la regla aplicable", async (tipo, rule, nextType, expected) => {
+  const calls = backend({
+    "GET /api/reglas-calificacion/vigente": rule,
+    "PUT /api/evaluaciones/:id": ({ body }) => evaluation(body),
+  });
+  const user = userEvent.setup();
+  const onSaved = vi.fn();
+  render(<EvaluationFormDialog evaluation={evaluation({ tipoEvaluacion: tipo, ponderacionPorcentaje: 75 })}
+    assignments={[assignment]} onClose={vi.fn()} onSaved={onSaved} />);
+  if (rule === gradingRule) {
+    const component = await screen.findByRole("combobox", { name: /Componente/ });
+    expect(component.value).toBe(tipo);
+    if (nextType) await user.selectOptions(component, nextType);
+    else expect(screen.getByRole("option", { name: /Fuera de la regla vigente/ })).toBeTruthy();
+  } else {
+    await screen.findByText("Esta asignación no tiene una regla de calificación vigente.");
+  }
+  await screen.findByLabelText("Resuelve problemas");
+  await user.click(screen.getByRole("button", { name: "Guardar y calificar" }));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ tipoEvaluacion: expected }), true));
+  expect(calls.find(call => call.method === "PUT").body).toMatchObject({
+    tipoEvaluacion: expected,
+  });
+  expect(calls.find(call => call.method === "PUT").body).not.toHaveProperty("ponderacionPorcentaje");
+});
+
+test("Un error al cargar la regla bloquea el guardado y permite reintentar", async () => {
+  const calls = backend({
+    "GET /api/reglas-calificacion/vigente": () =>
+      calls.filter(call => call.path === "/api/reglas-calificacion/vigente").length === 1
+        ? reply(500, { message: "Error temporal" }) : gradingRule,
+  });
+  const user = userEvent.setup();
+  render(<EvaluationFormDialog evaluation={evaluation()} assignments={[assignment]} onClose={vi.fn()} onSaved={vi.fn()} />);
+  await screen.findByText(/No se pudo consultar la regla/);
+  await screen.findByLabelText("Resuelve problemas");
+  await user.click(screen.getByRole("button", { name: "Guardar y calificar" }));
+  expect(calls.some(call => call.method === "PUT")).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Reintentar consulta" }));
+  expect(await screen.findByRole("option", { name: "Exámenes" })).toBeTruthy();
+});
+
 const openSheet = (props = {}) =>
   render(<Evaluations tab="registro-de-calificaciones" evaluationId="10" canWrite {...props} />);
 const level = (value, name, competency) => `${value}: ${name}, ${competency}`;
+
+test("El listado identifica el peso del componente y la planilla explica el aporte por competencia", async () => {
+  const weighted = { estado: "PUBLICADA", reglaVigente: true, componente: "Exámenes", pesoComponente: 60 };
+  backend({
+    "GET /api/evaluaciones": page([evaluation(weighted)]),
+    "GET /api/evaluaciones/:id": evaluation(weighted),
+    "GET /api/evaluaciones/:id/planilla": sheet(weighted, [
+      student(1, "Alvarado Medina, Diego", [note(50, 1, "A", { pesoEfectivo: 30 })]),
+    ]),
+  });
+  const list = render(<Evaluations canWrite />);
+  expect(await screen.findByText("Peso del componente: 60 %")).toBeTruthy();
+  expect(screen.queryByText(/Peso efectivo:/)).toBeNull();
+  list.unmount();
+  openSheet();
+  expect(await screen.findByText("Peso efectivo: 30 %")).toBeTruthy();
+  expect(screen.getByText("Peso efectivo pendiente")).toBeTruthy();
+});
 
 test("Lista las evaluaciones con su curso, sección, fecha y competencias", async () => {
   backend();
@@ -139,6 +242,7 @@ test("Nueva evaluación pide los datos, ofrece solo competencias del curso y va 
   expect(calls.find((c) => c.method === "POST").body).toMatchObject({
     idAsignacionCurso: 5, titulo: "Práctica 3", periodoEvaluacion: "BIMESTRAL",
     fechaEvaluacion: "2026-10-01", idsCompetencia: [1],
+    tipoEvaluacion: "PRACTICA_CALIFICADA",
   });
   await waitFor(() => expect(currentUrl()).toBe("/evaluaciones/registro-de-calificaciones/77"));
 });

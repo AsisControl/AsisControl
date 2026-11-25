@@ -121,7 +121,7 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                     )}
                   </td>
                   <td data-label="Fecha límite"><time dateTime={task.fechaLimite}>{fechaLimiteLabel(task.fechaLimite)}</time></td>
-                  <td data-label="Puntaje máximo">{task.puntajeMaximo}</td>
+                  <td data-label="Puntaje máximo">{task.puntajeMaximo}<br /><small>Sin peso</small></td>
                   <td data-label="Entregas">{summary
                     ? <span>{summary.entregados} de {summary.totalAlumnos}<span className={styles.srOnly}> estudiantes entregaron</span></span>
                     : <span className={styles.summaryUnavailable}><span aria-hidden="true">—</span><span className={styles.srOnly}>Resumen de entregas no disponible</span></span>}</td>

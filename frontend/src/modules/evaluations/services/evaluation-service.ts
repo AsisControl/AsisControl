@@ -7,6 +7,7 @@ import type {
   CorrectionEntry,
   CourseCompetency,
   Evaluation,
+  EvaluationGradingRule,
   EvaluationInput,
   EvaluationState,
   GradeSheetData,
@@ -49,6 +50,9 @@ export function obtenerEvaluacion(id: number) {
 }
 export function crearEvaluacion(input: EvaluationInput) {
   return api<Evaluation>(EVALUACIONES_PATH, { method: "POST", body: JSON.stringify(input) });
+}
+export function obtenerReglaVigente(idAsignacionCurso: number) {
+  return api<EvaluationGradingRule | null>(`/api/reglas-calificacion/vigente?idAsignacionCurso=${idAsignacionCurso}`);
 }
 export function actualizarEvaluacion(id: number, input: EvaluationInput) {
   return api<Evaluation>(`${EVALUACIONES_PATH}/${id}`, { method: "PUT", body: JSON.stringify(input) });

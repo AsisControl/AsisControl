@@ -65,6 +65,21 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
         mvc.perform(get("/api/alumnos/me/tareas")).andExpect(status().isUnauthorized());
     }
 
+    @Test void familiaSoloConsultaTareasPublicadasDelEstudianteAsociado() throws Exception {
+        task("Borrador familiar", EstadoPublicacionTarea.BORRADOR);
+        task("Visible para familia", EstadoPublicacionTarea.PUBLICADA);
+        task("Programada", EstadoPublicacionTarea.PUBLICADA).setFechaPublicacion(LocalDateTime.now().plusDays(1));
+        var otro = new Alumno();
+        otro.setPersona(person()); otro.setCodigoAlumno("AJENO" + key()); em.persist(otro); em.flush();
+        var familia = jwt().jwt(j -> j.subject("familia-test").claim("personaId", guardian.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_APODERADO"), new SimpleGrantedAuthority("TAREAS_LEER"));
+        mvc.perform(get("/api/tareas/familia?alumnoId=" + student.getId()).with(familia))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].nombre").value("Visible para familia"));
+        mvc.perform(get("/api/tareas/familia?alumnoId=" + otro.getId()).with(familia))
+                .andExpect(status().isForbidden());
+    }
+
     @Test void cargaArchivoEntregaPersisteYDescargaComoAlumno() throws Exception {
         var t = task("Trabajo individual", EstadoPublicacionTarea.PUBLICADA);
         var pdf = "%PDF-1.4\nTrabajo del alumno\n%%EOF".getBytes(java.nio.charset.StandardCharsets.UTF_8);

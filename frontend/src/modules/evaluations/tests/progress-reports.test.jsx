@@ -2,7 +2,7 @@ import { test, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProgressReports, PublishPeriod } from "../progress-reports";
-import { fakeBackend, reply } from "../../../../tests/support/backend.js";
+import { fakeBackend, page, reply } from "../../../../tests/support/backend.js";
 import { progressReport } from "./report-fixture";
 
 const updatedReports = "Todas las libretas del período están publicadas y actualizadas.";
@@ -11,6 +11,26 @@ const staleWarning = "Las evaluaciones o notas cambiaron. Genera un nuevo borrad
 const pendingDraft = "Hay un borrador pendiente con los cambios actuales. Revísalo y publícalo cuando esté listo.";
 const blockedDraft = "Hay borradores pendientes. Revísalos antes de publicar.";
 const staleDraftImpediment = "Las evaluaciones o notas cambiaron. Vuelve a generar y revisar los borradores antes de publicar.";
+
+test("El apoderado consulta tareas sin peso del estudiante seleccionado aunque no tenga libreta", async () => {
+  const calls = fakeBackend({
+    "GET /api/calificaciones/informes-disponibles": [],
+    "GET /api/familia/estudiantes": [{ id: 8, nombreCompleto: "Ana" }, { id: 9, nombreCompleto: "Luis" }],
+    "GET /api/tareas/familia": ({ query }) => page([
+      { id: 1, nombre: query.alumnoId === "8" ? "Fracciones" : "Geometría", curso: "Matemática", fechaLimite: "2026-06-21T18:00:00" },
+    ]),
+  });
+  const user = userEvent.setup();
+  render(<ProgressReports guardian />);
+  await user.selectOptions(await screen.findByLabelText("Estudiante"), "8");
+  await user.click(screen.getByText("Tareas del estudiante"));
+  expect(await screen.findByText(/Fracciones.*Sin peso/)).toBeTruthy();
+  expect(calls.find(call => call.path === "/api/tareas/familia").query.alumnoId).toBe("8");
+  await user.selectOptions(screen.getByLabelText("Estudiante"), "9");
+  expect(screen.queryByText(/Fracciones/)).toBeNull();
+  await user.click(screen.getByText("Tareas del estudiante"));
+  expect(await screen.findByText(/Geometría.*Sin peso/)).toBeTruthy();
+});
 
 test("publicar requiere confirmar y envia curso y periodo", async () => {
   const ana = { idAlumno: 8, alumno: "Ana", idAsignacionCurso: 3, idPeriodoAcademico: 4 };

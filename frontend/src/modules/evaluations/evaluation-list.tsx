@@ -212,6 +212,7 @@ export function EvaluationList({
                   <th>Sección</th>
                   <th>Fecha</th>
                   <th>Competencias</th>
+                  <th>Componente y peso</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -234,6 +235,11 @@ export function EvaluationList({
                       <td data-label="Competencias">
                         <span className={styles.count}>{item.competencias.length}</span>{" "}
                         {item.competencias.length === 1 ? "competencia" : "competencias"}
+                      </td>
+                      <td data-label="Componente y peso">
+                        {item.pesoComponente != null
+                          ? <>{item.componente}<br /><small>Peso del componente: {item.pesoComponente} %</small></>
+                          : item.reglaVigente ? "Sin peso" : "Sin regla vigente"}
                       </td>
                       <td data-label="Estado">
                         <StatusPill

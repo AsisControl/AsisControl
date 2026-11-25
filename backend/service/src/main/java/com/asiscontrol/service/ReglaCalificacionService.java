@@ -156,6 +156,10 @@ public class ReglaCalificacionService {
                 .toList();
     }
 
+    static BigDecimal pesoEfectivo(BigDecimal pesoComponente, long nivelesValidos) {
+        return nivelesValidos == 0 ? null : pesoComponente.divide(BigDecimal.valueOf(nivelesValidos), 10, RoundingMode.HALF_UP);
+    }
+
     private ReglaCalificacionDto.Resultado calcular(List<ReglaCalificacionDto.Componente> componentes,
             List<ReglaCalificacionDto.Muestra> muestra) {
         Map<TipoEvaluacion, List<NivelLogro>> niveles = new EnumMap<>(TipoEvaluacion.class);
