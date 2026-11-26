@@ -82,6 +82,21 @@ function Dashboard({
     };
   }, [isMobileMenuOpen]);
 
+  // El alto del menú cambia con el ancho de pantalla: otros elementos fijos se colocan debajo.
+  useEffect(() => {
+    const element = header.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() =>
+      root.style.setProperty("--header-height", `${element.offsetHeight}px`),
+    );
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--header-height");
+    };
+  }, [pathname]);
+
   if (pathname === CHANGE_PASSWORD_PATH)
     return <ChangePassword onLogout={onLogout} mandatory={false} />;
   function go(path: string) {
