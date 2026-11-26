@@ -8,12 +8,16 @@ import com.asiscontrol.dto.academico.AcademicoDtos.EstadoAula;
 import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
+import com.asiscontrol.dto.CargaMasivaDto;
 import com.asiscontrol.service.AulaService;
+import com.asiscontrol.service.ImportacionAulaService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,8 +28,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -35,9 +41,29 @@ import java.util.List;
 public class AulaController {
 
     private final AulaService aulaService;
+    private final ImportacionAulaService importacion;
 
-    public AulaController(AulaService aulaService) {
+    public AulaController(AulaService aulaService, ImportacionAulaService importacion) {
         this.aulaService = aulaService;
+        this.importacion = importacion;
+    }
+
+    /**
+     * OBS-05: con {@code confirmar=false} solo revisa el archivo y no guarda nada; con
+     * {@code confirmar=true} registra las filas válidas. Mismo permiso que el alta manual.
+     */
+    @PostMapping(value = "/importaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    public CargaMasivaDto.Resultado importar(
+            @RequestPart("archivo") MultipartFile archivo,
+            @RequestParam(defaultValue = "false") boolean confirmar) {
+        return importacion.importar(archivo, confirmar);
+    }
+
+    @GetMapping("/importaciones/plantilla")
+    @PreAuthorize("hasAuthority('ACADEMICO_ESCRIBIR')")
+    public ResponseEntity<byte[]> plantilla() {
+        return ExcelDescarga.adjunto("plantilla_aulas.xlsx", importacion.plantilla());
     }
 
     @PostMapping

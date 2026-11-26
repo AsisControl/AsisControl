@@ -1,0 +1,23 @@
+.template {
+  margin-bottom: 16px;
+}
+.template button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.result {
+  margin-top: 12px;
+}
+.result p {
+  margin: 0;
+}
+.result ul {
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-left: 20px;
+}
+.skipped {
+  color: var(--muted, #5f6b7a);
+}
