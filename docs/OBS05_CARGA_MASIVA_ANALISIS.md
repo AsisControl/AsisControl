@@ -1,7 +1,8 @@
 # OBS-05 · Carga masiva por módulo — análisis (ASISCTRL-228)
 
-> **Borrador para aprobación del equipo.** Las columnas de las plantillas 230 a 234 se cierran
-> cuando el equipo apruebe este documento. Lo que ya está implementado (229) puede ajustarse.
+> **Borrador para aprobación del equipo.** Las columnas de las plantillas 232 a 234 se cierran
+> cuando el equipo apruebe este documento. Lo que ya está implementado (229, 230 y 231) puede
+> ajustarse.
 
 ## 1. Reglas comunes para todas las plantillas
 
@@ -71,44 +72,51 @@ Clave natural: `codigo`.
 
 Clave natural: `anioAcademico + grado + nombre`.
 
-### 3.3 Cursos y plan de estudios (230) — por cerrar
+### 3.3 Cursos y plan de estudios (230) — `/api/planes-estudios/importaciones` · rol ADMINISTRADOR + `ACADEMICO_ESCRIBIR`
 
-Una fila por curso y grado del plan:
-
-| Columna | | Valores |
-|---|---|---|
-| anioAcademico | O | año del plan (BORRADOR o editable) |
-| grado | O | 1–5 |
-| codigoCurso | O | se crea el curso si no existe en el catálogo |
-| nombreCurso | O | hasta 120 |
-| horasSemanales | O | 1–40; se valida contra el tope de horas del plan |
-| codigosCompetencias | o | separados por `;`, deben existir en el catálogo |
-| descripcion | o | hasta 500 |
-
-Clave natural: `anioAcademico + grado + codigoCurso`. Se guarda con la misma operación del plan
-(`GuardarPlan`), agrupando las filas por año y grado.
-
-### 3.4 Asignaciones docentes (231) — por cerrar
+Una fila por curso, año y grado del plan:
 
 | Columna | | Valores |
 |---|---|---|
-| anioAcademico, grado, seccion | O | identifican la sección |
+| anioAcademico | O | año del plan (no cerrado) |
+| grado | O | 1–5, habilitado en el año |
+| codigoCurso | O | si no existe en el catálogo, se registra con los datos de la fila |
+| nombreCurso | O | hasta 120; es el nombre del curso en el plan |
+| horasSemanales | O | 1–40 |
+| codigosCompetencias | o | separados por `;`; vacío = competencias base del curso |
+| descripcion | o | solo se usa si el curso es nuevo |
+| motivo | o | obligatorio si el plan ya estaba definido antes del archivo (misma regla que la pantalla) |
+
+Clave natural: `anioAcademico + grado + codigoCurso`. Cada fila se guarda con
+`PlanEstudiosService.guardar`. Las filas siguientes del mismo grado en el mismo archivo usan como
+motivo la propia carga masiva. Si el curso nuevo se crea pero el plan rechaza la fila, también se
+deshace el curso.
+
+### 3.4 Asignaciones docentes (231) — `/api/asignaciones-cursos/importaciones` · `ACADEMICO_ESCRIBIR`
+
+| Columna | | Valores |
+|---|---|---|
+| anioAcademico, grado, seccion | O | identifican la sección activa |
 | codigoCurso | O | el curso debe estar en el plan del grado |
 | codigoDocente | O | docente activo |
 
 Clave natural: `sección + curso` (solo una asignación activa por curso y sección).
 
-### 3.5 Horarios (231) — por cerrar
+### 3.5 Horarios (231) — `/api/horarios/importaciones` · `ACADEMICO_ESCRIBIR`
 
 | Columna | | Valores |
 |---|---|---|
-| anioAcademico, grado, seccion, codigoCurso | O | identifican la asignación |
-| codigoAula | O | aula habilitada con capacidad suficiente |
+| anioAcademico, grado, seccion, codigoCurso | O | identifican la asignación activa |
+| codigoAula | O | aula habilitada con capacidad para la sección |
 | diaSemana | O | lista `DiaSemana` |
-| horaInicio, horaFin | O | `HH:mm` |
+| horaInicio, horaFin | O | `HH:mm` entre 07:00 y 20:00, en pasos de 30 minutos |
 
-Clave natural: `asignación + día + horaInicio`. Los cruces de aula, docente y sección y las horas
-semanales del plan se validan en `HorarioService`.
+Clave natural: `asignación + día + horaInicio`. `HorarioService` valida los cruces de aula,
+docente y sección.
+
+> **Observación:** hoy ni el registro manual ni la carga masiva comparan las horas de los bloques
+> con las `horasSemanales` del curso en el plan. Si el equipo quiere esa regla, debe agregarse en
+> `HorarioService` para que se aplique a ambos.
 
 ### 3.6 Tarifas de pensión (233) — por cerrar
 

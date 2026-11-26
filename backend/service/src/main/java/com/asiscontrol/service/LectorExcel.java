@@ -100,6 +100,28 @@ final class LectorExcel {
             }
         }
 
+        /** Hora obligatoria: texto HH:mm o una celda con formato de hora de Excel. */
+        java.time.LocalTime hora(String header) {
+            Integer index = columns.get(header);
+            Cell cell = index == null ? null : row.getCell(index);
+            if (cell == null || FORMATTER.formatCellValue(cell).isBlank()) {
+                throw new BusinessRuleException(
+                        "CAMPO_OBLIGATORIO", "La columna " + header + " es obligatoria", header);
+            }
+            if (cell.getCellType() == CellType.NUMERIC) {
+                double dia = cell.getNumericCellValue();
+                long segundos = Math.round((dia - Math.floor(dia)) * 24 * 60 * 60);
+                return java.time.LocalTime.ofSecondOfDay(segundos % (24 * 60 * 60));
+            }
+            try {
+                return java.time.LocalTime.parse(
+                        FORMATTER.formatCellValue(cell).trim(), DateTimeFormatter.ofPattern("H:mm"));
+            } catch (DateTimeParseException exception) {
+                throw new BusinessRuleException(
+                        "HORA_INVALIDA", "Use el formato HH:mm en " + header, header);
+            }
+        }
+
         LocalDate fecha(String header) {
             Integer index = columns.get(header);
             Cell cell = index == null ? null : row.getCell(index);
