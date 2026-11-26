@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { FamilyImportDialog, type Student } from "@/modules/students";
-import { documentLabel, PersonCell, StatusPill } from "@/shared/ui";
+import { documentLabel, FilterSelect, PersonCell, StatusPill } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import { PendingAction, RecordsPanel } from "./records-panel";
 import { RegisterProfile } from "./register-profile";
@@ -27,11 +27,21 @@ function FamilyImportAction({ onImported }: { onImported: () => void }) {
 
 export function GuardiansPanel() {
   const [openId, setOpenId] = useState<number | null>(null);
+  const [linked, setLinked] = useState("");
   return (
     <>
       <RecordsPanel<Guardian>
         title="Apoderados"
         path="/api/apoderados"
+        filterQuery={linked && `conEstudiantes=${linked}`}
+        filters={
+          <FilterSelect
+            label="Estudiantes a cargo"
+            value={linked}
+            onChange={setLinked}
+            options={[["true", "Con estudiantes"], ["false", "Sin estudiantes"]]}
+          />
+        }
         noun={["apoderado", "apoderados"]}
         searchLabel="Buscar por nombre o documento"
         columns={[

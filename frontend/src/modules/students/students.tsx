@@ -9,6 +9,7 @@ import {
   PanelHeading,
   PersonCell,
   RecordStatus,
+  RecordOrderSelect,
   Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
@@ -18,6 +19,7 @@ import { studentErrorMessage } from "./student-errors";
 import { StudentForm } from "./student-form";
 import { StudentDetail } from "./student-detail";
 import { DestinationNotice, useDestinationSection } from "./destination-section";
+import { NO_STUDENT_FILTERS, studentFilterQuery, StudentFilters } from "./student-filters";
 import { studentName } from "./student-rules";
 import { FamilyImportDialog } from "./import-dialog";
 import { NewAccountCredentials } from "./access-credentials";
@@ -35,7 +37,10 @@ export function Students() {
 
 function StudentManagement() {
   const [query, setQuery] = useState("");
-  const list = usePaged<Student>("/api/alumnos", query);
+  const [filters, setFilters] = useState(NO_STUDENT_FILTERS);
+  const filterQuery = studentFilterQuery(filters);
+  const [order, setOrder] = useState("");
+  const list = usePaged<Student>("/api/alumnos", query, [filterQuery, order].filter(Boolean).join("&"));
   const [detail, setDetail] = useState<Student | null>(null);
   const [formMode, setFormMode] = useState(false);
   const [credential, setCredential] = useState<AccessCredential | null>(null);
@@ -150,6 +155,10 @@ function StudentManagement() {
         <Field label="Buscar por nombre, código o documento" name="search" />
         <button disabled={list.loading || opening}>Buscar</button>
       </form>
+      <StudentFilters values={filters} onChange={setFilters} />
+      <div className="toolbar">
+        <RecordOrderSelect value={order} onChange={setOrder} />
+      </div>
       {list.loading ? (
         <Loading>Cargando estudiantes…</Loading>
       ) : list.error ? (
@@ -214,7 +223,7 @@ function StudentManagement() {
         </>
       ) : (
         <p className="empty">
-          {query
+          {query || filterQuery
             ? "No se encontraron estudiantes para esta búsqueda."
             : "Todavía no hay estudiantes registrados."}
         </p>

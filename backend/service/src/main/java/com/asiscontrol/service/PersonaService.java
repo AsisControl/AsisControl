@@ -108,7 +108,8 @@ public class PersonaService {
 
     @Transactional(readOnly = true)
     public PageResponse<PersonaDtos.AlumnoResponse> listAlumnos(
-            String search, int page, int size, String sortBy, Sort.Direction direction) {
+            String search, PersonaDtos.FiltroAlumnos filtro, int page, int size, String sortBy,
+            Sort.Direction direction) {
         Pageable pageable =
                 PageUtils.create(
                         page,
@@ -118,7 +119,8 @@ public class PersonaService {
                         ALUMNO_SORT_FIELDS,
                         "persona.apellidoPaterno");
         return PageResponse.from(
-                alumnoRepository.searchActive(normalizeSearch(search), pageable),
+                alumnoRepository.searchActive(normalizeSearch(search), filtro.conMatricula(),
+                        filtro.grado(), filtro.conApoderado(), pageable),
                 this::toAlumnoResponse);
     }
 
@@ -339,7 +341,8 @@ public class PersonaService {
 
     @Transactional(readOnly = true)
     public PageResponse<PersonaDtos.ApoderadoResponse> listApoderados(
-            String search, int page, int size, String sortBy, Sort.Direction direction) {
+            String search, Boolean conEstudiantes, int page, int size, String sortBy,
+            Sort.Direction direction) {
         Pageable pageable =
                 PageUtils.create(
                         page,
@@ -349,7 +352,7 @@ public class PersonaService {
                         APODERADO_SORT_FIELDS,
                         "persona.apellidoPaterno");
         return PageResponse.from(
-                apoderadoRepository.searchActive(normalizeSearch(search), pageable),
+                apoderadoRepository.searchActive(normalizeSearch(search), conEstudiantes, pageable),
                 this::toApoderadoResponse);
     }
 

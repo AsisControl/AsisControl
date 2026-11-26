@@ -3,6 +3,8 @@ export { Eye } from "./eye-icon";
 export { Feedback } from "./feedback";
 export { FormDialog } from "./form-dialog";
 export { Field, PasswordField, ReasonField } from "./form-fields";
+export { FilterSelect } from "./filter-select";
+export { RecordOrderSelect } from "./record-order-select";
 export { PageHeader, PanelHeading, PersonCell, initialsOf } from "./page";
 export { Loading } from "./loading";
 export {

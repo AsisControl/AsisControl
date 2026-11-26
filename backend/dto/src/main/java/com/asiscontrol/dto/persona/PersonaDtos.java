@@ -123,6 +123,14 @@ public final class PersonaDtos {
             Instant fechaCreacion,
             Instant fechaActualizacion) {}
 
+    /**
+     * Filtros opcionales de las fichas de estudiantes. El grado se toma de la matrícula activa y el
+     * apoderado debe estar habilitado.
+     */
+    public record FiltroAlumnos(Boolean conMatricula, Integer grado, Boolean conApoderado) {
+        public static final FiltroAlumnos NINGUNO = new FiltroAlumnos(null, null, null);
+    }
+
     public record AlumnoCreateRequest(
             @NotNull(message = "Completa los datos de identidad")
                     @Valid
