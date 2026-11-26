@@ -26,9 +26,13 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
             WHERE t.activo = true
               AND t.estadoPublicacion <> com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
               AND (t.fechaPublicacion IS NULL OR t.fechaPublicacion <= :ahora)
-              AND EXISTS (SELECT m.id FROM Matricula m WHERE m.activo = true
+              AND (EXISTS (SELECT m.id FROM Matricula m WHERE m.activo = true
                   AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
                   AND m.alumno.id = :alumnoId AND m.seccion.id = t.asignacionCurso.seccion.id)
+                  OR EXISTS (SELECT h.id FROM HistorialSeccionMatricula h
+                      WHERE h.matricula.alumno.id = :alumnoId AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE
+                      + " AND " + VisibilidadSeccionAnterior.TAREA + """
+                  ))
               AND (LOWER(t.nombre) LIKE LOWER(CONCAT('%', :busqueda, '%'))
                   OR LOWER(coalesce(t.asignacionCurso.nombreCursoPlan, t.asignacionCurso.curso.nombre))
                       LIKE LOWER(CONCAT('%', :busqueda, '%')))
@@ -36,7 +40,11 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
                   OR (:entregada = true AND EXISTS (SELECT e.id FROM EntregaTarea e WHERE e.activo = true
                       AND e.tarea.id = t.id AND e.alumno.id = :alumnoId))
                   OR (:entregada = false AND NOT EXISTS (SELECT e.id FROM EntregaTarea e WHERE e.activo = true
-                      AND e.tarea.id = t.id AND e.alumno.id = :alumnoId)))
+                      AND e.tarea.id = t.id AND e.alumno.id = :alumnoId)
+                      AND EXISTS (SELECT actual.id FROM Matricula actual WHERE actual.activo = true
+                          AND actual.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
+                          AND actual.alumno.id = :alumnoId
+                          AND actual.seccion.id = t.asignacionCurso.seccion.id)))
             """)
     Page<Tarea> buscarParaAlumno(@Param("alumnoId") Long alumnoId,
             @Param("busqueda") String busqueda, @Param("entregada") Boolean entregada,
@@ -55,17 +63,21 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
               AND (:personaDocenteId IS NULL OR t.asignacionCurso.docente.persona.id = :personaDocenteId)
               AND (:personaAlumnoId IS NULL OR (
                     t.estadoPublicacion <> com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
-                    AND EXISTS (
+                    AND (EXISTS (
                         SELECT m.id FROM Matricula m
                         WHERE m.activo = true
                           AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
                           AND m.seccion.id = t.asignacionCurso.seccion.id
                           AND m.alumno.persona.id = :personaAlumnoId
-                    )
+                    ) OR EXISTS (
+                        SELECT h.id FROM HistorialSeccionMatricula h
+                        WHERE h.matricula.alumno.persona.id = :personaAlumnoId
+                          AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE + " AND " + VisibilidadSeccionAnterior.TAREA + """
+                    ))
                   ))
               AND (:personaApoderadoId IS NULL OR (
                     t.estadoPublicacion <> com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
-                    AND EXISTS (
+                    AND (EXISTS (
                         SELECT m.id FROM Matricula m, AlumnoApoderado v
                         WHERE m.activo = true
                           AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
@@ -73,7 +85,12 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
                           AND v.activo = true
                           AND v.alumno.id = m.alumno.id
                           AND v.apoderado.persona.id = :personaApoderadoId
-                    )
+                    ) OR EXISTS (
+                        SELECT h.id FROM HistorialSeccionMatricula h, AlumnoApoderado v
+                        WHERE v.activo = true AND v.alumno.id = h.matricula.alumno.id
+                          AND v.apoderado.persona.id = :personaApoderadoId
+                          AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE + " AND " + VisibilidadSeccionAnterior.TAREA + """
+                    ))
                   ))
             """)
     Page<Tarea> buscarVisibles(

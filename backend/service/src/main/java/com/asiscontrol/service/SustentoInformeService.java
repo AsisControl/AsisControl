@@ -4,7 +4,6 @@ import com.asiscontrol.dto.SustentoInformeDto;
 import com.asiscontrol.entity.DetalleInformeProgreso;
 import com.asiscontrol.entity.EvidenciaPedagogica;
 import com.asiscontrol.entity.enums.EstadoInformeProgreso;
-import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.EvidenciaPedagogicaRepository;
 import com.asiscontrol.repository.MatriculaRepository;
@@ -13,7 +12,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.stream.Stream;
 
 @Service
 @Transactional(readOnly = true)
@@ -70,8 +68,7 @@ public class SustentoInformeService {
         if (!a.isActivo() || !a.getDocente().isActivo() || !i.getAlumno().isActivo()
                 || !p.isActivo() || !p.getAnioAcademico().isActivo()
                 || p.getAnioAcademico().getAnio() != a.getSeccion().getAnioAcademico()
-                || Stream.of(EstadoMatricula.ACTIVA, EstadoMatricula.FINALIZADA).noneMatch(estado ->
-                    matriculas.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(i.getAlumno().getId(), a.getSeccion().getId(), estado))) {
+                || !matriculas.estuvoEnSeccion(i.getAlumno().getId(), a.getSeccion().getId())) {
             throw new AccessDeniedException("El contexto academico del informe ya no permite consultar su sustento");
         }
         return d;

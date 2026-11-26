@@ -8,6 +8,7 @@ import styles from "../academic-config.module.css";
 import type { Section, YearPanelProps } from "../types";
 import { OccupancyBar } from "./occupancy-bar";
 import { SectionFormDialog } from "./section-form-dialog";
+import { SectionStudentsDialog } from "./section-students-dialog";
 type SectionAction =
   | { kind: "section" | "import" }
   | { kind: "section-edit"; target: Section }
@@ -46,6 +47,7 @@ export function SectionsPanel({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [gradeFilter, setGradeFilter] = useState("");
+  const [roster, setRoster] = useState<Section | null>(null);
   const open = (value: SectionAction) => {
     setError("");
     onSuccess("");
@@ -160,7 +162,7 @@ export function SectionsPanel({
               <th>Matriculados</th>
               <th>Vacantes</th>
               <th>Ocupación</th>
-              {editable && <th>Acciones</th>}
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -192,41 +194,50 @@ export function SectionsPanel({
                 <td>
                   <OccupancyBar section={section} />
                 </td>
-                {editable && (
-                  <td>
-                    <div className={styles.rowActions}>
-                      {section.activo && (
+                <td>
+                  <div className={styles.rowActions}>
+                    <button
+                      className={styles.textAction}
+                      aria-label={`Ver alumnos de ${section.grado}° Grado, Sección ${section.nombre}`}
+                      onClick={() => setRoster(section)}
+                    >
+                      Ver alumnos
+                    </button>
+                    {editable && (
+                      <>
+                        {section.activo && (
+                          <button
+                            className={styles.iconButton}
+                            aria-label={`Editar ${section.grado}° Grado, Sección ${section.nombre}`}
+                            title="Editar"
+                            onClick={() =>
+                              open({ kind: "section-edit", target: section })
+                            }
+                          >
+                            <PencilIcon />
+                          </button>
+                        )}
                         <button
-                          className={styles.iconButton}
-                          aria-label={`Editar ${section.grado}° Grado, Sección ${section.nombre}`}
-                          title="Editar"
+                          className={styles.textAction}
                           onClick={() =>
-                            open({ kind: "section-edit", target: section })
+                            open({
+                              kind: "section-disable",
+                              target: section,
+                              next: !section.activo,
+                            })
                           }
                         >
-                          <PencilIcon />
+                          {section.activo ? "Inhabilitar" : "Habilitar"}
                         </button>
-                      )}
-                      <button
-                        className={styles.textAction}
-                        onClick={() =>
-                          open({
-                            kind: "section-disable",
-                            target: section,
-                            next: !section.activo,
-                          })
-                        }
-                      >
-                        {section.activo ? "Inhabilitar" : "Habilitar"}
-                      </button>
-                    </div>
-                  </td>
-                )}
+                      </>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
             {!visible.length && (
               <tr>
-                <td className={styles.emptyCell} colSpan={editable ? 7 : 6}>
+                <td className={styles.emptyCell} colSpan={7}>
                   {emptyText}
                 </td>
               </tr>
@@ -234,6 +245,14 @@ export function SectionsPanel({
           </tbody>
         </table>
       </div>
+      {roster && (
+        <SectionStudentsDialog
+          section={roster}
+          editable={editable}
+          onClose={() => setRoster(null)}
+          onChanged={onReload}
+        />
+      )}
       {action?.kind === "import" && (
         <BulkImportDialog
           title="Carga masiva de secciones"

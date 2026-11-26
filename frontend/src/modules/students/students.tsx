@@ -17,6 +17,7 @@ import { getStudent } from "./services/student-service";
 import { studentErrorMessage } from "./student-errors";
 import { StudentForm } from "./student-form";
 import { StudentDetail } from "./student-detail";
+import { DestinationNotice, useDestinationSection } from "./destination-section";
 import { studentName } from "./student-rules";
 import { FamilyImportDialog } from "./import-dialog";
 import { NewAccountCredentials } from "./access-credentials";
@@ -42,6 +43,7 @@ function StudentManagement() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [opening, setOpening] = useState(false);
+  const destination = useDestinationSection();
   const request = useRef(0);
   useEffect(
     () => () => {
@@ -131,6 +133,7 @@ function StudentManagement() {
         }
       />
       <Feedback error={error} success={success} />
+      <DestinationNotice {...destination} />
       <form
         className="toolbar"
         onSubmit={(event) => {
@@ -220,6 +223,7 @@ function StudentManagement() {
         <StudentDetail
           key={detail.id}
           student={detail}
+          destination={destination.section}
           onClose={() => setDetail(null)}
           onEdit={() => {
             setSuccess("");

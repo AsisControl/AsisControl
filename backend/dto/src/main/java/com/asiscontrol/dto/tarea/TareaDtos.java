@@ -105,7 +105,9 @@ public final class TareaDtos {
             String curso,
             String docente,
             String seccion,
-            EntregaTareaResponse entrega
+            EntregaTareaResponse entrega,
+            /* true si la tarea es de una sección que el estudiante ya dejó. */
+            boolean soloConsulta
     ) {
     }
 
