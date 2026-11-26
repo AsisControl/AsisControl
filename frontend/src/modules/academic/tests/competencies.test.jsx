@@ -70,8 +70,8 @@ test("Permite escoger y quitar un Excel y rechaza archivos de otro formato", asy
   });
   const user = userEvent.setup({ applyAccept: false });
   renderTab();
-  await user.click(await screen.findByRole("button", { name: "Importar Excel" }));
-  const dialog = within(screen.getByRole("dialog", { name: "Importar competencias" }));
+  await user.click(await screen.findByRole("button", { name: "Carga masiva" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Carga masiva de competencias" }));
   const input = dialog.getByLabelText("Archivo Excel de competencias");
   const activateInput = vi.spyOn(input, "click");
   const choose = dialog.getByRole("button", { name: "Seleccionar archivo Excel" });

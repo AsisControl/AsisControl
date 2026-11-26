@@ -6,7 +6,9 @@ import com.asiscontrol.dto.academico.AcademicoDtos.CrearSeccionRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionResponse;
+import com.asiscontrol.dto.CargaMasivaDto;
 import com.asiscontrol.service.SeccionService;
+import com.asiscontrol.service.ImportacionSeccionService;
 
 import jakarta.validation.Valid;
 
@@ -14,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,8 +27,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -34,9 +40,29 @@ import java.util.List;
 public class SeccionController {
 
     private final SeccionService seccionService;
+    private final ImportacionSeccionService importacion;
 
-    public SeccionController(SeccionService seccionService) {
+    public SeccionController(SeccionService seccionService, ImportacionSeccionService importacion) {
         this.seccionService = seccionService;
+        this.importacion = importacion;
+    }
+
+    /**
+     * OBS-05: con {@code confirmar=false} solo revisa el archivo y no guarda nada; con
+     * {@code confirmar=true} registra las filas válidas. Mismo permiso que el alta manual.
+     */
+    @PostMapping(value = "/importaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_ESCRIBIR')")
+    public CargaMasivaDto.Resultado importar(
+            @RequestPart("archivo") MultipartFile archivo,
+            @RequestParam(defaultValue = "false") boolean confirmar) {
+        return importacion.importar(archivo, confirmar);
+    }
+
+    @GetMapping("/importaciones/plantilla")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_ESCRIBIR')")
+    public ResponseEntity<byte[]> plantilla() {
+        return ExcelDescarga.adjunto("plantilla_secciones.xlsx", importacion.plantilla());
     }
 
     @PostMapping

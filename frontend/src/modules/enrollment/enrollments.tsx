@@ -16,6 +16,7 @@ import {
   Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import {
   countLabel,
   dateLabel,
@@ -115,17 +116,19 @@ export function Enrollments({
         <EnrollmentList
           key={current.id}
           isRequest={current.id === DEFAULT_TAB}
+          canWrite={canManageRenewals}
         />
       )}
     </section>
   );
 }
-function EnrollmentList({ isRequest }: { isRequest: boolean }) {
+function EnrollmentList({ isRequest, canWrite = false }: { isRequest: boolean; canWrite?: boolean }) {
   const path = isRequest ? "/api/solicitudes-matricula" : "/api/matriculas";
   const [filters, setFilters] = useState("");
   const list = usePaged<EnrollmentRecord>(path, "", filters);
   const [moving, setMoving] = useState<EnrollmentRecord | null>(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [selected, setSelected] = useState<EnrollmentRecord | null>(null);
   const [success, setSuccess] = useState("");
   const total = list.data?.totalElements ?? 0;
@@ -149,6 +152,11 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
             <button disabled={list.loading} onClick={list.refresh}>
               Actualizar
             </button>
+            {!isRequest && canWrite && (
+              <button type="button" onClick={() => setImporting(true)}>
+                Carga masiva
+              </button>
+            )}
             {isRequest && (
               <button
                 className="primary-action"
@@ -165,6 +173,17 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
       />
       {!isRequest && <EnrollmentFilters onApply={setFilters} />}
       <Feedback error={list.error} success={success} />
+      {importing && (
+        <BulkImportDialog
+          title="Carga masiva de matrículas"
+          description="Descarga la plantilla y completa una fila por estudiante. Cada fila crea la solicitud, asigna la sección y finaliza la matrícula con sus cuotas."
+          path="/api/matriculas/importaciones"
+          templateName="plantilla_matriculas.xlsx"
+          fileLabel="Archivo Excel de matrículas"
+          onClose={() => setImporting(false)}
+          onImported={list.refresh}
+        />
+      )}
       {list.loading ? (
         <Loading>Cargando registros…</Loading>
       ) : list.data?.content.length ? (
