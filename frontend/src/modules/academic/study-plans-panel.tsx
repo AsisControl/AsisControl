@@ -6,6 +6,7 @@ import { usePaged } from "@/shared/hooks/use-paged";
 import { saveBlob } from "@/shared/lib/save-blob";
 import { countLabel } from "@/shared/lib/formatters";
 import { Feedback, Loading, Pager, PanelHeading, StatusPill } from "@/shared/ui";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import type { AcademicYear } from "@/modules/academic-config";
 import { PencilIcon } from "./components/pencil-icon";
 import { PlanCourseCompetencies } from "./plan-course-competencies";
@@ -29,6 +30,8 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [imports, setImports] = useState(0);
   const year = years.data?.content.find(item => String(item.anio) === selectedYear);
 
   async function downloadPlan(anio: number) {
@@ -47,10 +50,23 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
   return (
     <section className="panel">
       <PanelHeading title="Plan de estudios" summary="Define los cursos que se dictan por grado y año académico."
-        actions={<button type="button" className="secondary-action" disabled={!year || downloading || years.loading}
-          onClick={() => year && void downloadPlan(year.anio)}>
-          Descargar plan de estudios (PDF)
-        </button>} />
+        actions={<>
+          {canWrite && <button type="button" className="secondary-action" onClick={() => setImporting(true)}>
+            Carga masiva
+          </button>}
+          <button type="button" className="secondary-action" disabled={!year || downloading || years.loading}
+            onClick={() => year && void downloadPlan(year.anio)}>
+            Descargar plan de estudios (PDF)
+          </button>
+        </>} />
+      {importing && <BulkImportDialog
+        title="Carga masiva del plan de estudios"
+        description="Descarga la plantilla y completa una fila por curso, año y grado. Los cursos nuevos se registran en el catálogo."
+        path="/api/planes-estudios/importaciones"
+        templateName="plantilla_plan_estudios.xlsx"
+        fileLabel="Archivo Excel del plan de estudios"
+        onClose={() => setImporting(false)}
+        onImported={() => setImports(value => value + 1)} />}
       <Feedback error={years.error || downloadError} />
       {downloading && <p role="status">Preparando el PDF del año académico…</p>}
       {years.loading ? <Loading skeleton="fields">Cargando años académicos…</Loading> : <div className={styles.context}>
@@ -81,7 +97,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
       }} />}
       {year && <PlanName key={year.anio} year={year.anio} canWrite={canWrite} />}
       {year && selectedGrade && <PlanEditor
-        key={`${year.anio}-${selectedGrade}`}
+        key={`${year.anio}-${selectedGrade}-${imports}`}
         path={`/api/planes-estudios/${year.anio}/${selectedGrade}`}
         canWrite={canWrite}
       />}

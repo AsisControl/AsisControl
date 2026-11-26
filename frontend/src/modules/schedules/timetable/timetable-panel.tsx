@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { Feedback, FormDialog, PanelHeading, Loading, ReasonField } from "@/shared/ui";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import { scheduleSlotLabel } from "../lib/labels";
 import {
   PERSPECTIVES,
@@ -59,6 +60,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [tick, setTick] = useState(0);
   const [dialog, setDialog] = useState<BlockDialog | null>(null);
+  const [importing, setImporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -237,6 +239,11 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
             >
               Actualizar
             </button>
+            {writable && (
+              <button type="button" onClick={() => setImporting(true)}>
+                Carga masiva
+              </button>
+            )}
             {editable && (
               <button
                 type="button"
@@ -385,6 +392,17 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
               `Bloque de ${saved.curso} ${dialog.kind === "edit" ? "actualizado" : "registrado"}: ${scheduleSlotLabel(saved)}.`,
             )
           }
+        />
+      )}
+      {importing && (
+        <BulkImportDialog
+          title="Carga masiva de horarios"
+          description="Descarga la plantilla y completa una fila por bloque. Se validan los cruces de aula, docente y sección."
+          path="/api/horarios/importaciones"
+          templateName="plantilla_horarios.xlsx"
+          fileLabel="Archivo Excel de horarios"
+          onClose={() => setImporting(false)}
+          onImported={refresh}
         />
       )}
       {dialog?.kind === "delete" && (
