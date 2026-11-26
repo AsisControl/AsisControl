@@ -3,13 +3,31 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
 import { Feedback, Field, PasswordField } from "@/shared/ui";
-import { passwordError, passwordHint } from "./password-policy";
-import { AuthFormLayout } from "./auth-form-layout";
-import styles from "./auth-form.module.css";
+import { AccessArrow } from "@/core/layout/access-brand";
+import access from "@/core/layout/access.module.css";
+import { AccessLayout } from "@/core/layout/access-layout";
+import layout from "@/core/layout/login-screen.module.css";
+import { passwordError } from "./password-policy";
+import { PasswordRulesList } from "./password-rules-list";
+import { PasswordSuccessIcon } from "./password-success";
+import styles from "./password-screens.module.css";
+
+type RecoveryMode = "request" | "sent" | "validating" | "reset" | "invalid" | "done";
+
+const titles: Record<RecoveryMode, string> = {
+  request: "Recuperar contraseña",
+  sent: "Revisa tu correo",
+  validating: "Verificando enlace",
+  reset: "Elige una nueva contraseña",
+  invalid: "Enlace no disponible",
+  done: "Contraseña actualizada",
+};
+
 export function RecoveryScreen() {
   const incoming = useRef("");
   const [token, setToken] = useState("");
-  const [mode, setMode] = useState("request");
+  const [mode, setMode] = useState<RecoveryMode>("request");
+  const [newPassword, setNewPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -84,6 +102,7 @@ export function RecoveryScreen() {
       setMode(resetting ? "done" : "sent");
       if (resetting) {
         setToken("");
+        setNewPassword("");
         incoming.current = "";
       }
     } catch (e) {
@@ -95,57 +114,54 @@ export function RecoveryScreen() {
   function again() {
     incoming.current = "";
     setToken("");
+    setNewPassword("");
     setMode("request");
     setNotice("");
     setError("");
   }
-  const icon = mode === "done" ? "check" : mode === "reset" ? "lock" : "shield";
+  const primary = `${access.primary} ${layout.submit}`;
   return (
-    <AuthFormLayout
-      label="Recuperación de contraseña"
-      icon={icon}
-      backLink={
-        mode !== "done" && (
-          <Link className={styles.backLink} href="/">
-            <span aria-hidden="true">←</span> Volver al inicio de sesión
-          </Link>
-        )
-      }
-    >
-      <h1>
-        {mode === "reset"
-          ? "Elige una nueva contraseña"
-          : mode === "done"
-            ? "Contraseña actualizada"
-            : mode === "invalid"
-              ? "Enlace no disponible"
-              : mode === "sent"
-                ? "Revisa tu correo"
-                : "Recuperar contraseña"}
-      </h1>
+    <AccessLayout titleId="recovery-title">
+      {mode === "done" ? (
+        <PasswordSuccessIcon />
+      ) : (
+        <p className={styles.badge}>Recupera tu acceso</p>
+      )}
+      <header className={`${layout.formHeader} ${styles.header}`}>
+        <h1 id="recovery-title">{titles[mode]}</h1>
+        {mode === "request" && (
+          <p>
+            Ingresa tu usuario institucional o tu correo de recuperación. Si la
+            institución confirmó tu correo, recibirás un enlace válido durante 15
+            minutos.
+          </p>
+        )}
+        {mode === "reset" && (
+          <p>Debe ser diferente a la actual. Se cerrarán las sesiones anteriores.</p>
+        )}
+        {mode === "sent" && (
+          <p>
+            No publiques ni compartas el enlace. Solicitar otro reemplaza al
+            anterior. Se permiten hasta tres solicitudes por hora.
+          </p>
+        )}
+        {mode === "validating" && <p role="status">Verificando el enlace…</p>}
+      </header>
       <div className={styles.feedback}>
         <Feedback error={error} success={notice} />
       </div>
-      {mode === "validating" ? (
-        <p role="status">Verificando el enlace…</p>
-      ) : ["request", "reset"].includes(mode) ? (
+      {mode === "request" || mode === "reset" ? (
         <form className={styles.form} onSubmit={submit}>
           <fieldset className={styles.fields} disabled={busy}>
             {mode === "request" ? (
-              <>
-                <p className={styles.description}>
-                  Ingresa tu usuario institucional o tu correo de recuperación.
-                  Si la institución confirmó tu correo, recibirás un enlace válido durante 15 minutos.
-                </p>
-                <Field
-                  label="Usuario institucional o correo de recuperación"
-                  name="identifier"
-                  required
-                  maxLength={150}
-                  autoComplete="username"
-                  placeholder="Código, usuario o correo"
-                />
-              </>
+              <Field
+                label="Usuario institucional o correo de recuperación"
+                name="identifier"
+                required
+                maxLength={150}
+                autoComplete="username"
+                placeholder="Código, usuario o correo"
+              />
             ) : (
               <>
                 <PasswordField
@@ -156,7 +172,10 @@ export function RecoveryScreen() {
                   maxLength={64}
                   autoComplete="new-password"
                   placeholder="Mínimo 8 caracteres"
+                  aria-describedby="recovery-password-rules"
+                  onChange={(event) => setNewPassword(event.currentTarget.value)}
                 />
+                <PasswordRulesList id="recovery-password-rules" password={newPassword} />
                 <PasswordField
                   label="Confirmar contraseña"
                   name="confirm"
@@ -166,44 +185,38 @@ export function RecoveryScreen() {
                   autoComplete="new-password"
                   placeholder="Repite la contraseña"
                 />
-                <p className="hint">
-                  {passwordHint} Debe ser diferente a la actual. Se cerrarán
-                  las sesiones anteriores.
-                </p>
               </>
             )}
           </fieldset>
-          <button className={styles.primaryButton} disabled={busy}>
+          <button className={primary} disabled={busy}>
             {busy
               ? "Procesando…"
               : mode === "reset"
                 ? "Guardar contraseña"
                 : "Enviar instrucciones"}
+            <AccessArrow />
           </button>
         </form>
-      ) : mode === "sent" ? (
-        <>
-          <p>
-            No publiques ni compartas el enlace. Solicitar otro reemplaza al
-            anterior. Se permiten hasta tres solicitudes por hora.
-          </p>
-          <button className={styles.primaryButton} onClick={again}>
-            Solicitar otro enlace
-          </button>
-        </>
-      ) : mode === "invalid" ? (
-        <button className={styles.primaryButton} onClick={again}>
-          Solicitar nuevo enlace
+      ) : mode === "sent" || mode === "invalid" ? (
+        <button className={primary} onClick={again}>
+          {mode === "sent" ? "Solicitar otro enlace" : "Solicitar nuevo enlace"}
+          <AccessArrow />
         </button>
-      ) : (
-        <Link className={styles.primaryButton} href="/">
+      ) : mode === "done" ? (
+        <Link className={primary} href="/">
           Ir al inicio de sesión
+          <AccessArrow />
+        </Link>
+      ) : null}
+      {mode !== "done" && (
+        <Link className={styles.backLink} href="/">
+          <span aria-hidden="true">←</span> Volver al inicio de sesión
         </Link>
       )}
-      <p className="hint">
-        Si no tienes acceso al correo o tu contraseña temporal venció,
-        contacta a la administración para verificar tu identidad.
+      <p className={layout.help}>
+        Si no tienes acceso al correo o tu contraseña temporal venció, contacta a
+        la administración para verificar tu identidad.
       </p>
-    </AuthFormLayout>
+    </AccessLayout>
   );
 }

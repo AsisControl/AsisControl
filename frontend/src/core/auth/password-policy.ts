@@ -18,5 +18,3 @@ export const passwordRules: { label: string; isMet: (value: string) => boolean }
   { label: "Un número", isMet: (value) => /\p{Nd}/u.test(value) },
   { label: "Sin espacios", isMet: (value) => value !== "" && !/[\s\p{Cc}]/u.test(value) },
 ];
-export const passwordHint =
-  "De 8 a 64 caracteres, mayúscula, minúscula y número, sin espacios. Máximo 72 bytes UTF-8.";
