@@ -2,13 +2,14 @@
 import { useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
 import { FormDialog, ReasonField } from "@/shared/ui";
+import { BulkImportDialog, type BulkImportResult } from "@/modules/bulk-import";
 import { isOverCapacity, vacancies } from "../lib/section-metrics";
 import styles from "../academic-config.module.css";
 import type { Section, YearPanelProps } from "../types";
 import { OccupancyBar } from "./occupancy-bar";
 import { SectionFormDialog } from "./section-form-dialog";
 type SectionAction =
-  | { kind: "section" }
+  | { kind: "section" | "import" }
   | { kind: "section-edit"; target: Section }
   | { kind: "section-disable"; target: Section; next: boolean };
 const iconProps = {
@@ -120,6 +121,21 @@ export function SectionsPanel({
           </select>
           {editable && (
             <button
+              type="button"
+              className="secondary-action"
+              disabled={!hasActiveGrades}
+              title={
+                hasActiveGrades
+                  ? undefined
+                  : "Habilita al menos un grado en «Grados habilitados»."
+              }
+              onClick={() => open({ kind: "import" })}
+            >
+              Carga masiva
+            </button>
+          )}
+          {editable && (
+            <button
               className={styles.newPeriodButton}
               disabled={!hasActiveGrades}
               title={
@@ -218,7 +234,24 @@ export function SectionsPanel({
           </tbody>
         </table>
       </div>
-      {action && action.kind !== "section-disable" && (
+      {action?.kind === "import" && (
+        <BulkImportDialog
+          title="Carga masiva de secciones"
+          description="Descarga la plantilla y completa una fila por sección. Puedes cargar varios años y grados en un mismo archivo."
+          path="/api/secciones/importaciones"
+          templateName="plantilla_secciones.xlsx"
+          fileLabel="Archivo Excel de secciones"
+          onClose={() => setAction(null)}
+          onImported={(result: BulkImportResult) =>
+            void onReload()
+              .then(() =>
+                onSuccess(`Carga masiva: ${result.creadas} secciones creadas.`),
+              )
+              .catch(() => undefined)
+          }
+        />
+      )}
+      {action && action.kind !== "section-disable" && action.kind !== "import" && (
         <SectionFormDialog
           year={year}
           section={action.kind === "section-edit" ? action.target : undefined}

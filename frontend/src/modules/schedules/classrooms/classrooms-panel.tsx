@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { Feedback, FormDialog, PanelHeading, Pager, RowMenu, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { classroomTypeLabels } from "../lib/labels";
 import { PendingBadge } from "../pending/pending-badge";
@@ -18,7 +19,7 @@ import {
   resumenAulas,
 } from "./services/aulaService";
 type ClassroomDialog =
-  | { kind: "create" }
+  | { kind: "create" | "import" }
   | { kind: "detail" | "edit" | "state" | "delete"; classroom: Classroom };
 /** Pestaña Aulas de Horario Académico: listado, detalle, alta, edición, estado y eliminación. */
 export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
@@ -102,6 +103,11 @@ export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
             >
               Actualizar
             </button>
+            {canWrite && (
+              <button type="button" onClick={() => open({ kind: "import" })}>
+                Carga masiva
+              </button>
+            )}
             {canWrite && (
               <button
                 type="button"
@@ -212,6 +218,17 @@ export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
         loading={classrooms.loading}
         setPage={classrooms.setPage}
       />
+      {dialog?.kind === "import" && (
+        <BulkImportDialog
+          title="Carga masiva de aulas"
+          description="Descarga la plantilla y completa una fila por aula. Las aulas ya registradas se omiten."
+          path="/api/aulas/importaciones"
+          templateName="plantilla_aulas.xlsx"
+          fileLabel="Archivo Excel de aulas"
+          onClose={close}
+          onImported={refresh}
+        />
+      )}
       {dialog?.kind === "detail" && (
         <ClassroomDetailDialog
           classroom={dialog.classroom}
