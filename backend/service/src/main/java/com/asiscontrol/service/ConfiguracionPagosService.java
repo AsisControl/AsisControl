@@ -42,7 +42,7 @@ public class ConfiguracionPagosService {
     }
     public List<ConceptoResponse> conceptos(){return conceptos.findAllByOrderByNombreAsc().stream().map(this::respuesta).toList();}
     public List<Integer> anios(){return anios.findAll().stream().filter(AuditableEntity::isActivo).map(a->a.getAnio()).sorted(java.util.Comparator.reverseOrder()).toList();}
-    public Page<EstudianteResponse> estudiantes(String busqueda,Pageable pageable){return alumnos.searchActive(limpiar(busqueda),pageable)
+    public Page<EstudianteResponse> estudiantes(String busqueda,Pageable pageable){return alumnos.searchActive(limpiar(busqueda),null,null,null,pageable)
             .map(a->new EstudianteResponse(a.getId(),a.getCodigoAlumno(),a.getPersona().nombreCompleto()));}
     public List<TarifaResponse> tarifas(Integer anio){return tarifas.findAllByOrderByAnioAcademicoDescGradoAsc().stream()
             .filter(t->anio==null||t.getAnioAcademico()==anio).map(this::respuesta).toList();}

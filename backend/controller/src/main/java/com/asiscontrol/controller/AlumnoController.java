@@ -49,11 +49,12 @@ public class AlumnoController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','DIRECTOR','SECRETARIA','DOCENTE')")
     public PageResponse<PersonaDtos.AlumnoResponse> list(
             @RequestParam(required = false) String search,
+            PersonaDtos.FiltroAlumnos filtro,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "persona.apellidoPaterno") String sortBy,
             @RequestParam(defaultValue = "ASC") Sort.Direction direction) {
-        return personaService.listAlumnos(search, page, size, sortBy, direction);
+        return personaService.listAlumnos(search, filtro, page, size, sortBy, direction);
     }
 
     @GetMapping("/{id}")

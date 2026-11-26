@@ -47,12 +47,13 @@ public class ApoderadoController {
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','DIRECTOR','SECRETARIA')")
     public PageResponse<PersonaDtos.ApoderadoResponse> list(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean conEstudiantes,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "persona.apellidoPaterno") String sortBy,
             @RequestParam(defaultValue = "ASC") Sort.Direction direction
     ) {
-        return personaService.listApoderados(search, page, size, sortBy, direction);
+        return personaService.listApoderados(search, conEstudiantes, page, size, sortBy, direction);
     }
 
     @GetMapping("/{id}")

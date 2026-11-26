@@ -62,7 +62,7 @@ class UsuariosEstudiantesIntegrationTest {
         assertThat(personas.getAlumno(creado.id()).persona().numeroDocumento())
                 .isEqualTo(key.toUpperCase());
         assertThat(
-                        personas.listAlumnos("Prueba", 0, 20, "codigoAlumno", Sort.Direction.ASC)
+                        personas.listAlumnos("Prueba", com.asiscontrol.dto.persona.PersonaDtos.FiltroAlumnos.NINGUNO, 0, 20, "codigoAlumno", Sort.Direction.ASC)
                                 .content())
                 .extracting(PersonaDtos.AlumnoResponse::id)
                 .contains(creado.id());
@@ -228,7 +228,7 @@ class UsuariosEstudiantesIntegrationTest {
         assertThat(actualizado.persona().nombres()).isEqualTo("Tutor");
         assertThat(
                         personas.listApoderados(
-                                        "Tutor", 0, 20, "fechaCreacion", Sort.Direction.DESC)
+                                        "Tutor", null, 0, 20, "fechaCreacion", Sort.Direction.DESC)
                                 .content())
                 .extracting(PersonaDtos.ApoderadoResponse::id)
                 .contains(apoderado.id());
