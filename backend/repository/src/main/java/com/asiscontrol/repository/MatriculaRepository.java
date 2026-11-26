@@ -127,6 +127,9 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
               AND (:anioAcademico IS NULL OR m.anioAcademico = :anioAcademico)
               AND (:grado IS NULL OR m.seccion.grado = :grado)
               AND (:seccionId IS NULL OR m.seccion.id = :seccionId)
+              AND (:vigentes IS NULL OR :vigentes = false OR m.estado IN (
+                    com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
+                    com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA))
               AND (:busqueda IS NULL
                    OR LOWER(m.codigoMatricula) LIKE :busqueda
                    OR LOWER(m.alumno.codigoAlumno) LIKE :busqueda
@@ -141,6 +144,7 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
             @Param("anioAcademico") Integer anioAcademico,
             @Param("grado") Integer grado,
             @Param("seccionId") Long seccionId,
+            @Param("vigentes") Boolean vigentes,
             @Param("busqueda") String busqueda,
             Pageable pageable);
 

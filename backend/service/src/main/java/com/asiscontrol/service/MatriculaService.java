@@ -4,7 +4,9 @@ import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.FiltroMatriculas;
+import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaDirectaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
+import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.HistorialSeccionMatricula;
 import com.asiscontrol.entity.Matricula;
 import com.asiscontrol.entity.Seccion;
@@ -14,6 +16,8 @@ import com.asiscontrol.entity.enums.EstadoSolicitudMatricula;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
+import com.asiscontrol.repository.AlumnoApoderadoRepository;
+import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.HistorialSeccionMatriculaRepository;
 import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.SeccionRepository;
@@ -26,12 +30,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
 public class MatriculaService {
+
+    private static final List<EstadoSolicitudMatricula> SOLICITUDES_EN_TRAMITE =
+            List.of(
+                    EstadoSolicitudMatricula.BORRADOR,
+                    EstadoSolicitudMatricula.ENVIADA,
+                    EstadoSolicitudMatricula.EN_REVISION,
+                    EstadoSolicitudMatricula.OBSERVADA);
 
     private final MatriculaRepository matriculaRepository;
     private final SolicitudMatriculaRepository solicitudRepository;
@@ -41,6 +53,8 @@ public class MatriculaService {
     private final AuditoriaService auditoria;
     private final PlanPensionService planes;
     private final HistorialSeccionMatriculaRepository historialSecciones;
+    private final AlumnoRepository alumnoRepository;
+    private final AlumnoApoderadoRepository vinculosFamiliares;
 
     public MatriculaService(
             MatriculaRepository matriculaRepository,
@@ -50,7 +64,9 @@ public class MatriculaService {
             com.asiscontrol.repository.PersonaRepository personas,
             AuditoriaService auditoria,
             PlanPensionService planes,
-            HistorialSeccionMatriculaRepository historialSecciones) {
+            HistorialSeccionMatriculaRepository historialSecciones,
+            AlumnoRepository alumnoRepository,
+            AlumnoApoderadoRepository vinculosFamiliares) {
         this.matriculaRepository = matriculaRepository;
         this.solicitudRepository = solicitudRepository;
         this.seccionRepository = seccionRepository;
@@ -59,6 +75,8 @@ public class MatriculaService {
         this.auditoria = auditoria;
         this.planes = planes;
         this.historialSecciones = historialSecciones;
+        this.alumnoRepository = alumnoRepository;
+        this.vinculosFamiliares = vinculosFamiliares;
     }
 
     // El bloqueo serializa la última vacante; READ_COMMITTED evita contar una instantánea anterior
@@ -66,6 +84,61 @@ public class MatriculaService {
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public MatriculaResponse crear(CrearMatriculaRequest request) {
         return crear(request, false);
+    }
+
+    /**
+     * Matricula a un estudiante sin que exista un trámite. La solicitud que respalda la matrícula se
+     * genera en la misma transacción; si alguna regla falla, no queda registrada.
+     */
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public MatriculaResponse matricularDirectamente(MatriculaDirectaRequest request) {
+        Seccion seccion =
+                seccionRepository
+                        .findByIdAndActivoTrue(request.seccionId())
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "SECCION_NO_ENCONTRADA",
+                                                "La sección seleccionada no está disponible"));
+        Alumno alumno =
+                alumnoRepository
+                        .findByIdAndActivoTrue(request.alumnoId())
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "ALUMNO_NO_ENCONTRADO", "No se encontró el estudiante"));
+        configuracion.bloquear(seccion.getAnioAcademico());
+        personas.lockActiveById(alumno.getPersona().getId())
+                .orElseThrow(
+                        () ->
+                                new BusinessRuleException(
+                                        "ALUMNO_INACTIVO", "El estudiante no está habilitado"));
+        if (solicitudRepository.contarSolicitudesEnEstados(
+                        alumno.getId(), seccion.getAnioAcademico(), SOLICITUDES_EN_TRAMITE)
+                > 0) {
+            throw new ConflictException(
+                    "SOLICITUD_MATRICULA_DUPLICADA",
+                    "El estudiante ya tiene una solicitud en trámite para ese año. Resuélvela en Solicitudes.");
+        }
+        if (!vinculosFamiliares.existsByAlumnoIdAndActivoTrueAndApoderadoActivoTrueAndApoderadoPersonaActivoTrue(
+                alumno.getId())) {
+            throw new BusinessRuleException(
+                    "APODERADO_REQUERIDO",
+                    "Asigne un apoderado al estudiante antes de matricularlo");
+        }
+        SolicitudMatricula respaldo = new SolicitudMatricula();
+        respaldo.setAlumno(alumno);
+        respaldo.setSeccion(seccion);
+        respaldo.setAnioAcademico(seccion.getAnioAcademico());
+        respaldo.setGrado(seccion.getGrado());
+        respaldo.setFechaEnvio(Instant.now());
+        respaldo.setEstado(EstadoSolicitudMatricula.EN_REVISION);
+        respaldo.setObservaciones("Matrícula registrada por administración desde la ficha del estudiante");
+        respaldo.setActivo(true);
+        solicitudRepository.saveAndFlush(respaldo);
+        return crear(
+                new CrearMatriculaRequest(respaldo.getId(), respaldo.getVersion(), request.firmaPlan()),
+                false);
     }
 
     // Solo el flujo de renovación llama a este método, dentro de su transacción de revisión.
@@ -311,6 +384,7 @@ public class MatriculaService {
                         filtro.anioAcademico(),
                         filtro.grado(),
                         filtro.seccionId(),
+                        filtro.vigentes(),
                         busqueda,
                         pageable)
                 .map(this::mapear);
@@ -352,7 +426,8 @@ public class MatriculaService {
                 matricula.getFechaMatricula(),
                 matricula.getEstado(),
                 matricula.isActivo(),
-                matricula.getVersion());
+                matricula.getVersion(),
+                matricula.getAlumno().getPersona().getNumeroDocumento());
     }
 
     private void exigirVersion(long actual, Long recibida, String recurso) {

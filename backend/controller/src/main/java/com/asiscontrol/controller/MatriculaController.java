@@ -4,6 +4,7 @@ import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.FiltroMatriculas;
+import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaDirectaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
 import com.asiscontrol.service.MatriculaService;
 import com.asiscontrol.service.ModuloAccessGuard;
@@ -46,6 +47,13 @@ public class MatriculaController {
     @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('MATRICULA_ESCRIBIR')")
     public MatriculaResponse crear(@Valid @RequestBody CrearMatriculaRequest request) {
         return matriculaService.crear(request);
+    }
+
+    @PostMapping("/directas")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('MATRICULA_ESCRIBIR')")
+    public MatriculaResponse matricularDirectamente(@Valid @RequestBody MatriculaDirectaRequest request) {
+        return matriculaService.matricularDirectamente(request);
     }
 
     @PutMapping("/{id}")

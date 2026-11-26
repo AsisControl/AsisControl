@@ -7,8 +7,9 @@ import { SectionChangeFields } from "./section-change-fields";
 import { changeSection, getEnrollmentYear } from "./section-change-service";
 import type { SectionEnrollment } from "./types";
 
-export function SectionChangeDialog({ enrollment, onClose, onChanged }: {
+export function SectionChangeDialog({ enrollment, targetSectionId, onClose, onChanged }: {
   enrollment: SectionEnrollment;
+  targetSectionId?: number;
   onClose: () => void;
   onChanged: (updated: SectionEnrollment) => void;
 }) {
@@ -48,7 +49,7 @@ export function SectionChangeDialog({ enrollment, onClose, onChanged }: {
     >
       <Feedback error={error} />
       <form onSubmit={save}>
-        <SectionChangeFields year={year} enrollment={enrollment} />
+        <SectionChangeFields year={year} enrollment={enrollment} targetSectionId={targetSectionId} />
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={onClose}>Cancelar</button>
           <button className="primary-action" disabled={busy || !year}>

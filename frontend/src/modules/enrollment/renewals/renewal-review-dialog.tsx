@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { Dialog, Feedback, StatusPill } from "@/shared/ui";
 import { dateLabel } from "@/shared/lib/formatters";
-import { EnrollmentPaymentPlanAmounts } from "../enrollment-payment-preview";
+import { EnrollmentPaymentPlanAmounts } from "@/modules/direct-enrollment";
 import type { Section } from "@/modules/academic-config";
 import type { EnrollmentPaymentPlan } from "../types";
 import { approveRenewal, getRenewal, getRenewalPlan, getRenewalSections, rejectRenewal, type RenewalRecord } from "../services/renewal-service";

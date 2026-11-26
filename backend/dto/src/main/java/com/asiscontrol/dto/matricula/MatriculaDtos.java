@@ -64,6 +64,12 @@ public final class MatriculaDtos {
         }
     }
 
+    /** Alta que hace administración desde la ficha del estudiante, sin trámite previo. */
+    public record MatriculaDirectaRequest(
+            @NotNull Long alumnoId,
+            @NotNull Long seccionId,
+            @jakarta.validation.constraints.NotBlank @Size(max = 64) String firmaPlan) {}
+
     public record ActualizarMatriculaRequest(
             @NotNull EstadoMatricula estado,
             @NotNull Long version,
@@ -76,7 +82,13 @@ public final class MatriculaDtos {
 
     /** Filtros opcionales de la lista de matrículas; se reciben como parámetros de consulta. */
     public record FiltroMatriculas(
-            String search, Long alumnoId, Integer anioAcademico, Integer grado, Long seccionId) {}
+            String search,
+            Long alumnoId,
+            Integer anioAcademico,
+            Integer grado,
+            Long seccionId,
+            /* true deja solo las matrículas activas o finalizadas. */
+            Boolean vigentes) {}
 
     public record MatriculaResponse(
             Long id,
@@ -92,5 +104,6 @@ public final class MatriculaDtos {
             Instant fechaMatricula,
             EstadoMatricula estado,
             boolean activo,
-            long version) {}
+            long version,
+            String numeroDocumento) {}
 }

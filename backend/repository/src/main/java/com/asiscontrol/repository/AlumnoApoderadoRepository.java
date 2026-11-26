@@ -26,6 +26,9 @@ public interface AlumnoApoderadoRepository extends JpaRepository<AlumnoApoderado
 
     boolean existsByAlumnoIdAndPrincipalTrueAndActivoTrue(Long alumnoId);
 
+    /** El estudiante tiene al menos un apoderado habilitado. */
+    boolean existsByAlumnoIdAndActivoTrueAndApoderadoActivoTrueAndApoderadoPersonaActivoTrue(Long alumnoId);
+
     @Query("""
             SELECT COUNT(v) > 0 FROM AlumnoApoderado v
             WHERE v.activo = true AND v.alumno.id = :alumnoId AND v.apoderado.persona.id = :personaApoderadoId
