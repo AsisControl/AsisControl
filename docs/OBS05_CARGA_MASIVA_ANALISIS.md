@@ -1,7 +1,7 @@
 # OBS-05 · Carga masiva por módulo — análisis (ASISCTRL-228)
 
-> **Borrador para aprobación del equipo.** Las columnas de la plantilla 234 se cierran cuando el
-> equipo apruebe este documento. Lo que ya está implementado (229 a 233) puede ajustarse.
+> **Para revisión del equipo.** Las ocho plantillas (229 a 234) ya están implementadas con estas
+> columnas; cualquier ajuste que el equipo pida se aplica sobre ellas.
 
 ## 1. Reglas comunes para todas las plantillas
 
@@ -15,7 +15,7 @@ Se reutiliza lo que ya funciona en estudiantes, docentes y competencias (`Lector
 | Dos pasos | **Revisar archivo** procesa todo dentro de una transacción que siempre se deshace, así que no guarda nada. **Importar filas válidas** guarda cada fila en su propia transacción. |
 | Mismas reglas | Cada fila llama al mismo servicio que el registro manual (cupos, cruces, horas del plan, año activo, motivo). Los endpoints usan el mismo permiso que el alta manual. |
 | Errores (CA-2) | Cada error indica **fila, campo y mensaje**. Las filas con error no se guardan y no impiden guardar las demás. |
-| No duplicar (CA-4) | Cada plantilla define una **clave natural**. Si la clave ya existe en la base o se repite en el archivo, la fila se **omite** y no cuenta como error. Al subir dos veces el mismo archivo, la segunda vez todas las filas quedan omitidas. |
+| No duplicar (CA-4) | Cada plantilla define una **clave natural**. Si la clave ya existe en la base o se repite en el archivo, la fila se **omite** y no cuenta como error. Al subir dos veces el mismo archivo, la segunda vez todas las filas quedan omitidas. En notas en borrador, un nivel distinto se actualiza, como en la planilla. |
 | Referencias | Se usan códigos legibles (código de aula, código de curso, código de docente o alumno, año + grado + sección) y nunca ids internos. |
 | Auditoría | Cada alta deja su propio registro, igual que en el registro manual. |
 | Respuesta | `{ total, validas, creadas, omitidas[], errores[] }` con `{ row, field, message }`, el mismo formato que competencias. |
@@ -145,20 +145,26 @@ plan de cuotas). Se aplican las mismas reglas: año activo, grado ofertado, cupo
 tarifa del grado y generación de las cuotas. Si un paso falla, la fila completa se deshace. Por
 eso las tarifas se cargan antes que las matrículas.
 
-### 3.8 Notas en la planilla del docente (234) — por cerrar
+### 3.8 Notas en la planilla del docente (234) — `/api/evaluaciones/{id}/calificaciones/importaciones` · `CALIFICACIONES_ESCRIBIR` + docente de la asignación (o administrador)
 
-Se descarga por evaluación y ya trae a los alumnos matriculados:
+Una plantilla por evaluación. Se descarga desde el botón **Carga masiva** de la planilla y ya trae
+una fila por alumno matriculado y competencia de la evaluación, con los niveles guardados:
 
 | Columna | | Valores |
 |---|---|---|
 | codigoAlumno | O | prellenado |
-| alumno | — | solo para leer |
-| codigoCompetencia | O | competencias del curso |
-| nivelLogro | O | lista `NivelLogro` |
+| alumno | — | prellenado, solo para leer |
+| codigoCompetencia | O | prellenado; debe ser de la evaluación |
+| competencia | — | prellenado, solo para leer |
+| nivelLogro | o | lista `NivelLogro` (AD, A, B, C); vacío = no se registra |
 | observacion | o | hasta 1000 |
 
-Clave natural: `evaluación + alumno + competencia`. Si la nota ya existe, la fila se **omite**:
-para corregirla se usa el flujo de corrección con motivo. Permiso: el docente de la asignación.
+Clave natural: `evaluación + alumno + competencia`. Cada fila pasa por
+`CalificacionService.registrar`, con las mismas reglas que la planilla: evaluación en **borrador**,
+alumno con matrícula activa en la sección y competencia de la evaluación. Como en la planilla, en
+borrador un nivel puede cambiarse: si el archivo trae otro nivel, se actualiza (no se duplica); si
+trae el mismo, la fila se omite. Una evaluación publicada no admite carga masiva: se corrige con
+motivo en la planilla.
 
 ## 4. Pruebas (ASISCTRL-235)
 
@@ -171,11 +177,11 @@ Cada rama incluye, por plantilla, pruebas HTTP de integración con tres archivos
 
 Además se prueba que un usuario sin permiso reciba 403.
 
-## 5. Decisiones abiertas para el equipo
+## 5. Decisiones tomadas (para validar con el equipo)
 
-- ¿La fila repetida se **omite** (propuesta) o se **actualiza** con los datos del archivo? La
-  propuesta es omitir para no editar sin motivo.
-- Notas: ¿una plantilla por evaluación (propuesta) o una por asignación con varias evaluaciones?
+- Fila ya registrada: se **omite** en todos los módulos, salvo en notas en borrador, donde se
+  actualiza el nivel igual que en la planilla manual.
+- ~~Notas: ¿una plantilla por evaluación o por asignación?~~ Una por evaluación, prellenada.
 - ~~Matrículas: ¿matrícula directa o solo la solicitud?~~ Se implementó la matrícula completa con
   el flujo de la secretaría (ver 3.7); si el equipo prefiere solo la solicitud, basta con cortar
   el flujo después de crearla.

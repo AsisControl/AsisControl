@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { Feedback, Loading } from "@/shared/ui";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import { countLabel } from "@/shared/lib/formatters";
 import { LEVEL_SCALE, LEVELS } from "./lib/labels";
 import { corregirNiveles, guardarNiveles, obtenerPlanilla } from "./services/evaluation-service";
@@ -38,6 +39,7 @@ export function GradeSheet({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [student, setStudent] = useState<GradeSheetStudent | null>(null);
+  const [importing, setImporting] = useState(false);
   useEffect(() => {
     let active = true;
     obtenerPlanilla(evaluationId)
@@ -169,16 +171,43 @@ export function GradeSheet({
               </p>
             </div>
             {editable && (
-              <button
-                type="button"
-                className="primary-action"
-                disabled={busy || !pending.length}
-                onClick={() => void save()}
-              >
-                {busy ? "Guardando…" : correction ? "Guardar cambios" : "Guardar evaluación"}
-              </button>
+              <div className={styles.sheetActions}>
+                {draft && (
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    disabled={busy || pending.length > 0}
+                    title={pending.length > 0 ? "Guarda los cambios antes de la carga masiva." : undefined}
+                    onClick={() => setImporting(true)}
+                  >
+                    Carga masiva
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="primary-action"
+                  disabled={busy || !pending.length}
+                  onClick={() => void save()}
+                >
+                  {busy ? "Guardando…" : correction ? "Guardar cambios" : "Guardar evaluación"}
+                </button>
+              </div>
             )}
           </div>
+          {importing && (
+            <BulkImportDialog
+              title="Carga masiva de notas"
+              description="Descarga la planilla de esta evaluación: trae a cada estudiante con sus competencias. Completa el nivel de logro (AD, A, B o C)."
+              path={`/api/evaluaciones/${evaluationId}/calificaciones/importaciones`}
+              templateName={`plantilla_notas_evaluacion_${evaluationId}.xlsx`}
+              fileLabel="Archivo Excel de notas"
+              onClose={() => setImporting(false)}
+              onImported={() => {
+                setChanges(new Map());
+                setTick((value) => value + 1);
+              }}
+            />
+          )}
           <Feedback error={error} success={success} />
           {draft && editable && (
             <p className="hint">

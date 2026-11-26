@@ -35,8 +35,13 @@ public class ImportadorExcel {
      * @param campoClave columna que se informa cuando la fila se omite
      * @param existe la clave ya está registrada en el sistema
      * @param registrar alta con el mismo servicio que el registro manual
+     * @param motivoOmision mensaje cuando la fila se omite porque {@code existe}
      */
-    record Paso(String clave, String campoClave, boolean existe, Runnable registrar) {}
+    record Paso(String clave, String campoClave, boolean existe, Runnable registrar, String motivoOmision) {
+        Paso(String clave, String campoClave, boolean existe, Runnable registrar) {
+            this(clave, campoClave, existe, registrar, "Ya está registrado; no se duplica");
+        }
+    }
 
     /** Lee una fila y decide su paso; si la fila no es válida, lanza el error de esa fila. */
     @FunctionalInterface
@@ -81,8 +86,9 @@ public class ImportadorExcel {
                 return;
             }
             if (paso.existe()) {
-                omitidas.add(new ImportIssue(fila.numero(), paso.campoClave(),
-                        "Ya está registrado; no se duplica"));
+                // También cuenta como vista: otra fila con la misma clave más abajo es una repetición.
+                clavesRegistradas.put(clave, fila.numero());
+                omitidas.add(new ImportIssue(fila.numero(), paso.campoClave(), paso.motivoOmision()));
                 return;
             }
             // Cada fila se guarda completa o no se guarda: si un paso de la fila falla, se deshacen
