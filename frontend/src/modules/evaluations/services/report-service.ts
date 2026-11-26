@@ -34,10 +34,11 @@ export function getReportEvidenceAttachment(row: ReportRowContext, evidenceId: n
   return apiBlob(`${evidencePath(row)}/${evidenceId}/archivo`, { timeoutMs: 60000 });
 }
 
-export async function getProgressReportPdf(context: ReportContext, evaluationIds?: number[]) {
+export async function getProgressReportPdf(context: ReportContext, evaluationIds?: number[], competencyIds?: number[]) {
   if (evaluationIds?.length === 0) throw new Error("Selecciona al menos una evaluación para descargar el reporte.");
   const query = reportQuery(context);
   evaluationIds?.forEach((id) => query.append("idEvaluacion", String(id)));
+  competencyIds?.forEach((id) => query.append("idCompetencia", String(id)));
   let filename = evaluationIds ? "Reporte_evaluaciones_seleccionadas.pdf" : "Avance.pdf";
   const filenamePattern = evaluationIds
     ? /filename="(Evaluaciones_seleccionadas_Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/
@@ -55,7 +56,7 @@ export function saveProgressReportPdf({ blob, filename }: Awaited<ReturnType<typ
 }
 
 export type ReportPeriodStatus = {
-  alumnos: { idAlumno: number; alumno: string; borrador: boolean; publicada: boolean }[];
+  alumnos: { idAlumno: number; alumno: string; borrador: boolean; publicada: boolean; revisado?: boolean }[];
   publicable: boolean;
   desactualizada: boolean;
   impedimento: string | null;
@@ -68,6 +69,34 @@ export function getReportPeriodStatus(idAsignacionCurso: number, idPeriodoAcadem
 
 export function getProgressReportDraft(context: ReportContext) {
   return api<ProgressReport>(`/api/calificaciones/informes/borrador?${reportQuery(context)}`);
+}
+
+export function confirmReportReview(context: ReportContext, version: number) {
+  return api<ProgressReport>(`/api/calificaciones/informes/borrador/revision?${reportQuery(context)}`, {
+    method: "PUT", body: JSON.stringify({ version }),
+  });
+}
+
+export type PartialEvaluation = { id: number; nombre: string; tipo: string; fecha: string; competencias?: { id: number; nombre: string }[] };
+
+export function listPartialEvaluations(assignment: number, period: number) {
+  return api<PartialEvaluation[]>(`/api/calificaciones/informes/parcial/evaluaciones?idAsignacionCurso=${assignment}&idPeriodoAcademico=${period}`);
+}
+
+function partialQuery(context: ReportContext, ids: number[], competencias: number[] = []) {
+  const query = reportQuery(context);
+  ids.forEach(id => query.append("idEvaluacion", String(id)));
+  competencias.forEach(id => query.append("idCompetencia", String(id)));
+  return query;
+}
+
+export function getPartialReport(context: ReportContext, ids: number[], competencias: number[] = []) {
+  return api<ProgressReport>(`/api/calificaciones/informes/parcial?${partialQuery(context, ids, competencias)}`);
+}
+
+export async function downloadPartialReport(context: ReportContext, ids: number[], competencias: number[] = []) {
+  const blob = await apiBlob(`/api/calificaciones/informes/parcial/pdf?${partialQuery(context, ids, competencias)}`);
+  saveBlob(blob, "Informe_parcial_de_progreso.pdf");
 }
 
 function periodReportRequest(idAsignacionCurso: number, idPeriodoAcademico: number) {

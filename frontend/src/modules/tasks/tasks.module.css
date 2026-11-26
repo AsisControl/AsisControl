@@ -497,3 +497,33 @@
     flex-wrap: wrap;
   }
 }
+.taskCompetencies {
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+  margin: 0;
+  min-width: 0;
+  padding: .45rem .7rem .7rem;
+}
+
+.taskCompetencies legend { padding-inline: .25rem; font-weight: 600; }
+.taskCompetencies :global(.check-field) { margin-block: .25rem; padding: .35rem .5rem; }
+
+.zeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+:global(.dialog .field) input.institutionalWeight:read-only { background: #f1f5f9; color: var(--ink); border-color: #cbd5e1; cursor: default; }
+.taskToggle { display: flex; align-items: center; gap: .55rem; min-height: 2rem; }
+.taskToggle input[type="checkbox"] { inline-size: 1rem; block-size: 1rem; flex: none; margin: 0; accent-color: var(--blue); }
+.formSection { margin: .25rem 0 0; padding-top: .5rem; border-top: 1px solid #e2e8f0; font-size: .9rem; }
+.taskWeight { white-space: nowrap; text-align: center; }
+.missingGradeFields { display: grid; gap: .65rem; border: 0; padding: 0; margin: 0 0 .75rem; min-width: 0; }
+.missingGradeList { max-height: min(34vh, 16rem); overflow-y: auto; border: 1px solid var(--border); border-radius: .5rem; padding: .4rem .65rem; }
+.deliveryTable td { overflow-wrap: anywhere; }
+.taskDeadline time { white-space: nowrap; }
+.taskState { text-align: center; }
+@media (max-width: 760px) {
+  .taskState, .taskWeight { text-align: start; }
+}

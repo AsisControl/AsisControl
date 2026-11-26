@@ -1,4 +1,5 @@
 import type { Page } from "@/shared/types/api";
+import { countLabel } from "@/shared/lib/formatters";
 export function Pager({
   data,
   loading,
@@ -12,7 +13,7 @@ export function Pager({
   return (
     <div className="pager">
       <span>
-        {data.totalElements} registros · Página {data.page + 1} de{" "}
+        {countLabel(data.totalElements, "registro", "registros")} · Página {data.page + 1} de{" "}
         {Math.max(1, data.totalPages)}
       </span>
       {data.totalElements > 0 && data.totalPages > 1 && <div>

@@ -67,6 +67,9 @@ public class EntregaTareaService {
     @Transactional
     public EntregaTareaResponse registrar(Long tareaId, RegistrarEntregaRequest request) {
         Tarea tarea = tareaService.obtenerEntidad(tareaId);
+        if (tarea.getEvaluacionAcademica() != null) {
+            entityManager.lock(tarea, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
         validarRecepcion(tarea);
         Alumno alumno = buscarActivo(Alumno.class, request.alumnoId(), "ALUMNO_NO_ENCONTRADO", "alumno");
         accessGuard.verificarEntregaAlumno(alumno);
@@ -75,7 +78,8 @@ public class EntregaTareaService {
             throw new ConflictException(
                     "ENTREGA_DUPLICADA", "El alumno ya posee una entrega activa para esta tarea");
         }
-        validarCantidadArchivos(tarea, request.archivoIds().size());
+        String respuesta = normalizar(request.respuesta() == null ? request.comentario() : request.respuesta());
+        validarContenido(tarea, request.archivoIds().size(), respuesta);
 
         LocalDateTime ahora = LocalDateTime.now();
         EntregaTarea entrega = new EntregaTarea();
@@ -83,7 +87,7 @@ public class EntregaTareaService {
         entrega.setAlumno(alumno);
         entrega.setFechaHoraEntrega(ahora);
         entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
-        entrega.setComentario(normalizar(request.comentario()));
+        entrega.setRespuesta(respuesta);
         entrega.setEstado(ahora.isAfter(tarea.getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
@@ -104,13 +108,14 @@ public class EntregaTareaService {
         if (entrega.getEstado() == EstadoTarea.CALIFICADO) {
             throw new BusinessRuleException("ENTREGA_YA_CALIFICADA", "No se puede reemplazar una entrega calificada");
         }
-        validarCantidadArchivos(entrega.getTarea(), request.archivoIds().size());
+        String texto = request.respuesta() == null ? request.comentario() : request.respuesta();
+        String respuesta = texto == null ? entrega.getRespuesta() : normalizar(texto);
+        validarContenido(entrega.getTarea(), request.archivoIds().size(), respuesta);
         String anterior = describir(entrega);
         LocalDateTime ahora = LocalDateTime.now();
         entrega.setFechaHoraEntrega(ahora);
         entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
-        // Los clientes que solo editan archivos no deben borrar comentarios existentes.
-        if (request.comentario() != null) entrega.setComentario(normalizar(request.comentario()));
+        entrega.setRespuesta(respuesta);
         entrega.setEstado(ahora.isAfter(entrega.getTarea().getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
@@ -126,6 +131,9 @@ public class EntregaTareaService {
         // Antes de cualquier otra validacion, para no revelar datos de entregas ajenas.
         accessGuard.verificarAsignacionDocente(entrega.getTarea().getAsignacionCurso());
         exigirVersion(entrega.getVersion(), request.version());
+        if (entrega.getTarea().getEvaluacionAcademica() != null) {
+            throw new BusinessRuleException("TAREA_CALIFICAR_EN_PLANILLA", "Registra los resultados en la evaluación vinculada.");
+        }
         EstadoPublicacionTarea estadoTarea = entrega.getTarea().getEstadoPublicacion();
         if (estadoTarea != EstadoPublicacionTarea.PUBLICADA
                 && estadoTarea != EstadoPublicacionTarea.CERRADA) {
@@ -136,7 +144,7 @@ public class EntregaTareaService {
         if (entrega.getEstado() == EstadoTarea.ANULADO) {
             throw new BusinessRuleException("ENTREGA_ANULADA", "No se puede calificar una entrega anulada");
         }
-        if (request.nota() > entrega.getTarea().getPuntajeMaximo()) {
+        if (request.nota().compareTo(java.math.BigDecimal.valueOf(entrega.getTarea().getPuntajeMaximo())) > 0) {
             throw new BusinessRuleException(
                     "NOTA_FUERA_DE_RANGO", "La nota no puede superar el puntaje máximo de la tarea");
         }
@@ -207,12 +215,27 @@ public class EntregaTareaService {
         filas.sort(Comparator.comparing(SeguimientoAlumno::nombreCompleto, String.CASE_INSENSITIVE_ORDER));
 
         int entregados = 0;
+        Set<Long> calificadosEnEvaluacion = new HashSet<>();
+        var vinculada = tarea.getEvaluacionAcademica();
+        if (vinculada != null && vinculada.isActivo() && !vinculada.getCompetencias().isEmpty()) {
+            calificadosEnEvaluacion.addAll(entityManager.createQuery("""
+                    select c.alumno.id from Calificacion c
+                    where c.activo = true and c.evaluacion.id = :evaluacion
+                      and c.nivelLogro is not null and c.competencia.id in :competencias
+                    group by c.alumno.id having count(distinct c.competencia.id) = :totalCompetencias
+                    """, Long.class)
+                    .setParameter("evaluacion", vinculada.getId())
+                    .setParameter("competencias", vinculada.getCompetencias().stream()
+                            .map(competencia -> competencia.getId()).toList())
+                    .setParameter("totalCompetencias", (long) vinculada.getCompetencias().size()).getResultList());
+        }
         int calificados = 0;
         for (SeguimientoAlumno fila : filas) {
             if (!fila.matriculaActiva()) {
                 continue;
             }
-            if (fila.estado() == EstadoTarea.CALIFICADO) {
+            if (vinculada == null ? fila.estado() == EstadoTarea.CALIFICADO
+                    : calificadosEnEvaluacion.contains(fila.alumnoId())) {
                 calificados++;
             }
             if (fila.estado() == EstadoTarea.ENTREGADO
@@ -266,7 +289,10 @@ public class EntregaTareaService {
         return archivos;
     }
 
-    private void validarCantidadArchivos(Tarea tarea, int cantidad) {
+    private void validarContenido(Tarea tarea, int cantidad, String respuesta) {
+        if (cantidad == 0 && respuesta == null) {
+            throw new BusinessRuleException("ENTREGA_VACIA", "Escribe una respuesta o adjunta un archivo para entregar la tarea.");
+        }
         if (cantidad > tarea.getMaxArchivosEntrega()) {
             throw new BusinessRuleException(
                     "ENTREGA_EXCEDE_ARCHIVOS", "La entrega excede el máximo de archivos permitido");
@@ -301,6 +327,7 @@ public class EntregaTareaService {
                 entrega.getArchivos().stream().map(archivoService::mapResponse).toList(),
                 entrega.getNota(),
                 entrega.getComentario(),
+                entrega.getRespuesta(),
                 entrega.getEstado(),
                 entrega.getVersion());
     }

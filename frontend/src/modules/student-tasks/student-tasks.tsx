@@ -60,7 +60,10 @@ export function StudentTasks() {
               <tbody>{data?.content.map((task) => (
                 <tr key={task.tarea.id}>
                   <td data-label="Curso" className={styles.course}>{task.curso}</td>
-                  <td data-label="Tarea" className={styles.taskTitle}>{task.tarea.nombre}<small className={styles.context}>{task.seccion} · Sin peso</small></td>
+                  <td data-label="Tarea" className={styles.taskTitle}>{task.tarea.nombre}<small className={styles.context}>
+                    {task.seccion} · {!task.tarea.evaluacionAcademica?.cuentaParaResultadoAcademico ? "Sin peso" : task.resultados?.length
+                      ? "Resultado disponible" : "Peso pendiente"}
+                  </small></td>
                   <td data-label="Docente" className={styles.teacher}>{task.docente}</td>
                   <td data-label="Fecha límite" className={styles.deadline}>{taskDate(task.tarea.fechaLimite)}</td>
                   <td data-label="Estado"><span className={`${styles.badge} ${task.entrega ? styles.submitted : styles.pending}`}>{taskStatus(task)}</span></td>

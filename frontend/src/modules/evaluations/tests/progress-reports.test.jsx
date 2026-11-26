@@ -1,35 +1,87 @@
 import { test, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { PartialProgress } from "../partial-progress";
 import { ProgressReports, PublishPeriod } from "../progress-reports";
-import { fakeBackend, page, reply } from "../../../../tests/support/backend.js";
+import { fakeBackend, reply } from "../../../../tests/support/backend.js";
 import { progressReport } from "./report-fixture";
 
 const updatedReports = "Todas las libretas del período están publicadas y actualizadas.";
 const staleReports = "Todos los estudiantes tienen una libreta publicada, pero existen cambios pendientes de actualizar.";
 const staleWarning = "Las evaluaciones o notas cambiaron. Genera un nuevo borrador para actualizar la libreta.";
-const pendingDraft = "Hay un borrador pendiente con los cambios actuales. Revísalo y publícalo cuando esté listo.";
+const pendingDraft = "Los borradores están listos para publicar.";
 const blockedDraft = "Hay borradores pendientes. Revísalos antes de publicar.";
 const staleDraftImpediment = "Las evaluaciones o notas cambiaron. Vuelve a generar y revisar los borradores antes de publicar.";
 
-test("El apoderado consulta tareas sin peso del estudiante seleccionado aunque no tenga libreta", async () => {
+test("El apoderado solo consulta el progreso publicado", async () => {
   const calls = fakeBackend({
     "GET /api/calificaciones/informes-disponibles": [],
-    "GET /api/familia/estudiantes": [{ id: 8, nombreCompleto: "Ana" }, { id: 9, nombreCompleto: "Luis" }],
-    "GET /api/tareas/familia": ({ query }) => page([
-      { id: 1, nombre: query.alumnoId === "8" ? "Fracciones" : "Geometría", curso: "Matemática", fechaLimite: "2026-06-21T18:00:00" },
-    ]),
+    "GET /api/familia/estudiantes": [{ id: 8, nombreCompleto: "Ana" }],
   });
-  const user = userEvent.setup();
   render(<ProgressReports guardian />);
+  await userEvent.setup().selectOptions(await screen.findByLabelText("Estudiante"), "8");
+  expect(await screen.findByText("Todavía no hay libretas publicadas para consultar.")).toBeTruthy();
+  expect(screen.queryByText("Tareas del estudiante")).toBeNull();
+  expect(calls.some(call => call.path === "/api/tareas/familia")).toBe(false);
+});
+
+test("selecciona actividades publicadas y consulta un informe parcial para el estudiante", async () => {
+  let consultas = 0;
+  const calls = fakeBackend({
+    "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
+    "GET /api/calificaciones/informes/estado": { alumnos: [{ idAlumno: 8, alumno: "Ana", borrador: false, publicada: false }],
+      publicable: false, impedimento: null },
+    "GET /api/calificaciones/informes/parcial/evaluaciones": [
+      { id: 18, nombre: "Examen de números", tipo: "EXAMEN", fecha: "2026-06-01", competencias: [{ id: 7, nombre: "Argumenta" }, { id: 8, nombre: "Modela" }] },
+      { id: 19, nombre: "Proyecto de medidas", tipo: "PROYECTO", fecha: "2026-06-03", competencias: [{ id: 7, nombre: "Argumenta" }] },
+    ],
+    "GET /api/calificaciones/informes/parcial": () => ++consultas === 1
+      ? reply(503, { message: "Vuelve a consultar el informe." })
+      : { ...progressReport, consolidado: [{ idCompetencia: 7, nombreCompetencia: "Argumenta", nivelConsolidado: null,
+        estadoAvance: "NO_EVALUADA", componentesFaltantes: [] }] },
+    "GET /api/calificaciones/informes/parcial/pdf": reply(200, "%PDF-1.7", { "Content-Type": "application/pdf" }),
+  });
+  render(<PublishPeriod canWrite assignments={[{ id: 3, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]} />);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByLabelText("Curso y sección"), "3");
+  await screen.findByRole("option", { name: "Bimestre 1" });
+  await user.selectOptions(screen.getByLabelText("Período académico"), "4");
+  await user.selectOptions(screen.getByLabelText("Tipo de informe"), "partial");
   await user.selectOptions(await screen.findByLabelText("Estudiante"), "8");
-  await user.click(screen.getByText("Tareas del estudiante"));
-  expect(await screen.findByText(/Fracciones.*Sin peso/)).toBeTruthy();
-  expect(calls.find(call => call.path === "/api/tareas/familia").query.alumnoId).toBe("8");
-  await user.selectOptions(screen.getByLabelText("Estudiante"), "9");
-  expect(screen.queryByText(/Fracciones/)).toBeNull();
-  await user.click(screen.getByText("Tareas del estudiante"));
-  expect(await screen.findByText(/Geometría.*Sin peso/)).toBeTruthy();
+  await user.click(screen.getByRole("checkbox", { name: "Modela" }));
+  const preview = screen.getByRole("button", { name: "Consultar informe parcial" });
+  expect(preview.disabled).toBe(true);
+  await user.click(screen.getByRole("button", { name: "Seleccionar todas" }));
+  expect(screen.getByText("Seleccionadas: 2 de 2")).toBeTruthy();
+  await user.type(screen.getByLabelText("Filtrar evaluaciones"), "Proyecto");
+  expect(screen.queryByRole("checkbox", { name: /Examen de números/ })).toBeNull();
+  await user.click(screen.getByRole("checkbox", { name: /Proyecto de medidas/ }));
+  expect(screen.getByText("Seleccionadas: 1 de 2")).toBeTruthy();
+  await user.click(preview);
+  await screen.findByText("Vuelve a consultar el informe.");
+  await user.click(preview);
+  expect(await screen.findByText("Informe parcial de progreso")).toBeTruthy();
+  expect(screen.queryByText("Aún no evaluada")).toBeNull();
+  expect(calls.find(call => call.path.endsWith("/parcial")).query.idEvaluacion).toBe("18");
+  URL.createObjectURL = vi.fn(() => "blob:parcial");
+  URL.revokeObjectURL = vi.fn();
+  const link = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  await user.click(screen.getByRole("button", { name: "Descargar PDF parcial" }));
+  await waitFor(() => expect(link).toHaveBeenCalledOnce());
+  expect(calls.find(call => call.path.endsWith("/parcial/pdf")).query).toMatchObject({ idEvaluacion: "18", idCompetencia: "7" });
+  expect(calls.find(call => call.path.endsWith("/parcial")).query.idCompetencia).toBe("7");
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+});
+
+test.each([
+  [[], "Publica una evaluación desde Mis evaluaciones", null],
+  [reply(503, { message: "No se pudieron consultar las evaluaciones." }), "No se pudieron consultar las evaluaciones.", "Publica una evaluación desde Mis evaluaciones"],
+])("distingue la lista parcial vacía de un error de carga (%j)", async (payload, expected, absent) => {
+  fakeBackend({ "GET /api/calificaciones/informes/parcial/evaluaciones": payload });
+  render(<PartialProgress assignment={3} period={4} students={[]} />);
+  await screen.findByText(new RegExp(expected));
+  if (absent) expect(screen.queryByText(new RegExp(absent))).toBeNull();
+  expect(screen.queryByRole("button", { name: "Consultar informe parcial" })).toBeNull();
 });
 
 test("publicar requiere confirmar y envia curso y periodo", async () => {
@@ -213,7 +265,7 @@ test("el estudiante cambia de período y consulta los niveles y comentarios de l
   await user.click(screen.getByRole("button", { name: "Ver notas" }));
   await screen.findByRole("cell", { name: "Explica su procedimiento" });
   expect(screen.getByRole("cell", { name: "AD", exact: true })).toBeTruthy();
-  expect(screen.getByRole("rowheader", { name: "Resuelve problemas de cantidad" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Resuelve problemas de cantidad" })).toBeTruthy();
   expect(calls.filter(call => call.path.endsWith("/avance")).map(call => call.query)).toEqual([
     { idAlumno: "8", idAsignacionCurso: "3", idPeriodoAcademico: "4" },
     { idAlumno: "8", idAsignacionCurso: "3", idPeriodoAcademico: "5" },
@@ -255,10 +307,13 @@ test("el apoderado cambia de hijo y solo consulta los cursos publicados del sele
 });
 
 
-test("genera y revisa un borrador antes de publicar", async () => {
+test.each([
+  staleDraftImpediment,
+  "Faltan resultados para los siguientes componentes: Cantidad (Proyectos)",
+])("mantiene visible el bloqueo al revisar el borrador: %s", async (impedimento) => {
   const calls = fakeBackend({
     "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
-    "GET /api/calificaciones/informes/estado": { alumnos: [{idAlumno:8, alumno:"Ana", borrador:true, publicada:true}], publicable:false, impedimento:staleDraftImpediment, desactualizada:true },
+    "GET /api/calificaciones/informes/estado": { alumnos: [{idAlumno:8, alumno:"Ana", borrador:true, publicada:true}], publicable:false, impedimento, desactualizada:true },
     "POST /api/calificaciones/informes/generar": { informesProcesados: 1, informes: [{idAlumno:8,alumno:"Ana",idAsignacionCurso:3,curso:"Matematica",anio:2026,idPeriodoAcademico:4,periodo:"Bimestre 1"}] },
     "GET /api/calificaciones/informes/borrador": {...progressReport, periodo:"Bimestre 1 | Version 2 | BORRADOR",filas:[{competencia:"Cantidad",evaluacion:"Practica",fecha:"01/03/2026",resultado:"Sin registrar",ponderacion:"30 %",observacion:"Sin observaciones"}]},
   });
@@ -270,14 +325,14 @@ test("genera y revisa un borrador antes de publicar", async () => {
   await user.click(screen.getByRole("button", {name:"Generar borradores"}));
   await screen.findByText(/Se generaron 1 borradores/);
   await user.click(await screen.findByRole("button", {name:"Revisar borrador de Ana"}));
-  expect(screen.getByText(blockedDraft)).toBeTruthy();
-  expect(screen.queryByText(staleDraftImpediment)).toBeNull();
+  expect(screen.getByText("Publicación pendiente")).toBeTruthy();
+  expect(screen.getByText(impedimento)).toBeTruthy();
   expect(screen.queryByText(staleWarning)).toBeNull();
   expect(screen.queryByText(pendingDraft)).toBeNull();
   expect(screen.queryByText(updatedReports)).toBeNull();
   expect(screen.queryByText(staleReports)).toBeNull();
   expect(screen.getByRole("button", {name:"Ver libreta de Ana"})).toBeTruthy();
-  expect(screen.queryByRole("button", {name:"Publicar libretas"})).toBeNull();
+  expect(screen.getByRole("button", {name:"Publicar libretas"}).disabled).toBe(true);
   await screen.findByText("Sin registrar");
   expect(screen.getByText("Versión 2")).toBeTruthy();
   expect(calls.filter(c => c.method === "POST")).toHaveLength(1);

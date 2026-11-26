@@ -608,11 +608,7 @@ public class ModuloAccessGuard {
             Long visibles = entityManager.createQuery("""
                             SELECT COUNT(DISTINCT a) FROM ArchivoAdjunto a
                             WHERE a.id = :id AND a.activo = true AND (
-                                EXISTS (SELECT e.id FROM EntregaTarea e JOIN e.archivos f, AlumnoApoderado v
-                                        WHERE f.id = a.id AND v.activo = true
-                                          AND v.alumno.id = e.alumno.id
-                                          AND v.apoderado.persona.id = :personaId)
-                                OR EXISTS (SELECT j.id FROM JustificacionAsistencia j JOIN j.archivos f,
+                                EXISTS (SELECT j.id FROM JustificacionAsistencia j JOIN j.archivos f,
                                                   AlumnoApoderado v
                                            WHERE f.id = a.id AND v.activo = true
                                              AND v.alumno.id = j.asistenciaAlumno.alumno.id

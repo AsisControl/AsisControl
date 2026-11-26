@@ -58,7 +58,8 @@ public class TareasAlumnoService {
             return new TareaAlumnoResponse(tareaService.mapResponse(t), alumno.getId(),
                     asignacion.nombreCurso(), nombre,
                     seccion.getGrado() + "° Grado " + seccion.getNombre() + " · " + seccion.getAnioAcademico(),
-                    entrega == null ? null : entregaService.mapResponse(entrega));
+                    entrega == null ? null : entregaService.mapResponse(entrega).sinNotaNumerica(),
+                    tareaService.resultadosParaAlumno(t, alumno.getId()));
         });
     }
 }

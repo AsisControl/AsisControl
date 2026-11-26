@@ -55,7 +55,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         long version = borrador.path("version").asLong();
         assertThat(borrador.path("estado").asText()).isEqualTo("BORRADOR");
         request("GET", REGLAS + "/vigente?idAsignacionCurso=" + assignment.getId(), null, 204);
-        var invalida = request("POST", REGLAS + "/" + id + "/activar", data("version", version), 422);
+        var invalida = request("POST", REGLAS + "/" + id + "/activar", data("version", version, "motivo", "Acuerdo académico"), 422);
         assertThat(invalida.path("code").asText()).isEqualTo("PESOS_INVALIDOS");
         var actualizado = putOk(REGLAS + "/borrador", entrada(course, version, 60, 40));
         assertThat(actualizado.path("version").asLong()).isGreaterThan(version);
@@ -72,7 +72,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
             mvc.perform(put(REGLAS + "/borrador").with(sesion).contentType("application/json")
                     .content(json.writeValueAsBytes(entrada(course, null, 50, 50)))).andExpect(status().isForbidden());
             mvc.perform(post(REGLAS + "/" + id + "/activar").with(sesion).contentType("application/json")
-                    .content(json.writeValueAsBytes(data("version", version)))).andExpect(status().isForbidden());
+                    .content(json.writeValueAsBytes(data("version", version, "motivo", "Acuerdo académico")))).andExpect(status().isForbidden());
         }
     }
 
@@ -133,10 +133,14 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         var borrador = getOk(INFORMES + "borrador" + reporte);
         assertThat(borrador.path("consolidado").get(0).path("nivelConsolidado").isNull()).isTrue();
         assertThat(borrador.path("filas").findValuesAsText("ponderacion")).containsExactly("40 %", "40 %");
-        assertThat(getOk(INFORMES + "estado?idAsignacionCurso=" + assignment.getId()
-                + "&idPeriodoAcademico=" + periodo.getId()).path("impedimento").asText()).contains("Proyectos");
+        assertThat(borrador.path("consolidado").get(0).path("estadoAvance").asText()).isEqualTo("PENDIENTE");
+        request("POST", INFORMES + "publicar", entrada, 200);
+        mvc.perform(get("/api/calificaciones/avance" + reporte).with(como("APODERADO", guardian.getPersona())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.consolidado[0].estadoAvance").value("PENDIENTE"))
+                .andExpect(jsonPath("$.consolidado[0].promedioPonderado").isEmpty());
         registrar(assignment, TipoEvaluacion.PROYECTO, NivelLogro.C);
         request("POST", INFORMES + "generar", entrada, 200);
+        revisarInforme(periodo.getId());
         request("POST", INFORMES + "publicar", entrada, 200);
 
         var actual = getOk(consolidado + params).get(0);
@@ -169,6 +173,136 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
                 .isEqualTo("INFORME_REGLA_DESACTUALIZADA");
     }
 
+    @Test void guardaConclusionesYExigeTextoParaPublicarUnConsolidadoC() throws Exception {
+        var regla = putOk(REGLAS + "/borrador", entrada(course, null, 30, 70));
+        request("POST", REGLAS + "/" + regla.path("id").asLong() + "/activar",
+                data("version", regla.path("version").asLong(), "motivo", "   "), 400);
+        activar(regla);
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year);
+        periodo.setNombre("Primer bimestre");
+        periodo.setOrden(1);
+        periodo.setFechaInicio(LocalDate.of(2090, 3, 1));
+        periodo.setFechaFin(LocalDate.of(2090, 4, 30));
+        em.persist(periodo);
+        registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.C);
+        registrar(assignment, TipoEvaluacion.PROYECTO, NivelLogro.C);
+        var entrada = data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId());
+        String params = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + periodo.getId();
+        request("POST", INFORMES + "generar", entrada, 200);
+        request("POST", INFORMES + "publicar", entrada, 200);
+        assertThat(getOk("/api/calificaciones/avance" + params).path("conclusionesDescriptivas").isEmpty()).isTrue();
+        var texto = "Practicar la explicación del procedimiento.";
+        var historico = em.createQuery("from InformeProgreso i where i.alumno.id = :alumno",
+                        com.asiscontrol.entity.InformeProgreso.class)
+                .setParameter("alumno", student.getId()).getSingleResult();
+        historico.setConclusionesDescriptivas(json.writeValueAsString(Map.of(competence.getId(), texto)));
+        em.flush();
+        mvc.perform(get("/api/calificaciones/avance" + params).with(como("ALUMNO", student.getPersona())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.conclusionesDescriptivas." + competence.getId()).value(texto))
+                .andExpect(jsonPath("$.consolidado[0].promedioPonderado").isEmpty());
+        var pdf = mvc.perform(get("/api/calificaciones/reporte-avance" + params)
+                        .with(como("ALUMNO", student.getPersona())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try (var reader = new com.lowagie.text.pdf.PdfReader(pdf)) {
+            assertThat(new com.lowagie.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1)
+                    .replaceAll("\\s+", " ")).contains(texto);
+        }
+        activar(putOk(REGLAS + "/borrador", entrada(course, null, 50, 50)));
+        request("POST", INFORMES + "generar", entrada, 200);
+        assertThat(getOk(INFORMES + "borrador" + params).path("conclusionesDescriptivas").isEmpty()).isTrue();
+        assertThat(getOk("/api/calificaciones/avance" + params).path("conclusionesDescriptivas")
+                .path(competence.getId().toString()).asText()).isEqualTo(texto);
+        var auditoria = em.createQuery("""
+                from RegistroAuditoria r where r.entidad = 'ReglaCalificacion' and r.registroId = :id
+                and r.accion in ('ACTIVAR_REGLA_CALIFICACION', 'ARCHIVAR_REGLA_CALIFICACION')
+                """, RegistroAuditoria.class).setParameter("id", regla.path("id").asText()).getResultList();
+        assertThat(auditoria).extracting(RegistroAuditoria::getAccion)
+                .containsExactlyInAnyOrder("ACTIVAR_REGLA_CALIFICACION", "ARCHIVAR_REGLA_CALIFICACION");
+        assertThat(auditoria).allSatisfy(evento -> {
+            assertThat(evento.getMotivo()).isEqualTo("Acuerdo académico");
+            assertThat(evento.getFechaHora()).isNotNull();
+            assertThat(evento.getActorIdentificador()).isNotBlank();
+        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = NivelLogro.class, names = {"AD", "A", "B"})
+    void permitePublicarSinConclusionParaLosDemasNiveles(NivelLogro nivel) throws Exception {
+        activar(putOk(REGLAS + "/borrador", entrada(course, null, 30, 70)));
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year);
+        periodo.setNombre("Primer bimestre");
+        periodo.setOrden(1);
+        periodo.setFechaInicio(LocalDate.of(2090, 3, 1));
+        periodo.setFechaFin(LocalDate.of(2090, 4, 30));
+        em.persist(periodo);
+        registrar(assignment, TipoEvaluacion.EXAMEN, nivel);
+        registrar(assignment, TipoEvaluacion.PROYECTO, nivel);
+        var entrada = data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId());
+        request("POST", INFORMES + "generar", entrada, 200);
+        revisarInforme(periodo.getId());
+        request("POST", INFORMES + "publicar", entrada, 200);
+    }
+
+    @Test void reparteElPesoEntreResultadosValidosDeCadaCompetencia() throws Exception {
+        activar(putOk(REGLAS + "/borrador", entrada(course, null, 30, 70)));
+        long primerExamen = registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.A);
+        long segundoExamen = registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.B);
+        var adicional = new Competencia();
+        adicional.setCodigo("ADIC" + key());
+        adicional.setNombre("Comunica sus resultados");
+        em.persist(adicional);
+        var primero = em.find(Evaluacion.class, primerExamen);
+        primero.getCompetencias().add(adicional);
+        em.find(Evaluacion.class, segundoExamen).getCompetencias().add(adicional);
+        var notaAdicional = new Calificacion();
+        notaAdicional.setAlumno(student);
+        notaAdicional.setCompetencia(adicional);
+        notaAdicional.setEvaluacion(primero);
+        notaAdicional.setNivelLogro(NivelLogro.A);
+        notaAdicional.setFechaRegistro(Instant.now());
+        em.persist(notaAdicional);
+        em.flush();
+
+        var notas = getOk("/api/evaluaciones/" + primerExamen + "/planilla")
+                .path("alumnos").get(0).path("notas");
+        var pesos = new java.util.HashMap<Long, BigDecimal>();
+        notas.forEach(nota -> pesos.put(nota.path("idCompetencia").asLong(), nota.path("pesoEfectivo").decimalValue()));
+        assertThat(pesos.get(competence.getId())).isEqualByComparingTo("15");
+        assertThat(pesos.get(adicional.getId())).isEqualByComparingTo("30");
+    }
+
+    @Test void consolidadoNumericoConCeroExplicitoYPendienteDuranteLaTransicion() throws Exception {
+        String escalas = "/api/escala-institucional";
+        var escala = putOk(escalas + "/borrador", data("rangos", List.of(
+                data("nivel", "C", "minimo", 0, "maximo", 8), data("nivel", "B", "minimo", 9, "maximo", 12),
+                data("nivel", "A", "minimo", 13, "maximo", 17), data("nivel", "AD", "minimo", 18, "maximo", 20))));
+        request("POST", escalas + "/" + escala.path("id").asLong() + "/activar",
+                data("version", escala.path("version").asLong(), "motivo", "Escala de prueba"), 200);
+        activar(putOk(REGLAS + "/borrador", entrada(course, null, 80, 20)));
+
+        long examen = registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.AD);
+        long proyecto = registrar(assignment, TipoEvaluacion.PROYECTO, NivelLogro.C);
+        var notas = em.createQuery("from Calificacion c where c.evaluacion.id in :ids", Calificacion.class)
+                .setParameter("ids", List.of(examen, proyecto)).getResultList();
+        var notaExamen = notas.stream().filter(nota -> nota.getEvaluacion().getId().equals(examen)).findFirst().orElseThrow();
+        var notaProyecto = notas.stream().filter(nota -> nota.getEvaluacion().getId().equals(proyecto)).findFirst().orElseThrow();
+        notaExamen.setNotaNumerica(new BigDecimal("17.50"));
+        String path = "/api/calificaciones/consolidados?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId();
+        assertThat(getOk(path).get(0).path("nivelConsolidado").isNull()).isTrue();
+
+        notaProyecto.setNotaNumerica(BigDecimal.ZERO);
+        var consolidado = getOk(path).get(0);
+        assertThat(consolidado.path("promedioPonderado").decimalValue()).isEqualByComparingTo("14");
+        assertThat(consolidado.path("nivelConsolidado").asText()).isEqualTo("A");
+        assertThat(consolidado.path("evaluacionesConsideradas").asInt()).isEqualTo(2);
+        mvc.perform(get(path).with(como("APODERADO", guardian.getPersona())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].promedioPonderado").isEmpty())
+                .andExpect(jsonPath("$[0].nivelConsolidado").value("A"));
+    }
+
     private Map<String, Object> entrada(Curso curso, Long version, int examenes, int proyectos) {
         return data("idCurso", curso.getId(), "idGrado", grade.getId(), "formula", "PROMEDIO_PONDERADO",
                 "version", version, "componentes", List.of(componente("EXAMEN", "Exámenes", examenes),
@@ -181,7 +315,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
 
     private void activar(com.fasterxml.jackson.databind.JsonNode regla) throws Exception {
         var resultado = request("POST", REGLAS + "/" + regla.path("id").asLong() + "/activar",
-                data("version", regla.path("version").asLong()), 200);
+                data("version", regla.path("version").asLong(), "motivo", "Acuerdo académico"), 200);
         assertThat(resultado.path("estado").asText()).isEqualTo("VIGENTE");
     }
 
@@ -199,7 +333,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         evaluacion.setPeriodoEvaluacion(PeriodoEvaluacion.BIMESTRAL);
         evaluacion.setFechaEvaluacion(LocalDate.of(2090, 3, 15));
         evaluacion.setPonderacionPorcentaje(BigDecimal.valueOf(100));
-        evaluacion.setCompetencias(Set.of(competence));
+        evaluacion.setCompetencias(new java.util.LinkedHashSet<>(Set.of(competence)));
         evaluacion.setEstado(EstadoEvaluacion.PUBLICADA);
         em.persist(evaluacion);
         var nota = new Calificacion();

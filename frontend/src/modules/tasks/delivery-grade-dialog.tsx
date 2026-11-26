@@ -60,8 +60,8 @@ export function DeliveryGradeDialog({ deliveryId, taskId, student, onClose, onRe
     if (lock.current || !snapshot || !allowed || conflict || blocked) return;
     const validation: Record<string, string> = {};
     const value = Number(nota);
-    if (!nota.trim() || !Number.isInteger(value) || value < 0 || value > snapshot.task.puntajeMaximo)
-      validation.nota = `Escribe una nota sin decimales entre 0 y ${snapshot.task.puntajeMaximo}.`;
+    if (!nota.trim() || !/^\d{1,4}(?:\.\d{1,10})?$/.test(nota) || value < 0 || value > snapshot.task.puntajeMaximo)
+      validation.nota = `Escribe una nota válida entre 0 y ${snapshot.task.puntajeMaximo}.`;
     if (comentario.length > 2000) validation.comentario = "El comentario admite hasta 2000 caracteres.";
     setErrors(validation);
     if (Object.keys(validation).length) return;
@@ -97,7 +97,7 @@ export function DeliveryGradeDialog({ deliveryId, taskId, student, onClose, onRe
   }
   return <FormDialog title={snapshot.delivery.nota === null ? "Calificar entrega" : "Modificar calificación"} description={student}
     busy={busy} error={error} onClose={onClose} onSubmit={save} noValidate submitLabel="Guardar calificación">
-    <Field label="Nota" type="number" min={0} max={snapshot.task.puntajeMaximo} step={1} required value={nota}
+    <Field label="Nota" type="number" min={0} max={snapshot.task.puntajeMaximo} step="any" required value={nota}
       onChange={(event) => setNota(event.target.value)} error={errors.nota} hint={`Puntaje máximo: ${snapshot.task.puntajeMaximo}.`} />
     <div className="field full-field"><label htmlFor={commentId}>Comentario</label>
       <textarea id={commentId} rows={4} maxLength={2000} value={comentario} aria-invalid={!!errors.comentario}

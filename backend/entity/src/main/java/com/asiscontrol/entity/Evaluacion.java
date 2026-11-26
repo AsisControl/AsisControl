@@ -46,6 +46,13 @@ public class Evaluacion extends AuditableEntity {
     @JoinColumn(name = "id_asignacion_curso", nullable = false)
     private AsignacionCurso asignacionCurso;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_escala")
+    private EscalaInstitucional escalaInstitucional;
+
+    @Column(name = "cuenta_resultado", nullable = false)
+    private boolean cuentaResultado = true;
+
     @Column(name = "titulo", nullable = false, length = 160)
     private String titulo;
 

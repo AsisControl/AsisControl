@@ -40,17 +40,19 @@ public class ReglaCalificacionService {
     private final AsignacionCursoRepository asignaciones;
     private final ModuloAccessGuard acceso;
     private final AuditoriaService auditoria;
+    private final EscalaInstitucionalService escalas;
     private final EntityManager em;
 
     public ReglaCalificacionService(ReglaCalificacionRepository reglas, GradoAcademicoRepository grados,
             AsignacionCursoRepository asignaciones, ModuloAccessGuard acceso, AuditoriaService auditoria,
-            EntityManager em) {
+            EntityManager em, EscalaInstitucionalService escalas) {
         this.reglas = reglas;
         this.grados = grados;
         this.asignaciones = asignaciones;
         this.acceso = acceso;
         this.auditoria = auditoria;
         this.em = em;
+        this.escalas = escalas;
     }
 
     @Transactional(readOnly = true)
@@ -105,12 +107,12 @@ public class ReglaCalificacionService {
         }
         var guardada = reglas.saveAndFlush(regla);
         var id = guardada.getId();
-        auditar("GUARDAR_BORRADOR_REGLA_CALIFICACION", id, anterior, describir(guardada));
+        auditar("GUARDAR_BORRADOR_REGLA_CALIFICACION", id, null, anterior, describir(guardada));
         return respuesta(guardada);
     }
 
     @Transactional
-    public ReglaCalificacionDto.Regla activar(Long id, long version) {
+    public ReglaCalificacionDto.Regla activar(Long id, long version, String motivo) {
         var regla = reglas.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("REGLA_NO_ENCONTRADA", "Regla no encontrada"));
         bloquearCurso(regla.getCurso().getId());
@@ -125,8 +127,9 @@ public class ReglaCalificacionService {
         if (anterior != null) anterior.setEstado(ReglaCalificacion.Estado.HISTORICA);
         regla.setEstado(ReglaCalificacion.Estado.VIGENTE);
         em.flush();
-        auditar("ACTIVAR_REGLA_CALIFICACION", id, anterior == null ? null : "versión " + anterior.getNumeroVersion(),
-                describir(regla));
+        if (anterior != null) auditar("ARCHIVAR_REGLA_CALIFICACION", anterior.getId(), motivo.strip(),
+                "VIGENTE, " + describir(anterior), "HISTORICA");
+        auditar("ACTIVAR_REGLA_CALIFICACION", id, motivo.strip(), "BORRADOR", "VIGENTE, " + describir(regla));
         return respuesta(regla);
     }
 
@@ -136,10 +139,58 @@ public class ReglaCalificacionService {
         return calcular(request.componentes(), request.muestra());
     }
 
-    record NotaCompetencia(Competencia competencia, ReglaCalificacionDto.Muestra nota) {}
+    @Transactional(readOnly = true)
+    public ReglaCalificacionDto.ResultadoNumerico vistaPreviaNumerica(ReglaCalificacionDto.VistaPreviaNumerica request) {
+        validarTipos(request.componentes());
+        validarSuma(request.componentes());
+        return calcularNumerico(request.componentes(), request.muestra(), escalas.exigirVigente());
+    }
+
+    static ReglaCalificacionDto.ResultadoNumerico calcularNumerico(List<ReglaCalificacionDto.Componente> componentes,
+            List<ReglaCalificacionDto.MuestraNumerica> muestra, com.asiscontrol.entity.EscalaInstitucional escala) {
+        var notasPorTipo = new EnumMap<TipoEvaluacion, List<BigDecimal>>(TipoEvaluacion.class);
+        for (var nota : muestra) {
+            if (nota.nota() != null) notasPorTipo.computeIfAbsent(nota.tipoEvaluacion(), tipo -> new ArrayList<>()).add(nota.nota());
+        }
+        var faltantes = new ArrayList<String>();
+        BigDecimal numerador = BigDecimal.ZERO;
+        BigDecimal denominador = BigDecimal.ONE;
+        int cantidad = 0;
+        for (var componente : componentes) {
+            var notas = notasPorTipo.get(componente.tipoEvaluacion());
+            if (notas == null) {
+                faltantes.add(componente.nombre());
+                continue;
+            }
+            cantidad += notas.size();
+            var suma = notas.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+            var cantidadDelComponente = BigDecimal.valueOf(notas.size());
+            // Conserva la fracción exacta para no redondear promedios intermedios.
+            numerador = numerador.multiply(cantidadDelComponente)
+                    .add(suma.multiply(componente.peso()).multiply(denominador));
+            denominador = denominador.multiply(cantidadDelComponente);
+        }
+        if (!faltantes.isEmpty()) return new ReglaCalificacionDto.ResultadoNumerico(
+                null, null, null, escala.getNumeroVersion(), cantidad, faltantes);
+        var divisor = denominador.multiply(CIEN);
+        int redondeada = numerador.divide(divisor, 0, RoundingMode.HALF_UP).intValueExact();
+        var nivel = EscalaInstitucionalService.nivel(escala, redondeada);
+        // Solo se aproxima la representación de un promedio periódico, después de convertir el nivel.
+        var promedioVisible = numerador.divide(divisor, 4, RoundingMode.HALF_UP).stripTrailingZeros();
+        return new ReglaCalificacionDto.ResultadoNumerico(
+                promedioVisible, redondeada, nivel, escala.getNumeroVersion(), cantidad, List.of());
+    }
+
+    record NotaCompetencia(Competencia competencia, ReglaCalificacionDto.Muestra nota, BigDecimal notaNumerica) {}
 
     List<CalificacionDto.ConsolidadoResponse> consolidar(ReglaCalificacion regla, Long asignacion,
                                                          List<NotaCompetencia> notas) {
+        var escala = notas.stream().anyMatch(nota -> nota.notaNumerica() != null) ? escalas.vigente().orElse(null) : null;
+        return consolidar(regla, asignacion, notas, escala);
+    }
+
+    List<CalificacionDto.ConsolidadoResponse> consolidar(ReglaCalificacion regla, Long asignacion,
+            List<NotaCompetencia> notas, com.asiscontrol.entity.EscalaInstitucional escala) {
         var porCompetencia = new LinkedHashMap<Long, List<NotaCompetencia>>();
         for (var nota : notas) {
             porCompetencia.computeIfAbsent(nota.competencia().getId(), id -> new ArrayList<>()).add(nota);
@@ -147,11 +198,28 @@ public class ReglaCalificacionService {
         var componentes = componentes(regla);
         return porCompetencia.values().stream().map(items -> {
             var competencia = items.getFirst().competencia();
+            var elegibles = items.stream().filter(item -> regla.getComponentes().containsKey(item.nota().tipoEvaluacion())).toList();
+            if (elegibles.stream().anyMatch(item -> item.notaNumerica() != null)) {
+                int cantidad = (int) elegibles.stream().filter(item -> item.notaNumerica() != null).count();
+                boolean historicas = elegibles.stream().anyMatch(item -> item.notaNumerica() == null && item.nota().nivel() != null);
+                if (historicas || escala == null) {
+                    return new CalificacionDto.ConsolidadoResponse(competencia.getId(), competencia.getCodigo(),
+                            competencia.getNombre(), null, null, cantidad, asignacion, regla.getNumeroVersion(),
+                            List.of(historicas ? "Transición de niveles históricos a notas numéricas"
+                                    : "Escala institucional vigente"), null);
+                }
+                var resultado = calcularNumerico(componentes, elegibles.stream().map(item ->
+                        new ReglaCalificacionDto.MuestraNumerica(item.nota().tipoEvaluacion(), item.notaNumerica())).toList(), escala);
+                return new CalificacionDto.ConsolidadoResponse(competencia.getId(), competencia.getCodigo(),
+                        competencia.getNombre(), resultado.promedioPonderado(), resultado.nivelConsolidado(),
+                        resultado.evaluacionesConsideradas(), asignacion, regla.getNumeroVersion(),
+                        resultado.componentesFaltantes(), resultado.numeroVersionEscala());
+            }
             var resultado = calcular(componentes, items.stream().map(NotaCompetencia::nota).toList());
             return new CalificacionDto.ConsolidadoResponse(competencia.getId(), competencia.getCodigo(),
                     competencia.getNombre(), resultado.promedioPonderado(), resultado.nivelConsolidado(),
                     resultado.evaluacionesConsideradas(), asignacion, regla.getNumeroVersion(),
-                    resultado.componentesFaltantes());
+                    resultado.componentesFaltantes(), null);
         }).sorted(Comparator.comparing(CalificacionDto.ConsolidadoResponse::nombreCompetencia, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
@@ -240,8 +308,8 @@ public class ReglaCalificacionService {
         return "versión=" + regla.getNumeroVersion() + ", fórmula=" + regla.getFormula() + ", componentes=" + componentes(regla);
     }
 
-    private void auditar(String accion, Long id, String antes, String despues) {
+    private void auditar(String accion, Long id, String motivo, String antes, String despues) {
         auditoria.registrar(accion, ModuloAuditoria.ACADEMICO, "ReglaCalificacion", id.toString(),
-                ResultadoAuditoria.EXITOSO, null, antes, despues);
+                ResultadoAuditoria.EXITOSO, motivo, antes, despues);
     }
 }

@@ -61,7 +61,7 @@ export function TaskTransitionDialog({ task, action, onClose, onRefresh, onSaved
       <p>{operation.description}</p>
       <Feedback error={error} />
     </div>
-    {error && action !== "cerrar" && <button type="button" disabled={busy} onClick={onRefresh}>Actualizar listado</button>}
+    {error && (action !== "cerrar" || requiresRefresh) && <button type="button" disabled={busy} onClick={onRefresh}>Actualizar listado</button>}
     <div className="form-actions">
       <button type="button" disabled={busy} onClick={onClose}>Cancelar</button>
       <button type="button" className="primary-action" disabled={busy || requiresRefresh} onClick={confirm}>

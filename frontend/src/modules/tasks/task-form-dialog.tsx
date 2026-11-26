@@ -9,7 +9,9 @@ import {
 import { subirArchivo } from "./services/archivo-service";
 import { fileError, validateTask, type TaskFields } from "./task-form-rules";
 import { TaskAttachments, type NewAttachment } from "./task-attachments";
+import styles from "./tasks.module.css";
 import type { ArchivoResponse, TareaResponse, AsignacionCursoResponse } from "./types";
+import { listarEvaluaciones, listarCompetenciasDeAsignacion, obtenerReglaVigente, type Evaluation, type EvaluationGradingRule } from "@/modules/evaluations";
 
 export const REASON_MAX = 500;
 
@@ -47,6 +49,61 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
   const [selected, setSelected] = useState("");
   const [deliveries, setDeliveries] = useState<{ source: TareaResponse; count: number | null } | null>(null);
   const [motivo, setMotivo] = useState("");
+  const [academic, setAcademic] = useState(false);
+  const [newEvaluation, setNewEvaluation] = useState(false);
+  const [componentType, setComponentType] = useState("");
+  const [activeRule, setActiveRule] = useState<{ assignment: number; rule?: EvaluationGradingRule | null; error?: string } | null>(null);
+  const [rubric, setRubric] = useState(false);
+  const [rubricDate, setRubricDate] = useState("");
+  const [rubricIds, setRubricIds] = useState<number[]>([]);
+  const [rubricOptions, setRubricOptions] = useState<{ assignment: number; items: { id: number; nombre: string }[]; error?: string } | null>(null);
+  const [evaluationId, setEvaluationId] = useState("");
+  const [evaluationOptions, setEvaluationOptions] = useState<{ assignment: number; items: Evaluation[]; error?: string } | null>(null);
+  const academicAssignment = task?.asignacionCursoId ?? asignacionCursoId ?? Number(selected);
+  const evaluationLocked = Boolean(task && (task.estado !== "BORRADOR" || (task.evaluacionAcademica && !task.evaluacionAcademica.cuentaParaResultadoAcademico)));
+  const candidates = evaluationOptions?.assignment === academicAssignment ? evaluationOptions : null;
+  const chosenEvaluation = candidates?.items.find(item => String(item.id) === evaluationId);
+
+  const configureCompetencies = academic ? newEvaluation : rubric;
+  const currentRule = activeRule?.assignment === academicAssignment ? activeRule : null;
+  const component = currentRule?.rule?.componentes.find(item => item.tipoEvaluacion === componentType);
+
+  useEffect(() => {
+    if (!academic || !newEvaluation || !academicAssignment || evaluationLocked) return;
+    let active = true;
+    obtenerReglaVigente(academicAssignment).then(
+      rule => { if (active) setActiveRule({ assignment: academicAssignment, rule }); },
+      failure => { if (active) setActiveRule({ assignment: academicAssignment, error: message(failure) }); },
+    );
+    return () => { active = false; };
+  }, [academic, newEvaluation, academicAssignment, evaluationLocked, taskId]);
+
+  useEffect(() => {
+    if (!configureCompetencies || !academicAssignment || evaluationLocked) return;
+    let active = true;
+    listarCompetenciasDeAsignacion(academicAssignment).then(
+      items => { if (active) setRubricOptions({ assignment: academicAssignment,
+        items: items.map(item => ({ id: item.competenciaId, nombre: item.competenciaNombre })) }); },
+      failure => { if (active) setRubricOptions({ assignment: academicAssignment, items: [], error: message(failure) }); },
+    );
+    return () => { active = false; };
+  }, [configureCompetencies, academicAssignment, evaluationLocked]);
+
+  useEffect(() => {
+    if (!academic || newEvaluation || !academicAssignment || evaluationLocked) return;
+    let active = true;
+    listarEvaluaciones({ idAsignacionCurso: String(academicAssignment), vinculables: "true", tareaActual: taskId === undefined ? undefined : String(taskId) }).then(
+      items => {
+        if (active) setEvaluationOptions({ assignment: academicAssignment, items: items.filter(item =>
+          item.idAsignacionCurso === academicAssignment && item.estado !== "ANULADA"
+          && item.pesoComponente != null && item.competencias.length > 0) });
+      },
+      failure => {
+        if (active) setEvaluationOptions({ assignment: academicAssignment, items: [], error: message(failure) });
+      },
+    );
+    return () => { active = false; };
+  }, [academic, newEvaluation, academicAssignment, evaluationLocked, taskId]);
 
   useEffect(() => {
     if (!task) return;
@@ -83,6 +140,8 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     obtenerTarea(taskId).then((value) => {
       if (!active) return;
       setTask(value);
+      setAcademic(Boolean(value.evaluacionAcademica?.cuentaParaResultadoAcademico));
+      setEvaluationId(value.evaluacionAcademica ? String(value.evaluacionAcademica.id) : "");
       setFields({ nombre: value.nombre, descripcion: value.descripcion, fechaPublicacion: value.fechaPublicacion ?? "", fechaLimite: value.fechaLimite, puntajeMaximo: String(value.puntajeMaximo), maxArchivosEntrega: String(value.maxArchivosEntrega) });
       setExisting(value.archivos);
       setPending([]);
@@ -111,6 +170,9 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     event.preventDefault();
     if (busy || conflict || (taskId !== undefined && (!task || !editable(task)))) return;
     const validation = validateTask(fields, existing.length + pending.length);
+    if (academic && !newEvaluation && !evaluationId && !evaluationLocked) validation.idEvaluacionAcademica = "Selecciona una evaluación académica.";
+    if (configureCompetencies && (!rubricDate || !rubricIds.length)) validation.competenciasSinPeso = "Selecciona las competencias e indica la fecha de evaluación.";
+    if (academic && newEvaluation && !component) validation.idEvaluacionAcademica = "Selecciona un componente vigente.";
     if (choosing && !selected) validation.asignacionCursoId = "Elige el curso y la sección de la tarea.";
     if (limitChanged && new Date(fields.fechaLimite) <= new Date())
       validation.fechaLimite = "La nueva fecha límite de una tarea publicada debe ser futura.";
@@ -136,6 +198,15 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
         fechaPublicacion: fields.fechaPublicacion || null, fechaLimite: fields.fechaLimite,
         puntajeMaximo: Number(fields.puntajeMaximo), maxArchivosEntrega: Number(fields.maxArchivosEntrega),
         archivoIds: [...new Set([...existing.map((file) => file.id), ...uploaded.map((item) => item.uploaded!.id)])],
+        ...(!evaluationLocked && (academic || task?.evaluacionAcademica) ? {
+          cuentaParaResultadoAcademico: academic, idEvaluacionAcademica: academic && !newEvaluation ? Number(evaluationId) : null,
+        } : {}),
+        ...(academic && newEvaluation && !evaluationLocked ? {
+          nuevaEvaluacion: { tipoEvaluacion: componentType, fechaEvaluacion: rubricDate, idsCompetencia: rubricIds },
+        } : {}),
+        ...(rubric && !academic && !evaluationLocked ? {
+          competenciasSinPeso: { fechaEvaluacion: rubricDate, idsCompetencia: rubricIds },
+        } : {}),
       };
       onSaved(taskId !== undefined && task
         ? await actualizarTarea(taskId, {
@@ -180,26 +251,96 @@ export function TaskFormDialog({ taskId, asignacionCursoId, canUpload, onClose, 
     </div>}
     {choosing && <label className="field full-field">Curso y sección *
       <select value={selected} disabled={!ownAssignments?.length} aria-invalid={!!errors.asignacionCursoId}
-        onChange={(event) => { setSelected(event.target.value); setErrors({ ...errors, asignacionCursoId: "" }); }}>
+        onChange={(event) => {
+          setSelected(event.target.value);
+          setEvaluationId("");
+          setRubricIds([]);
+          setComponentType("");
+          setErrors({ ...errors, asignacionCursoId: "" });
+        }}>
         <option value="">{ownAssignments === null ? "Cargando tus cursos…" : "Selecciona un curso"}</option>
         {ownAssignments?.map((item) => <option key={item.id} value={item.id}>{assignmentLabel(item)}</option>)}
       </select>
       {errors.asignacionCursoId ? <small className="field-error" role="alert">{errors.asignacionCursoId}</small>
         : ownAssignments?.length === 0 && <small className="field-hint">No tienes cursos disponibles para crear tareas. Consulta con la coordinación académica.</small>}
     </label>}
+    <h3 className={`full-field ${styles.formSection}`}>Información de la tarea</h3>
     <Field label="Nombre" required maxLength={150} fullWidth {...field("nombre")} />
     <label className="field full-field">Descripción *
       <textarea required maxLength={3000} rows={4} value={fields.descripcion} aria-invalid={!!errors.descripcion}
         onChange={(event) => setFields({ ...fields, descripcion: event.target.value })} />
       {errors.descripcion && <small className="field-error" role="alert">{errors.descripcion}</small>}
     </label>
+    <h3 className={`full-field ${styles.formSection}`}>Fechas</h3>
     <Field label="Fecha de publicación" type="datetime-local" step="any" {...field("fechaPublicacion")} readOnly={published}
       hint={published ? "La tarea ya está publicada: esta fecha no se puede cambiar." : "Opcional. Se completa al publicar si la dejas vacía."} />
     <Field label="Fecha límite" type="datetime-local" step="any" required {...field("fechaLimite")}
       hint={published && deliveryCount ? `La tarea tiene ${deliveryCount} ${deliveryCount === 1 ? "entrega" : "entregas"}: cambiar esta fecha exige un motivo.` : undefined} />
-    <Field label="Puntaje máximo" type="number" min={1} max={1000} step={1} required {...field("puntajeMaximo")} />
-    <Field label="Peso en el resultado académico" value="Sin peso" readOnly />
-    <Field label="Máximo de archivos por entrega" type="number" min={0} max={20} step={1} required {...field("maxArchivosEntrega")} />
+    <h3 className={`full-field ${styles.formSection}`}>Configuración académica</h3>
+    <Field className={styles.institutionalWeight} label="Puntaje máximo" type="number" min={1} max={1000} step={1} required
+      readOnly={taskId === undefined || !!task?.puntajeMaximoFijo} {...field("puntajeMaximo")} />
+    <label className={`full-field ${styles.taskToggle}`}>
+      <input type="checkbox" checked={academic} disabled={evaluationLocked}
+        onChange={event => { setAcademic(event.target.checked); setEvaluationId(""); }} /> <span>Incluir en el resultado académico</span>
+    </label>
+    {academic && !evaluationLocked && !task?.evaluacionAcademica && <label className="field full-field">Evaluación de la tarea
+      <select value={newEvaluation ? "new" : "existing"} onChange={event => setNewEvaluation(event.target.value === "new")}>
+        <option value="existing">Vincular una evaluación existente</option>
+        <option value="new">Preparar una nueva evaluación</option>
+      </select>
+    </label>}
+    {academic && newEvaluation && !evaluationLocked && <label className="field">
+      Componente
+      <select value={componentType} onChange={event => setComponentType(event.target.value)} disabled={!currentRule?.rule}>
+        <option value="">Selecciona un componente</option>
+        {currentRule?.rule?.componentes.map(item => <option key={item.tipoEvaluacion} value={item.tipoEvaluacion}>{item.nombre}</option>)}
+      </select>
+      {errors.idEvaluacionAcademica && <small role="alert">{errors.idEvaluacionAcademica}</small>}
+      {currentRule?.error ? <small role="alert">{currentRule.error}</small>
+        : currentRule?.rule === null ? <small>Esta asignación no tiene una regla vigente.</small>
+          : academicAssignment && !currentRule && <small>Cargando componentes…</small>}
+    </label>}
+    {academic && !newEvaluation && !evaluationLocked && <label className="field">
+      Evaluación académica
+      <select value={evaluationId} onChange={event => setEvaluationId(event.target.value)}
+        disabled={!candidates}>
+        <option value="">Selecciona una evaluación</option>
+        {candidates?.items.map(item => <option key={item.id} value={item.id}>
+          {item.titulo} · {item.componente}
+        </option>)}
+      </select>
+      {errors.idEvaluacionAcademica && <small role="alert">{errors.idEvaluacionAcademica}</small>}
+      {candidates?.error && <small role="alert">{candidates.error}</small>}
+      {!academicAssignment && <small>Selecciona primero el curso y la sección.</small>}
+      {candidates && !candidates.error && candidates.items.length === 0 &&
+        <small>Crea una evaluación con competencias y un componente vigente para vincularla.</small>}
+    </label>}
+    <Field label={academic ? "Peso del componente" : "Peso en el resultado académico"} value={!academic ? "Sin peso"
+      : component ? `${component.peso} %` : chosenEvaluation?.pesoComponente != null ? `${chosenEvaluation.pesoComponente} %`
+        : task?.evaluacionAcademica?.pesoComponente != null && String(task.evaluacionAcademica.id) === evaluationId
+          ? `${task.evaluacionAcademica.pesoComponente} %` : "—"} readOnly className={styles.institutionalWeight}
+      hint={academic ? (component || chosenEvaluation || evaluationLocked ? "Definido por las reglas académicas." : "Selecciona primero una evaluación o un componente.") : undefined} />
+    {!academic && !evaluationLocked && <label className={`full-field ${styles.taskToggle}`}>
+      <input type="checkbox" checked={rubric} onChange={event => setRubric(event.target.checked)} /> <span>Calificar por competencias sin peso</span>
+    </label>}
+    {configureCompetencies && !evaluationLocked && <fieldset className={`full-field ${styles.taskCompetencies}`}>
+      <legend>{academic ? "Competencias de la evaluación" : "Competencias sin peso"}</legend>
+      <Field label="Fecha de evaluación" type="date" value={rubricDate} onChange={event => setRubricDate(event.target.value)} />
+      {!academicAssignment ? <p>Selecciona primero el curso y la sección.</p>
+        : rubricOptions?.assignment !== academicAssignment ? <Loading>Cargando competencias…</Loading>
+          : rubricOptions.error ? <Feedback error={rubricOptions.error} />
+            : rubricOptions.items.map(item => <label key={item.id} className="check-field">
+              <input type="checkbox" checked={rubricIds.includes(item.id)}
+                onChange={event => setRubricIds(ids => event.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id))} />
+              <span>{item.nombre}</span>
+            </label>)}
+      {errors.competenciasSinPeso && <small role="alert">{errors.competenciasSinPeso}</small>}
+    </fieldset>}
+    {chosenEvaluation && <p className="hint full-field">
+      Competencias: {chosenEvaluation.competencias.map(item => item.nombre).join(", ")}
+    </p>}
+    <h3 className={`full-field ${styles.formSection}`}>Configuración de entrega</h3>
+    <Field label="Máximo de archivos por entrega" hint="Si indicas 0, la entrega será por escrito." type="number" min={0} max={20} step={1} required {...field("maxArchivosEntrega")} />
     {limitChanged && <label className="field full-field">Motivo del cambio de fecha límite{reasonRequired && <span className="field-required"> *</span>}
       <textarea name="motivo" rows={2} maxLength={REASON_MAX} value={motivo} aria-invalid={!!errors.motivo}
         placeholder="Ej. Se amplía el plazo por un feriado"

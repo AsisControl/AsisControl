@@ -46,6 +46,7 @@ public class EvaluacionService {
     private final CompetenciaRepository competenciaRepository;
     private final PlanEstudiosService planes;
     private final ReglaCalificacionService reglas;
+    private final EscalaInstitucionalService escalas;
     private final CalificacionRepository calificacionRepository;
     private final CorreccionCalificacionRepository correccionRepository;
     private final MatriculaRepository matriculaRepository;
@@ -60,6 +61,7 @@ public class EvaluacionService {
             CompetenciaRepository competenciaRepository,
             PlanEstudiosService planes,
             ReglaCalificacionService reglas,
+            EscalaInstitucionalService escalas,
             CalificacionRepository calificacionRepository,
             CorreccionCalificacionRepository correccionRepository,
             MatriculaRepository matriculaRepository,
@@ -76,6 +78,7 @@ public class EvaluacionService {
         this.competenciaRepository = competenciaRepository;
         this.planes = planes;
         this.reglas = reglas;
+        this.escalas = escalas;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
         this.avisos = avisos;
@@ -138,6 +141,8 @@ public class EvaluacionService {
             Long personaDocenteId,
             Long personaAlumnoId,
             Long personaApoderadoId,
+            boolean vinculables,
+            Long tareaActual,
             Pageable pageable
     ) {
         String filtro = busqueda == null || busqueda.isBlank() ? null : busqueda.trim();
@@ -152,6 +157,7 @@ public class EvaluacionService {
                         personaDocenteId,
                         personaAlumnoId,
                         personaApoderadoId,
+                        vinculables, tareaActual,
                         pageable)
                 .map(evaluacion -> toResponse(evaluacion, reglasPorAsignacion.computeIfAbsent(
                         evaluacion.getAsignacionCurso().getId(),
@@ -168,8 +174,10 @@ public class EvaluacionService {
     public EvaluacionDto.PlanillaResponse planilla(Long id) {
         Evaluacion evaluacion = buscarActiva(id);
         List<Calificacion> calificaciones = calificacionRepository.findAllByEvaluacionIdAndActivoTrue(id);
+        var escala = evaluacion.getEstado() == EstadoEvaluacion.BORRADOR
+                ? escalas.vigente().orElse(null) : evaluacion.getEscalaInstitucional();
         var regla = reglas.vigente(evaluacion.getAsignacionCurso()).orElse(null);
-        var componente = regla == null ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
+        var componente = regla == null || !evaluacion.isCuentaResultado() ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
         record Celda(Long alumno, Long competencia) {}
         var cantidades = new HashMap<Celda, Long>();
         var competenciasEvaluadas = evaluacion.getCompetencias().stream().map(Competencia::getId).collect(Collectors.toSet());
@@ -188,14 +196,16 @@ public class EvaluacionService {
                     .add(new EvaluacionDto.PlanillaNota(
                             calificacion.getId(),
                             calificacion.getCompetencia().getId(),
-                            calificacion.getNivelLogro(),
+                            escala == null || calificacion.getNotaNumerica() == null ? calificacion.getNivelLogro()
+                                    : EscalaInstitucionalService.nivel(escala, calificacion.getNotaNumerica()),
                             calificacion.getObservacion(),
                             calificacion.getVersion(),
                             corregidas.contains(calificacion.getId()),
                             componente == null || calificacion.getNivelLogro() == null
                                     || !competenciasEvaluadas.contains(calificacion.getCompetencia().getId()) ? null
                                     : ReglaCalificacionService.pesoEfectivo(componente.getPeso(), cantidades.getOrDefault(
-                                            new Celda(calificacion.getAlumno().getId(), calificacion.getCompetencia().getId()), 0L))));
+                                            new Celda(calificacion.getAlumno().getId(), calificacion.getCompetencia().getId()), 0L)),
+                            calificacion.getNotaNumerica()));
         }
         List<EvaluacionDto.PlanillaAlumno> alumnos = matriculaRepository
                 .buscarAlumnosActivosDeSeccion(evaluacion.getAsignacionCurso().getSeccion().getId())
@@ -206,7 +216,8 @@ public class EvaluacionService {
                         nombreEnPlanilla(alumno.getPersona()),
                         notas.getOrDefault(alumno.getId(), List.of())))
                 .toList();
-        return new EvaluacionDto.PlanillaResponse(toResponse(evaluacion, regla), alumnos);
+        return new EvaluacionDto.PlanillaResponse(toResponse(evaluacion, regla), alumnos,
+                escala == null ? null : escala.getNumeroVersion());
     }
 
     private String nombreEnPlanilla(Persona persona) {
@@ -217,7 +228,16 @@ public class EvaluacionService {
 
     @Transactional
     public EvaluacionDto.Response crear(EvaluacionDto.Request request) {
+        return crear(request, true);
+    }
+
+    EvaluacionDto.Response crearSinPeso(EvaluacionDto.Request request) {
+        return crear(request, false);
+    }
+
+    private EvaluacionDto.Response crear(EvaluacionDto.Request request, boolean cuentaResultado) {
         Evaluacion evaluacion = new Evaluacion();
+        evaluacion.setCuentaResultado(cuentaResultado);
         evaluacion.setPonderacionPorcentaje(java.math.BigDecimal.valueOf(100));
         aplicarDatosEditables(evaluacion, request);
         evaluacion.setEstado(EstadoEvaluacion.BORRADOR);
@@ -247,7 +267,8 @@ public class EvaluacionService {
 
     @Transactional
     public EvaluacionDto.Response cambiarEstado(Long id, EstadoEvaluacion estadoDestino) {
-        Evaluacion evaluacion = buscarActiva(id);
+        Evaluacion evaluacion = evaluacionRepository.buscarActivaParaEscritura(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EVALUACION_NO_ENCONTRADA", "No se encontró la evaluación."));
         accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
         EstadoEvaluacion estadoActual = evaluacion.getEstado();
         if (estadoActual == estadoDestino) {
@@ -257,6 +278,7 @@ public class EvaluacionService {
 
         evaluacion.setEstado(estadoDestino);
         if (estadoDestino == EstadoEvaluacion.PUBLICADA) {
+            fijarEscala(evaluacion);
             evaluacion.setFechaPublicacion(Instant.now());
             evaluacion.setFechaCierre(null);
         } else if (estadoDestino == EstadoEvaluacion.CERRADA) {
@@ -270,6 +292,15 @@ public class EvaluacionService {
             auditarNivelesPublicados(saved);
         }
         return toResponse(saved);
+    }
+
+    private void fijarEscala(Evaluacion evaluacion) {
+        var notas = calificacionRepository.findAllByEvaluacionIdAndActivoTrue(evaluacion.getId()).stream()
+                .filter(nota -> nota.getNotaNumerica() != null).toList();
+        if (notas.isEmpty()) return;
+        var escala = escalas.exigirVigente();
+        evaluacion.setEscalaInstitucional(escala);
+        notas.forEach(nota -> nota.setNivelLogro(EscalaInstitucionalService.nivel(escala, nota.getNotaNumerica())));
     }
 
     /** US-18: la auditoria conserva actor, nivel, competencia, estudiante y fecha de cada nivel. */
@@ -364,7 +395,7 @@ public class EvaluacionService {
         boolean conservaTipo = evaluacion.getAsignacionCurso() != null
                 && evaluacion.getAsignacionCurso().getId().equals(asignacion.getId())
                 && evaluacion.getTipoEvaluacion() == request.tipoEvaluacion();
-        if (!conservaTipo && reglas.vigente(asignacion)
+        if (evaluacion.isCuentaResultado() && !conservaTipo && reglas.vigente(asignacion)
                 .filter(regla -> !regla.getComponentes().containsKey(request.tipoEvaluacion())).isPresent()) {
             throw new BusinessRuleException("COMPONENTE_NO_VIGENTE",
                     "Selecciona un componente de la regla de calificación vigente.", "tipoEvaluacion");
@@ -389,7 +420,7 @@ public class EvaluacionService {
         evaluacion.setCompetencias(new LinkedHashSet<>(competencias));
     }
 
-    private void validarFechaEvaluacion(LocalDate fecha, int anio) {
+    void validarFechaEvaluacion(LocalDate fecha, int anio) {
         if (fecha.getYear() < 1900 || fecha.getYear() > 2100) {
             throw new FormFieldException("fechaEvaluacion", "Ingresa un año entre 1900 y 2100.");
         }
@@ -456,7 +487,7 @@ public class EvaluacionService {
     }
 
     private EvaluacionDto.Response toResponse(Evaluacion evaluacion, com.asiscontrol.entity.ReglaCalificacion regla) {
-        var componente = regla == null ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
+        var componente = regla == null || !evaluacion.isCuentaResultado() ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
         Set<CompetenciaDto.Response> competencias = evaluacion.getCompetencias().stream()
                 .map(competencia -> new CompetenciaDto.Response(
                         competencia.getId(),

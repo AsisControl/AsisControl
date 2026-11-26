@@ -65,19 +65,28 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
         mvc.perform(get("/api/alumnos/me/tareas")).andExpect(status().isUnauthorized());
     }
 
-    @Test void familiaSoloConsultaTareasPublicadasDelEstudianteAsociado() throws Exception {
-        task("Borrador familiar", EstadoPublicacionTarea.BORRADOR);
-        task("Visible para familia", EstadoPublicacionTarea.PUBLICADA);
-        task("Programada", EstadoPublicacionTarea.PUBLICADA).setFechaPublicacion(LocalDateTime.now().plusDays(1));
-        var otro = new Alumno();
-        otro.setPersona(person()); otro.setCodigoAlumno("AJENO" + key()); em.persist(otro); em.flush();
+    @Test void familiaNoConsultaEntregasIndependientes() throws Exception {
+        var tarea = task("Trabajo individual", EstadoPublicacionTarea.PUBLICADA);
         var familia = jwt().jwt(j -> j.subject("familia-test").claim("personaId", guardian.getPersona().getId()))
                 .authorities(new SimpleGrantedAuthority("ROLE_APODERADO"), new SimpleGrantedAuthority("TAREAS_LEER"));
         mvc.perform(get("/api/tareas/familia?alumnoId=" + student.getId()).with(familia))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
-                .andExpect(jsonPath("$.content[0].nombre").value("Visible para familia"));
-        mvc.perform(get("/api/tareas/familia?alumnoId=" + otro.getId()).with(familia))
+                .andExpect(status().is4xxClientError());
+        mvc.perform(get("/api/tareas/" + tarea.getId() + "/entregas").with(familia))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test void admiteRespuestaEscritaConMaximoCeroYRechazaContenidoVacio() throws Exception {
+        var tarea = task("Respuesta escrita", EstadoPublicacionTarea.PUBLICADA);
+        tarea.setMaxArchivosEntrega(0);
+        em.flush();
+        String ruta = "/api/tareas/" + tarea.getId() + "/entregas";
+        mvc.perform(post(ruta).with(asStudent(student)).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsBytes(data("alumnoId", student.getId(), "archivoIds", Set.of(), "respuesta", "   "))))
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("ENTREGA_VACIA"));
+        mvc.perform(post(ruta).with(asStudent(student)).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsBytes(data("alumnoId", student.getId(), "archivoIds", Set.of(), "respuesta", "  Mi explicación  "))))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.respuesta").value("Mi explicación"))
+                .andExpect(jsonPath("$.archivos").isEmpty());
     }
 
     @Test void cargaArchivoEntregaPersisteYDescargaComoAlumno() throws Exception {
@@ -89,12 +98,18 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
         long fileId = json.readTree(upload.getContentAsByteArray()).path("id").asLong();
         var response = mvc.perform(post("/api/tareas/" + t.getId() + "/entregas").with(asStudent(student))
                         .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(
-                                data("alumnoId", student.getId(), "archivoIds", Set.of(fileId), "comentario", "Mi trabajo"))))
+                                data("alumnoId", student.getId(), "archivoIds", Set.of(fileId), "respuesta", "Mi trabajo"))))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.estado").value("ENTREGADO"))
+                .andExpect(jsonPath("$.respuesta").value("Mi trabajo"))
                 .andReturn().getResponse();
         long deliveryId = json.readTree(response.getContentAsByteArray()).path("id").asLong();
         em.flush(); em.clear();
         assertThat(em.find(EntregaTarea.class, deliveryId).getArchivos()).hasSize(1);
+        var familia = jwt().jwt(j -> j.subject("familia-test").claim("personaId", guardian.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_APODERADO"), new SimpleGrantedAuthority("TAREAS_LEER"),
+                        new SimpleGrantedAuthority("ARCHIVOS_LEER"));
+        mvc.perform(get("/api/entregas/" + deliveryId).with(familia)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/archivos/" + fileId + "/descarga").with(familia)).andExpect(status().isForbidden());
         mvc.perform(get("/api/alumnos/me/tareas?entregada=true").with(asStudent(student)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].entrega.id").value(deliveryId))
                 .andExpect(jsonPath("$.content[0].entrega.archivos[0].nombreOriginal").value("trabajo.pdf"));
@@ -146,7 +161,7 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
                         .content(json.writeValueAsBytes(data("archivoIds", Set.of(first, second), "version", 0))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1))
                 .andExpect(jsonPath("$.archivos.length()").value(2))
-                .andExpect(jsonPath("$.comentario").value("Comentario anterior"));
+                .andExpect(jsonPath("$.respuesta").value("Comentario anterior"));
         em.flush(); em.clear();
         assertThat(em.find(EntregaTarea.class, id).getVersion()).isEqualTo(1);
         mvc.perform(put(path).with(asStudent(student)).contentType(MediaType.APPLICATION_JSON)
@@ -161,9 +176,16 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
         assertThat(em.find(EntregaTarea.class, id).getVersion()).isEqualTo(2);
         assertThat(em.find(ArchivoAdjunto.class, first).isActivo()).isTrue();
         request("POST", path + "/calificar", data("nota", 21, "version", 2), 422);
-        var graded = request("POST", path + "/calificar", data("nota", 0, "version", 2), 200);
+        var graded = request("POST", path + "/calificar", data("nota", 0, "version", 2, "comentario", "Devolución docente"), 200);
+        assertThat(graded.path("respuesta").asText()).isEqualTo("Comentario anterior");
+        assertThat(graded.path("comentario").asText()).isEqualTo("Devolución docente");
         assertThat(graded.path("nota").asInt()).isZero();
         assertThat(graded.path("version").asLong()).isEqualTo(3);
+        mvc.perform(get(path).with(asStudent(student)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nota").isEmpty())
+                .andExpect(jsonPath("$.estado").value("CALIFICADO"));
+        mvc.perform(get("/api/alumnos/me/tareas").with(asStudent(student)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].entrega.nota").isEmpty());
         mvc.perform(put(path).with(asStudent(student)).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsBytes(data("archivoIds", Set.of(first), "version", 3))))
                 .andExpect(status().isUnprocessableEntity());

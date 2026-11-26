@@ -73,7 +73,7 @@ export function StudentProgress({
               {progress.levels.map((item) => (
                 <li key={item.idCompetencia}>
                   <span>{item.nombreCompetencia}</span>
-                  <strong>{item.nivelConsolidado ?? "Datos insuficientes"}</strong>
+                  <strong>{item.nivelConsolidado ?? (item.estadoAvance === "NO_EVALUADA" ? "Aún no evaluada" : item.estadoAvance === "PENDIENTE" ? "Pendiente" : "Datos insuficientes")}</strong>
                   {!!item.componentesFaltantes?.length && <small>Faltan: {item.componentesFaltantes.join(", ")}</small>}
                 </li>
               ))}
@@ -93,6 +93,9 @@ export function StudentProgress({
                     <small>
                       {dateLabel(item.fecha)} · {item.autor}
                     </small>
+                    {item.notaAnterior != null && item.notaNueva != null && <small>
+                      Nota: {item.notaAnterior} → {item.notaNueva}
+                    </small>}
                     <p>Motivo: {item.motivo}</p>
                   </li>
                 ))}

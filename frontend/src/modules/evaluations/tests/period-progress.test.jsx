@@ -39,6 +39,7 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   const calls = backend(); render(<ProgressPreview />);
   const interaction = await openPeriod();
   const article = await screen.findByRole("article", { name: "Informe de progreso por período" });
+  await interaction.click(within(article).getByRole("button", { name: "Ver por evaluación" }));
   for (const value of ["Ana Ramos", "Código: E11", "Matemática · 3° A · 2026", "Docente: María Pérez", "Primer bimestre · 01/03/2026 - 30/04/2026", "Sin registrar", "70 %", "Sin observaciones"])
     expect(within(article).getByText(value)).toBeTruthy();
   expect(within(article).getByText(/Generado:.*Lima/)).toBeTruthy();
@@ -56,8 +57,9 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   expect(screen.queryByRole("button", { name: /publicar|generar/i })).toBeNull();
 });
 
-test("Descarga por evaluaciones, permite elegir varias y bloquea una selección vacía", async () => {
+test("Descarga por evaluaciones y competencias, y bloquea una selección vacía", async () => {
   const calls = backend({
+    "GET /api/calificaciones/avance": { ...progressReport, filas: progressReport.filas.map((row, index) => ({ ...row, idCompetencia: index + 1 })) },
     "GET /api/calificaciones/reporte-avance": reply(200, {}, {
       "Content-Disposition": 'attachment; filename="Evaluaciones_seleccionadas_Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf"',
     }),
@@ -91,6 +93,15 @@ test("Descarga por evaluaciones, permite elegir varias y bloquea una selección 
   await interaction.click(dialog.getByRole("button", { name: "Limpiar selección" }));
   expect(download.disabled).toBe(true);
   expect(dialog.getByText("0 evaluaciones seleccionadas")).toBeTruthy();
+  await interaction.click(dialog.getByRole("button", { name: "Limpiar competencias" }));
+  expect(dialog.queryByRole("checkbox", { name: /Práctica/ })).toBeNull();
+  const [competency] = dialog.getAllByRole("checkbox");
+  await interaction.click(competency);
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar todas" }));
+  await interaction.click(download);
+  await waitFor(() => expect(requests()).toHaveLength(3));
+  expect(requests()[2].searchParams.getAll("idCompetencia")).toEqual(["1"]);
+  expect(requests()[2].searchParams.getAll("idEvaluacion")).toEqual(["20"]);
 });
 
 test("Solo ofrece estudiantes autorizados de la asignación y período seleccionados", async () => {

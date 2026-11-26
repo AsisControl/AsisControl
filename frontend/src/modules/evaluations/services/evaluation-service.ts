@@ -24,6 +24,8 @@ export type EvaluationFilters = {
   idSeccion?: string;
   estado?: string;
   busqueda?: string;
+  vinculables?: string;
+  tareaActual?: string;
 };
 /** Ruta del listado con los filtros que tienen valor; usePaged agrega la paginación. */
 export function evaluationsPath(filters: EvaluationFilters) {
@@ -73,7 +75,8 @@ export type DraftGrade = {
   idEvaluacion: number;
   idAlumno: number;
   idCompetencia: number;
-  nivelLogro: AchievementLevel;
+  nivelLogro?: AchievementLevel;
+  notaNumerica?: string;
   observacion: string | null;
 };
 /** Guarda los niveles y las observaciones de una evaluación en borrador. */
@@ -85,7 +88,8 @@ export function guardarNiveles(grades: DraftGrade[]) {
 }
 export type GradeCorrection = {
   idCalificacion: number;
-  nivelLogro: AchievementLevel;
+  nivelLogro?: AchievementLevel;
+  notaNumerica?: string;
   version: number;
 };
 /** US-50: corrige niveles publicados con un motivo común. */

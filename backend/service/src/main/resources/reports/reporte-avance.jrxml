@@ -1,32 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="ReporteAvance" language="java" pageWidth="595" pageHeight="842" columnWidth="515" leftMargin="40" rightMargin="40" topMargin="35" bottomMargin="35">
 <style name="Base" default="true" fontName="DejaVu Sans" fontSize="9"/>
+<parameter name="pesoTitulo" class="java.lang.String"/>
 <parameter name="titulo" class="java.lang.String"/>
 <parameter name="alumno" class="java.lang.String"/>
 <parameter name="curso" class="java.lang.String"/>
 <parameter name="docente" class="java.lang.String"/>
 <parameter name="periodo" class="java.lang.String"/>
 <parameter name="generado" class="java.lang.String"/>
+<parameter name="notaPonderacion" class="java.lang.String"/>
 <field name="competencia" class="java.lang.String"/>
-<field name="idEvaluacion" class="java.lang.Long"/>
+<field name="idCompetencia" class="java.lang.Long"/>
 <field name="evaluacion" class="java.lang.String"/>
-<field name="fecha" class="java.lang.String"/>
+<field name="detalleCompetencia" class="java.lang.String"/>
 <field name="resultado" class="java.lang.String"/>
 <field name="ponderacion" class="java.lang.String"/>
 <field name="observacion" class="java.lang.String"/>
-<group name="Evaluacion" minHeightToStartNewPage="84" minDetailsToStartFromTop="1" reprintHeaderOnEachPage="true">
-<expression><![CDATA[$F{idEvaluacion}]]></expression>
+<group name="Competencia" minHeightToStartNewPage="84" minDetailsToStartFromTop="1" reprintHeaderOnEachPage="true">
+<expression><![CDATA[$F{idCompetencia}]]></expression>
 <groupHeader>
 <band height="60" splitType="Prevent">
-<element kind="textField" x="0" y="4" width="515" height="17" forecolor="#163653" fontSize="11" bold="true" textAdjust="StretchHeight"><expression><![CDATA[$F{evaluacion}]]></expression></element>
-<element kind="textField" positionType="Float" x="0" y="22" width="515" height="14" forecolor="#526580"><expression><![CDATA[$F{fecha}]]></expression></element>
-<element kind="staticText" positionType="Float" x="0" y="39" width="166" height="19" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Competencia]]></text></element>
-<element kind="staticText" positionType="Float" x="166" y="39" width="53" height="19" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Nivel]]></text></element>
-<element kind="staticText" positionType="Float" x="219" y="39" width="51" height="19" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Peso]]></text></element>
-<element kind="staticText" positionType="Float" x="270" y="39" width="245" height="19" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Observación]]></text></element>
+<element kind="textField" x="0" y="4" width="515" height="17" forecolor="#163653" fontSize="11" bold="true" textAdjust="StretchHeight"><expression><![CDATA[$F{competencia}]]></expression></element>
+<element kind="textField" positionType="Float" x="0" y="22" width="515" height="14" forecolor="#526580" textAdjust="StretchHeight"><expression><![CDATA[$F{detalleCompetencia}]]></expression></element>
+<element kind="staticText" positionType="Float" x="0" y="39" width="166" height="19" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Evaluación]]></text></element>
+<element kind="staticText" positionType="Float" x="166" y="39" width="61" height="19" hTextAlign="Center" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Nivel]]></text></element>
+<element kind="textField" positionType="Float" x="227" y="39" width="61" height="19" hTextAlign="Center" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true" fontSize="7"><expression><![CDATA[$P{pesoTitulo}]]></expression></element>
+<element kind="staticText" positionType="Float" x="288" y="39" width="227" height="19" mode="Opaque" backcolor="#163653" forecolor="#FFFFFF" bold="true"><text><![CDATA[Observación]]></text></element>
 </band></groupHeader>
 </group>
-<pageHeader height="104">
+<pageHeader height="113">
 <element kind="staticText" x="0" y="0" width="515" height="16" forecolor="#526580" fontSize="10" bold="true"><text><![CDATA[ASISCONTROL]]></text></element>
 <element kind="textField" x="0" y="18" width="515" height="24" forecolor="#163653" fontSize="17" bold="true"><expression><![CDATA[$P{titulo}]]></expression></element>
 <element kind="textField" x="0" y="45" width="515" height="14" bold="true" textAdjust="StretchHeight"><expression><![CDATA[$P{alumno}]]></expression></element>
@@ -35,13 +37,14 @@
 <element kind="textField" positionType="Float" x="0" y="90" width="515" height="14" textAdjust="StretchHeight"><expression><![CDATA[$P{periodo}]]></expression></element>
 </pageHeader>
 <detail><band height="24" splitType="Stretch">
-<element kind="textField" x="0" y="3" width="160" height="18" textAdjust="StretchHeight"><expression><![CDATA[$F{competencia}]]></expression></element>
-<element kind="textField" x="166" y="3" width="48" height="18" textAdjust="StretchHeight"><expression><![CDATA[$F{resultado}]]></expression></element>
-<element kind="textField" x="219" y="3" width="46" height="18" textAdjust="StretchHeight"><expression><![CDATA[$F{ponderacion}]]></expression></element>
-<element kind="textField" x="270" y="3" width="245" height="18" textAdjust="StretchHeight"><expression><![CDATA[$F{observacion}]]></expression></element>
+<element kind="textField" x="0" y="3" width="160" height="18" textAdjust="StretchHeight"><expression><![CDATA[$F{evaluacion}]]></expression></element>
+<element kind="textField" x="166" y="3" width="61" height="18" hTextAlign="Center" textAdjust="StretchHeight"><expression><![CDATA[$F{resultado}]]></expression></element>
+<element kind="textField" x="227" y="3" width="61" height="18" hTextAlign="Center" textAdjust="StretchHeight"><expression><![CDATA[$F{ponderacion}]]></expression></element>
+<element kind="textField" x="288" y="3" width="227" height="18" textAdjust="StretchHeight"><expression><![CDATA[$F{observacion}]]></expression></element>
 </band></detail>
 <pageFooter height="42">
-<element kind="staticText" x="0" y="0" width="515" height="15" fontSize="7" forecolor="#526580"><text><![CDATA[Ponderación por estudiante y competencia según la versión de la libreta.]]></text></element>
+<element kind="line" x="0" y="0" width="515" height="1" forecolor="#CBD5E1"/>
+<element kind="textField" x="0" y="4" width="515" height="15" fontSize="7" forecolor="#526580"><expression><![CDATA[$P{notaPonderacion}]]></expression></element>
 <element kind="textField" x="0" y="21" width="420" height="16" fontSize="8"><expression><![CDATA[$P{generado}]]></expression></element>
 <element kind="staticText" x="435" y="21" width="40" height="16" fontSize="8"><text><![CDATA[Página]]></text></element>
 <element kind="textField" x="475" y="21" width="40" height="16" fontSize="8"><expression><![CDATA[$V{PAGE_NUMBER}]]></expression></element>

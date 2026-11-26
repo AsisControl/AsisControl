@@ -26,6 +26,24 @@ export function archivarTarea(id: number) {
 
 export const TAREAS_PATH = "/api/tareas";
 
+export type MissingZeros = { estudiantes: number; calificaciones: number };
+
+export type MissingDeliveries = {
+  alumnos: { id: number; nombre: string; codigo: string | null; competencias: number[] }[];
+  competencias: { id: number; nombre: string }[];
+  maximo: number;
+};
+
+export function listMissingDeliveries(id: number) {
+  return api<MissingDeliveries>(`${TAREAS_PATH}/${id}/calificaciones-sin-entrega`);
+}
+
+export function gradeMissingDeliveries(id: number, alumnos: number[], competencias: number[], nota: string) {
+  return api<MissingZeros>(`${TAREAS_PATH}/${id}/calificaciones-sin-entrega`, {
+    method: "POST", body: JSON.stringify({ alumnos, competencias, nota }),
+  });
+}
+
 export async function listarTareas(page = 0, size = 20, asignacionCursoId?: number) {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (asignacionCursoId !== undefined)

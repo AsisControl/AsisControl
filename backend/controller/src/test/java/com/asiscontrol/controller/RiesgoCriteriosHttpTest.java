@@ -108,10 +108,19 @@ class RiesgoCriteriosHttpTest extends ApiIntegrationSupport {
         var e = new Evaluacion(); e.setAsignacionCurso(assignment); e.setTitulo("Prueba");
         e.setTipoEvaluacion(TipoEvaluacion.values()[0]); e.setPeriodoEvaluacion(PeriodoEvaluacion.values()[0]);
         e.setEstado(EstadoEvaluacion.PUBLICADA); e.setFechaEvaluacion(p.getFechaInicio());
+        e.setCompetencias(java.util.Set.of(competence));
         e.setPonderacionPorcentaje(new BigDecimal("100")); em.persist(e);
         var c = new Calificacion(); c.setAlumno(student); c.setCompetencia(competence); c.setEvaluacion(e);
         c.setNivelLogro(nivel); c.setFechaRegistro(Instant.now()); em.persist(c); return c;
     }
+    private void activarReglaParaRiesgo(TipoEvaluacion tipo) throws Exception {
+        var regla = putOk("/api/reglas-calificacion/borrador", data("idCurso", course.getId(), "idGrado", grade.getId(),
+                "formula", "PROMEDIO_PONDERADO", "componentes", List.of(
+                    data("tipoEvaluacion", tipo.name(), "nombre", "Evaluaciones", "peso", 100))));
+        request("POST", "/api/reglas-calificacion/" + regla.path("id").asLong() + "/activar",
+                data("version", regla.path("version").asLong(), "motivo", "Acuerdo académico"), 200);
+    }
+
     private Map<String,Object> criterio(String indicador, String operador, int umbral, int minimo) {
         return data("nombre", "Criterio " + indicador, "indicador", indicador, "operador", operador,
                 "umbral", umbral, "nivelRiesgo", "ALTO", "minimoDatos", minimo);
@@ -177,6 +186,20 @@ class RiesgoCriteriosHttpTest extends ApiIntegrationSupport {
         assertThat(recalcular(p).path("reglas").get(0).path("idAlerta").asLong()).isEqualTo(id);
         assertThat(alertasDashboard()).isEqualTo(1);
     }
+    @Test void mantienePendientesLosIndicadoresAcademicosDuranteLaTransicionNumerica() throws Exception {
+        var periodo = periodo(1);
+        nota(periodo, NivelLogro.C);
+        nota(periodo, NivelLogro.A).setNotaNumerica(new BigDecimal("17.5"));
+        postOk("/api/criterios-riesgo", criterio("PROMEDIO_ACADEMICO", "MENOR_QUE", 3, 1));
+        postOk("/api/criterios-riesgo", criterio("COMPETENCIAS_EN_INICIO", "MAYOR_IGUAL", 1, 1));
+        var resultado = recalcular(periodo);
+        assertThat(resultado.path("resultado").asText()).isEqualTo("DATOS_INSUFICIENTES");
+        assertThat(resultado.path("reglas")).allSatisfy(regla -> {
+            assertThat(regla.path("resultado").asText()).isEqualTo("DATOS_INSUFICIENTES");
+            assertThat(regla.path("cantidadDatos").asInt()).isZero();
+        });
+    }
+
     @Test void separaPeriodosYConservaUmbralAunqueSeEditeElCriterio() throws Exception {
         var p = periodo(1); var otro = periodo(2); nota(p, NivelLogro.C); nota(otro, NivelLogro.C);
         var c = postOk("/api/criterios-riesgo", criterio("PROMEDIO_ACADEMICO", "MENOR_QUE", 3, 1));
@@ -191,6 +214,7 @@ class RiesgoCriteriosHttpTest extends ApiIntegrationSupport {
     }
     @Test void noGeneraAlertasSinRiesgoYDetectaVariasCausas() throws Exception {
         var p = periodo(1); var n = nota(p, NivelLogro.AD);
+        activarReglaParaRiesgo(n.getEvaluacion().getTipoEvaluacion());
         postOk("/api/criterios-riesgo", criterio("PROMEDIO_ACADEMICO", "MENOR_QUE", 3, 1));
         postOk("/api/criterios-riesgo", criterio("COMPETENCIAS_EN_INICIO", "MAYOR_IGUAL", 1, 1));
         assertThat(recalcular(p).path("resultado").asText()).isEqualTo("SIN_RIESGO");
@@ -200,6 +224,37 @@ class RiesgoCriteriosHttpTest extends ApiIntegrationSupport {
         assertThat(reglas).hasSize(2);
         for (var regla : reglas) assertThat(regla.path("resultado").asText()).isEqualTo("EN_RIESGO");
     }
+    @Test void determinaElUmbralConResultadosVigentesSinContarLasCompetenciasPendientes() throws Exception {
+        var p = periodo(1);
+        var nota = nota(p, NivelLogro.C);
+        activarReglaParaRiesgo(nota.getEvaluacion().getTipoEvaluacion());
+        var escala = putOk("/api/escala-institucional/borrador", data("rangos", List.of(
+                data("nivel", "C", "minimo", 0, "maximo", 10), data("nivel", "B", "minimo", 11, "maximo", 13),
+                data("nivel", "A", "minimo", 14, "maximo", 17), data("nivel", "AD", "minimo", 18, "maximo", 20))));
+        request("POST", "/api/escala-institucional/" + escala.path("id").asLong() + "/activar",
+                data("version", escala.path("version").asLong(), "motivo", "Escala académica"), 200);
+        nota.setNotaNumerica(new BigDecimal("8"));
+        var adicional = new Competencia();
+        adicional.setCodigo("RIESGO" + key()); adicional.setNombre("Argumenta"); em.persist(adicional);
+        nota.getEvaluacion().setCompetencias(java.util.Set.of(competence, adicional));
+        postOk("/api/criterios-riesgo", criterio("COMPETENCIAS_EN_INICIO", "MAYOR_IGUAL", 1, 1));
+        var detectado = recalcular(p).path("reglas").get(0);
+        assertThat(detectado.path("resultado").asText()).isEqualTo("EN_RIESGO");
+        assertThat(detectado.path("valor").asInt()).isEqualTo(1);
+        nota.setNotaNumerica(new BigDecimal("16"));
+        nota.setNivelLogro(NivelLogro.A);
+        assertThat(recalcular(p).path("resultado").asText()).isEqualTo("DATOS_INSUFICIENTES");
+        long alerta = detectado.path("idAlerta").asLong();
+        assertThat(getOk("/api/alertas-riesgo/" + alerta).path("estado").asText()).isEqualTo("ACTIVA");
+        var segunda = new Calificacion();
+        segunda.setAlumno(student); segunda.setCompetencia(adicional); segunda.setEvaluacion(nota.getEvaluacion());
+        segunda.setNotaNumerica(new BigDecimal("15")); segunda.setNivelLogro(NivelLogro.A);
+        segunda.setFechaRegistro(Instant.now()); em.persist(segunda);
+        assertThat(recalcular(p).path("resultado").asText()).isEqualTo("SIN_RIESGO");
+        assertThat(getOk("/api/alertas-riesgo/" + alerta).path("estado").asText()).isEqualTo("RESUELTA");
+        assertThat(getOk("/api/alertas-riesgo/" + alerta + "/historial")).hasSize(3);
+    }
+
     @Test void rechazaSolicitudesIncompletasYMinimosInvalidos() throws Exception {
         request("POST", "/api/evaluaciones-riesgo", data("idAlumno", student.getId()), 400);
         request("POST", "/api/criterios-riesgo", criterio("INASISTENCIAS", "MAYOR_QUE", 0, 0), 400);

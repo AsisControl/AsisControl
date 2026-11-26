@@ -49,7 +49,7 @@ export function EvaluationFormDialog({
   evaluation?: Evaluation;
   assignments: OwnAssignment[];
   onClose: () => void;
-  /** `grade` indica que el docente quiere pasar a registrar los niveles. */
+  /** `grade` indica que el docente quiere pasar a registrar las calificaciones. */
   onSaved: (saved: Evaluation, grade: boolean) => void;
 }) {
   const [titulo, setTitulo] = useState(evaluation?.titulo ?? "");
@@ -339,7 +339,7 @@ export function EvaluationFormDialog({
           value={component ? percentage.format(component.peso / 100) : "—"}
           readOnly
           className={styles.componentWeight}
-          hint="La regla de calificación vigente fija este porcentaje para el componente completo."
+          hint="Definido por las reglas académicas."
         />
       </>}
       <fieldset className={`full-field ${styles.competencies}`}>

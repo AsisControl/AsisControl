@@ -173,11 +173,40 @@
   display: inline-flex;
   gap: 4px;
 }
-.gradeObservation {
-  margin-top: 8px;
-  min-width: 160px;
-  text-align: left;
+.gradeInput { width: 5rem; min-height: 2rem; padding: .25rem .4rem; text-align: right; }
+.gradeMeta { display: block; color: var(--muted); }
+.gradeObservation { margin-top: .25rem; text-align: left; }
+.gradeObservation textarea { min-width: 0; min-height: 2rem; padding: .25rem .4rem; resize: vertical; }
+
+.consolidationVersions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem .85rem;
+  color: var(--muted);
+  font-size: .85rem;
 }
+
+.consolidation {
+  display: grid;
+  gap: .35rem;
+  margin: .5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.consolidation li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .2rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+  padding: .4rem .65rem;
+}
+
+.consolidation small { grid-column: 1 / -1; color: var(--muted); overflow-wrap: anywhere; }
+.publishBlocker { display: grid; gap: .25rem; }
+.publishBlocker p { margin: 0; }
 .level {
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -278,7 +307,10 @@
 .reportPdfSelection { min-width: 0; border: 0; margin: 0; padding: 0; }
 .reportPdfList { min-width: 0; max-height: min(40vh, 17rem); overflow-y: auto; margin: .65rem 0; padding: .2rem .65rem; border: 1px solid var(--border); border-radius: .5rem; }
 .reportPdfList label { display: flex; align-items: flex-start; gap: .6rem; min-width: 0; padding-block: .5rem; overflow-wrap: anywhere; }
-.reportPdfList input { flex: 0 0 auto; margin-top: .2rem; }
+.reportPdfList input { flex: 0 0 auto; inline-size: 1rem; block-size: 1rem; margin: .18rem 0 0; accent-color: var(--blue); }
+.reportPdfSelection { min-width: 0; }
+.competencyToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .55rem; }
+.competencyToolbar > span { margin-inline-end: auto; }
 .reportNotice { margin: 0; padding: .8rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: .65rem; color: var(--ink); }
 .reportPanel > .reportNotice { margin-top: .8rem; }
 .reportNotice p { margin: 0; }
@@ -342,3 +374,45 @@
 .componentWeight[readonly] {
   background-color: #f5f7fa;
 }
+
+.sheetTable .gradeInput {
+  width: 6.25rem;
+  border: 1px solid #94a3b8;
+  border-radius: .4rem;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+}
+ .gradeWeightHelp { margin: .4rem 0 .6rem; color: var(--blue); font-size: .8rem; }
+.gradeWeightHelp summary { cursor: pointer; }
+.sheetTable .gradeInput { text-align: center; appearance: textfield; }
+.sheetTable .gradeInput::-webkit-inner-spin-button, .sheetTable .gradeInput::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.sheetTable .gradeInput:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.sheetTable .gradeInput:read-only, :global(.dialog .field) input.componentWeight:read-only {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: var(--ink);
+  cursor: default;
+}
+.sheetTable .gradeInput::placeholder { color: #64748b; font-size: .72rem; font-weight: 400; }
+.conclusionText { grid-column: 1 / -1; margin: .15rem 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.conclusionEditor { display: grid; gap: .35rem; margin-block: .75rem; max-width: 44rem; }
+.conclusionEditor button { justify-self: start; }
+.gradeObservation textarea:focus { min-height: 3rem; }
+.periodObservation, .resultDetails { grid-column: 1 / -1; }
+.periodObservation { justify-self: stretch; }
+button.periodObservation { justify-self: start; }
+.periodObservation textarea { margin-bottom: .35rem; }
+.reportCompetencies { display: grid; gap: .55rem; margin-top: .75rem; }
+.reportCompetency { min-width: 0; padding: .65rem .8rem; border: 1px solid var(--border); border-radius: .5rem; }
+.reportCompetency > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .35rem .75rem; }
+.reportCompetency > header h3 { margin: 0; font-size: 1rem; }
+.reportCompetency > p { margin: .35rem 0; }
+.reportCompetency details { margin-top: .5rem; }
+.resultDetails summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+.resultDetails ul { padding-left: 1.1rem; }
+@media (min-width: 761px) {
+  .reportResults :is(th, td).reportNumeric { text-align: center; }
+}
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.conclusionEditor h4, .conclusionEditor p { margin: 0; }

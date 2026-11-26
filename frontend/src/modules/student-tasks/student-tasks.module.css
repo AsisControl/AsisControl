@@ -218,3 +218,7 @@
     width: auto;
   }
 }
+.taskInstructions { margin-block: .85rem; padding: .65rem .85rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
+.taskInstructions :is(h4, p) { margin: 0; }
+.taskInstructions h4 { margin-bottom: .3rem; }
+.filePicker input { max-inline-size: 100%; min-inline-size: 0; }

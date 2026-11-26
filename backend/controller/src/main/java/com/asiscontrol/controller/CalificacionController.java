@@ -62,7 +62,8 @@ public class CalificacionController {
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
     public com.asiscontrol.dto.ReporteAvanceDto consultarAvance(@RequestParam Long idAlumno,
             @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico) {
-        return reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        var reporte = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        return consultaFamiliar() ? reporte.sinPromediosNumericos() : reporte;
     }
 
     @PostMapping("/informes/generar")
@@ -93,6 +94,41 @@ public class CalificacionController {
         return reporteAvanceService.prepararBorrador(idAlumno, idAsignacionCurso, idPeriodoAcademico);
     }
 
+    @PutMapping("/informes/borrador/revision")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public com.asiscontrol.dto.ReporteAvanceDto revisarInforme(
+            @RequestParam Long idAlumno, @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico,
+            @Valid @RequestBody ReporteAvanceService.RevisionRequest request) {
+        return reporteAvanceService.revisarBorrador(idAlumno, idAsignacionCurso, idPeriodoAcademico, request);
+    }
+
+    @GetMapping("/informes/parcial/evaluaciones")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public List<ReporteAvanceService.EvaluacionDtoParcial> evaluacionesParciales(
+            @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico) {
+        return reporteAvanceService.evaluacionesParciales(idAsignacionCurso, idPeriodoAcademico);
+    }
+
+    @GetMapping("/informes/parcial")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public com.asiscontrol.dto.ReporteAvanceDto informeParcial(
+            @RequestParam Long idAlumno, @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico,
+            @RequestParam List<Long> idEvaluacion, @RequestParam(required = false) List<Long> idCompetencia) {
+        return reporteAvanceService.prepararParcial(idAlumno, idAsignacionCurso, idPeriodoAcademico, idEvaluacion, idCompetencia).sinPromediosNumericos();
+    }
+
+    @GetMapping(value = "/informes/parcial/pdf", produces = "application/pdf")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public ResponseEntity<byte[]> pdfParcial(
+            @RequestParam Long idAlumno, @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico,
+            @RequestParam List<Long> idEvaluacion, @RequestParam(required = false) List<Long> idCompetencia) {
+        var datos = reporteAvanceService.prepararParcial(idAlumno, idAsignacionCurso, idPeriodoAcademico, idEvaluacion, idCompetencia);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "attachment; filename=\"Informe_parcial_de_progreso.pdf\"")
+                .cacheControl(CacheControl.noStore())
+                .body(generadorReporteAvance.generarParcialVigente(datos));
+    }
+
     /** US-20: el PDF utiliza exclusivamente los detalles de la ultima version publicada. */
     @GetMapping(value = "/reporte-avance", produces = "application/pdf")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
@@ -100,17 +136,25 @@ public class CalificacionController {
             @RequestParam Long idAlumno,
             @RequestParam Long idAsignacionCurso,
             @RequestParam Long idPeriodoAcademico,
-            @RequestParam(required = false) List<Long> idEvaluacion) {
+            @RequestParam(required = false) List<Long> idEvaluacion,
+            @RequestParam(required = false) List<Long> idCompetencia) {
         var datos = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
         var seleccionadas = idEvaluacion == null ? null : new HashSet<>(idEvaluacion);
+        var competencias = idCompetencia == null ? null : new HashSet<>(idCompetencia);
+        if (competencias != null && (seleccionadas == null || competencias.isEmpty())) {
+            throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona evaluaciones y competencias de esta libreta.");
+        }
         if (seleccionadas != null) {
-            var disponibles = datos.filas().stream().map(com.asiscontrol.dto.ReporteAvanceDto.Fila::idEvaluacion)
+            var filas = datos.filas().stream().filter(fila -> seleccionadas.contains(fila.idEvaluacion()))
+                    .filter(fila -> competencias == null || competencias.contains(fila.idCompetencia())).toList();
+            var disponibles = filas.stream().map(com.asiscontrol.dto.ReporteAvanceDto.Fila::idEvaluacion)
                     .collect(java.util.stream.Collectors.toSet());
-            if (seleccionadas.isEmpty() || !disponibles.containsAll(seleccionadas)) {
+            if (seleccionadas.isEmpty() || !disponibles.containsAll(seleccionadas) || (competencias != null && !filas.stream()
+                    .map(com.asiscontrol.dto.ReporteAvanceDto.Fila::idCompetencia).collect(java.util.stream.Collectors.toSet()).containsAll(competencias))) {
                 throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona al menos una evaluación de esta libreta para descargar el reporte.");
             }
         }
-        byte[] pdf = seleccionadas == null ? generadorReporteAvance.generar(datos) : generadorReporteAvance.generar(datos, seleccionadas);
+        byte[] pdf = seleccionadas == null ? generadorReporteAvance.generar(datos) : generadorReporteAvance.generar(datos, seleccionadas, competencias);
         String nombre = nombrePdf(datos);
         if (seleccionadas != null) nombre = "Evaluaciones_seleccionadas_" + nombre;
         return ResponseEntity.ok()
@@ -189,7 +233,13 @@ public class CalificacionController {
             @RequestParam Long idAlumno,
             @RequestParam(required = false) Long idAsignacionCurso
     ) {
-        return calificacionService.obtenerConsolidado(idAlumno, idAsignacionCurso);
+        var resultados = calificacionService.obtenerConsolidado(idAlumno, idAsignacionCurso);
+        return consultaFamiliar() ? resultados.stream().map(CalificacionDto.ConsolidadoResponse::sinPromedioNumerico).toList()
+                : resultados;
+    }
+
+    private boolean consultaFamiliar() {
+        return accessGuard.restriccionAlumnoPersonaId() != null || accessGuard.restriccionApoderadoPersonaId() != null;
     }
 
     @DeleteMapping("/{id}")

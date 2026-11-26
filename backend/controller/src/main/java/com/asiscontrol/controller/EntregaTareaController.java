@@ -42,10 +42,11 @@ public class EntregaTareaController {
     public ResponseEntity<EntregaTareaResponse> registrar(
             @PathVariable Long tareaId,
             @Valid @RequestBody RegistrarEntregaRequest request) {
-        return ResponseEntity.status(201).body(entregaService.registrar(tareaId, request));
+        return ResponseEntity.status(201).body(proyectar(entregaService.registrar(tareaId, request)));
     }
 
     @GetMapping("/tareas/{tareaId}/entregas")
+    @PreAuthorize("hasAuthority('TAREAS_LEER') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'DOCENTE', 'ALUMNO')")
     public Page<EntregaTareaResponse> listarPorTarea(
             @PathVariable Long tareaId,
             @PageableDefault(size = 20, sort = "fechaHoraEntrega") Pageable pageable) {
@@ -54,7 +55,7 @@ public class EntregaTareaController {
                 accessGuard.restriccionDocentePersonaId(),
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
-                pageable);
+                pageable).map(this::proyectar);
     }
 
     /** US-22: padrón de la sección con quién entregó y quién no ("3 de 30 entregaron"). */
@@ -65,9 +66,9 @@ public class EntregaTareaController {
     }
 
     @GetMapping("/entregas/{id}")
-    @PreAuthorize("@moduloAccessGuard.puedeAccederEntrega(#id)")
+    @PreAuthorize("hasAuthority('TAREAS_LEER') and hasAnyRole('ADMINISTRADOR', 'DIRECTOR', 'DOCENTE', 'ALUMNO') and @moduloAccessGuard.puedeAccederEntrega(#id)")
     public EntregaTareaResponse obtener(@PathVariable Long id) {
-        return entregaService.obtener(id);
+        return proyectar(entregaService.obtener(id));
     }
 
     @PutMapping("/entregas/{id}")
@@ -75,7 +76,7 @@ public class EntregaTareaController {
     public EntregaTareaResponse actualizar(
             @PathVariable Long id,
             @Valid @RequestBody ActualizarEntregaRequest request) {
-        return entregaService.actualizar(id, request);
+        return proyectar(entregaService.actualizar(id, request));
     }
 
     @PostMapping("/entregas/{id}/calificar")
@@ -83,6 +84,11 @@ public class EntregaTareaController {
     public EntregaTareaResponse calificar(
             @PathVariable Long id,
             @Valid @RequestBody CalificarEntregaRequest request) {
-        return entregaService.calificar(id, request);
+        return proyectar(entregaService.calificar(id, request));
+    }
+
+    private EntregaTareaResponse proyectar(EntregaTareaResponse entrega) {
+        return accessGuard.restriccionAlumnoPersonaId() != null || accessGuard.restriccionApoderadoPersonaId() != null
+                ? entrega.sinNotaNumerica() : entrega;
     }
 }

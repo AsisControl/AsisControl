@@ -151,7 +151,7 @@ test("El listado identifica el peso del componente y la planilla explica el apor
   list.unmount();
   openSheet();
   expect(await screen.findByText("Peso efectivo: 30 %")).toBeTruthy();
-  expect(screen.getByText("Peso efectivo pendiente")).toBeTruthy();
+  expect(screen.queryByLabelText("Peso efectivo pendiente")).toBeNull();
 });
 
 test("Lista las evaluaciones con su curso, sección, fecha y competencias", async () => {
@@ -213,7 +213,7 @@ test("Publicar confirma y explica si la planilla está incompleta", async () => 
   await user.click(await screen.findByRole("button", { name: "Publicar" }));
   const dialog = screen.getByRole("dialog", { name: "Publicar evaluación" });
   await user.click(within(dialog).getByRole("button", { name: "Publicar evaluación" }));
-  expect(await within(dialog).findByText(/Faltan 4 niveles por registrar\. Completa la planilla/)).toBeTruthy();
+  expect(await within(dialog).findByText(/Faltan 4 notas por registrar\. Completa la planilla/)).toBeTruthy();
   expect(calls.find((c) => c.method === "PUT").body).toEqual({ estado: "PUBLICADA" });
 });
 
@@ -365,7 +365,7 @@ test("US-18: en borrador registra niveles y avisa cuántos faltan para publicar"
   const user = userEvent.setup();
   openSheet();
   await screen.findByRole("table", { name: "Planilla de Examen parcial" });
-  expect(screen.getByText("Faltan 4 niveles para poder publicar.")).toBeTruthy();
+  expect(screen.getByText("Faltan 4 niveles para publicar.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Guardar evaluación" }).disabled).toBe(true);
   expect(screen.queryByLabelText(/Motivo de la corrección/)).toBeNull();
 
@@ -373,13 +373,13 @@ test("US-18: en borrador registra niveles y avisa cuántos faltan para publicar"
   const button = screen.getByRole("button", { name: level("AD", name, "Resuelve problemas") });
   await user.click(button);
   expect(button.getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByText("Faltan 3 niveles para poder publicar.")).toBeTruthy();
+  expect(screen.getByText("Faltan 3 niveles para publicar.")).toBeTruthy();
   await user.click(button);
   expect(button.getAttribute("aria-pressed")).toBe("false");
   await user.click(button);
   await user.click(screen.getByRole("button", { name: level("B", "Bravo Castillo, Ana", "Razona en geometría") }));
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
-  await screen.findByText(/Niveles guardados/);
+  await screen.findByText(/Calificaciones guardadas/);
   expect(calls.find((c) => c.method === "PUT").body).toEqual({
     calificaciones: [
       { idEvaluacion: 10, idAlumno: 1, idCompetencia: 1, nivelLogro: "AD", observacion: null },
@@ -408,18 +408,18 @@ test("Carga, edita, conserva al cambiar el nivel y borra explícitamente la obse
   await user.clear(screen.getByRole("textbox", { name: field }));
   await user.type(screen.getByRole("textbox", { name: field }), "Justifica sus respuestas.");
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
-  expect(await screen.findByText(/Niveles guardados/)).toBeTruthy();
+  expect(await screen.findByText(/Calificaciones guardadas/)).toBeTruthy();
   expect(screen.getByRole("textbox", { name: field }).value).toBe("Justifica sus respuestas.");
 
   await user.click(screen.getByRole("button", { name: level("AD", name, competency) }));
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
-  expect(await screen.findByText(/Niveles guardados/)).toBeTruthy();
+  expect(await screen.findByText(/Calificaciones guardadas/)).toBeTruthy();
   expect(screen.getByRole("textbox", { name: field }).value).toBe("Justifica sus respuestas.");
 
   await user.clear(screen.getByRole("textbox", { name: field }));
   expect(calls.filter((call) => call.method === "PUT")).toHaveLength(2);
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
-  expect(await screen.findByText(/Niveles guardados/)).toBeTruthy();
+  expect(await screen.findByText(/Calificaciones guardadas/)).toBeTruthy();
   expect(screen.getByRole("textbox", { name: field }).value).toBe("");
 
   expect(calls.filter((call) => call.method === "PUT").map((call) => call.body.calificaciones)).toEqual([
@@ -456,6 +456,31 @@ const published = () =>
     student(2, "Bravo Castillo, Ana", [note(52, 1, "B"), note(53, 2, "B")]),
   ]);
 
+test("Registra cero y notas decimales por competencia, con observaciones", async () => {
+  const calls = backend({
+    "GET /api/evaluaciones/:id/planilla": { ...sheet(), numeroVersionEscala: 1 },
+    "PUT /api/calificaciones/lote": [],
+  });
+  const user = userEvent.setup();
+  openSheet();
+  const name = "Alvarado Medina, Diego";
+  const primera = await screen.findByRole("spinbutton", { name: `Nota: ${name}, Resuelve problemas` });
+  const segunda = screen.getByRole("spinbutton", { name: `Nota: ${name}, Razona en geometría` });
+  const save = screen.getByRole("button", { name: "Guardar evaluación" });
+  await user.type(primera, "21");
+  expect(save.disabled).toBe(true);
+  await user.clear(primera);
+  await user.type(primera, "0");
+  await user.type(segunda, "17.5");
+  await user.type(screen.getByLabelText(`Observación: ${name}, Resuelve problemas`), "Actividad sin resolver");
+  await user.click(save);
+  await waitFor(() => expect(calls.find(call => call.path === "/api/calificaciones/lote")?.body.calificaciones)
+    .toEqual(expect.arrayContaining([
+      expect.objectContaining({ idCompetencia: 1, notaNumerica: "0", observacion: "Actividad sin resolver" }),
+      expect.objectContaining({ idCompetencia: 2, notaNumerica: "17.5" }),
+    ])));
+});
+
 test("US-50: publicada entra en modo corrección y exige motivo", async () => {
   const calls = backend({
     "GET /api/evaluaciones/:id": evaluation({ estado: "PUBLICADA" }),
@@ -487,6 +512,29 @@ test("US-50: publicada entra en modo corrección y exige motivo", async () => {
     correcciones: [{ idCalificacion: 50, nivelLogro: "A", version: 2 }],
   });
   expect(calls.filter((c) => c.path === "/api/evaluaciones/10/planilla")).toHaveLength(2);
+});
+
+test("US-50: una corrección numérica envía la nota original editada y su versión", async () => {
+  const calls = backend({
+    "GET /api/evaluaciones/:id/planilla": {
+      ...sheet({ estado: "PUBLICADA" }, [student(1, "Diego", [note(50, 1, "A", { notaNumerica: 15.25 })])]),
+      numeroVersionEscala: 2,
+    },
+    "POST /api/calificaciones/correcciones": [],
+  });
+  const user = userEvent.setup();
+  openSheet();
+  const input = await screen.findByRole("spinbutton", { name: "Nota: Diego, Resuelve problemas" });
+  expect(input.value).toBe("15.25");
+  await user.clear(input);
+  await user.type(input, "15.5");
+  expect(screen.getByText("Resuelve problemas: 15.25 → 15.5")).toBeTruthy();
+  await user.type(screen.getByLabelText(/Motivo de la corrección/), "Revisión de la nota");
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  await screen.findByText("1 corrección guardada.");
+  expect(calls.find(call => call.method === "POST").body).toEqual({
+    motivo: "Revisión de la nota", correcciones: [{ idCalificacion: 50, notaNumerica: "15.5", version: 2 }],
+  });
 });
 
 test("US-50: volver al nivel original quita el cambio pendiente", async () => {

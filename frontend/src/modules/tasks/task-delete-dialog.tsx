@@ -63,8 +63,8 @@ export function TaskDeleteDialog({ task, onClose, onSaved }: {
     busy={busy || count === undefined} error={error} onClose={onClose} onSubmit={submit} noValidate>
     <p className="full-field hint">
       {count === undefined ? "Consultando las entregas de la tarea…"
-        : count ? `La tarea tiene ${count} ${count === 1 ? "entrega" : "entregas"}. Dejará de mostrarse a los estudiantes y apoderados; las entregas se conservarán para su consulta.`
-          : "La tarea dejará de mostrarse a los estudiantes y apoderados. Esta acción no se puede deshacer desde la pantalla."}
+        : count ? `La tarea tiene ${count} ${count === 1 ? "entrega" : "entregas"}. Dejará de mostrarse a los estudiantes; las entregas se conservarán para su consulta.`
+          : "La tarea dejará de mostrarse a los estudiantes. Esta acción no se puede deshacer desde la pantalla."}
     </p>
     {count !== 0 && <label className="field full-field">Motivo{required && <span className="field-required"> *</span>}
       <textarea name="motivo" rows={3} maxLength={REASON_MAX} value={reason} disabled={busy}

@@ -100,6 +100,7 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                 <th scope="col">Tarea</th><th scope="col">Curso / sección</th>
                 <th scope="col">Estado</th><th scope="col">Fecha límite</th>
                 <th scope="col">Puntaje máximo</th>
+                <th scope="col" className={styles.taskWeight}>Peso del componente</th>
                 <th className={styles.deliveriesColumn} scope="col">Entregas</th>
                 <th className={styles.actionsColumn} scope="col">Acciones</th>
               </tr></thead>
@@ -115,13 +116,16 @@ export function Tasks({ canWrite = false, canUpload = false }: { canWrite?: bool
                     ? `${context.curso} · ${context.seccion} · ${context.anioAcademico}`
                     : currentContexts ? "Curso/sección no disponible" : "Cargando curso/sección…"}
                     {retired && <small className={styles.deadlineNotice}>Ya no estás asignado a este curso: solo consulta</small>}</td>
-                  <td data-label="Estado"><StatusPill state={task.estado} tone={tones[task.estado]} />
+                  <td className={styles.taskState} data-label="Estado"><StatusPill state={task.estado} tone={tones[task.estado]} />
                     {task.estado === "PUBLICADA" && new Date(task.fechaLimite).getTime() < now && (
                       <small className={styles.deadlineNotice}>Plazo vencido</small>
                     )}
                   </td>
-                  <td data-label="Fecha límite"><time dateTime={task.fechaLimite}>{fechaLimiteLabel(task.fechaLimite)}</time></td>
-                  <td data-label="Puntaje máximo">{task.puntajeMaximo}<br /><small>Sin peso</small></td>
+                  <td className={styles.taskDeadline} data-label="Fecha límite"><time dateTime={task.fechaLimite}>{fechaLimiteLabel(task.fechaLimite)}</time></td>
+                  <td data-label="Puntaje máximo">{task.puntajeMaximo}</td>
+                  <td className={styles.taskWeight} data-label="Peso del componente">{!task.evaluacionAcademica?.cuentaParaResultadoAcademico
+                    ? "Sin peso" : task.evaluacionAcademica.pesoComponente == null ? "Peso pendiente"
+                      : `${task.evaluacionAcademica.pesoComponente}\u00a0%`}</td>
                   <td data-label="Entregas">{summary
                     ? <span>{summary.entregados} de {summary.totalAlumnos}<span className={styles.srOnly}> estudiantes entregaron</span></span>
                     : <span className={styles.summaryUnavailable}><span aria-hidden="true">—</span><span className={styles.srOnly}>Resumen de entregas no disponible</span></span>}</td>

@@ -56,6 +56,12 @@ public class DetalleInformeProgreso extends AuditableEntity {
     @Column(name = "peso_resultado", length = 40)
     private String pesoResultado;
 
+    @Column(name = "estado_evaluacion", length = 20)
+    private String estadoEvaluacion;
+
+    @Column(name = "nota_numerica", precision = 12, scale = 10)
+    private BigDecimal notaNumerica;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "nivel_logro", length = 2)
     private NivelLogro nivelLogro;

@@ -34,13 +34,16 @@ export function ReportBadge({ status }: { status: "BORRADOR" | "PUBLICADA" }) {
   return <StatusPill state={status} label={status} tone={status === "BORRADOR" ? "warning" : "success"} />;
 }
 
-export function ReportContent({ report, draft = false, sustento }: {
+export function ReportContent({ report, draft = false, partial = false, sustento }: {
   report: ProgressReport;
   draft?: boolean;
+  partial?: boolean;
   sustento: "docente" | "publicado";
 }) {
   const [selection, setSelection] = useState<{ report: ProgressReport; row: ProgressReportRow } | null>(null);
   const [view, setView] = useState({ report, page: 0, type: "" });
+  const [evaluationReport, setEvaluationReport] = useState<ProgressReport | null>(null);
+  const evaluationView = evaluationReport === report;
   const { page, type } = view.report === report ? view : { page: 0, type: "" };
   const evaluations = groupEvaluations(report.filas);
   const types = [...new Set(evaluations.flatMap(([, [row]]) => row.tipoEvaluacion ? [row.tipoEvaluacion] : []))];
@@ -56,8 +59,55 @@ export function ReportContent({ report, draft = false, sustento }: {
   if (sustento === "publicado" && status === "BORRADOR") {
     return <p className={styles.reportNotice}>No hay una libreta publicada para este período y curso.</p>;
   }
+  const hasEffectiveWeight = Boolean(report.reglaCalificacion || report.consolidado?.length);
+  const weightHeading = hasEffectiveWeight ? (status === "BORRADOR" || draft ? "Peso efectivo provisional" : "Peso efectivo") : "Ponderación";
+  const scaleVersions = [...new Set(report.consolidado?.flatMap(item => item.numeroVersionEscala == null
+    ? [] : [item.numeroVersionEscala]))];
+  const groups = new Map<string, { name: string; rows: ProgressReportRow[]; summary?: NonNullable<ProgressReport["consolidado"]>[number] }>();
+  if (!partial) for (const summary of report.consolidado ?? []) {
+    groups.set(String(summary.idCompetencia), { name: summary.nombreCompetencia, rows: [], summary });
+  }
+  for (const row of report.filas) {
+    const key = row.idCompetencia > 0 ? String(row.idCompetencia) : row.competencia;
+    const group = groups.get(key);
+    if (group) group.rows.push(row);
+    else groups.set(key, { name: row.competencia, rows: [row] });
+  }
+
+  function resultTable(rows: ProgressReportRow[], groupedByCompetency: boolean, title: string) {
+    return <div className={styles.reportGroupContent}>
+      <table aria-label={title}>
+        <thead><tr>{[...(groupedByCompetency ? ["Evaluación", "Fecha"] : ["Competencia"]), "Resultado", weightHeading, "Observación", "Sustento"]
+          .map(label => <th key={label} scope="col" className={label === "Resultado" || label === weightHeading ? styles.reportNumeric : undefined}>{label}</th>)}</tr></thead>
+        <tbody>{rows.map(row => <tr key={row.idDetalleInforme > 0 ? row.idDetalleInforme
+          : `${row.idEvaluacion || row.evaluacion}:${row.idCompetencia || row.competencia}`}>
+          <th scope="row">{groupedByCompetency ? <>{row.evaluacion}
+            {row.tipoEvaluacion && <small className="hint"> · {EVALUATION_TYPES[row.tipoEvaluacion] ?? row.tipoEvaluacion}</small>}</> : row.competencia}</th>
+          {groupedByCompetency && <td data-label="Fecha">{row.fecha}</td>}
+          <td data-label="Resultado" className={styles.reportNumeric}>{/^(AD|A|B|C)$/.test(row.resultado) ? <span className={styles.reportGrade}>{row.resultado}</span> : row.resultado}</td>
+          <td data-label={weightHeading} className={styles.reportNumeric}>{row.ponderacion}</td>
+          <td data-label="Observación" className={styles.reportObservation}>{row.observacion || "Sin observaciones"}</td>
+          <td data-label="Sustento" className={styles.reportEvidenceAction}>
+            {showEvidence && row.tieneSustento === true && row.idInforme > 0 && row.idDetalleInforme > 0
+              ? <button type="button" className="secondary-action" aria-haspopup="dialog"
+                aria-label={`Ver sustento de ${row.competencia} en ${row.evaluacion}`}
+                onClick={() => setSelection({ report, row })}>Ver sustento</button>
+              : <span className="hint">{!partial && row.tieneSustento === false ? "Sin sustento registrado" : "Sustento no disponible"}</span>}
+          </td>
+        </tr>)}</tbody>
+      </table>
+    </div>;
+  }
+
   return <article className={`panel ${styles.reportDocument}`} aria-label="Informe de progreso por período">
     <header className={styles.reportCover}>
+      {partial && <p>Informe parcial de progreso</p>}
+      {partial && (report.reglaCalificacion || report.filas.some(row => row.numeroVersionEscala != null)) &&
+        <div className={styles.consolidationVersions}>
+          {report.reglaCalificacion && <span>Regla v{report.reglaCalificacion.numeroVersion}</span>}
+          {[...new Set(report.filas.flatMap(row => row.numeroVersionEscala == null ? [] : [row.numeroVersionEscala]))]
+            .map(scale => <span key={scale}>Escala institucional v{scale}</span>)}
+        </div>}
       <h2>{report.alumno}</h2>
       <div className={styles.reportMeta}>
         <span>Código: {report.codigoAlumno || "Sin código de estudiante"}</span>
@@ -74,17 +124,35 @@ export function ReportContent({ report, draft = false, sustento }: {
       {[["AD", "Logro destacado"], ["A", "Logro esperado"], ["B", "En proceso"], ["C", "En inicio"]].map(([level, label]) =>
         <div key={level}><dt>{level}</dt><dd>{label}</dd></div>)}
     </dl>
-    {report.reglaCalificacion && <section aria-label="Consolidado por competencia">
-      <h3>Consolidado por competencia</h3>
-      <p>Regla de calificación · versión {report.reglaCalificacion.numeroVersion}</p>
-      <p>La columna Ponderación muestra el aporte por evaluación para cada competencia en esta versión.</p>
-      <ul>{report.consolidado?.map((item) => <li key={item.idCompetencia}>
-        {item.nombreCompetencia}: {item.nivelConsolidado ?? "Datos insuficientes"}
-        {item.componentesFaltantes.length > 0 && ` · Faltan: ${item.componentesFaltantes.join(", ")}`}
-      </li>)}</ul>
-    </section>}
-    {!evaluations.length ? <p>No hay resultados disponibles en este informe.</p> : <section className={styles.reportResults}
-      aria-label={status === "BORRADOR" || (!status && draft) ? "Resultados del borrador" : "Resultados de la libreta publicada"}>
+    {!partial && (report.reglaCalificacion || scaleVersions.length > 0) && <div className={styles.consolidationVersions}>
+      {report.reglaCalificacion && <span>Regla v{report.reglaCalificacion.numeroVersion}</span>}
+      {scaleVersions.map(version => <span key={version}>Escala institucional v{version}</span>)}
+    </div>}
+    {!partial && !!evaluations.length && <button type="button" className="secondary-action"
+      onClick={() => setEvaluationReport(evaluationView ? null : report)}>{evaluationView ? "Ver por competencia" : "Ver por evaluación"}</button>}
+    {(partial || !evaluationView) && (groups.size ? <section className={styles.reportResults}
+      aria-label={partial ? "Resultados seleccionados" : "Consolidado por competencia"}>
+      <div className={styles.reportCompetencies}>{[...groups].map(([key, { name, rows, summary }], index) =>
+        <section className={styles.reportCompetency} key={key} aria-label={name}>
+          <header><h3>{name}</h3>
+            {summary && <StatusPill state={summary.nivelConsolidado ?? summary.estadoAvance ?? "PENDIENTE"}
+              label={summary.nivelConsolidado ?? (summary.estadoAvance === "NO_EVALUADA" ? "Aún no evaluada" : "Pendiente")}
+              tone={summary.nivelConsolidado ? "info" : summary.estadoAvance === "NO_EVALUADA" ? "neutral" : "warning"} />}
+          </header>
+          {!!summary?.componentesFaltantes.length && <p className="hint">
+            {summary.estadoAvance ? summary.componentesFaltantes.join(" · ") : `Faltan resultados de ${summary.componentesFaltantes.join(" · ")}`}
+          </p>}
+          {status === "PUBLICADA" && summary && report.conclusionesDescriptivas?.[summary.idCompetencia] && <p className={styles.conclusionText}>
+            <strong>Conclusión descriptiva histórica</strong> {report.conclusionesDescriptivas[summary.idCompetencia]}
+          </p>}
+          {!!rows.length && <details className={styles.resultDetails} open={partial && index === 0}>
+            <summary>Ver detalle del resultado<span className={styles.srOnly}> de {name}</span></summary>
+            {resultTable(rows, true, `Evaluaciones de ${name}`)}
+          </details>}
+        </section>)}</div>
+    </section> : <p>No hay resultados disponibles en este informe.</p>)}
+    {!partial && evaluationView && !!evaluations.length && <section className={styles.reportResults}
+      aria-label={partial ? "Resultados seleccionados" : status === "BORRADOR" || (!status && draft) ? "Resultados del borrador" : "Resultados de la libreta publicada"}>
       {types.length > 1 && <label className={`field ${styles.reportTypeFilter}`}>
         Tipo de evaluación
         <select value={type} onChange={(event) => setView({ report, page: 0, type: event.target.value })}>
@@ -109,22 +177,7 @@ export function ReportContent({ report, draft = false, sustento }: {
               </span>
               <span aria-hidden="true" className={styles.reportChevron} />
             </summary>
-            <div className={styles.reportGroupContent}>
-              <table aria-label={`Competencias de ${evaluation.evaluacion}`}>
-                <thead><tr>{["Competencia", "Resultado", "Ponderación", "Observación", "Sustento"].map((label) => <th key={label} scope="col">{label}</th>)}</tr></thead>
-                <tbody>{rows.map((row, rowIndex) => <tr key={row.idDetalleInforme ?? rowIndex}>
-                  <th scope="row">{row.competencia}</th>
-                  <td data-label="Resultado">{/^(AD|A|B|C)$/.test(row.resultado) ? <span className={styles.reportGrade}>{row.resultado}</span> : row.resultado}</td>
-                  <td data-label="Ponderación">{row.ponderacion}</td>
-                  <td data-label="Observación" className={styles.reportObservation}>{row.observacion}</td>
-                  <td data-label="Sustento" className={styles.reportEvidenceAction}>
-                    {showEvidence && row.idInforme > 0 && row.idDetalleInforme > 0 ? <button type="button" className="secondary-action" aria-haspopup="dialog"
-                      aria-label={`Ver sustento de ${row.competencia} en ${row.evaluacion}`}
-                      onClick={() => setSelection({ report, row })}>Ver sustento</button> : "—"}
-                  </td>
-                </tr>)}</tbody>
-              </table>
-            </div>
+            {resultTable(rows, false, `Competencias de ${evaluation.evaluacion}`)}
           </details>;
         })}
       </div>

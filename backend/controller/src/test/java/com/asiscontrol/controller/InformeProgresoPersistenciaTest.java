@@ -36,6 +36,12 @@ class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
                     new ClassPathResource("db/migration/V29__reglas_calificacion.sql"));
             ScriptUtils.executeSqlScript(connection,
                     new ClassPathResource("db/migration/V30__peso_resultado_libreta.sql"));
+            ScriptUtils.executeSqlScript(connection,
+                    new ClassPathResource("db/migration/V33__escala_publicacion_libreta.sql"));
+            ScriptUtils.executeSqlScript(connection,
+                    new ClassPathResource("db/migration/V35__conclusiones_descriptivas.sql"));
+            ScriptUtils.executeSqlScript(connection,
+                    new ClassPathResource("db/migration/V36__revision_informe_progreso.sql"));
         });
 
         var periodo = new PeriodoAcademico();
@@ -47,6 +53,7 @@ class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
         evaluacion.setPonderacionPorcentaje(new BigDecimal("30.00"));
         evaluacion.setTipoEvaluacion(TipoEvaluacion.values()[0]);
         evaluacion.setPeriodoEvaluacion(PeriodoEvaluacion.BIMESTRAL);
+        evaluacion.setEstado(EstadoEvaluacion.PUBLICADA);
         evaluacion.setCompetencias(Set.of(competence)); em.persist(evaluacion);
         var nota = new Calificacion(); nota.setAlumno(student); nota.setEvaluacion(evaluacion);
         nota.setCompetencia(competence); nota.setNivelLogro(NivelLogro.B);

@@ -8,13 +8,18 @@ import { availableReport, progressReport } from "./report-fixture";
 
 const row = {
   ...progressReport.filas[0],
-  idInforme: 41, idDetalleInforme: 203, idEvaluacion: 18, idCompetencia: 7, idCalificacion: null,
+  idInforme: 41, idDetalleInforme: 203, idEvaluacion: 18, idCompetencia: 7, idCalificacion: null, tieneSustento: true,
 };
 const draft = { ...progressReport, periodo: "Primer bimestre | Version 1 | BORRADOR", filas: [row] };
 const published = { ...draft, periodo: "Primer bimestre | Version 1 | PUBLICADA" };
 const path = "/api/calificaciones/informes/41/filas/203/evidencias";
 const filePath = `${path}/51/archivo`;
-const openEvidence = () => userEvent.click(screen.getByRole("button", { name: /^Ver sustento de/ }));
+async function openEvidence() {
+  await screen.findByRole("region", { name: "Consolidado por competencia" });
+  const detail = document.querySelector("article details");
+  if (detail && !detail.open) await userEvent.click(detail.querySelector("summary"));
+  await userEvent.click(screen.getByRole("button", { name: /^Ver sustento de/ }));
+}
 
 test("un docente consulta el sustento del borrador y descarga el adjunto con su sesión", async () => {
   signIn({ role: "DOCENTE", permissions: ["CALIFICACIONES_LEER"] });
@@ -53,12 +58,52 @@ test("un docente consulta el sustento del borrador y descarga el adjunto con su 
   expect(new Headers(fetch.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer test-token");
 });
 
+test("Distingue pesos efectivos por competencia y muestra la versión una sola vez", async () => {
+  const user = userEvent.setup();
+  render(<ReportContent report={{ ...published, reglaCalificacion: { numeroVersion: 1 },
+    consolidado: [
+      { idCompetencia: 7, nombreCompetencia: row.competencia, nivelConsolidado: "A", numeroVersionEscala: 2, componentesFaltantes: [] },
+      { idCompetencia: 8, nombreCompetencia: "Comunica", nivelConsolidado: null, numeroVersionEscala: 2, componentesFaltantes: ["Proyectos"] },
+      { idCompetencia: 9, nombreCompetencia: "Modela", nivelConsolidado: null, estadoAvance: "NO_EVALUADA", componentesFaltantes: [] },
+    ],
+    filas: [{ ...row, tipoEvaluacion: "EXAMEN", ponderacion: "15 %" },
+      { ...row, idDetalleInforme: 205, idEvaluacion: 20, tipoEvaluacion: "EXAMEN", ponderacion: "15 %" },
+      { ...row, idDetalleInforme: 204, idCompetencia: 8, competencia: "Comunica", tipoEvaluacion: "EXAMEN", ponderacion: "30 %" }],
+  }} />);
+  const summary = within(screen.getByRole("region", { name: "Consolidado por competencia" }));
+  expect(screen.getAllByText("Escala institucional v2")).toHaveLength(1);
+  expect(summary.getByText("Pendiente")).toBeTruthy();
+  const unassessed = summary.getByRole("region", { name: "Modela" });
+  expect(within(unassessed).getByText("Aún no evaluada")).toBeTruthy();
+  expect(unassessed.querySelector("details")).toBeNull();
+  expect(summary.getByText("Faltan resultados de Proyectos")).toBeTruthy();
+  expect([...document.querySelectorAll("article details")].every(detail => !detail.open)).toBe(true);
+  for (const detail of summary.getAllByText(/^Ver detalle del resultado/, { selector: "summary" })) {
+    await user.click(detail);
+  }
+  expect(within(summary.getByRole("region", { name: row.competencia })).getAllByRole("cell", { name: "15 %" })).toHaveLength(2);
+  expect(within(summary.getByRole("region", { name: "Comunica" })).getByRole("cell", { name: "30 %" })).toBeTruthy();
+});
+
+test("un parcial usa claves de competencias aunque sus detalles no estén persistidos", () => {
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  render(<ReportContent partial sustento="docente" report={{ ...draft, filas: [
+    { ...row, idDetalleInforme: 0, tieneSustento: false },
+    { ...row, idDetalleInforme: 0, idEvaluacion: 19, evaluacion: "Examen final", tieneSustento: false },
+    { ...row, idDetalleInforme: 0, idCompetencia: 8, competencia: "Comunica", tieneSustento: false },
+  ] }} />);
+  expect(screen.getByText("Comunica")).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Consolidado por competencia" })).toBeNull();
+  expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+});
+
 test("Agrupa por identificador, expande solo la evaluación elegida y abre el sustento de su competencia", async () => {
   const another = { ...row, idEvaluacion: 19, idDetalleInforme: 204, competencia: "Argumenta" };
   const same = { ...row, idDetalleInforme: 205, competencia: "Modela" };
   const calls = fakeBackend({ "GET /api/calificaciones/informes/41/filas/204/evidencias": { evidencias: [] } });
   const user = userEvent.setup();
   const { container } = render(<ReportContent report={{ ...draft, filas: [row, another, same] }} sustento="docente" />);
+  await user.click(screen.getByRole("button", { name: "Ver por evaluación" }));
   const [first, second] = container.querySelectorAll("details");
   expect(first.open).toBe(true);
   expect(second.open).toBe(false);
@@ -81,6 +126,7 @@ test("Numera el listado en orden cronológico, pagina de cinco en cinco y actual
   })).reverse();
   const user = userEvent.setup();
   const { container } = render(<ReportContent report={{ ...draft, filas: rows }} sustento="docente" />);
+  await user.click(screen.getByRole("button", { name: "Ver por evaluación" }));
   const groups = () => [...container.querySelectorAll("details")];
   const numbers = () => groups().map((group) => group.querySelector("summary").firstElementChild.textContent);
   expect(screen.getByText("8 evaluaciones")).toBeTruthy();
@@ -171,7 +217,7 @@ test.each([
     expect(screen.queryByText("BORRADOR")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Ver sustento de/ })).toBeNull();
   } else {
-    await user.click(await screen.findByRole("button", { name: /^Ver sustento de/ }));
+    await openEvidence();
     await screen.findByText("No hay sustento disponible para esta competencia.");
   }
 });

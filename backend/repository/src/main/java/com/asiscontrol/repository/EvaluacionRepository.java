@@ -11,10 +11,13 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Evaluacion e where e.id = :id and e.activo = true")
+    Optional<Evaluacion> buscarActivaParaEscritura(Long id);
 
     @Query("""
             SELECT DISTINCT e FROM Evaluacion e LEFT JOIN FETCH e.competencias
-            WHERE e.activo = true AND e.asignacionCurso.id = :asignacion
+            WHERE e.activo = true AND e.cuentaResultado = true AND e.asignacionCurso.id = :asignacion
             AND e.fechaEvaluacion BETWEEN :inicio AND :fin
             AND e.estado IN (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                             com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
@@ -26,7 +29,7 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
     @Query("""
             SELECT DISTINCT alumno, e FROM Matricula m JOIN m.alumno alumno, Evaluacion e
             JOIN e.asignacionCurso a
-            WHERE m.activo = true AND alumno.activo = true AND e.activo = true AND a.activo = true
+            WHERE m.activo = true AND alumno.activo = true AND e.activo = true AND e.cuentaResultado = true AND a.activo = true
             AND m.seccion = a.seccion
             AND m.estado IN (com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
                              com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA)
@@ -44,7 +47,7 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            SELECT e FROM Evaluacion e WHERE e.activo = true
+            SELECT e FROM Evaluacion e WHERE e.activo = true AND e.cuentaResultado = true
             AND e.asignacionCurso.id = :asignacion
             AND e.fechaEvaluacion BETWEEN :inicio AND :fin
             AND e.estado = com.asiscontrol.entity.enums.EstadoEvaluacion.BORRADOR
@@ -59,6 +62,10 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
             SELECT e FROM Evaluacion e
             WHERE e.activo = true
               AND (:estado IS NULL OR e.estado = :estado)
+              AND (:vinculables = false OR (e.cuentaResultado = true
+                   AND e.estado <> com.asiscontrol.entity.enums.EstadoEvaluacion.ANULADA
+                   AND NOT EXISTS (SELECT t.id FROM Tarea t WHERE t.evaluacionAcademica = e
+                                   AND (:tareaActual IS NULL OR t.id <> :tareaActual))))
               AND (:idAsignacionCurso IS NULL OR e.asignacionCurso.id = :idAsignacionCurso)
               AND (:periodo IS NULL OR e.periodoEvaluacion = :periodo)
               AND (:idCurso IS NULL OR e.asignacionCurso.curso.id = :idCurso)
@@ -66,7 +73,7 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
               AND (:personaDocenteId IS NULL
                    OR e.asignacionCurso.docente.persona.id = :personaDocenteId)
               AND (:personaAlumnoId IS NULL OR (
-                    e.estado IN (
+                    e.cuentaResultado = true AND e.estado IN (
                         com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                         com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
                     )
@@ -79,7 +86,7 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
                     )
                   ))
               AND (:personaApoderadoId IS NULL OR (
-                    e.estado IN (
+                    e.cuentaResultado = true AND e.estado IN (
                         com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                         com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
                     )
@@ -107,6 +114,8 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
             @Param("personaDocenteId") Long personaDocenteId,
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,
+            @Param("vinculables") boolean vinculables,
+            @Param("tareaActual") Long tareaActual,
             Pageable pageable
     );
 }

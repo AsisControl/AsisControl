@@ -3,6 +3,7 @@ package com.asiscontrol.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.asiscontrol.entity.Alumno;
@@ -115,6 +116,77 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
                 "version", tarea.path("version").asLong(), "motivo", motivo);
     }
 
+    @Test
+    void unaTareaPonderadaUsaLaEvaluacionUnaSolaVez() throws Exception {
+        String reglas = "/api/reglas-calificacion";
+        var regla = putOk(reglas + "/borrador", data("idCurso", course.getId(), "idGrado", grade.getId(),
+                "formula", "PROMEDIO_PONDERADO", "componentes",
+                List.of(data("tipoEvaluacion", "EXAMEN", "nombre", "Exámenes", "peso", 100))));
+        request("POST", reglas + "/" + regla.path("id").asLong() + "/activar",
+                data("version", regla.path("version").asLong(), "motivo", "Acuerdo académico"), 200);
+
+        var datos = datosTarea(limite);
+        datos.put("cuentaParaResultadoAcademico", true);
+        datos.put("nuevaEvaluacion", data("tipoEvaluacion", "PROYECTO", "fechaEvaluacion", "2090-03-10",
+                "idsCompetencia", List.of(competence.getId())));
+        assertThat(request("POST", TAREAS, datos, 422).path("code").asText()).isEqualTo("COMPONENTE_NO_VIGENTE");
+
+        datos.put("nuevaEvaluacion", data("tipoEvaluacion", "EXAMEN", "fechaEvaluacion", "2090-03-10",
+                "idsCompetencia", List.of(competence.getId())));
+        mvc.perform(post(TAREAS).with(comoDocente(teacher)).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(datos))).andExpect(status().isForbidden());
+        var evaluacion = postOk(TAREAS, datos).path("evaluacionAcademica");
+        assertThat(evaluacion.path("cuentaParaResultadoAcademico").asBoolean()).isTrue();
+        assertThat(evaluacion.path("pesoComponente").decimalValue()).isEqualByComparingTo("100");
+        datos.remove("nuevaEvaluacion");
+        datos.put("idEvaluacionAcademica", evaluacion.path("id").asLong());
+        assertThat(request("POST", TAREAS, datos, 409).path("code").asText()).isEqualTo("EVALUACION_YA_VINCULADA");
+    }
+
+    @Test
+    void registraCeroSoloSinEntregaYNuncaPublicaElResultadoDeLaTareaSinPeso() throws Exception {
+        String escalas = "/api/escala-institucional";
+        var escala = putOk(escalas + "/borrador", data("rangos", List.of(
+                data("nivel", "C", "minimo", 0, "maximo", 8),
+                data("nivel", "B", "minimo", 9, "maximo", 12),
+                data("nivel", "A", "minimo", 13, "maximo", 17),
+                data("nivel", "AD", "minimo", 18, "maximo", 20))));
+        request("POST", escalas + "/" + escala.path("id").asLong() + "/activar",
+                data("version", escala.path("version").asLong(), "motivo", "Escala de prueba"), 200);
+
+        Alumno entrego = matricularOtroAlumno();
+        var datos = datosTarea(limite);
+        datos.put("competenciasSinPeso", data("fechaEvaluacion", "2090-03-10",
+                "idsCompetencia", List.of(competence.getId())));
+        var tarea = postOk(TAREAS, datos);
+        var evaluacion = tarea.path("evaluacionAcademica");
+        assertThat(evaluacion.path("cuentaParaResultadoAcademico").asBoolean(true)).isFalse();
+        String path = TAREAS + "/" + tarea.path("id").asLong();
+        var publicada = request("POST", path + "/publicar", null, 200);
+        assertThat(publicada.path("evaluacionAcademica").path("estado").asText()).isEqualTo("BORRADOR");
+        entregar(publicada, entrego);
+        String masiva = path + "/calificaciones-sin-entrega";
+        request("GET", masiva, null, 422);
+        em.find(com.asiscontrol.entity.Tarea.class, tarea.path("id").asLong())
+                .setEstadoPublicacion(com.asiscontrol.entity.enums.EstadoPublicacionTarea.CERRADA);
+        em.flush();
+        assertThat(getOk(masiva).path("alumnos")).hasSize(1);
+        var seleccion = data("alumnos", List.of(student.getId()), "competencias", List.of(competence.getId()), "nota", 5.5);
+        assertThat(request("POST", masiva, seleccion, 200).path("calificaciones").asInt()).isEqualTo(1);
+        request("POST", masiva, seleccion, 409);
+        assertThat(getOk(masiva).path("alumnos")).isEmpty();
+        var seguimiento = getOk(path + "/seguimiento");
+        assertThat(seguimiento.path("entregados").asInt()).isEqualTo(1);
+        assertThat(seguimiento.path("calificados").asInt()).isEqualTo(1);
+        var notas = em.createQuery("select c from Calificacion c where c.evaluacion.id = :id",
+                        com.asiscontrol.entity.Calificacion.class)
+                .setParameter("id", evaluacion.path("id").asLong()).getResultList();
+        assertThat(notas).singleElement().satisfies(nota -> {
+            assertThat(nota.getAlumno().getId()).isEqualTo(student.getId());
+            assertThat(nota.getNotaNumerica()).isEqualByComparingTo("5.5");
+        });
+    }
+
     private JsonNode tareaPublicada() throws Exception {
         long id = postOk(TAREAS, datosTarea(limite)).path("id").asLong();
         return request("POST", TAREAS + "/" + id + "/publicar", null, 200);
@@ -135,18 +207,20 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
         JsonNode tarea = tareaPublicada();
         long id = tarea.path("id").asLong();
 
-        JsonNode editada = putOk(TAREAS + "/" + id, edicion(tarea, limite.plusDays(1), 25, null));
+        assertThat(request("PUT", TAREAS + "/" + id, edicion(tarea, limite.plusDays(1), 25, null), 422)
+                .path("code").asText()).isEqualTo("TAREA_PUNTAJE_FIJO");
+        JsonNode editada = putOk(TAREAS + "/" + id, edicion(tarea, limite.plusDays(1), 20, null));
 
         assertThat(editada.path("nombre").asText()).isEqualTo("Fracciones II");
         assertThat(editada.path("estado").asText()).isEqualTo("PUBLICADA");
-        assertThat(editada.path("puntajeMaximo").asInt()).isEqualTo(25);
+        assertThat(editada.path("puntajeMaximo").asInt()).isEqualTo(20);
         assertThat(editada.path("fechaPublicacion").asText()).isEqualTo(tarea.path("fechaPublicacion").asText());
 
-        Map<String, Object> reprogramada = edicion(editada, limite.plusDays(1), 25, null);
+        Map<String, Object> reprogramada = edicion(editada, limite.plusDays(1), 20, null);
         reprogramada.put("fechaPublicacion", LocalDateTime.now().plusDays(1).withNano(0).toString());
         assertThat(request("PUT", TAREAS + "/" + id, reprogramada, 422).path("code").asText())
                 .isEqualTo("TAREA_PUBLICACION_NO_EDITABLE");
-        Map<String, Object> vencida = edicion(editada, LocalDateTime.now().minusMinutes(1).withNano(0), 25, null);
+        Map<String, Object> vencida = edicion(editada, LocalDateTime.now().minusMinutes(1).withNano(0), 20, null);
         assertThat(request("PUT", TAREAS + "/" + id, vencida, 422).path("code").asText())
                 .isIn("TAREA_FECHA_LIMITE_VENCIDA", "TAREA_RANGO_FECHAS_INVALIDO");
     }
@@ -179,12 +253,15 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
     }
 
     @Test
-    void noBajaElPuntajeDebajoDeUnaNotaNiEditaTareasCerradas() throws Exception {
+    void noBajaElPuntajeDebajoDeUnaNotaHistoricaNiEditaTareasCerradas() throws Exception {
         JsonNode tarea = tareaPublicada();
         long id = tarea.path("id").asLong();
+        em.find(com.asiscontrol.entity.Tarea.class, id).setPuntajeMaximoFijo(false);
+        em.flush();
         JsonNode entrega = entregar(tarea, student);
-        request("POST", "/api/entregas/" + entrega.path("id").asLong() + "/calificar",
-                data("nota", 18, "comentario", null, "version", entrega.path("version").asLong()), 200);
+        var calificada = request("POST", "/api/entregas/" + entrega.path("id").asLong() + "/calificar",
+                data("nota", 17.75, "comentario", null, "version", entrega.path("version").asLong()), 200);
+        assertThat(calificada.path("nota").decimalValue()).isEqualByComparingTo("17.75");
 
         JsonNode error = request("PUT", TAREAS + "/" + id, edicion(tarea, limite, 15, null), 422);
         assertThat(error.path("code").asText()).isEqualTo("TAREA_PUNTAJE_MENOR_A_NOTAS");

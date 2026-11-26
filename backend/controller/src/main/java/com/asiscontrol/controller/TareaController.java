@@ -4,7 +4,8 @@ import com.asiscontrol.dto.tarea.TareaDtos.ActualizarTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.CrearTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.EliminarTareaRequest;
 import com.asiscontrol.dto.tarea.TareaDtos.TareaResponse;
-import com.asiscontrol.dto.tarea.TareaDtos.TareaFamiliaResponse;
+import com.asiscontrol.dto.tarea.TareaDtos.CerosFaltantes;
+import com.asiscontrol.dto.tarea.TareaDtos.ConfirmarCeros;
 import com.asiscontrol.service.TareaService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import jakarta.validation.Valid;
@@ -69,12 +70,13 @@ public class TareaController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@moduloAccessGuard.puedeAccederTarea(#id)")
+    @PreAuthorize("hasAuthority('TAREAS_LEER') and !hasRole('APODERADO') and @moduloAccessGuard.puedeAccederTarea(#id)")
     public TareaResponse obtener(@PathVariable Long id) {
         return tareaService.obtener(id);
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('TAREAS_LEER') and !hasRole('APODERADO')")
     public Page<TareaResponse> listar(
             @RequestParam(required = false) Long asignacionCursoId,
             @PageableDefault(size = 20, sort = "fechaCreacion") Pageable pageable) {
@@ -86,11 +88,29 @@ public class TareaController {
                 pageable);
     }
 
-    @GetMapping("/familia")
-    @PreAuthorize("hasAuthority('TAREAS_LEER') and hasRole('APODERADO') and @moduloAccessGuard.puedeAccederAlumno(#alumnoId)")
-    public Page<TareaFamiliaResponse> listarParaFamilia(@RequestParam Long alumnoId,
-            @PageableDefault(size = 20, sort = "fechaLimite") Pageable pageable) {
-        return tareaService.listarParaFamilia(alumnoId, pageable);
+    @GetMapping("/{id}/calificaciones-sin-entrega")
+    @PreAuthorize("hasAuthority('TAREAS_ESCRIBIR') and hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public com.asiscontrol.dto.tarea.TareaDtos.SinEntregaDisponible sinEntrega(@PathVariable Long id) {
+        return tareaService.sinEntrega(id);
+    }
+
+    @PostMapping("/{id}/calificaciones-sin-entrega")
+    @PreAuthorize("hasAuthority('TAREAS_ESCRIBIR') and hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public CerosFaltantes calificarSinEntrega(@PathVariable Long id,
+            @Valid @RequestBody com.asiscontrol.dto.tarea.TareaDtos.SinEntregaRequest request) {
+        return tareaService.calificarSinEntrega(id, request);
+    }
+
+    @GetMapping("/{id}/ceros-faltantes")
+    @PreAuthorize("hasAuthority('TAREAS_ESCRIBIR') and hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public CerosFaltantes previsualizarCeros(@PathVariable Long id) {
+        return tareaService.previsualizarCeros(id);
+    }
+
+    @PostMapping("/{id}/ceros-faltantes")
+    @PreAuthorize("hasAuthority('TAREAS_ESCRIBIR') and hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public CerosFaltantes confirmarCeros(@PathVariable Long id, @Valid @RequestBody ConfirmarCeros request) {
+        return tareaService.confirmarCeros(id, request.estudiantesEsperados());
     }
 
     @DeleteMapping("/{id}")

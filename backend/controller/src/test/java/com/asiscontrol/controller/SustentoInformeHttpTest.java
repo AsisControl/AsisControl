@@ -57,7 +57,8 @@ class SustentoInformeHttpTest extends ApiIntegrationSupport {
                     .andExpect(jsonPath("$.filas[0].idDetalleInforme").value(detalle.getId()))
                     .andExpect(jsonPath("$.filas[0].idEvaluacion").value(evaluacion.getId()))
                     .andExpect(jsonPath("$.filas[0].idCompetencia").value(competence.getId()))
-                    .andExpect(jsonPath("$.filas[0].idCalificacion").value(detalle.getCalificacion().getId()));
+                    .andExpect(jsonPath("$.filas[0].idCalificacion").value(detalle.getCalificacion().getId()))
+                    .andExpect(jsonPath("$.filas[0].tieneSustento").value(true));
             mvc.perform(get(url()).with(usuario)).andExpect(status().isOk())
                     .andExpect(header().string("Cache-Control","no-store"))
                     .andExpect(jsonPath("$.evidencias.length()").value(1))
@@ -82,6 +83,10 @@ class SustentoInformeHttpTest extends ApiIntegrationSupport {
         var response = mvc.perform(post(base).with(docente).contentType("application/json").content(alta))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.evaluaciones.length()").value(0)).andReturn();
         var id = json.readTree(response.getResponse().getContentAsString()).path("id").asLong();
+        String avance = "/api/calificaciones/avance?idAlumno=" + student.getId() + "&idAsignacionCurso="
+                + assignment.getId() + "&idPeriodoAcademico=" + periodo.getId();
+        mvc.perform(get(avance).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].tieneSustento").value(false));
         mvc.perform(get(url()).with(docente)).andExpect(status().isOk()).andExpect(jsonPath("$.evidencias.length()").value(0));
 
         String vinculo = base + "/" + id + "/evaluaciones/" + evaluacion.getId();

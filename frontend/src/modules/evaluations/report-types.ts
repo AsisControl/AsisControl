@@ -54,13 +54,19 @@ export type ProgressReportRow = ReportRowReferences & {
   observacion: string;
   tipoEvaluacion?: string;
   estadoEvaluacion?: EvaluationState;
+  tieneSustento?: boolean;
+  numeroVersionEscala?: number | null;
 };
 
 /** ReporteAvanceDto: contenido de una versión persistida de la libreta. */
 export type ProgressReport = {
+  versionBorrador?: number | null;
+  competenciasCConsecutivas?: number[];
+  conclusionesDescriptivas?: Record<string, string>;
   reglaCalificacion?: { id: number; numeroVersion: number; formula: string } | null;
   consolidado?: { idCompetencia: number; nombreCompetencia: string; nivelConsolidado: string | null;
-    promedioPonderado: number | null; componentesFaltantes: string[] }[];
+    estadoAvance?: "CONSOLIDADA" | "PENDIENTE" | "NO_EVALUADA";
+    promedioPonderado: number | null; numeroVersionRegla?: number | null; numeroVersionEscala?: number | null; componentesFaltantes: string[] }[];
   alumno: string;
   codigoAlumno: string | null;
   curso: string;

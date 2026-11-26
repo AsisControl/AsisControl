@@ -25,7 +25,7 @@ public final class ReglaCalificacionDto {
             @NotEmpty @Size(max = 5) List<@NotNull @Valid Componente> componentes,
             @PositiveOrZero Long version) {}
 
-    public record Activacion(@NotNull @PositiveOrZero Long version) {}
+    public record Activacion(@NotNull @PositiveOrZero Long version, @NotBlank @Size(max = 300) String motivo) {}
 
     public record Regla(Long id, Long idCurso, Long idGrado, int numeroVersion, Estado estado,
                         Formula formula, List<Componente> componentes, long version) {}
@@ -40,4 +40,15 @@ public final class ReglaCalificacionDto {
 
     public record Resultado(BigDecimal promedioPonderado, NivelLogro nivelConsolidado,
                             int evaluacionesConsideradas, List<String> componentesFaltantes) {}
+
+    public record MuestraNumerica(@NotNull TipoEvaluacion tipoEvaluacion,
+                                  @DecimalMin("0") @DecimalMax("20") BigDecimal nota) {}
+
+    public record VistaPreviaNumerica(@NotNull Formula formula,
+            @NotEmpty @Size(max = 5) List<@NotNull @Valid Componente> componentes,
+            @NotNull @Size(max = 50) List<@NotNull @Valid MuestraNumerica> muestra) {}
+
+    public record ResultadoNumerico(BigDecimal promedioPonderado, Integer notaRedondeada, NivelLogro nivelConsolidado,
+                                    int numeroVersionEscala, int evaluacionesConsideradas,
+                                    List<String> componentesFaltantes) {}
 }

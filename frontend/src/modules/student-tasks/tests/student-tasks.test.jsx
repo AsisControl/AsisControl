@@ -41,7 +41,7 @@ describe("Tareas del estudiante", () => {
     const fetch = backend((url, options) => {
       if (url.pathname === "/api/archivos") return response(second, 201);
       if (options.method === "PUT") {
-        expect(JSON.parse(options.body)).toEqual({ archivoIds: [72], version: 0 });
+        expect(JSON.parse(options.body)).toEqual({ archivoIds: [72], respuesta: "", version: 0 });
         return response({ ...delivery, archivos: [second], version: 1 });
       }
       return response(delivery);
@@ -77,7 +77,7 @@ describe("Tareas del estudiante", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
     const put = fetch.mock.calls.find(([, options]) => options.method === "PUT");
-    expect(JSON.parse(put[1].body)).toEqual({ archivoIds: [71], version: 1 });
+    expect(JSON.parse(put[1].body)).toEqual({ archivoIds: [71], respuesta: "", version: 1 });
     expect(fetch.mock.calls.some(([url]) => url.endsWith("/api/archivos"))).toBe(false);
   });
 
@@ -98,7 +98,8 @@ describe("Tareas del estudiante", () => {
     expect(onSaved).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Guardar cambios" }).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Recargar entrega" }));
-    await screen.findByText("0 / 20");
+    await screen.findByText("Calificada");
+    expect(screen.queryByText("0 / 20")).toBeNull();
     expect(screen.queryByRole("button", { name: "Editar entrega" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Guardar cambios" })).toBeNull();
   });
@@ -115,7 +116,7 @@ describe("Tareas del estudiante", () => {
         return response(file, 201);
       }
       expect(url.pathname).toBe("/api/tareas/8/entregas");
-      expect(JSON.parse(options.body)).toEqual({ alumnoId: 23, archivoIds: [71] });
+      expect(JSON.parse(options.body)).toEqual({ alumnoId: 23, archivoIds: [71], respuesta: "" });
       saved = true; return response(delivery, 201);
     });
     render(<StudentTasks />);
@@ -128,6 +129,45 @@ describe("Tareas del estudiante", () => {
     await screen.findByText("Tu trabajo se entregó correctamente.");
     await screen.findByRole("button", { name: "Ver detalle de Fracciones" });
     expect(fetch.mock.calls.filter(([url, options]) => url.endsWith("/entregas") && options.method === "POST")).toHaveLength(1);
+  });
+
+  it("admite una respuesta escrita cuando la tarea permite cero archivos", async () => {
+    const fetch = backend((url, options) => {
+      expect(url.pathname).toBe("/api/tareas/8/entregas");
+      expect(JSON.parse(options.body)).toEqual({ alumnoId: 23, archivoIds: [], respuesta: "Mi explicación" });
+      return response({ ...delivery, respuesta: "Mi explicación", archivos: [] }, 201);
+    });
+    const onSaved = vi.fn();
+    render(<TaskDialog task={{ ...task, tarea: { ...task.tarea, maxArchivosEntrega: 0 } }} onClose={vi.fn()} onSaved={onSaved} />);
+    const send = screen.getByRole("button", { name: "Entregar trabajo" });
+    const answer = screen.getByRole("textbox", { name: "Respuesta" });
+    fireEvent.change(answer, { target: { value: "   " } });
+    expect(send.disabled).toBe(true);
+    expect(screen.queryByLabelText("Selecciona los archivos de tu trabajo")).toBeNull();
+    fireEvent.change(answer, { target: { value: "  Mi explicación  " } });
+    fireEvent.click(send);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("adjunta archivos y conserva la respuesta escrita al ver una entrega calificada", async () => {
+    const graded = { ...delivery, respuesta: "Explicación del estudiante", comentario: "Comentario docente", estado: "CALIFICADO" };
+    const fetch = backend((url, options) => {
+      if (url.pathname === "/api/archivos") return response(file, 201);
+      expect(JSON.parse(options.body)).toEqual({ alumnoId: 23, archivoIds: [71], respuesta: graded.respuesta });
+      return response(graded, 201);
+    });
+    const onSaved = vi.fn();
+    const view = render(<TaskDialog task={task} onClose={vi.fn()} onSaved={onSaved} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Respuesta" }), { target: { value: graded.respuesta } });
+    fireEvent.change(screen.getByLabelText("Selecciona los archivos de tu trabajo"), { target: { files: [new File(["%PDF"], "trabajo.pdf")] } });
+    fireEvent.click(screen.getByRole("button", { name: "Entregar trabajo" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    expect(fetch).toHaveBeenCalledTimes(2);
+    view.unmount();
+    render(<TaskDialog task={{ ...task, entrega: graded }} onClose={vi.fn()} onSaved={onSaved} />);
+    expect(screen.getByText(graded.respuesta)).toBeTruthy();
+    expect(screen.getByText(graded.comentario)).toBeTruthy();
   });
 
   it("conserva el formulario y reutiliza archivos cargados al reintentar un error", async () => {
@@ -192,13 +232,14 @@ describe("Tareas del estudiante", () => {
     });
   });
 
-  it("muestra nota y descarga autenticada; una tarea cerrada no ofrece entregar", async () => {
+  it("muestra el estado sin revelar la nota y conserva la descarga autenticada", async () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     URL.createObjectURL = vi.fn(() => "blob:archivo");
     URL.revokeObjectURL = vi.fn();
     const fetch = backend(() => ({ ok: true, status: 200, blob: async () => new Blob(["pdf"]) }));
     const { rerender } = render(<TaskDialog task={{ ...task, entrega: { ...delivery, estado: "CALIFICADO", nota: 18, comentario: "Buen trabajo. Revisa el segundo ejercicio." } }} onClose={vi.fn()} onSaved={vi.fn()} />);
-    expect(screen.getByText("18 / 20")).toBeTruthy();
+    expect(screen.getByText("Calificada")).toBeTruthy();
+    expect(screen.queryByText("18 / 20")).toBeNull();
     expect(screen.getByRole("region", { name: "Comentario del profesor" }).textContent).toContain("Buen trabajo. Revisa el segundo ejercicio.");
     expect(screen.queryByRole("button", { name: "Entregar trabajo" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Descargar" }));

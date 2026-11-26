@@ -43,6 +43,7 @@ export type EvaluationInput = {
   idsCompetencia: number[];
 };
 export type GradeCell = {
+  notaNumerica?: number | null;
   pesoEfectivo?: number | null;
   idCalificacion: number;
   idCompetencia: number;
@@ -57,8 +58,10 @@ export type GradeSheetStudent = {
   nombreCompleto: string;
   notas: GradeCell[];
 };
-export type GradeSheetData = { evaluacion: Evaluation; alumnos: GradeSheetStudent[] };
+export type GradeSheetData = { evaluacion: Evaluation; alumnos: GradeSheetStudent[]; numeroVersionEscala?: number | null };
 export type CorrectionEntry = {
+  notaAnterior?: number | null;
+  notaNueva?: number | null;
   numeroVersion: number;
   nivelAnterior: AchievementLevel;
   nivelNuevo: AchievementLevel;
@@ -72,6 +75,7 @@ export type ConsolidatedLevel = {
   nivelConsolidado: AchievementLevel | null;
   evaluacionesConsideradas: number;
   componentesFaltantes?: string[];
+  estadoAvance?: "CONSOLIDADA" | "PENDIENTE" | "NO_EVALUADA";
   numeroVersionRegla?: number;
 };
 /** Asignación propia del docente (AsignacionCursoResponse). */

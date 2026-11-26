@@ -107,7 +107,7 @@ test("2. Si falla el guardado del lote se ve el error y se conservan los niveles
   await user.click(button);
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
   expect(await screen.findByText("El alumno no está matriculado en la sección")).toBeTruthy();
-  expect(screen.queryByText(/Niveles guardados/)).toBeNull();
+  expect(screen.queryByText(/Calificaciones guardadas/)).toBeNull();
   expect(button.getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByRole("button", { name: "Guardar evaluación" }).disabled).toBe(false);
 });
@@ -120,7 +120,7 @@ test("3. Tras guardar en borrador recarga la planilla y avisa que se publica des
   expect(calls.filter((c) => c.path === "/api/evaluaciones/10/planilla")).toHaveLength(1);
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
   expect(
-    await screen.findByText("Niveles guardados. Publica la evaluación desde Mis evaluaciones cuando esté completa."),
+    await screen.findByText("Calificaciones guardadas. Publica la evaluación desde Mis evaluaciones cuando esté lista."),
   ).toBeTruthy();
   await waitFor(() => expect(calls.filter((c) => c.path === "/api/evaluaciones/10/planilla")).toHaveLength(2));
 });
@@ -131,7 +131,7 @@ test("4. En borrador el guardado usa el lote y nunca la corrección", async () =
   openSheet();
   await user.click(await screen.findByRole("button", { name: level("B", ANA, "Razona en geometría") }));
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
-  await screen.findByText(/Niveles guardados/);
+  await screen.findByText(/Calificaciones guardadas/);
   expect(puts(calls, "/api/calificaciones/lote")).toHaveLength(1);
   expect(calls.some((c) => c.path === "/api/calificaciones/correcciones")).toBe(false);
 });
@@ -178,7 +178,7 @@ test("7. Con la planilla incompleta la publicación se bloquea: el diálogo sigu
   await user.click(within(row).getByRole("button", { name: "Publicar" }));
   const dialog = screen.getByRole("dialog", { name: "Publicar evaluación" });
   await user.click(within(dialog).getByRole("button", { name: "Publicar evaluación" }));
-  expect(await within(dialog).findByText(/Faltan 3 niveles por registrar antes de publicar la evaluacion\. Completa la planilla con Calificar\./)).toBeTruthy();
+  expect(await within(dialog).findByText(/Faltan 3 notas por registrar\. Completa la planilla con Calificar\./)).toBeTruthy();
   expect(screen.queryByText("Evaluación publicada.")).toBeNull();
   expect(screen.getByRole("dialog", { name: "Publicar evaluación" })).toBeTruthy();
   expect(calls.filter((c) => c.path === "/api/evaluaciones" && c.method === "GET")).toHaveLength(1);

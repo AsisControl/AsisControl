@@ -56,6 +56,9 @@ public class Calificacion extends AuditableEntity {
     @Column(name = "nivel_logro", nullable = false, length = 2)
     private NivelLogro nivelLogro;
 
+    @Column(name = "nota_numerica", precision = 12, scale = 10)
+    private java.math.BigDecimal notaNumerica;
+
     @Column(name = "observacion", length = 1000)
     private String observacion;
 

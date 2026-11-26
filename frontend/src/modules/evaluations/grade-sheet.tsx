@@ -16,7 +16,7 @@ const noteOf = (student: GradeSheetStudent, idCompetencia: number) =>
   student.notas.find((note) => note.idCompetencia === idCompetencia);
 
 /**
- * Planilla de niveles por estudiante y competencia (US-18). En borrador se registran libremente;
+ * Planilla de calificaciones por estudiante y competencia (US-18). En borrador se registran libremente;
  * publicada entra en modo corrección y cada cambio exige motivo (US-50); después es de consulta.
  */
 export function GradeSheet({
@@ -33,6 +33,7 @@ export function GradeSheet({
   const [loadError, setLoadError] = useState("");
   const [tick, setTick] = useState(0);
   const [changes, setChanges] = useState<Map<string, AchievementLevel>>(new Map());
+  const [numericChanges, setNumericChanges] = useState<Map<string, string>>(new Map());
   const [observations, setObservations] = useState<Map<string, string>>(new Map());
   const [motivo, setMotivo] = useState("");
   const [motivoError, setMotivoError] = useState("");
@@ -55,12 +56,20 @@ export function GradeSheet({
       active = false;
     };
   }, [evaluationId, tick]);
+  useEffect(() => {
+    if (sheet && /^#alumno-\d+$/.test(window.location.hash)) {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView?.({ block: "center" });
+    }
+  }, [sheet]);
   if (loadError) return <Feedback error={loadError} />;
   if (!sheet) return <Loading rows={6} columns={5}>Cargando planilla…</Loading>;
   const { evaluacion, alumnos } = sheet;
   const draft = evaluacion.estado === "BORRADOR";
   const correction = evaluacion.estado === "PUBLICADA";
   const editable = canWrite && (draft || correction);
+  const numericDraft = draft && sheet.numeroVersionEscala !== undefined;
+  const validGrade = (value: string) => /^\d{1,2}(?:\.\d{1,10})?$/.test(value) && Number(value) <= 20;
+  const invalidNumeric = [...numericChanges.values()].some(value => !validGrade(value));
   // El backend las entrega como conjunto: sin ordenar, las columnas cambiarían al recargar.
   const competencias = evaluacion.competencias
     .filter((item) => competencyId === null || item.id === competencyId)
@@ -81,17 +90,19 @@ export function GradeSheet({
     competencia: string;
     idCompetencia: number;
     note: GradeCell | undefined;
-    level: AchievementLevel;
+    level?: AchievementLevel;
+    numeric?: string;
     observacion: string | null;
   };
   const observationWithoutLevel = draft && alumnos.some((person) =>
     evaluacion.competencias.some((item) => {
       const key = cellKey(person.idAlumno, item.id);
-      return Boolean(observations.get(key)?.trim()) && !changes.has(key) && !noteOf(person, item.id)?.nivelLogro;
+      return Boolean(observations.get(key)?.trim()) && !changes.has(key) && !numericChanges.has(key)
+        && !noteOf(person, item.id)?.nivelLogro;
     }),
   );
   const pending: Pending[] = alumnos.flatMap((person) =>
-    evaluacion.competencias.flatMap((item) => {
+    evaluacion.competencias.flatMap<Pending>((item) => {
       const key = cellKey(person.idAlumno, item.id);
       const note = noteOf(person, item.id);
       const changedLevel = changes.get(key);
@@ -99,9 +110,15 @@ export function GradeSheet({
       const savedObservation = note?.observacion ?? null;
       const observationChanged = editedObservation !== undefined && editedObservation !== (savedObservation ?? "").trim();
       const level = changedLevel ?? note?.nivelLogro;
+      const numeric = numericChanges.get(key);
+      const observacion = observationChanged ? editedObservation || null : savedObservation;
+      if (numeric !== undefined || (observationChanged && note?.notaNumerica != null)) {
+        return [{ person, competencia: item.nombre, idCompetencia: item.id, note,
+          numeric: numeric ?? String(note!.notaNumerica), observacion }];
+      }
       return level && (changedLevel || observationChanged)
         ? [{ person, competencia: item.nombre, idCompetencia: item.id, note, level,
-            observacion: observationChanged ? editedObservation || null : savedObservation }]
+            observacion }]
         : [];
     }),
   );
@@ -109,11 +126,13 @@ export function GradeSheet({
     (count, person) =>
       count +
       evaluacion.competencias.filter(
-        (item) => !noteOf(person, item.id) && !changes.has(cellKey(person.idAlumno, item.id)),
+        (item) => !noteOf(person, item.id) && !changes.has(cellKey(person.idAlumno, item.id))
+          && !numericChanges.has(cellKey(person.idAlumno, item.id)),
       ).length,
     0,
   );
   async function save() {
+    if (invalidNumeric) return;
     if (correction && !motivo.trim()) {
       setMotivoError("Indica el motivo de la corrección.");
       return;
@@ -127,6 +146,7 @@ export function GradeSheet({
           pending.map((item) => ({
             idCalificacion: item.note!.idCalificacion,
             nivelLogro: item.level,
+            notaNumerica: item.numeric,
             version: item.note!.version,
           })),
         );
@@ -137,24 +157,27 @@ export function GradeSheet({
             idAlumno: item.person.idAlumno,
             idCompetencia: item.idCompetencia,
             nivelLogro: item.level,
+            notaNumerica: item.numeric,
             observacion: item.observacion,
           })),
         );
         setSheet(null);
       }
       setChanges(new Map());
+      setNumericChanges(new Map());
       setObservations(new Map());
       setMotivo("");
       setSuccess(
         correction
           ? `${countLabel(pending.length, "corrección guardada", "correcciones guardadas")}.`
-          : "Niveles guardados. Publica la evaluación desde Mis evaluaciones cuando esté completa.",
+          : "Calificaciones guardadas. Publica la evaluación desde Mis evaluaciones cuando esté lista.",
       );
       setTick((value) => value + 1);
     } catch (e) {
       setError(message(e));
       if (e instanceof ApiError && e.code === "VERSION_DESACTUALIZADA") {
         setChanges(new Map());
+        setNumericChanges(new Map());
         setTick((value) => value + 1);
       }
     } finally {
@@ -184,8 +207,10 @@ export function GradeSheet({
                 {evaluacion.titulo} — {evaluacion.curso} · {evaluacion.seccion}
               </h3>
               <p>
-                {LEVEL_SCALE} · {countLabel(alumnos.length, "estudiante", "estudiantes")}
+                {countLabel(alumnos.length, "estudiante", "estudiantes")}
               </p>
+              {(numericDraft || alumnos.some(person => person.notas.some(nota => nota.notaNumerica != null)))
+                ? <p>Ingresa notas de 0 a 20. Se admiten decimales.</p> : <p>{LEVEL_SCALE}</p>}
               {evaluacion.pesoComponente != null && <p>
                 {evaluacion.componente} · Peso del componente: {evaluacion.pesoComponente} %
               </p>}
@@ -194,7 +219,7 @@ export function GradeSheet({
               <button
                 type="button"
                 className="primary-action"
-                disabled={busy || !pending.length || observationWithoutLevel}
+                disabled={busy || !pending.length || observationWithoutLevel || invalidNumeric}
                 onClick={() => void save()}
               >
                 {busy ? "Guardando…" : correction ? "Guardar cambios" : "Guardar evaluación"}
@@ -202,14 +227,18 @@ export function GradeSheet({
             )}
           </div>
           <Feedback error={error} success={success} />
-          {draft && editable && (
-            <p className="hint">
-              {missing
-                ? `Faltan ${countLabel(missing, "nivel", "niveles")} para poder publicar.`
-                : "Planilla completa."}
-            </p>
-          )}
-          {observationWithoutLevel && <p className="hint">Selecciona un nivel para cada observación pendiente.</p>}
+          {invalidNumeric && <p className="field-error" role="alert">Ingresa notas entre 0 y 20 con hasta 10 decimales.</p>}
+          {numericDraft && sheet.numeroVersionEscala === null && <p className="hint">
+            Se requiere una escala institucional vigente para guardar notas numéricas.
+          </p>}
+          {draft && editable && missing > 0 && <p className="hint">Faltan {numericDraft
+            ? countLabel(missing, "nota", "notas") : countLabel(missing, "nivel", "niveles")} para publicar.</p>}
+          {observationWithoutLevel && <p className="hint">{numericDraft ? "Registra una nota para cada observación pendiente." : "Registra un nivel para cada observación pendiente."}</p>}
+          {draft && evaluacion.pesoComponente != null && alumnos.some(person =>
+            competencias.some(item => noteOf(person, item.id)?.pesoEfectivo == null)) &&
+            <details className={styles.gradeWeightHelp}><summary>¿Cuándo se muestra el peso efectivo?</summary>
+              <p>Al publicar la evaluación, según los resultados elegibles de cada competencia.</p>
+            </details>}
           {alumnos.length ? (
             <div className={styles.sheetTable}>
               <table aria-label={`Planilla de ${evaluacion.titulo}`}>
@@ -225,7 +254,7 @@ export function GradeSheet({
                 </thead>
                 <tbody>
                   {alumnos.map((person) => (
-                    <tr key={person.idAlumno} className={student?.idAlumno === person.idAlumno ? styles.selectedRow : undefined}>
+                    <tr id={`alumno-${person.idAlumno}`} key={person.idAlumno} className={student?.idAlumno === person.idAlumno ? styles.selectedRow : undefined}>
                       <th scope="row">
                         <button type="button" className={styles.studentName} onClick={() => setStudent(person)}>
                           {person.nombreCompleto}
@@ -235,9 +264,30 @@ export function GradeSheet({
                         const key = cellKey(person.idAlumno, item.id);
                         const note = noteOf(person, item.id);
                         const value = changes.get(key) ?? note?.nivelLogro;
+                        const numericCell = numericDraft || note?.notaNumerica != null;
                         return (
                           <td key={item.id}>
-                            <div className={styles.levels} role="group" aria-label={`${person.nombreCompleto}, ${item.nombre}`}>
+                            {numericCell ? <>
+                              <input className={styles.gradeInput} type="number" min="0" max="20" step="any"
+                                  aria-label={`Nota: ${person.nombreCompleto}, ${item.nombre}`}
+                                  readOnly={!editable}
+                                  value={numericChanges.get(key) ?? note?.notaNumerica ?? ""}
+                                  disabled={busy}
+                                  onChange={event => {
+                                    const nextValue = event.target.value;
+                                    setSuccess("");
+                                    setNumericChanges(current => {
+                                      const next = new Map(current);
+                                      const original = note?.notaNumerica;
+                                      const unchanged = original == null ? nextValue === ""
+                                        : nextValue !== "" && Number(nextValue) === original;
+                                      if (unchanged) next.delete(key);
+                                      else next.set(key, nextValue);
+                                      return next;
+                                    });
+                                  }} />
+                              {!numericChanges.has(key) && note && <small className={styles.gradeMeta}>Nivel {note.nivelLogro}</small>}
+                            </> : <div className={styles.levels} role="group" aria-label={`${person.nombreCompleto}, ${item.nombre}`}>
                               {LEVELS.map((level) => (
                                 <button
                                   key={level}
@@ -251,18 +301,16 @@ export function GradeSheet({
                                   {level}
                                 </button>
                               ))}
-                            </div>
+                            </div>}
                             {note?.corregida && <small className={styles.corrected}>Corregida</small>}
-                            {evaluacion.reglaVigente && <small className={styles.corrected}>
-                              {evaluacion.pesoComponente == null ? "Sin peso"
-                                : note?.pesoEfectivo == null ? "Peso efectivo pendiente"
-                                  : `Peso efectivo: ${note.pesoEfectivo.toLocaleString("es-PE", { maximumFractionDigits: 4 })} %`}
-                            </small>}
+                            {evaluacion.reglaVigente && (evaluacion.pesoComponente == null || note?.pesoEfectivo != null) &&
+                              <small className={styles.corrected}>{evaluacion.pesoComponente == null ? "Sin peso"
+                                : note?.pesoEfectivo != null && `Peso efectivo: ${note.pesoEfectivo.toLocaleString("es-PE", { maximumFractionDigits: 4 })} %`}</small>}
                             <label className={`field ${styles.gradeObservation}`}>
-                              Observación
                               <textarea
+                                placeholder={draft && editable ? "Añadir observación" : undefined}
                                 aria-label={`Observación: ${person.nombreCompleto}, ${item.nombre}`}
-                                rows={2}
+                                rows={1}
                                 maxLength={OBSERVATION_MAX}
                                 value={observations.get(key) ?? note?.observacion ?? ""}
                                 readOnly={!draft || !editable}
@@ -300,7 +348,7 @@ export function GradeSheet({
                   <li key={cellKey(item.person.idAlumno, item.idCompetencia)}>
                     {item.person.nombreCompleto}
                     <small>
-                      {item.competencia}: {item.note?.nivelLogro} → {item.level}
+                      {item.competencia}: {item.note?.notaNumerica ?? item.note?.nivelLogro} → {item.numeric ?? item.level}
                     </small>
                   </li>
                 ))}

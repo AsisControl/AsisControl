@@ -31,7 +31,7 @@ public interface EntregaTareaRepository extends JpaRepository<EntregaTarea, Long
     long countByTareaIdAndActivoTrue(Long tareaId);
 
     @Query("SELECT MAX(e.nota) FROM EntregaTarea e WHERE e.activo = true AND e.tarea.id = :tareaId")
-    Integer maxNotaPorTarea(@Param("tareaId") Long tareaId);
+    java.math.BigDecimal maxNotaPorTarea(@Param("tareaId") Long tareaId);
 
     @Query("""
             SELECT e FROM EntregaTarea e

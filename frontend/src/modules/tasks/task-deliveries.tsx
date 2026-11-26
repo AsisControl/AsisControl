@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { message } from "./task-error-copy";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, PageHeader, Pager, StatusPill, type StatusTone, Loading } from "@/shared/ui";
-import { obtenerContextoAsignacion, obtenerTarea } from "./services/tarea-service";
+import { obtenerContextoAsignacion, obtenerTarea, listMissingDeliveries, type MissingDeliveries } from "./services/tarea-service";
 import { entregasPath } from "./services/entrega-service";
 import { useDeliveryStudents } from "./use-delivery-students";
 import { DeliveryGradeDialog } from "./delivery-grade-dialog";
 import { TaskDeliveryFiles } from "./task-delivery-files";
+import { MissingDeliveryGrades } from "./missing-delivery-grades";
 import { TaskRoster } from "./task-roster";
 import type { EntregaTareaResponse, EstadoEntrega, TareaResponse } from "./types";
 import styles from "./tasks.module.css";
@@ -69,6 +70,8 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
   const students = useDeliveryStudents(deliveries.error ? null : deliveries.data);
   const [grading, setGrading] = useState<{ id: number; student: string } | null>(null);
   const [success, setSuccess] = useState("");
+  const [missing, setMissing] = useState<MissingDeliveries | null>(null);
+  const [showMissing, setShowMissing] = useState(false);
   const [rosterReload, setRosterReload] = useState(0);
   const canGrade = canWrite && ["PUBLICADA", "CERRADA"].includes(task.estado) && !checking && !taskError;
   function refresh() {
@@ -78,17 +81,42 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
     deliveries.refresh();
     setRosterReload((value) => value + 1);
   }
+  const canGradeMissing = canGrade && task.estado === "CERRADA" && task.evaluacionAcademica?.estado === "BORRADOR";
+  useEffect(() => {
+    if (!canGradeMissing) return;
+    let active = true;
+    listMissingDeliveries(task.id).then(data => { if (active) setMissing(data); },
+      () => { if (active) setMissing(null); });
+    return () => { active = false; };
+  }, [canGradeMissing, task.id, rosterReload]);
+
   const error = taskError || (deliveries.error ? message(deliveries.error, "No se pudieron cargar las entregas. Inténtalo de nuevo.") : "");
   return <>
+    {canGradeMissing && showMissing && missing && <MissingDeliveryGrades taskId={task.id} data={missing}
+      onClose={() => setShowMissing(false)} onSaved={count => {
+        setShowMissing(false);
+        setMissing(null);
+        refresh();
+        setSuccess(`Se registraron ${count} calificaciones.`);
+      }} />}
     {success && <div className={styles.successNotice}>
       <Feedback success={success} />
       <button type="button" aria-label="Cerrar mensaje de éxito" onClick={() => setSuccess("")}>Cerrar</button>
     </div>}
     <section className={`panel ${styles.card}`} aria-label="Listado de entregas">
       <div className={styles.toolbar}>
+        <StatusPill state={task.estado} label={task.estado === "CERRADA" ? "Recepción cerrada" : task.estado === "ARCHIVADA" ? "Archivada" : "Publicada"} tone={task.estado === "PUBLICADA" ? "success" : "neutral"} />
         <button type="button" className={styles.refresh} disabled={checking || deliveries.loading} onClick={refresh}>Actualizar</button>
       </div>
-      <p className="hint">Peso en el resultado académico: Sin peso</p>
+      {canGradeMissing && !!missing?.alumnos.length && <button type="button" className="secondary-action" onClick={() => setShowMissing(true)}>
+        Calificar sin entrega
+      </button>}
+      {task.evaluacionAcademica ? <p className="hint">
+        <Link href={`/evaluaciones/registro-de-calificaciones/${task.evaluacionAcademica.id}`}>Ir a la planilla vinculada</Link>
+        {" · "}{!task.evaluacionAcademica.cuentaParaResultadoAcademico ? "Sin peso"
+          : task.evaluacionAcademica.pesoComponente == null ? "Peso pendiente"
+          : `Peso del componente: ${task.evaluacionAcademica.pesoComponente} %`}
+      </p> : <p className="hint">Peso en el resultado académico: Sin peso</p>}
       {task.estado === "ARCHIVADA" && <p className="hint">Tarea archivada: consulta de solo lectura.</p>}
       {retired && task.estado !== "ARCHIVADA" && <p className="hint">Ya no estás asignado a este curso y sección: consulta de solo lectura.</p>}
       <TaskRoster taskId={task.id} reload={rosterReload} />
@@ -99,7 +127,7 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
             <caption className={styles.srOnly}>Entregas recibidas de {task.nombre}</caption>
             <thead><tr>
               <th scope="col">Estudiante</th><th scope="col">Fecha y hora</th><th scope="col">Estado</th>
-              <th scope="col">Adjuntos</th><th scope="col">Nota</th><th scope="col">Comentario</th>
+              <th scope="col">Entrega</th><th scope="col">Nota</th><th scope="col">Comentario</th>
               {canGrade && <th scope="col">Acciones</th>}
             </tr></thead>
             <tbody>{deliveries.data.content.map((delivery) => {
@@ -109,10 +137,11 @@ function DeliveryPanel({ task, canWrite, retired, checking, taskError, refreshTa
                 <td data-label="Estudiante"><strong>{name}</strong>{student?.codigoAlumno && <small>{student.codigoAlumno}</small>}</td>
                 <td data-label="Fecha y hora"><time dateTime={delivery.fechaHoraEntrega}>{deliveryDate(delivery.fechaHoraEntrega)}</time></td>
                 <td data-label="Estado"><StatusPill state={delivery.estado} label={delivery.estado === "ENTREGADO_TARDE" ? "Entregado tarde" : undefined} tone={tones[delivery.estado]} /></td>
-                <td data-label="Adjuntos"><TaskDeliveryFiles files={delivery.archivos} /></td>
-                <td data-label="Nota">{delivery.nota === null ? "Sin calificar" : `${delivery.nota} / ${task.puntajeMaximo}`}</td>
+                <td data-label="Entrega">{delivery.respuesta && <p className={styles.deliveryComment}>{delivery.respuesta}</p>}<TaskDeliveryFiles files={delivery.archivos} /></td>
+                <td data-label="Nota">{task.evaluacionAcademica ? <Link href={`/evaluaciones/registro-de-calificaciones/${task.evaluacionAcademica.id}#alumno-${delivery.alumnoId}`}>{canGrade && task.evaluacionAcademica.estado === "BORRADOR" ? "Ir a calificaciones" : "Consultar planilla"}</Link>
+                  : delivery.nota === null ? "Sin calificar" : `${delivery.nota} / ${task.puntajeMaximo}`}</td>
                 <td className={styles.deliveryComment} data-label="Comentario">{delivery.comentario || "Sin comentario"}</td>
-                {canGrade && <td data-label="Acciones">{delivery.estado !== "ANULADO" && <button className={styles.editButton} type="button"
+                {canGrade && <td data-label="Acciones">{delivery.estado !== "ANULADO" && !task.evaluacionAcademica && <button className={styles.editButton} type="button"
                   aria-label={`${delivery.nota === null ? "Calificar" : "Modificar calificación de"} ${name}`}
                   onClick={() => { setSuccess(""); setGrading({ id: delivery.id, student: name }); }}>
                   {delivery.nota === null ? "Calificar" : "Modificar nota"}

@@ -31,6 +31,26 @@ beforeEach(() => {
   setUrl("/tareas/1/entregas");
 });
 
+test("califica sin entrega con decimales y conserva la selección al buscar", async () => {
+  const calls = backend({
+    "GET /api/tareas/1": task({ estado: "CERRADA", evaluacionAcademica: { id: 31, titulo: "Fracciones", estado: "BORRADOR" } }),
+    "GET /api/tareas/1/calificaciones-sin-entrega": { maximo: 20, competencias: [{ id: 3, nombre: "Resuelve" }],
+      alumnos: [{ id: 9, nombre: "Luis Ramos", codigo: "AL-9", competencias: [3] }, { id: 10, nombre: "Ana Ramos", competencias: [3] }] },
+    "POST /api/tareas/1/calificaciones-sin-entrega": { estudiantes: 2, calificaciones: 2 },
+  });
+  const user = userEvent.setup();
+  render(<TaskDeliveries taskId={1} canWrite />);
+  await user.click(await screen.findByRole("button", { name: "Calificar sin entrega" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Calificar sin entrega" }));
+  await user.click(dialog.getByRole("button", { name: "Seleccionar todos" }));
+  await user.type(dialog.getByRole("searchbox"), "Ana");
+  expect(dialog.getByRole("status").textContent).toContain("2 estudiantes");
+  await user.type(dialog.getByRole("spinbutton"), "5.5");
+  await user.click(dialog.getByRole("button", { name: "Aplicar calificación" }));
+  await screen.findByText("Se registraron 2 calificaciones.");
+  expect(calls.find(call => call.method === "POST").body).toEqual({ alumnos: [9, 10], competencias: [3], nota: "5.5" });
+});
+
 test("Lista solo entregas recibidas con identidad, fecha, estado, comentario, nota y adjuntos", async () => {
   const calls = backend();
   render(<TaskDeliveries taskId={1} canWrite />);
@@ -197,17 +217,20 @@ test("Archivar, falta de escritura y entrega anulada impiden calificar", async (
   expect(screen.queryByRole("button", { name: /Calificar/ })).toBeNull();
 });
 
-test("Valida nota vacía, negativa, decimal y superior al máximo antes del POST", async () => {
+test("Rechaza notas fuera del rango y permite una nota decimal", async () => {
   const calls = backend();
   render(<DeliveryGradeDialog taskId={1} deliveryId={10} student="Lucía" onClose={vi.fn()} onRefresh={vi.fn()} onSaved={vi.fn()} />);
   const input = await screen.findByLabelText(/^Nota/);
   const user = userEvent.setup();
-  for (const value of ["", "-1", "1.5", "21"]) {
+  for (const value of ["", "-1", "21"]) {
     fireEvent.change(input, { target: { value } });
     await user.click(screen.getByText("Guardar calificación"));
-    expect(screen.getByText("Escribe una nota sin decimales entre 0 y 20.")).toBeTruthy();
+    expect(screen.getByText("Escribe una nota válida entre 0 y 20.")).toBeTruthy();
   }
   expect(calls.some((call) => call.method === "POST")).toBe(false);
+  fireEvent.change(input, { target: { value: "1.5" } });
+  await user.click(screen.getByText("Guardar calificación"));
+  await waitFor(() => expect(calls.find((call) => call.method === "POST")?.body.nota).toBe(1.5));
 });
 
 test("Conflicto de versión exige recarga explícita y usa la versión nueva", async () => {

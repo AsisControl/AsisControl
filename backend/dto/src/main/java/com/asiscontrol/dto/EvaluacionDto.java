@@ -71,7 +71,8 @@ public final class EvaluacionDto {
     /** US-18: planilla de una evaluacion con los alumnos matriculados en la seccion. */
     public record PlanillaResponse(
             Response evaluacion,
-            List<PlanillaAlumno> alumnos
+            List<PlanillaAlumno> alumnos,
+            Integer numeroVersionEscala
     ) {
     }
 
@@ -90,7 +91,8 @@ public final class EvaluacionDto {
             String observacion,
             long version,
             boolean corregida,
-            BigDecimal pesoEfectivo
+            BigDecimal pesoEfectivo,
+            BigDecimal notaNumerica
     ) {
     }
 }

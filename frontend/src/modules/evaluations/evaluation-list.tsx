@@ -20,7 +20,7 @@ const OPERATIONS: Record<Operation, { title: string; detail: string; done: strin
   PUBLICADA: {
     title: "Publicar evaluación",
     detail:
-      "Los niveles quedarán disponibles para la consolidación. Después solo podrán cambiarse con una corrección y su motivo.",
+      "Los resultados quedarán disponibles para la consolidación. Después solo podrán cambiarse con una corrección y su motivo.",
     done: "Evaluación publicada.",
   },
   CERRADA: {
@@ -94,7 +94,7 @@ export function EvaluationList({
     } catch (e) {
       setError(
         e instanceof ApiError && e.code === "EVALUACION_INCOMPLETA"
-          ? `${e.message}. Completa la planilla con Calificar.`
+          ? `${e.message.replace(/^(Faltan \d+) niveles.*$/i, "$1 notas por registrar")}. Completa la planilla con Calificar.`
           : message(e),
       );
     } finally {

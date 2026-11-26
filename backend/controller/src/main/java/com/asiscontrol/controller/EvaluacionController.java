@@ -57,6 +57,8 @@ public class EvaluacionController {
             @RequestParam(required = false) Long idCurso,
             @RequestParam(required = false) Long idSeccion,
             @RequestParam(required = false) String busqueda,
+            @RequestParam(defaultValue = "false") boolean vinculables,
+            @RequestParam(required = false) Long tareaActual,
             @PageableDefault(size = 20, sort = "fechaEvaluacion", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
@@ -70,7 +72,7 @@ public class EvaluacionController {
                 accessGuard.restriccionDocentePersonaId(),
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
-                pageable);
+                vinculables, tareaActual, pageable);
     }
 
     /** Periodos del curso que el docente puede publicar. */

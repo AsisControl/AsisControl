@@ -6,6 +6,10 @@ export type EstadoPublicacionTarea =
   | "ARCHIVADA";
 
 export type CrearTareaRequest = {
+  nuevaEvaluacion?: { tipoEvaluacion: string; fechaEvaluacion: string; idsCompetencia: number[] };
+  competenciasSinPeso?: { fechaEvaluacion: string; idsCompetencia: number[] };
+  cuentaParaResultadoAcademico?: boolean;
+  idEvaluacionAcademica?: number | null;
   asignacionCursoId: number;
   nombre: string;
   descripcion: string;
@@ -56,6 +60,7 @@ export type EntregaTareaResponse = {
   archivos: ArchivoResponse[];
   nota: number | null;
   comentario: string | null;
+  respuesta?: string | null;
   estado: EstadoEntrega;
   version: number;
 };
@@ -84,6 +89,8 @@ export type ArchivoResponse = {
 };
 
 export type TareaResponse = {
+  puntajeMaximoFijo?: boolean;
+  evaluacionAcademica?: { id: number; titulo: string; estado: string; cuentaParaResultadoAcademico: boolean; componente: string | null; pesoComponente: number | null } | null;
   id: number;
   asignacionCursoId: number;
   nombre: string;

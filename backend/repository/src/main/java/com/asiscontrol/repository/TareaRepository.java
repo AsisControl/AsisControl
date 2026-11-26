@@ -44,6 +44,8 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
 
     Optional<Tarea> findByIdAndActivoTrue(Long id);
 
+    Optional<Tarea> findByEvaluacionAcademicaId(Long id);
+
     Page<Tarea> findAllByActivoTrue(Pageable pageable);
 
     Page<Tarea> findAllByAsignacionCursoIdAndActivoTrue(Long asignacionCursoId, Pageable pageable);

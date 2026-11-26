@@ -20,7 +20,7 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Long
     @Query("""
             select c.alumno.id as alumno, c.competencia.id as competencia, count(c) as cantidad
             from Calificacion c join c.evaluacion e join e.competencias competencia
-            where e.activo = true and c.activo = true and c.nivelLogro is not null
+            where e.activo = true and e.cuentaResultado = true and c.activo = true and c.nivelLogro is not null
               and competencia = c.competencia and e.asignacionCurso.id = :asignacion and e.tipoEvaluacion = :tipo
               and e.estado in (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                                com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
@@ -31,6 +31,7 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Long
     Optional<Calificacion> findByIdAndActivoTrue(Long id);
 
     List<Calificacion> findAllByEvaluacionIdAndActivoTrue(Long idEvaluacion);
+    List<Calificacion> findAllByEvaluacionIdAndAlumnoIdAndActivoTrue(Long idEvaluacion, Long idAlumno);
 
     Optional<Calificacion> findByEvaluacionIdAndAlumnoIdAndCompetenciaIdAndActivoTrue(
             Long idEvaluacion,
@@ -67,7 +68,7 @@ public interface CalificacionRepository extends JpaRepository<Calificacion, Long
             JOIN FETCH c.competencia cp
             WHERE c.activo = true
               AND c.alumno.id = :idAlumno
-              AND e.activo = true
+              AND e.activo = true AND e.cuentaResultado = true
               AND e.estado IN (
                   com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                   com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA

@@ -49,7 +49,7 @@ class CierreAutomaticoTareasHttpTest extends ApiIntegrationSupport {
     @Test void rechazaCambiosAntesDelBarridoConservaEntregasYPermiteCalificarTrasCerrar() throws Exception {
         var t = task(EstadoPublicacionTarea.PUBLICADA, LocalDateTime.now().plusDays(1));
         var entrega = postOk("/api/tareas/" + t.getId() + "/entregas",
-                data("alumnoId", student.getId(), "archivoIds", Set.of()));
+                data("alumnoId", student.getId(), "archivoIds", Set.of(), "respuesta", "Trabajo previo al cierre"));
         long entregaId = entrega.path("id").asLong();
         t.setFechaLimite(LocalDateTime.now().minusSeconds(1)); em.flush();
         var error = request("PUT", "/api/entregas/" + entregaId, data("archivoIds", Set.of(), "version", 0), 422);
@@ -58,6 +58,8 @@ class CierreAutomaticoTareasHttpTest extends ApiIntegrationSupport {
         assertThat(em.find(EntregaTarea.class, entregaId).getVersion()).isZero();
         assertThat(cierre.cerrarVencidas(LocalDateTime.now())).isEqualTo(1);
         assertThat(getOk("/api/tareas/" + t.getId()).path("estado").asText()).isEqualTo("CERRADA");
+        var cierreManual = request("POST", "/api/tareas/" + t.getId() + "/cerrar", null, 200);
+        assertThat(cierreManual.path("estado").asText()).isEqualTo("CERRADA");
         var calificada = request("POST", "/api/entregas/" + entregaId + "/calificar", data("nota", 18, "version", 0), 200);
         assertThat(calificada.path("estado").asText()).isEqualTo("CALIFICADO");
         assertThat(calificada.path("nota").asInt()).isEqualTo(18);
