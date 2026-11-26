@@ -19,8 +19,8 @@ import java.util.Map;
  * <ul>
  *   <li>Sin confirmar, todo el archivo se procesa con las reglas reales dentro de una transacción
  *       que siempre se deshace: se detectan cupos, cruces y duplicados sin guardar nada.
- *   <li>Al confirmar, cada fila se guarda en la transacción de su propio servicio; una fila
- *       rechazada no impide guardar las demás.
+ *   <li>Al confirmar, cada fila se guarda en su propia transacción; una fila rechazada no
+ *       impide guardar las demás.
  *   <li>Cada fila tiene una clave natural: si ya está registrada o se repite en el archivo, se
  *       omite. Así, volver a cargar el mismo archivo no duplica registros.
  * </ul>
@@ -85,7 +85,10 @@ public class ImportadorExcel {
                         "Ya está registrado; no se duplica"));
                 return;
             }
-            paso.registrar().run();
+            // Cada fila se guarda completa o no se guarda: si un paso de la fila falla, se deshacen
+            // también los anteriores (por ejemplo, el curso creado para agregarlo al plan).
+            // En la revisión la fila se une a la transacción que luego se deshace.
+            transaccion.executeWithoutResult(estado -> paso.registrar().run());
             clavesRegistradas.put(clave, fila.numero());
         });
         int validas = resumen.importadas() - omitidas.size();
