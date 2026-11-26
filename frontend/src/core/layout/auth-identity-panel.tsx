@@ -8,7 +8,7 @@ import styles from "./auth-identity-panel.module.css";
 
 const roles: UserRole[] = ["ADMINISTRADOR", "DOCENTE", "ESTUDIANTE", "APODERADO"];
 
-/** Columna institucional común a login, recuperación y cambio de contraseña. */
+/** Columna institucional de la recuperación de contraseña. */
 export function AuthIdentityPanel() {
   return (
     <section className={styles.panel} aria-label="AsisControl">

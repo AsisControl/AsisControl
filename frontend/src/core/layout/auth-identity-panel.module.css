@@ -14,9 +14,6 @@
   max-width: 100%;
   min-width: 0;
 }
-.compactScreen {
-  min-height: 100dvh;
-}
 .panel {
   background: #1e3a8a;
   color: #fff;
@@ -195,19 +192,5 @@
   .circleTop {
     height: 220px;
     width: 220px;
-  }
-}
-@media (min-width: 761px) {
-  .compactScreen > section {
-    padding-block: 32px;
-  }
-  .compactScreen .identityContent {
-    margin-top: 32px;
-  }
-  .compactScreen .identityContent h2 {
-    line-height: 1.1;
-  }
-  .compactScreen .identityContent p {
-    margin-block: 12px 24px;
   }
 }

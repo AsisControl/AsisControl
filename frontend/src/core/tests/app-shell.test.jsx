@@ -731,3 +731,18 @@ test("Con Web Locks las pestañas renuevan por turnos", async () => {
     delete navigator.locks;
   }
 });
+
+test("Los requisitos de la contraseña nueva se marcan mientras se escribe", async () => {
+  backend({ "GET /api/auth/me": summary({ requiereCambioContrasena: true }) });
+  sessionFor({ requiresPasswordChange: true });
+  const user = userEvent.setup();
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "Crea tu contraseña", level: 1 })).toBeTruthy();
+  const rules = screen.getByRole("list", { name: "Requisitos de la nueva contraseña" });
+  const met = () => [...rules.children].map((rule) => rule.dataset.met);
+  expect(met()).toEqual(["false", "false", "false", "false", "false"]);
+  await user.type(screen.getByLabelText(/^Nueva contraseña/), "abc");
+  expect(met()).toEqual(["false", "false", "true", "false", "true"]);
+  await user.type(screen.getByLabelText(/^Nueva contraseña/), "DEF 2026");
+  expect(met()).toEqual(["true", "true", "true", "true", "false"]);
+});
