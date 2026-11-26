@@ -117,7 +117,7 @@ export function CompetenciesPanel({ canWrite }: { canWrite: boolean }) {
         actions={
           <>
               {canWrite && <button type="button" className="secondary-action" onClick={() => open({ kind: "import" })}>
-                Importar Excel
+                Carga masiva
               </button>}
               <button
                 type="button"
