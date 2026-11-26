@@ -1,8 +1,7 @@
 # OBS-05 · Carga masiva por módulo — análisis (ASISCTRL-228)
 
-> **Borrador para aprobación del equipo.** Las columnas de las plantillas 232 a 234 se cierran
-> cuando el equipo apruebe este documento. Lo que ya está implementado (229, 230 y 231) puede
-> ajustarse.
+> **Borrador para aprobación del equipo.** Las columnas de la plantilla 234 se cierran cuando el
+> equipo apruebe este documento. Lo que ya está implementado (229 a 233) puede ajustarse.
 
 ## 1. Reglas comunes para todas las plantillas
 
@@ -118,27 +117,33 @@ docente y sección.
 > con las `horasSemanales` del curso en el plan. Si el equipo quiere esa regla, debe agregarse en
 > `HorarioService` para que se aplique a ambos.
 
-### 3.6 Tarifas de pensión (233) — por cerrar
+### 3.6 Tarifas de pensión (233) — `/api/configuracion-pagos/tarifas/importaciones` · `PAGOS_ESCRIBIR` (administración, dirección, secretaría o tesorería)
 
 | Columna | | Valores |
 |---|---|---|
-| codigoConcepto | O | concepto de cobro existente |
-| anioAcademico | O | |
+| codigoConcepto | O | concepto de cobro activo; debe ser el de pensión |
+| anioAcademico | O | año no cerrado |
 | grado | O | 1–5 |
-| montoMensual | O | > 0, con 2 decimales |
+| montoMensual | O | > 0, con punto o coma decimal |
 
-Clave natural: `concepto + año + grado`.
+Clave natural: `concepto + año + grado`. Cada fila pasa por
+`ConfiguracionPagosService.guardarTarifa`. Una tarifa ya registrada se omite: para cambiar su
+monto se edita en la pantalla, con su versión.
 
-### 3.7 Matrículas con sección (232) — por cerrar
+### 3.7 Matrículas con sección (232) — `/api/matriculas/importaciones` · rol ADMINISTRADOR + `MATRICULA_ESCRIBIR`
 
 | Columna | | Valores |
 |---|---|---|
-| codigoAlumno | O | alumno habilitado |
-| anioAcademico, grado, seccion | O | sección activa con cupo |
+| codigoAlumno | O | estudiante habilitado |
+| anioAcademico, grado, seccion | O | sección activa del año **activo** |
 | observaciones | o | hasta 1000 |
 
-Clave natural: `alumno + año`. Cada fila crea la solicitud y la matrícula con el mismo servicio
-que el flujo manual, que también genera las cuotas.
+Clave natural: `alumno + año`; se omite si el alumno ya tiene una matrícula vigente ese año.
+**Decisión tomada:** cada fila crea la matrícula completa con el mismo flujo que la secretaría
+(solicitud → ENVIADA → EN_REVISION → sección asignada → matrícula finalizada con la firma del
+plan de cuotas). Se aplican las mismas reglas: año activo, grado ofertado, cupo de la sección,
+tarifa del grado y generación de las cuotas. Si un paso falla, la fila completa se deshace. Por
+eso las tarifas se cargan antes que las matrículas.
 
 ### 3.8 Notas en la planilla del docente (234) — por cerrar
 
@@ -171,5 +176,6 @@ Además se prueba que un usuario sin permiso reciba 403.
 - ¿La fila repetida se **omite** (propuesta) o se **actualiza** con los datos del archivo? La
   propuesta es omitir para no editar sin motivo.
 - Notas: ¿una plantilla por evaluación (propuesta) o una por asignación con varias evaluaciones?
-- Matrículas: ¿la carga masiva crea la matrícula directa o solo la solicitud para que secretaría
-  la apruebe?
+- ~~Matrículas: ¿matrícula directa o solo la solicitud?~~ Se implementó la matrícula completa con
+  el flujo de la secretaría (ver 3.7); si el equipo prefiere solo la solicitud, basta con cortar
+  el flujo después de crearla.

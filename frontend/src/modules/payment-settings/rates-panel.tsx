@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { Dialog, Feedback, Field, PanelHeading, StatusPill, Loading } from "@/shared/ui";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import { deactivateSettings, saveSettings, SETTINGS_PATH } from "./services/settings-service";
 import { SettingsReasonDialog } from "./reason-dialog";
 import { useSettingsList } from "./use-settings-list";
@@ -10,6 +11,7 @@ import type { ChargeConcept, PensionRate } from "./types";
 import styles from "./payment-settings.module.css";
 
 export function RatesPanel({ canWrite }: { canWrite: boolean }) {
+  const [importing, setImporting] = useState(false);
   const list = useSettingsList<PensionRate>(`${SETTINGS_PATH}/tarifas`);
   const concepts = useSettingsList<ChargeConcept>(`${SETTINGS_PATH}/conceptos`);
   const years = useSettingsList<number>(`${SETTINGS_PATH}/anios`);
@@ -19,7 +21,18 @@ export function RatesPanel({ canWrite }: { canWrite: boolean }) {
   const [success, setSuccess] = useState("");
   const pension = concepts.items.find((concept) => concept.esPension && concept.activo);
   return <section className="panel"><PanelHeading title="Tarifas por año y grado" summary="Define el importe mensual de las diez pensiones de marzo a diciembre."
-    actions={canWrite && <button type="button" className="primary-action" disabled={!pension || !years.items.length} onClick={() => setEditing("new")}>Nueva tarifa</button>} />
+    actions={canWrite && <>
+      <button type="button" className="secondary-action" onClick={() => setImporting(true)}>Carga masiva</button>
+      <button type="button" className="primary-action" disabled={!pension || !years.items.length} onClick={() => setEditing("new")}>Nueva tarifa</button>
+    </>} />
+    {importing && <BulkImportDialog
+      title="Carga masiva de tarifas"
+      description="Descarga la plantilla y completa una fila por año y grado. Las tarifas ya registradas se omiten."
+      path="/api/configuracion-pagos/tarifas/importaciones"
+      templateName="plantilla_tarifas.xlsx"
+      fileLabel="Archivo Excel de tarifas"
+      onClose={() => setImporting(false)}
+      onImported={list.refresh} />}
     <Feedback error={list.error || concepts.error || years.error} success={success} />
     {(concepts.error || years.error) && <button type="button" className="secondary-action" onClick={() => { concepts.refresh(); years.refresh(); }}>Reintentar configuración</button>}
     {!years.loading && !years.error && !years.items.length && <p className={styles.notice}>Primero registra el año académico para configurar sus tarifas.</p>}
