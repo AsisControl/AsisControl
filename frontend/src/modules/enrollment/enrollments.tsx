@@ -5,7 +5,6 @@ import { api, ApiError, message } from "@/core/api/client";
 import {
   Dialog,
   Feedback,
-  Field,
   PageHeader,
   Pager,
   PanelHeading,
@@ -24,9 +23,15 @@ import {
   stateLabel,
   timeLabel,
 } from "@/shared/lib/formatters";
-import type { Persona } from "@/shared/types/person";
 import { type Student } from "@/modules/students";
-import { AcademicRecords } from "@/modules/academic-records";
+import {
+  AcademicRecords,
+  GuardianLinkForm,
+  linkGuardian,
+  StudentPicker,
+  useGuardianPicker,
+  type GuardianLinkValues,
+} from "@/modules/academic-records";
 import { changeSection, SectionChangeDialog, SectionChangeFields } from "@/modules/section-change";
 import type { AcademicYear } from "@/modules/academic-config";
 import { EnrollmentHistory } from "./enrollment-history";
@@ -52,7 +57,6 @@ type EnrollmentRecord = {
   observaciones?: string | null;
   motivoRechazo?: string | null;
 };
-type Guardian = { id: number; persona: Persona; activo: boolean };
 export const requestTransitions: Record<string, string[]> = {
   BORRADOR: ["ENVIADA", "CANCELADA"],
   ENVIADA: ["EN_REVISION", "CANCELADA"],
@@ -290,68 +294,6 @@ function EnrollmentList({ isRequest, canWrite = false }: { isRequest: boolean; c
         />
       )}
     </section>
-  );
-}
-function StudentPicker({
-  onSelect,
-  selected,
-}: {
-  onSelect: (student: Student) => void;
-  selected: Student | null;
-}) {
-  const [search, setSearch] = useState("");
-  const students = usePaged<Student>("/api/alumnos", search);
-  return (
-    <div className="picker-card">
-      <h4>Estudiante</h4>
-      <form
-        className="toolbar"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSearch(
-            String(new FormData(event.currentTarget).get("search") || ""),
-          );
-          students.setPage(0);
-        }}
-      >
-        <Field label="Buscar por nombre, documento o código" name="search" />
-        <button>Buscar</button>
-      </form>
-      <Feedback error={students.error} />
-      {selected && (
-        <p className="selected-person">
-          Seleccionado: <strong>{selected.persona.nombreCompleto}</strong> ·{" "}
-          {selected.codigoAlumno}
-        </p>
-      )}
-      {students.loading ? (
-        <Loading>Cargando estudiantes…</Loading>
-      ) : (
-        <ul className="choice-list">
-          {students.data?.content.map((student) => (
-            <li key={student.id}>
-              <span>
-                {student.persona.nombreCompleto}
-                <small>
-                  {student.codigoAlumno} · {student.persona.numeroDocumento}
-                </small>
-              </span>
-              <button
-                disabled={!student.activo || selected?.id === student.id}
-                onClick={() => onSelect(student)}
-              >
-                {selected?.id === student.id ? "Seleccionado" : "Elegir"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Pager
-        data={students.data}
-        loading={students.loading}
-        setPage={students.setPage}
-      />
-    </div>
   );
 }
 function NewRequest({
@@ -857,9 +799,7 @@ function EnrollmentSectionField({
 }
 function GuardianLinks({ studentId }: { studentId: number }) {
   const [student, setStudent] = useState<Student | null>(null);
-  const [search, setSearch] = useState("");
-  const guardians = usePaged<Guardian>("/api/apoderados", search);
-  const [choice, setChoice] = useState<Guardian | null>(null);
+  const picker = useGuardianPicker();
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -876,24 +816,14 @@ function GuardianLinks({ studentId }: { studentId: number }) {
       active = false;
     };
   }, [studentId]);
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!choice) return;
-    const form = new FormData(event.currentTarget);
+  async function save(values: GuardianLinkValues) {
     setBusy(true);
     setError("");
     try {
-      await api(`/api/alumnos/${studentId}/apoderados`, {
-        method: "POST",
-        body: JSON.stringify({
-          apoderadoId: choice.id,
-          parentesco: form.get("parentesco"),
-          principal: form.get("principal") === "on",
-        }),
-      });
+      await linkGuardian(studentId, values);
       setStudent(await api<Student>(`/api/alumnos/${studentId}`));
       setAdding(false);
-      setChoice(null);
+      picker.setChoice(null);
     } catch (error) {
       setError(message(error));
     } finally {
@@ -934,92 +864,12 @@ function GuardianLinks({ studentId }: { studentId: number }) {
       )}
       {adding && (
         <div className="action-card">
-          <p className="hint">
-            Selecciona un apoderado existente. Para registrar uno nuevo, utiliza
-            Administración → Usuarios → Crear acceso.
-          </p>
-          <form
-            className="toolbar"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSearch(
-                String(new FormData(event.currentTarget).get("search") || ""),
-              );
-              guardians.setPage(0);
-            }}
-          >
-            <Field label="Buscar apoderado" name="search" />
-            <button>Buscar</button>
-          </form>
-          <Feedback error={guardians.error} />
-          {guardians.loading ? (
-            <Loading>Cargando apoderados…</Loading>
-          ) : (
-            <ul className="choice-list">
-              {guardians.data?.content.map((guardian) => {
-                const linked = student?.apoderados.some(
-                  (value) => value.apoderadoId === guardian.id,
-                );
-                return (
-                  <li key={guardian.id}>
-                    <span>
-                      {guardian.persona.nombreCompleto}
-                      <small>{guardian.persona.numeroDocumento}</small>
-                    </span>
-                    <button
-                      disabled={
-                        linked || choice?.id === guardian.id || !guardian.activo
-                      }
-                      onClick={() => setChoice(guardian)}
-                    >
-                      {linked
-                        ? "Ya asociado"
-                        : choice?.id === guardian.id
-                          ? "Seleccionado"
-                          : "Elegir"}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <Pager
-            data={guardians.data}
-            loading={guardians.loading}
-            setPage={guardians.setPage}
+          <GuardianLinkForm
+            picker={picker}
+            linked={student?.apoderados}
+            busy={busy}
+            onSave={save}
           />
-          {choice && (
-            <form onSubmit={save}>
-              <p>
-                Apoderado seleccionado:{" "}
-                <strong>{choice.persona.nombreCompleto}</strong>
-              </p>
-              <label className="field">
-                Parentesco *
-                <select name="parentesco" defaultValue="NO_DECLARADO">
-                  {[
-                    "PADRE",
-                    "MADRE",
-                    "TUTOR_LEGAL",
-                    "OTRO_FAMILIAR",
-                    "NO_DECLARADO",
-                  ].map((value) => (
-                    <option key={value} value={value}>
-                      {stateLabel(value)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="check-field">
-                <input type="checkbox" name="principal" /> Apoderado principal
-              </label>
-              <div className="form-actions">
-                <button className="primary-action" disabled={busy}>
-                  {busy ? "Asociando…" : "Guardar vínculo"}
-                </button>
-              </div>
-            </form>
-          )}
         </div>
       )}
     </div>
