@@ -20,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -32,6 +33,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** ASISCTRL-93: reglas de US-23 con datos persistidos y solicitudes HTTP completas. */
+// Las aserciones globales requieren una base propia, sin datos confirmados por otras clases.
+@TestPropertySource(properties =
+        "spring.datasource.url=jdbc:h2:mem:horario_validaciones;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false")
 class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
     private static final String RUTA = "/api/horarios";
     protected Aula aulaPrincipal;
