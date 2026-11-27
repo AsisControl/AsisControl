@@ -311,9 +311,7 @@ public class CalificacionService {
     }
 
     private boolean tieneMatricula(Long alumno, AsignacionCurso asignacion) {
-        var seccion = asignacion.getSeccion().getId();
-        return matriculaRepository.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(alumno, seccion, EstadoMatricula.ACTIVA)
-                || matriculaRepository.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(alumno, seccion, EstadoMatricula.FINALIZADA);
+        return matriculaRepository.estuvoEnSeccion(alumno, asignacion.getSeccion().getId());
     }
 
     private List<CalificacionDto.ConsolidadoResponse> consolidarConRegla(Long alumno, AsignacionCurso asignacion,

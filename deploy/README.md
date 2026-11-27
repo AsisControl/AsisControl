@@ -10,20 +10,35 @@ En cada push a develop o main, `publish.yml` llama primero al CI completo y solo
 
 `deploy/compose.yaml` descarga esas imagenes en EC2 sin compilar. Solo Caddy publica 80/443; backend y frontend se comunican por la red interna Docker. Los limites iniciales de memoria estan pensados para probar t3.small y deben ajustarse segun consumo real; no garantizan capacidad bajo carga.
 
-`Caddyfile` conserva /api al enviar peticiones a Spring Boot y dirige el resto a Next.js. Con dominio y DNS configurados, Caddy obtiene y renueva certificados. Los certificados y archivos adjuntos se conservan en volumenes. /healthz devuelve la salud del backend sin detalles, no verifica login ni todas las funcionalidades.
+`Caddyfile` conserva /api al enviar peticiones a Spring Boot y dirige el resto a Next.js. Con la IPv4 publica configurada, Caddy solicita a Let's Encrypt certificados de IP con el perfil shortlived y los renueva automaticamente. Los certificados y archivos adjuntos se conservan en volumenes. /healthz devuelve la salud del backend sin detalles, no verifica login ni todas las funcionalidades.
 
 El despliegue a EC2 es manual por SSH mediante deploy.sh en esta primera etapa. No se instala un runner en EC2, no se abre SSH a todos los runners de GitHub y no hay despliegue automatico remoto todavia. El script no confirma salud automaticamente ni hace rollback: hay comandos explicitos mas abajo.
 
-## 2. Acceso temporal por IP y cambio posterior a dominio
+## 2. HTTPS con IP publica, sin dominio
 
-Para la demostracion se permite APP_URL=http://IP_PUBLICA_EC2 y AUTH_COOKIE_SECURE=false. Abrir 80 desde Internet y mantener SSH 22 solo desde IPs de administracion. HTTP no cifra credenciales: usar cuentas y datos de prueba. No hay HTTPS activo en este modo.
+Usar la IPv4 elastica actual de EC2. Abrir TCP 80 y 443 desde Internet en el grupo de seguridad; mantener SSH 22 restringido a administracion. El servidor debe tener salida a Internet para contactar a Let's Encrypt.
 
-Despues, con un dominio controlado por el equipo, crear un registro DNS A hacia EC2 y abrir 80/443. Cambiar PUBLIC_APP_URL en GitHub a https://TU_DOMINIO y volver a publicar las imagenes; en EC2 cambiar APP_URL a la misma direccion y AUTH_COOKIE_SECURE=true. Actualizar IMAGE_TAG y volver a ejecutar deploy.sh. Caddy obtendra el certificado. Si cambia la IP publica tras detener EC2, actualizar configuracion y reconstruir el frontend (o DNS cuando haya dominio).
+Configurar PUBLIC_APP_URL en GitHub como `https://IP_PUBLICA_EC2`, sin barra final ni puerto. En deploy/.env configurar `APP_URL=https://IP_PUBLICA_EC2` y `APP_HOST=IP_PUBLICA_EC2` (solo la IP). Compose fuerza AUTH_COOKIE_SECURE=true. No se necesitan claves privadas de certificado manuales ni cambios en MySQL/S3.
 
+Caddy 2.11.9 usa el perfil ACME shortlived para certificados publicos de IP. Estos duran unas 160 horas y se renuevan automaticamente. Conservar el volumen certificados. Si EC2 permanece apagado hasta vencer, HTTPS puede fallar al encender mientras Caddy obtiene otro certificado. Una IP distinta requiere actualizar ambas variables, PUBLIC_APP_URL y reconstruir el frontend.
+
+Para migrar el despliegue HTTP existente:
+
+1. Abrir 80/443 y confirmar la IP elastica en EC2.
+2. Cambiar PUBLIC_APP_URL a HTTPS ANTES de ejecutar el workflow del nuevo commit. Integrar los cambios y esperar pruebas y publicacion de ambas imagenes.
+3. En EC2 guardar el .env actual en un respaldo privado; no sustituirlo por .env.example.
+4. Traer el commit publicado con git fetch origin y git checkout SHA_COMPLETO_PUBLICADO; entrar a deploy.
+5. Editar .env: cambiar APP_URL, agregar APP_HOST y actualizar IMAGE_TAG al mismo SHA. Conservar las demas variables y secretos. La antigua AUTH_COOKIE_SECURE puede eliminarse: Compose fija true.
+6. Ejecutar sudo bash deploy.sh. Valida Caddy antes de reemplazar los servicios. Esta validacion comprueba configuracion, no la emision real del certificado.
+7. Revisar logs del proxy y backend, probar HTTPS sin omitir validacion de certificados, login y cierre de sesion. HTTP debe redirigir a HTTPS.
+
+No basta con cambiar el .env: el frontend incorpora PUBLIC_APP_URL durante la construccion. No volver a HTTP dejando las cookies seguras, porque el login dejaria de funcionar. Un retorno temporal requiere restaurar conjuntamente los archivos de despliegue anteriores, su configuracion HTTP y las imagenes correspondientes, comprobando compatibilidad de migraciones.
+
+Fuentes: https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability y https://caddyserver.com/docs/caddyfile/directives/tls .
 ## 3. GitHub y publicacion
 
 1. Revisar, commitear, subir esta rama y crear PR a develop. Integrar segun el flujo del equipo; main sigue siendo la version estable.
-2. En Settings > Secrets and variables > Actions > Variables, crear PUBLIC_APP_URL con `http://IP_PUBLICA_EC2` por ahora, sin barra final, rutas ni claves; despues usar `https://TU_DOMINIO`. Es una variable publica.
+2. En Settings > Secrets and variables > Actions > Variables, crear PUBLIC_APP_URL con `https://IP_PUBLICA_EC2`, sin puerto, barra final, rutas ni claves. Es una variable publica.
 3. Al fusionar el PR en develop, su push ejecuta automaticamente Publicar imagenes de despliegue: no requiere Run workflow ni integrar en main. Buscar la ejecucion en Actions > All workflows. Si falta el boton manual, el disparador por push funciona igualmente. El equipo puede validar y publicar desde develop; main tambien publica cuando el equipo decida integrarlo. No hacer push directo para saltarse revisiones.
 4. Esperar a que las pruebas y ambas publicaciones terminen en verde. Copiar el SHA de 40 caracteres y los nombres indicados en el resumen.
 5. Los paquetes son `ghcr.io/asiscontrol/asiscontrol-backend:SHA` y `ghcr.io/asiscontrol/asiscontrol-frontend:SHA` si el repositorio conserva el nombre AsisControl/AsisControl.
@@ -44,7 +59,7 @@ cp .env.example .env
 nano .env
 ```
 
-Completar APP_URL, AUTH_COOKIE_SECURE, IMAGE_TAG y las credenciales. DB_URL apunta al endpoint RDS completo y esquema `asiscontrol`. El usuario ideal es exclusivo de la aplicacion con los permisos acordados para sus migraciones; no cambiar el admin compartido. Para una primera prueba solo usar credenciales autorizadas por el equipo. Generar JWT_SECRET con `openssl rand -hex 32` y guardarlo en .env; no compartir su valor ni rotarlo en cada reinicio. Esto invalida tokens existentes si se cambia.
+Completar APP_URL, APP_HOST, IMAGE_TAG y las credenciales. DB_URL apunta al endpoint RDS completo y esquema `asiscontrol`. El usuario ideal es exclusivo de la aplicacion con los permisos acordados para sus migraciones; no cambiar el admin compartido. Para una primera prueba solo usar credenciales autorizadas por el equipo. Generar JWT_SECRET con `openssl rand -hex 32` y guardarlo en .env; no compartir su valor ni rotarlo en cada reinicio. Esto invalida tokens existentes si se cambia.
 
 Los valores con $ o # se escriben entre comillas simples; no ejecutar `source .env`. No imprimir `docker compose config` sin --quiet: mostraria secretos. No subir .env, claves SSH ni credenciales a GitHub.
 
@@ -71,11 +86,11 @@ Despues del respaldo y la revision:
 sudo bash deploy.sh
 sudo docker compose --env-file .env -f compose.yaml logs --tail 100 backend
 sudo docker compose --env-file .env -f compose.yaml logs --tail 100 proxy
-curl --fail --retry 20 --retry-delay 5 --retry-all-errors http://IP_PUBLICA_EC2/healthz
-curl --fail --head http://IP_PUBLICA_EC2
+curl --fail --retry 20 --retry-delay 5 --retry-all-errors https://IP_PUBLICA_EC2/healthz
+curl --fail --head https://IP_PUBLICA_EC2
 ```
 
-Puede tardar el arranque y la emision del certificado. En HTTP no hay emision de certificados. Esperar salud UP y probar desde un navegador login, cierre de sesion, permisos y las funciones que use la demostracion. No se crea administrador automaticamente: usar un acceso existente acordado con el equipo. Correo SMTP esta desactivado; si se necesitan correos reales falta configurar el modulo. No requiere instalar Java ni Node directamente en EC2.
+Puede tardar el arranque y la emision del certificado. No usar curl -k: ocultaria errores de certificado. Esperar salud UP y probar desde un navegador login, cierre de sesion, permisos y las funciones que use la demostracion. No se crea administrador automaticamente: usar un acceso existente acordado con el equipo. Correo SMTP esta desactivado; si se necesitan correos reales falta configurar el modulo. No requiere instalar Java ni Node directamente en EC2.
 
 ## 7. Operacion y vuelta a una version anterior
 
@@ -92,6 +107,6 @@ No usar `docker compose down -v`: elimina volumenes con certificados y adjuntos.
 
 ## 8. Limites actuales
 
-No se desplego nada desde esta computadora ni se modifico RDS. Falta confirmar la IP publica actual, publicar la rama revisada, configurar la variable, publicar imagenes y arrancarlas en EC2. El dominio y HTTPS se configuraran despues. Despues se puede automatizar el paso SSH mediante un mecanismo autorizado (por ejemplo SSM con permisos del laboratorio); requerira una propuesta adicional y no almacenar la llave del equipo sin acordarlo.
+No se desplego nada desde esta computadora ni se modifico RDS. Falta confirmar la IP publica actual, publicar la rama revisada, configurar la variable, publicar imagenes y arrancarlas en EC2. La configuracion HTTPS de IP esta preparada; falta verificar la emision real y el acceso en EC2. Despues se puede automatizar el paso SSH mediante un mecanismo autorizado (por ejemplo SSM con permisos del laboratorio); requerira una propuesta adicional y no almacenar la llave del equipo sin acordarlo.
 
 Las pruebas de CI usan H2 y respuestas simuladas/componentes; no certifican compatibilidad de migraciones MySQL ni el despliegue real. Revisar tambien las vulnerabilidades de dependencias reportadas y restringir con el equipo la regla MySQL abierta a 0.0.0.0/0, conservando los accesos necesarios.

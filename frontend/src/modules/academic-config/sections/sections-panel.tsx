@@ -2,13 +2,15 @@
 import { useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
 import { FormDialog, ReasonField } from "@/shared/ui";
+import { BulkImportDialog, type BulkImportResult } from "@/modules/bulk-import";
 import { isOverCapacity, vacancies } from "../lib/section-metrics";
 import styles from "../academic-config.module.css";
 import type { Section, YearPanelProps } from "../types";
 import { OccupancyBar } from "./occupancy-bar";
 import { SectionFormDialog } from "./section-form-dialog";
+import { SectionStudentsDialog } from "./section-students-dialog";
 type SectionAction =
-  | { kind: "section" }
+  | { kind: "section" | "import" }
   | { kind: "section-edit"; target: Section }
   | { kind: "section-disable"; target: Section; next: boolean };
 const iconProps = {
@@ -45,6 +47,7 @@ export function SectionsPanel({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [gradeFilter, setGradeFilter] = useState("");
+  const [roster, setRoster] = useState<Section | null>(null);
   const open = (value: SectionAction) => {
     setError("");
     onSuccess("");
@@ -120,6 +123,21 @@ export function SectionsPanel({
           </select>
           {editable && (
             <button
+              type="button"
+              className="secondary-action"
+              disabled={!hasActiveGrades}
+              title={
+                hasActiveGrades
+                  ? undefined
+                  : "Habilita al menos un grado en «Grados habilitados»."
+              }
+              onClick={() => open({ kind: "import" })}
+            >
+              Carga masiva
+            </button>
+          )}
+          {editable && (
+            <button
               className={styles.newPeriodButton}
               disabled={!hasActiveGrades}
               title={
@@ -144,7 +162,7 @@ export function SectionsPanel({
               <th>Matriculados</th>
               <th>Vacantes</th>
               <th>Ocupación</th>
-              {editable && <th>Acciones</th>}
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -176,41 +194,50 @@ export function SectionsPanel({
                 <td>
                   <OccupancyBar section={section} />
                 </td>
-                {editable && (
-                  <td>
-                    <div className={styles.rowActions}>
-                      {section.activo && (
+                <td>
+                  <div className={styles.rowActions}>
+                    <button
+                      className={styles.textAction}
+                      aria-label={`Ver alumnos de ${section.grado}° Grado, Sección ${section.nombre}`}
+                      onClick={() => setRoster(section)}
+                    >
+                      Ver alumnos
+                    </button>
+                    {editable && (
+                      <>
+                        {section.activo && (
+                          <button
+                            className={styles.iconButton}
+                            aria-label={`Editar ${section.grado}° Grado, Sección ${section.nombre}`}
+                            title="Editar"
+                            onClick={() =>
+                              open({ kind: "section-edit", target: section })
+                            }
+                          >
+                            <PencilIcon />
+                          </button>
+                        )}
                         <button
-                          className={styles.iconButton}
-                          aria-label={`Editar ${section.grado}° Grado, Sección ${section.nombre}`}
-                          title="Editar"
+                          className={styles.textAction}
                           onClick={() =>
-                            open({ kind: "section-edit", target: section })
+                            open({
+                              kind: "section-disable",
+                              target: section,
+                              next: !section.activo,
+                            })
                           }
                         >
-                          <PencilIcon />
+                          {section.activo ? "Inhabilitar" : "Habilitar"}
                         </button>
-                      )}
-                      <button
-                        className={styles.textAction}
-                        onClick={() =>
-                          open({
-                            kind: "section-disable",
-                            target: section,
-                            next: !section.activo,
-                          })
-                        }
-                      >
-                        {section.activo ? "Inhabilitar" : "Habilitar"}
-                      </button>
-                    </div>
-                  </td>
-                )}
+                      </>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
             {!visible.length && (
               <tr>
-                <td className={styles.emptyCell} colSpan={editable ? 7 : 6}>
+                <td className={styles.emptyCell} colSpan={7}>
                   {emptyText}
                 </td>
               </tr>
@@ -218,7 +245,32 @@ export function SectionsPanel({
           </tbody>
         </table>
       </div>
-      {action && action.kind !== "section-disable" && (
+      {roster && (
+        <SectionStudentsDialog
+          section={roster}
+          editable={editable}
+          onClose={() => setRoster(null)}
+          onChanged={onReload}
+        />
+      )}
+      {action?.kind === "import" && (
+        <BulkImportDialog
+          title="Carga masiva de secciones"
+          description="Descarga la plantilla y completa una fila por sección. Puedes cargar varios años y grados en un mismo archivo."
+          path="/api/secciones/importaciones"
+          templateName="plantilla_secciones.xlsx"
+          fileLabel="Archivo Excel de secciones"
+          onClose={() => setAction(null)}
+          onImported={(result: BulkImportResult) =>
+            void onReload()
+              .then(() =>
+                onSuccess(`Carga masiva: ${result.creadas} secciones creadas.`),
+              )
+              .catch(() => undefined)
+          }
+        />
+      )}
+      {action && action.kind !== "section-disable" && action.kind !== "import" && (
         <SectionFormDialog
           year={year}
           section={action.kind === "section-edit" ? action.target : undefined}

@@ -1,4 +1,16 @@
+{
+    # Los navegadores pueden conectar a una IP sin enviar SNI.
+    default_sni {$APP_HOST}
+}
+
 {$APP_URL} {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+            profile shortlived
+        }
+    }
+
     @api path /api /api/*
     handle @api {
         reverse_proxy backend:8080

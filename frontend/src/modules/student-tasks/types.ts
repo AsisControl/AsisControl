@@ -19,4 +19,6 @@ export type StudentTask = {
     evaluacionAcademica?: { id: number; titulo: string; estado?: "BORRADOR" | "PUBLICADA" | "CERRADA" | "ANULADA"; cuentaParaResultadoAcademico: boolean; componente: string | null; pesoComponente: number | null } | null;
   };
   entrega: TaskDelivery | null;
+  /** Tarea de una sección que el estudiante ya dejó: se consulta, no se entrega. */
+  soloConsulta?: boolean;
 };

@@ -165,6 +165,14 @@ input {
   background: var(--surface);
   min-height: 100vh;
 }
+/* Al enfocar o saltar a un elemento, no queda oculto bajo el menú fijo. */
+html {
+  scroll-padding-top: var(--header-height, 0px);
+}
+/* Dentro de una ventana no hay menú que esquivar. */
+.modal-backdrop {
+  --header-height: 0px;
+}
 .top-nav {
   align-items: center;
   background: var(--blue-2);

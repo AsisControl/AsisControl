@@ -1,4 +1,5 @@
 import { api } from "@/core/api/client";
+import type { AcademicYear } from "@/modules/academic-config";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
 import type { EnrollmentPaymentPlan } from "../types";
@@ -68,10 +69,16 @@ export function requestRenewal(idMatriculaAnterior: number, idSeccion: number) {
   });
 }
 
-export function approveRenewal(record: RenewalRecord, firmaPlan?: string) {
+/** Secciones activas del grado y año a los que renueva el estudiante, con sus vacantes. */
+export async function getRenewalSections(record: RenewalRecord) {
+  const year = await api<AcademicYear>(`/api/configuracion-academica/anios/${record.anioDestino}`);
+  return year.secciones.filter((section) => section.activo && section.grado === record.gradoDestino);
+}
+
+export function approveRenewal(record: RenewalRecord, firmaPlan?: string, idSeccion?: number) {
   return api<RenewalRecord>(`${RENEWALS_PATH}/${record.id}/aprobar`, {
     method: "POST",
-    body: JSON.stringify({ version: record.version, firmaPlan }),
+    body: JSON.stringify({ version: record.version, firmaPlan, idSeccion }),
   });
 }
 

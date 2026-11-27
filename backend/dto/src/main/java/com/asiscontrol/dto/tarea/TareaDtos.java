@@ -157,7 +157,9 @@ public final class TareaDtos {
             String seccion,
             EntregaTareaResponse entrega,
             List<ResultadoCompetencia> resultados,
-            com.asiscontrol.entity.enums.NivelLogro nivelSinEntrega
+            com.asiscontrol.entity.enums.NivelLogro nivelSinEntrega,
+            /* true si la tarea es de una sección que el estudiante ya dejó. */
+            boolean soloConsulta
     ) {
     }
 

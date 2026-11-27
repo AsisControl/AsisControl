@@ -166,10 +166,13 @@ export function TaskDialog({ task, onClose, onSaved }: {
         {!editable && !canEditDelivery(currentTask) && <p className={styles.hint}>
           {entrega.estado === "CALIFICADO" ? "La entrega ya fue calificada y no se puede editar."
             : entrega.estado === "ANULADO" ? "La entrega está anulada y no se puede editar."
+            : task.soloConsulta ? "Esta tarea es de una sección anterior: solo puedes consultarla."
             : "La tarea ya no está recibiendo cambios en las entregas."}
         </p>}
       </>}
-      {!creating && !entrega && <p>Esta tarea no está recibiendo entregas.</p>}
+      {!creating && !entrega && <p>{task.soloConsulta
+        ? "Esta tarea es de una sección anterior: solo puedes consultarla."
+        : "Esta tarea no está recibiendo entregas."}</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {conflict && <button type="button" className="secondary-action" disabled={busy} onClick={startEditing}>Recargar entrega</button>}
       {editable ? <form className={styles.editForm} onSubmit={submit}>

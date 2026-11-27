@@ -36,6 +36,7 @@ public class ConfiguracionPagosController {
     @GetMapping("/beneficios/{id}/preview") public AjusteBeneficioResponse previewBeneficio(@PathVariable Long id){return configuracion.previewBeneficio(id);}
     @PostMapping("/beneficios/{id}/aplicar") @PreAuthorize(WRITE) public AjusteBeneficioResponse aplicar(@PathVariable Long id,@Valid @RequestBody AplicarBeneficioRequest request){return configuracion.aplicarBeneficio(id,request);}
     @GetMapping("/planes/solicitudes/{id}/preview") public PlanResponse solicitud(@PathVariable Long id){return planes.previewSolicitud(id);}
+    @GetMapping("/planes/alumnos/{id}/preview") public PlanResponse alumno(@PathVariable Long id,@RequestParam int anioAcademico,@RequestParam int grado){return planes.previewAlumno(id,anioAcademico,grado);}
     @GetMapping("/planes/matriculas/{id}/preview") public PlanResponse matricula(@PathVariable Long id){return planes.previewMatricula(id);}
     @PostMapping("/planes/matriculas/{id}/generar") @PreAuthorize(WRITE) public PlanResponse generar(@PathVariable Long id,@Valid @RequestBody GenerarPlanRequest request){return planes.generar(id,request.firmaPlan());}
     @PostMapping("/planes/matriculas/{id}/vincular") @PreAuthorize(WRITE) public PlanResponse vincular(@PathVariable Long id,@Valid @RequestBody VincularRequest request){return planes.vincular(id,request);}

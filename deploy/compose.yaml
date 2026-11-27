@@ -1,13 +1,14 @@
 name: asiscontrol
 services:
   proxy:
-    image: caddy:2-alpine
+    image: caddy:2.11.9-alpine
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     environment:
       APP_URL: ${APP_URL:?Configura APP_URL}
+      APP_HOST: ${APP_HOST:?Configura APP_HOST con la IP publica sin https ni puerto}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - certificados:/data
@@ -41,7 +42,7 @@ services:
       DB_POOL_MAX_SIZE: "5"
       DB_POOL_MIN_IDLE: "1"
       JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET}
-      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:?Configura AUTH_COOKIE_SECURE}
+      AUTH_COOKIE_SECURE: "true"
       AUTH_COOKIE_SAME_SITE: Strict
       CORS_ALLOWED_ORIGINS: ${APP_URL}
       APP_FRONTEND_URL: ${APP_URL}

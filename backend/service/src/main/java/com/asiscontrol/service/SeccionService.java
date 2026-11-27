@@ -52,6 +52,7 @@ public class SeccionService {
     private final AuditoriaService auditoria;
     private final com.asiscontrol.repository.SolicitudMatriculaRepository solicitudes;
     private final com.asiscontrol.repository.AsignacionCursoRepository asignaciones;
+    private final com.asiscontrol.repository.HistorialSeccionMatriculaRepository historialSecciones;
 
     public SeccionService(
             SeccionRepository seccionRepository,
@@ -61,7 +62,8 @@ public class SeccionService {
             ConfiguracionAcademicaService configuracion,
             AuditoriaService auditoria,
             com.asiscontrol.repository.SolicitudMatriculaRepository solicitudes,
-            com.asiscontrol.repository.AsignacionCursoRepository asignaciones) {
+            com.asiscontrol.repository.AsignacionCursoRepository asignaciones,
+            com.asiscontrol.repository.HistorialSeccionMatriculaRepository historialSecciones) {
         this.seccionRepository = seccionRepository;
         this.docenteRepository = docenteRepository;
         this.gradoAcademicoRepository = gradoAcademicoRepository;
@@ -70,6 +72,7 @@ public class SeccionService {
         this.auditoria = auditoria;
         this.solicitudes = solicitudes;
         this.asignaciones = asignaciones;
+        this.historialSecciones = historialSecciones;
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
@@ -430,7 +433,8 @@ public class SeccionService {
     private boolean utilizada(Long id) {
         return matriculaRepository.existsBySeccionId(id)
                 || solicitudes.existsBySeccionId(id)
-                || asignaciones.existsBySeccionId(id);
+                || asignaciones.existsBySeccionId(id)
+                || historialSecciones.existsBySeccionAnteriorId(id);
     }
 
     public Seccion obtenerEntidad(Long id) {

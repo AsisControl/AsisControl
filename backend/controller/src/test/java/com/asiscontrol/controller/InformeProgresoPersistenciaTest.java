@@ -35,13 +35,13 @@ class InformeProgresoPersistenciaTest extends ApiIntegrationSupport {
             ScriptUtils.executeSqlScript(connection,
                     new ClassPathResource("db/migration/V29__reglas_calificacion.sql"));
             ScriptUtils.executeSqlScript(connection,
-                    new ClassPathResource("db/migration/V30__peso_resultado_libreta.sql"));
+                    new ClassPathResource("db/migration/V31__peso_resultado_libreta.sql"));
             ScriptUtils.executeSqlScript(connection,
-                    new ClassPathResource("db/migration/V33__escala_publicacion_libreta.sql"));
+                    new ClassPathResource("db/migration/V34__escala_publicacion_libreta.sql"));
             ScriptUtils.executeSqlScript(connection,
-                    new ClassPathResource("db/migration/V35__conclusiones_descriptivas.sql"));
+                    new ClassPathResource("db/migration/V36__conclusiones_descriptivas.sql"));
             ScriptUtils.executeSqlScript(connection,
-                    new ClassPathResource("db/migration/V36__revision_informe_progreso.sql"));
+                    new ClassPathResource("db/migration/V37__revision_informe_progreso.sql"));
         });
 
         var periodo = new PeriodoAcademico();

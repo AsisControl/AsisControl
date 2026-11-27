@@ -1,3 +1,9 @@
+/* El menú superior acompaña el desplazamiento; queda por debajo de los diálogos. */
+.header:global(.top-nav) {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}
 /* Con iconos el menú es más ancho: se desplaza dentro de sí mismo en vez de
    ensanchar la página. "safe" evita recortar la primera opción al centrar. */
 .navBar {
@@ -101,7 +107,6 @@
 /* Por debajo de 760 px el menú se pliega en un desplegable bajo el encabezado. */
 @media (max-width: 760px) {
   .header:global(.top-nav) {
-    position: relative;
     flex-wrap: nowrap;
     gap: 8px;
     height: auto;

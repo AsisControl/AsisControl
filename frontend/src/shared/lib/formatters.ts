@@ -49,7 +49,7 @@ export const timeLabel = (date: Date) =>
 export const countLabel = (count: number, singular: string, plural: string) =>
   `${count} ${count === 1 ? singular : plural}`;
 /** MATEMATICA → "Matemática"; los códigos del backend no llevan tildes. */
-const SPECIALTY_LABELS: Record<string, string> = {
+export const SPECIALTY_LABELS: Record<string, string> = {
   MATEMATICA: "Matemática",
   COMUNICACION: "Comunicación",
   CIENCIA_Y_TECNOLOGIA: "Ciencia y Tecnología",

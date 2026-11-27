@@ -38,11 +38,23 @@ final class PlantillaExcel {
             List<String> headers,
             List<String> example,
             Map<String, List<String>> lists) {
+        return buildConFilas(sheetName, headers, List.of(example), lists);
+    }
+
+    /**
+     * Igual que {@link #build}, pero con varias filas ya completadas: por ejemplo, la planilla de
+     * notas trae a cada alumno con sus competencias para que el docente solo escriba el nivel.
+     */
+    static byte[] buildConFilas(
+            String sheetName,
+            List<String> headers,
+            List<List<String>> rows,
+            Map<String, List<String>> lists) {
         try (Workbook workbook = new XSSFWorkbook();
                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet(sheetName);
             writeHeader(workbook, sheet, headers);
-            writeExample(workbook, sheet, example);
+            writeRows(workbook, sheet, headers.size(), rows);
             lists.forEach((column, values) -> addList(sheet, headers.indexOf(column), values));
             sheet.createFreezePane(0, 1);
             workbook.write(output);
@@ -71,15 +83,21 @@ final class PlantillaExcel {
         }
     }
 
-    private static void writeExample(Workbook workbook, Sheet sheet, List<String> example) {
+    private static void writeRows(
+            Workbook workbook, Sheet sheet, int columns, List<List<String>> rows) {
         CellStyle textStyle = workbook.createCellStyle();
         textStyle.setDataFormat(workbook.createDataFormat().getFormat("@"));
-        Row exampleRow = sheet.createRow(1);
-        for (int columnIndex = 0; columnIndex < example.size(); columnIndex++) {
+        for (int columnIndex = 0; columnIndex < columns; columnIndex++) {
             sheet.setDefaultColumnStyle(columnIndex, textStyle);
-            Cell exampleCell = exampleRow.createCell(columnIndex);
-            exampleCell.setCellValue(example.get(columnIndex));
-            exampleCell.setCellStyle(textStyle);
+        }
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            Row row = sheet.createRow(rowIndex + 1);
+            List<String> values = rows.get(rowIndex);
+            for (int columnIndex = 0; columnIndex < values.size(); columnIndex++) {
+                Cell cell = row.createCell(columnIndex);
+                cell.setCellValue(values.get(columnIndex));
+                cell.setCellStyle(textStyle);
+            }
         }
     }
 

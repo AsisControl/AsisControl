@@ -16,6 +16,7 @@ import {
   Loading,
 } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import {
   countLabel,
   dateLabel,
@@ -26,9 +27,11 @@ import {
 import type { Persona } from "@/shared/types/person";
 import { type Student } from "@/modules/students";
 import { AcademicRecords } from "@/modules/academic-records";
+import { changeSection, SectionChangeDialog, SectionChangeFields } from "@/modules/section-change";
 import type { AcademicYear } from "@/modules/academic-config";
 import { EnrollmentHistory } from "./enrollment-history";
 import { EnrollmentPaymentPreview } from "./enrollment-payment-preview";
+import { EnrollmentFilters } from "./enrollment-filters";
 import { AdminRenewals } from "./renewals/renewal-navigation";
 import type { EnrollmentPaymentPlan, History } from "./types";
 type EnrollmentRecord = {
@@ -113,15 +116,19 @@ export function Enrollments({
         <EnrollmentList
           key={current.id}
           isRequest={current.id === DEFAULT_TAB}
+          canWrite={canManageRenewals}
         />
       )}
     </section>
   );
 }
-function EnrollmentList({ isRequest }: { isRequest: boolean }) {
+function EnrollmentList({ isRequest, canWrite = false }: { isRequest: boolean; canWrite?: boolean }) {
   const path = isRequest ? "/api/solicitudes-matricula" : "/api/matriculas";
-  const list = usePaged<EnrollmentRecord>(path);
+  const [filters, setFilters] = useState("");
+  const list = usePaged<EnrollmentRecord>(path, "", filters);
+  const [moving, setMoving] = useState<EnrollmentRecord | null>(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [selected, setSelected] = useState<EnrollmentRecord | null>(null);
   const [success, setSuccess] = useState("");
   const total = list.data?.totalElements ?? 0;
@@ -145,6 +152,11 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
             <button disabled={list.loading} onClick={list.refresh}>
               Actualizar
             </button>
+            {!isRequest && canWrite && (
+              <button type="button" onClick={() => setImporting(true)}>
+                Carga masiva
+              </button>
+            )}
             {isRequest && (
               <button
                 className="primary-action"
@@ -159,7 +171,19 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
           </>
         }
       />
+      {!isRequest && <EnrollmentFilters onApply={setFilters} />}
       <Feedback error={list.error} success={success} />
+      {importing && (
+        <BulkImportDialog
+          title="Carga masiva de matrículas"
+          description="Descarga la plantilla y completa una fila por estudiante. Cada fila crea la solicitud, asigna la sección y finaliza la matrícula con sus cuotas."
+          path="/api/matriculas/importaciones"
+          templateName="plantilla_matriculas.xlsx"
+          fileLabel="Archivo Excel de matrículas"
+          onClose={() => setImporting(false)}
+          onImported={list.refresh}
+        />
+      )}
       {list.loading ? (
         <Loading>Cargando registros…</Loading>
       ) : list.data?.content.length ? (
@@ -200,9 +224,21 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
                     <StatusPill state={record.estado} />
                   </td>
                   <td data-label="Acciones">
-                    <button onClick={() => setSelected(record)}>
-                      Ver detalle
-                    </button>
+                    <div className="row-actions">
+                      <button onClick={() => setSelected(record)}>
+                        Ver detalle
+                      </button>
+                      {!isRequest && record.estado === "ACTIVA" && (
+                        <button
+                          onClick={() => {
+                            setSuccess("");
+                            setMoving(record);
+                          }}
+                        >
+                          Cambiar sección
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -212,11 +248,24 @@ function EnrollmentList({ isRequest }: { isRequest: boolean }) {
       ) : (
         !list.error && (
           <p className="empty">
-            No hay {isRequest ? "solicitudes" : "matrículas"} registradas.
+            {filters
+              ? "No se encontraron matrículas con esos filtros."
+              : `No hay ${isRequest ? "solicitudes" : "matrículas"} registradas.`}
           </p>
         )
       )}
       <Pager data={list.data} loading={list.loading} setPage={list.setPage} />
+      {moving && (
+        <SectionChangeDialog
+          enrollment={moving}
+          onClose={() => setMoving(null)}
+          onChanged={(updated) => {
+            setMoving(null);
+            list.refresh();
+            setSuccess(`Sección de ${updated.alumno} actualizada a ${updated.grado}° ${updated.seccion}.`);
+          }}
+        />
+      )}
       {creating && (
         <NewRequest
           onClose={() => setCreating(false)}
@@ -516,16 +565,8 @@ function EnrollmentDetail({
     setSuccess("");
     try {
       if (action === "CAMBIAR_SECCION") {
-        setRecord(
-          await api<EnrollmentRecord>(`${path}/${record.id}/seccion`, {
-            method: "PUT",
-            body: JSON.stringify({
-              seccionId: Number(form.get("seccionId")),
-              motivo: reason,
-              version: record.version,
-            }),
-          }),
-        );
+        const updated = await changeSection(record, Number(form.get("seccionId")), reason);
+        setRecord({ ...record, ...updated });
         setSuccess("Sección actualizada con historial.");
       } else if (action === "MATRICULAR") {
         const result = await api<EnrollmentRecord>("/api/matriculas", {
@@ -534,6 +575,7 @@ function EnrollmentDetail({
             solicitudMatriculaId: record.id,
             versionSolicitud: record.version,
             firmaPlan: paymentPlan!.firmaPlan,
+            seccionId: Number(form.get("seccionId")),
           }),
         });
         setSuccess(
@@ -670,7 +712,7 @@ function EnrollmentDetail({
             {actionLabels[value]}
           </button>
         ))}
-        {isRequest && record.estado === "EN_REVISION" && (
+        {isRequest && ["ENVIADA", "EN_REVISION"].includes(record.estado) && (
           <button
             className="primary-action"
             disabled={busy}
@@ -687,26 +729,7 @@ function EnrollmentDetail({
         <form key={action} className="action-card" onSubmit={save}>
           <h4>{action === "CAMBIAR_SECCION" ? "Cambiar sección" : actionLabels[action]}</h4>
           {action === "CAMBIAR_SECCION" ? (
-            <>
-              <label className="field">
-                Nueva sección del mismo grado y año *
-                <select name="seccionId" required defaultValue="">
-                  <option value="" disabled>Seleccionar sección</option>
-                  {year?.secciones
-                    .filter((value) => value.activo && value.grado === record.grado
-                      && value.id !== record.seccionId)
-                    .map((value) => (
-                      <option key={value.id} value={value.id} disabled={value.vacantes <= 0}>
-                        {value.nombre} · {value.vacantes} vacantes
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label className="field">
-                Motivo del cambio *
-                <textarea name="motivo" required maxLength={700} rows={3} />
-              </label>
-            </>
+            <SectionChangeFields year={year} enrollment={record} />
           ) : action === "EDITAR" ? (
             <>
               <label className="field">
@@ -758,13 +781,12 @@ function EnrollmentDetail({
               />
             </label>
           ) : action === "MATRICULAR" ? (
-            <EnrollmentPaymentPreview requestId={record.id} revision={planRevision} onPlan={setPaymentPlan} />
+            <>
+              <EnrollmentSectionField year={year} record={record} />
+              <EnrollmentPaymentPreview requestId={record.id} revision={planRevision} onPlan={setPaymentPlan} />
+            </>
           ) : (
-            <p>
-              {action === "MATRICULAR"
-                ? "Se creará la matrícula y finalizará la solicitud en una sola operación. El servidor verifica la última vacante disponible."
-                : "Confirma el cambio de estado de la solicitud."}
-            </p>
+            <p>Confirma el cambio de estado de la solicitud.</p>
           )}
           <div className="form-actions">
             <button type="button" disabled={busy} onClick={() => setAction("")}>
@@ -793,6 +815,44 @@ function EnrollmentDetail({
         !error && <Loading skeleton="list">Cargando historial…</Loading>
       )}
     </Dialog>
+  );
+}
+/** Sección con la que se matricula: del mismo año y grado, y solo si tiene vacantes. */
+function EnrollmentSectionField({
+  year,
+  record,
+}: {
+  year: AcademicYear | null;
+  record: EnrollmentRecord;
+}) {
+  if (!year) return <Loading skeleton="list" rows={1}>Cargando secciones…</Loading>;
+  const sections = year.secciones.filter(
+    (section) => section.activo && section.grado === record.grado,
+  );
+  const available = sections.filter((section) => section.vacantes > 0);
+  const assigned = available.find((section) => section.id === record.seccionId);
+  return (
+    <>
+      <label className="field">
+        Sección de la matrícula *
+        <select name="seccionId" required defaultValue={assigned?.id ?? ""}>
+          <option value="" disabled>
+            Seleccionar sección
+          </option>
+          {sections.map((section) => (
+            <option key={section.id} value={section.id} disabled={section.vacantes <= 0}>
+              {section.nombre} · {section.vacantes} vacantes
+            </option>
+          ))}
+        </select>
+      </label>
+      {!available.length && (
+        <p role="alert">
+          No hay secciones con vacantes en {record.grado}° para {record.anioAcademico}.
+          Amplía la capacidad o crea una sección en la configuración académica.
+        </p>
+      )}
+    </>
   );
 }
 function GuardianLinks({ studentId }: { studentId: number }) {

@@ -275,7 +275,7 @@ section > .subtitulo {
   height: 56px;
   justify-content: space-between;
   position: sticky;
-  top: 0;
+  top: var(--header-height, 0px);
   z-index: 2;
 }
 .buscador {
@@ -301,7 +301,7 @@ section > .subtitulo {
 }
 .tablaAlumnos thead th {
   position: sticky;
-  top: 56px;
+  top: calc(var(--header-height, 0px) + 56px);
   z-index: 1;
 }
 .tablaAlumnos tbody tr:hover,

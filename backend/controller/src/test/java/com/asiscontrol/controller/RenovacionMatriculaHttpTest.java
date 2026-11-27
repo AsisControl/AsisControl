@@ -119,6 +119,39 @@ class RenovacionMatriculaHttpTest extends PagosFamiliaIntegrationSupport {
     }
 
     @Test
+    void permiteElegirOtraSeccionCuandoLaSolicitadaNoTieneVacantes() throws Exception {
+        promocion("PROMOVIDO");
+        var solicitud = enviar();
+        ocuparDestino();
+        var alternativa = seccionAlternativa(destino.getGrado());
+        var otroGrado = seccionAlternativa(destino.getGrado() + 1);
+        String path = ruta(solicitud) + "/aprobar";
+        long version = solicitud.path("version").asLong();
+        var sinElegir = request("POST", path, data("version", version), 422);
+        assertThat(sinElegir.path("code").asText()).isEqualTo("SECCION_SIN_VACANTES");
+        request("POST", path, data("version", version, "idSeccion", otroGrado.getId()), 422);
+        assertThat(getOk(ruta(solicitud)).path("estado").asText()).isEqualTo("EN_REVISION");
+        String firma = getOk(ruta(solicitud) + "/plan").path("firmaPlan").asText();
+        var aprobada = request("POST", path,
+                data("version", version, "firmaPlan", firma, "idSeccion", alternativa.getId()), 200);
+        assertThat(aprobada.path("estado").asText()).isEqualTo("APROBADA");
+        assertThat(aprobada.path("idSeccion").asLong()).isEqualTo(alternativa.getId());
+        assertThat(getOk("/api/matriculas/" + aprobada.path("idMatricula").asLong()).path("seccionId").asLong())
+                .isEqualTo(alternativa.getId());
+    }
+
+    private Seccion seccionAlternativa(int grado) {
+        var seccion = new Seccion();
+        seccion.setNombre("Alternativa " + grado);
+        seccion.setGrado(grado);
+        seccion.setAnioAcademico(2091);
+        seccion.setCapacidadMaxima(5);
+        em.persist(seccion);
+        em.flush();
+        return seccion;
+    }
+
+    @Test
     void noPermiteOtraFamiliaDuplicadosNiUsarIngresoParaEvitarLaRevision() throws Exception {
         var otra = otraFamilia();
         familiaRenovacion(otra.apoderado(), true, RUTA, datosEnvio(), 403);

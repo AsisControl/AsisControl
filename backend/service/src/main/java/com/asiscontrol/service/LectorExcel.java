@@ -52,7 +52,7 @@ final class LectorExcel {
             String value = opcional(header);
             if (value == null) {
                 throw new BusinessRuleException(
-                        "CAMPO_OBLIGATORIO", "La columna " + header + " es obligatoria");
+                        "CAMPO_OBLIGATORIO", "La columna " + header + " es obligatoria", header);
             }
             return value;
         }
@@ -75,7 +75,8 @@ final class LectorExcel {
                             () ->
                                     new BusinessRuleException(
                                             "VALOR_NO_PERMITIDO",
-                                            "El valor de " + header + " no esta permitido"));
+                                            "El valor de " + header + " no esta permitido",
+                                            header));
         }
 
         boolean siNo(String header) {
@@ -84,8 +85,41 @@ final class LectorExcel {
                 case "SI", "SÍ" -> true;
                 case "NO" -> false;
                 default -> throw new BusinessRuleException(
-                        "VALOR_NO_PERMITIDO", "La columna " + header + " debe ser SI o NO");
+                        "VALOR_NO_PERMITIDO", "La columna " + header + " debe ser SI o NO", header);
             };
+        }
+
+        /** Entero obligatorio; Excel puede guardar "40" como texto o como número 40. */
+        int entero(String header) {
+            String value = obligatorio(header);
+            try {
+                return new java.math.BigDecimal(value).intValueExact();
+            } catch (NumberFormatException | ArithmeticException exception) {
+                throw new BusinessRuleException(
+                        "NUMERO_INVALIDO", "La columna " + header + " debe ser un número entero", header);
+            }
+        }
+
+        /** Hora obligatoria: texto HH:mm o una celda con formato de hora de Excel. */
+        java.time.LocalTime hora(String header) {
+            Integer index = columns.get(header);
+            Cell cell = index == null ? null : row.getCell(index);
+            if (cell == null || FORMATTER.formatCellValue(cell).isBlank()) {
+                throw new BusinessRuleException(
+                        "CAMPO_OBLIGATORIO", "La columna " + header + " es obligatoria", header);
+            }
+            if (cell.getCellType() == CellType.NUMERIC) {
+                double dia = cell.getNumericCellValue();
+                long segundos = Math.round((dia - Math.floor(dia)) * 24 * 60 * 60);
+                return java.time.LocalTime.ofSecondOfDay(segundos % (24 * 60 * 60));
+            }
+            try {
+                return java.time.LocalTime.parse(
+                        FORMATTER.formatCellValue(cell).trim(), DateTimeFormatter.ofPattern("H:mm"));
+            } catch (DateTimeParseException exception) {
+                throw new BusinessRuleException(
+                        "HORA_INVALIDA", "Use el formato HH:mm en " + header, header);
+            }
         }
 
         LocalDate fecha(String header) {
@@ -93,7 +127,7 @@ final class LectorExcel {
             Cell cell = index == null ? null : row.getCell(index);
             if (cell == null || FORMATTER.formatCellValue(cell).isBlank()) {
                 throw new BusinessRuleException(
-                        "CAMPO_OBLIGATORIO", "La columna " + header + " es obligatoria");
+                        "CAMPO_OBLIGATORIO", "La columna " + header + " es obligatoria", header);
             }
             if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
                 return cell.getLocalDateTimeCellValue().toLocalDate();
@@ -110,7 +144,7 @@ final class LectorExcel {
                 }
             }
             throw new BusinessRuleException(
-                    "FECHA_INVALIDA", "Use AAAA-MM-DD o DD/MM/AAAA en " + header);
+                    "FECHA_INVALIDA", "Use AAAA-MM-DD o DD/MM/AAAA en " + header, header);
         }
     }
 
@@ -170,14 +204,21 @@ final class LectorExcel {
         }
     }
 
-    /** Aplica las validaciones de la ficha a la fila; los motivos se unen en un solo mensaje. */
+    /**
+     * Aplica las validaciones de la ficha a la fila; los motivos se unen en un solo mensaje. Si
+     * todos corresponden al mismo campo, ese campo se informa junto al error.
+     */
     static <T> void validar(Validator validator, T request) {
         var errors = validator.validate(request);
         if (!errors.isEmpty()) {
+            var campos = errors.stream()
+                    .map(error -> error.getPropertyPath().toString())
+                    .collect(Collectors.toSet());
             throw new BusinessRuleException("FILA_INVALIDA", errors.stream()
                     .map(ConstraintViolation::getMessage)
                     .sorted()
-                    .collect(Collectors.joining("; ")));
+                    .collect(Collectors.joining("; ")),
+                    campos.size() == 1 ? campos.iterator().next() : null);
         }
     }
 
@@ -208,7 +249,8 @@ final class LectorExcel {
                     procesar.accept(new Fila(row, columns));
                     importadas++;
                 } catch (RuntimeException exception) {
-                    issues.add(new PersonaDtos.ImportIssue(index + 1, "fila", mensaje(exception)));
+                    issues.add(new PersonaDtos.ImportIssue(
+                            index + 1, campo(exception), mensaje(exception)));
                 }
             }
         } catch (IOException exception) {
@@ -264,6 +306,13 @@ final class LectorExcel {
             }
         }
         return true;
+    }
+
+    /** Columna que causó el error cuando se conoce; si no, el error es de toda la fila. */
+    private static String campo(RuntimeException exception) {
+        return exception instanceof BusinessRuleException regla && regla.getField() != null
+                ? regla.getField()
+                : "fila";
     }
 
     /** Solo los errores de negocio llegan al usuario; los tecnicos no exponen detalles. */

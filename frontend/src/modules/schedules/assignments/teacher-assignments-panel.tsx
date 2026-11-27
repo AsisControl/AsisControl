@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Feedback, PanelHeading, Pager, RowMenu, StatusPill, Loading } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import type { AssignmentState, TeacherAssignment } from "../types";
 import styles from "../schedules.module.css";
@@ -38,6 +39,7 @@ export function TeacherAssignmentsPanel({ canWrite }: { canWrite: boolean }) {
   }
   const rows = assignments.data?.content ?? [];
   const total = assignments.data?.totalElements ?? 0;
+  const [importing, setImporting] = useState(false);
   return (
     <section className="panel">
       <PanelHeading
@@ -61,6 +63,11 @@ export function TeacherAssignmentsPanel({ canWrite }: { canWrite: boolean }) {
               Actualizar
             </button>
             {canWrite && (
+              <button type="button" onClick={() => setImporting(true)}>
+                Carga masiva
+              </button>
+            )}
+            {canWrite && (
               <button
                 type="button"
                 className="primary-action"
@@ -72,6 +79,17 @@ export function TeacherAssignmentsPanel({ canWrite }: { canWrite: boolean }) {
           </>
         }
       />
+      {importing && (
+        <BulkImportDialog
+          title="Carga masiva de asignaciones docentes"
+          description="Descarga la plantilla y completa una fila por curso y sección. El curso debe estar en el plan de estudios del grado."
+          path="/api/asignaciones-cursos/importaciones"
+          templateName="plantilla_asignaciones_docentes.xlsx"
+          fileLabel="Archivo Excel de asignaciones"
+          onClose={() => setImporting(false)}
+          onImported={assignments.refresh}
+        />
+      )}
       <p className={styles.availabilityNotice}>
         Un docente solo registra asistencia y notas en los cursos y secciones
         que tiene asignados. No se puede retirar a un docente que todavía tiene

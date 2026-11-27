@@ -49,10 +49,26 @@ public final class MatriculaDtos {
             boolean activo,
             long version) {}
 
+    /** {@code seccionId} es opcional: si falta, se usa la sección ya asignada a la solicitud. */
     public record CrearMatriculaRequest(
-            @NotNull Long solicitudMatriculaId, @NotNull Long versionSolicitud,@jakarta.validation.constraints.NotBlank @Size(max=64)String firmaPlan) {
-        public CrearMatriculaRequest(Long solicitudMatriculaId,Long versionSolicitud){this(solicitudMatriculaId,versionSolicitud,null);}
+            @NotNull Long solicitudMatriculaId,
+            @NotNull Long versionSolicitud,
+            @jakarta.validation.constraints.NotBlank @Size(max = 64) String firmaPlan,
+            Long seccionId) {
+        public CrearMatriculaRequest(Long solicitudMatriculaId, Long versionSolicitud, String firmaPlan) {
+            this(solicitudMatriculaId, versionSolicitud, firmaPlan, null);
+        }
+
+        public CrearMatriculaRequest(Long solicitudMatriculaId, Long versionSolicitud) {
+            this(solicitudMatriculaId, versionSolicitud, null, null);
+        }
     }
+
+    /** Alta que hace administración desde la ficha del estudiante, sin trámite previo. */
+    public record MatriculaDirectaRequest(
+            @NotNull Long alumnoId,
+            @NotNull Long seccionId,
+            @jakarta.validation.constraints.NotBlank @Size(max = 64) String firmaPlan) {}
 
     public record ActualizarMatriculaRequest(
             @NotNull EstadoMatricula estado,
@@ -63,6 +79,16 @@ public final class MatriculaDtos {
             @NotNull Long seccionId,
             @NotNull Long version,
             @jakarta.validation.constraints.NotBlank @Size(max = 700) String motivo) {}
+
+    /** Filtros opcionales de la lista de matrículas; se reciben como parámetros de consulta. */
+    public record FiltroMatriculas(
+            String search,
+            Long alumnoId,
+            Integer anioAcademico,
+            Integer grado,
+            Long seccionId,
+            /* true deja solo las matrículas activas o finalizadas. */
+            Boolean vigentes) {}
 
     public record MatriculaResponse(
             Long id,
@@ -78,5 +104,6 @@ public final class MatriculaDtos {
             Instant fechaMatricula,
             EstadoMatricula estado,
             boolean activo,
-            long version) {}
+            long version,
+            String numeroDocumento) {}
 }
