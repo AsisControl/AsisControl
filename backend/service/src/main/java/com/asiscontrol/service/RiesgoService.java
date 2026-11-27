@@ -8,22 +8,29 @@ import com.asiscontrol.entity.enums.IndicadorRiesgo;
 import com.asiscontrol.entity.enums.NivelRiesgo;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
+import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AlertaRiesgoRepository;
 import com.asiscontrol.repository.CriterioRiesgoRepository;
+import com.asiscontrol.repository.PermisoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 public class RiesgoService {
 
+    private static final String PERMISO_ESCRITURA = "RIESGOS_ESCRIBIR";
+    private static final Pattern ESPACIOS = Pattern.compile("(?U)\\s+");
     private static final Set<EstadoAlerta> ESTADOS_ABIERTOS = EnumSet.of(
             EstadoAlerta.ACTIVA,
             EstadoAlerta.EN_SEGUIMIENTO
@@ -33,17 +40,20 @@ public class RiesgoService {
     private final AlertaRiesgoRepository alertaRiesgoRepository;
     private final AuditoriaService auditoria;
     private final EvidenciaRiesgoService evidencia;
+    private final PermisoRepository permisos;
 
     public RiesgoService(
             CriterioRiesgoRepository criterioRiesgoRepository,
             AlertaRiesgoRepository alertaRiesgoRepository,
             AuditoriaService auditoria,
-            EvidenciaRiesgoService evidencia
+            EvidenciaRiesgoService evidencia,
+            PermisoRepository permisos
     ) {
         this.criterioRiesgoRepository = criterioRiesgoRepository;
         this.alertaRiesgoRepository = alertaRiesgoRepository;
         this.auditoria = auditoria;
         this.evidencia = evidencia;
+        this.permisos = permisos;
     }
 
     @Transactional(readOnly = true)
@@ -57,8 +67,10 @@ public class RiesgoService {
         return toCriterioResponse(buscarCriterioActivo(id));
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public RiesgoDto.CriterioResponse crearCriterio(RiesgoDto.CriterioRequest request) {
+        bloquearCambiosDeCriterios();
+        validarNombreDisponible(request.nombre(), null);
         CriterioRiesgo criterio = new CriterioRiesgo();
         aplicarCriterio(criterio, request);
         CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
@@ -68,12 +80,14 @@ public class RiesgoService {
         return toCriterioResponse(saved);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public RiesgoDto.CriterioResponse actualizarCriterio(
             Long id,
             RiesgoDto.CriterioRequest request
     ) {
+        bloquearCambiosDeCriterios();
         CriterioRiesgo criterio = buscarCriterioActivo(id);
+        validarNombreDisponible(request.nombre(), id);
         String anterior = describir(criterio);
         aplicarCriterio(criterio, request);
         CriterioRiesgo saved = criterioRiesgoRepository.save(criterio);
@@ -83,8 +97,24 @@ public class RiesgoService {
         return toCriterioResponse(saved);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public RiesgoDto.CriterioResponse reactivarCriterio(Long id) {
+        bloquearCambiosDeCriterios();
+        CriterioRiesgo criterio = criterioRiesgoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "CRITERIO_NO_ENCONTRADO", "No se encontró el criterio de riesgo"));
+        validarNombreDisponible(criterio.getNombre(), id);
+        if (!criterio.isActivo()) {
+            criterio.setActivo(true);
+            auditoria.registrar("REACTIVAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
+                    id.toString(), ResultadoAuditoria.EXITOSO, null, null, describir(criterio));
+        }
+        return toCriterioResponse(criterio);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void eliminarCriterio(Long id) {
+        bloquearCambiosDeCriterios();
         CriterioRiesgo criterio = buscarCriterioActivo(id);
         if (alertaRiesgoRepository.existsByCriterioIdAndEstadoInAndActivoTrue(id, ESTADOS_ABIERTOS)) {
             throw new BusinessRuleException(
@@ -96,6 +126,27 @@ public class RiesgoService {
         criterioRiesgoRepository.save(criterio);
         auditoria.registrar("ELIMINAR_CRITERIO_RIESGO", ModuloAuditoria.RIESGO, "CriterioRiesgo",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(criterio), null);
+    }
+
+    private void bloquearCambiosDeCriterios() {
+        // La fila común serializa las escrituras incluso si todavía no hay criterios activos.
+        permisos.findByCodigo(PERMISO_ESCRITURA).orElseThrow();
+    }
+
+    private void validarNombreDisponible(String nombre, Long idActual) {
+        String nombreNormalizado = normalizarEspacios(nombre).toLowerCase(Locale.ROOT);
+        boolean duplicado = criterioRiesgoRepository.findAllByActivoTrue().stream()
+                .filter(criterio -> !criterio.getId().equals(idActual))
+                .anyMatch(criterio -> normalizarEspacios(criterio.getNombre())
+                        .toLowerCase(Locale.ROOT).equals(nombreNormalizado));
+        if (duplicado) {
+            throw new ConflictException("CRITERIO_NOMBRE_DUPLICADO",
+                    "Ya existe un criterio de riesgo activo con ese nombre.");
+        }
+    }
+
+    private static String normalizarEspacios(String nombre) {
+        return ESPACIOS.matcher(nombre).replaceAll(" ").strip();
     }
 
     @Transactional(readOnly = true)
@@ -166,7 +217,7 @@ public class RiesgoService {
         } else if (umbral.stripTrailingZeros().scale() > 0) {
             throw new BusinessRuleException("UMBRAL_INVALIDO", "Los indicadores de cantidad requieren un umbral entero");
         }
-        criterio.setNombre(request.nombre().trim());
+        criterio.setNombre(normalizarEspacios(request.nombre()));
         criterio.setDescripcion(limpiar(request.descripcion()));
         criterio.setIndicador(request.indicador());
         criterio.setOperador(request.operador());

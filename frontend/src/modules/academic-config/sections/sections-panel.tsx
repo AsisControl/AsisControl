@@ -8,9 +8,10 @@ import styles from "../academic-config.module.css";
 import type { Section, YearPanelProps } from "../types";
 import { OccupancyBar } from "./occupancy-bar";
 import { SectionFormDialog } from "./section-form-dialog";
+import { SectionProposalsDialog } from "./section-proposals-dialog";
 import { SectionStudentsDialog } from "./section-students-dialog";
 type SectionAction =
-  | { kind: "section" | "import" }
+  | { kind: "section" | "import" | "proposals" }
   | { kind: "section-edit"; target: Section }
   | { kind: "section-disable"; target: Section; next: boolean };
 const iconProps = {
@@ -121,6 +122,11 @@ export function SectionsPanel({
               </option>
             ))}
           </select>
+          {editable && hasActiveGrades && (
+            <button type="button" className="secondary-action" onClick={() => open({ kind: "proposals" })}>
+              Generar propuestas
+            </button>
+          )}
           {editable && (
             <button
               type="button"
@@ -270,7 +276,11 @@ export function SectionsPanel({
           }
         />
       )}
-      {action && action.kind !== "section-disable" && action.kind !== "import" && (
+      {action?.kind === "proposals" && (
+        <SectionProposalsDialog year={year} initialGrade={Number(activeFilter)}
+          onClose={() => setAction(null)} onSaved={saved} />
+      )}
+      {(action?.kind === "section" || action?.kind === "section-edit") && (
         <SectionFormDialog
           year={year}
           section={action.kind === "section-edit" ? action.target : undefined}

@@ -118,8 +118,10 @@ public final class AcademicoDtos {
     public record GenerarPropuestasSeccionesRequest(
             @Min(2000) @Max(2100) int anioAcademico,
             @Min(1) @Max(5) int grado,
-            @Min(1) int cantidad,
-            @Min(1) @Max(100) int capacidadMaxima) {}
+            @Min(1) @Max(value = MAX_PROPUESTAS, message = "Puedes generar hasta 20 secciones por vez.") int cantidad,
+            @Min(1) @Max(100) int capacidadMaxima) {
+        public static final int MAX_PROPUESTAS = 20;
+    }
 
     public record SeccionPropuestaResponse(
             String nombre, int grado, int anioAcademico, int capacidadMaxima) {}

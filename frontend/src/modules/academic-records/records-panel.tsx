@@ -20,6 +20,7 @@ export function RecordsPanel<T>({
   actions,
   filterQuery = "",
   filters,
+  detail,
 }: {
   title: string;
   path: string;
@@ -33,6 +34,7 @@ export function RecordsPanel<T>({
   /** Parámetros de consulta de los filtros elegidos. */
   filterQuery?: string;
   filters?: ReactNode;
+  detail?: (refresh: () => void) => ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const [order, setOrder] = useState("");
@@ -121,6 +123,7 @@ export function RecordsPanel<T>({
             : emptyText}
         </p>
       )}
+      {detail?.(list.refresh)}
     </section>
   );
 }

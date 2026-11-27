@@ -7,10 +7,18 @@ import { dateLabel, stateLabel } from "@/shared/lib/formatters";
 import { Dialog, Feedback, Loading, Pager, PanelHeading, StatusPill } from "@/shared/ui";
 import styles from "../academic.module.css";
 import { RiskEvaluationDialog } from "./risk-evaluation-dialog";
+import { RiskCriteria } from "./risk-criteria";
 import { ALERTS_PATH, changeAlertState, comparison, levels, outcomes, readAlert, states,
   type Alert, type RiskState } from "./risk-service";
 
 export function RiskPanel({ canWrite }: { canWrite: boolean }) {
+  const [criteria, setCriteria] = useState(false);
+  return criteria && canWrite
+    ? <RiskCriteria onBack={() => setCriteria(false)} />
+    : <RiskAlerts canWrite={canWrite} onCriteria={() => setCriteria(true)} />;
+}
+
+function RiskAlerts({ canWrite, onCriteria }: { canWrite: boolean; onCriteria: () => void }) {
   const [state, setState] = useState("");
   const [level, setLevel] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
@@ -22,7 +30,10 @@ export function RiskPanel({ canWrite }: { canWrite: boolean }) {
 
   return <section className="panel">
     <PanelHeading title="Estudiantes en riesgo" summary="Consulta los indicadores y el seguimiento de cada alerta."
-      actions={canWrite && <button className="primary-action" onClick={() => setEvaluating(true)}>Evaluar riesgo</button>} />
+      actions={canWrite && <>
+        <button type="button" onClick={onCriteria}>Configurar criterios</button>
+        <button className="primary-action" onClick={() => setEvaluating(true)}>Evaluar riesgo</button>
+      </>} />
     <div className="form-grid">
       <label className="field">Estado
         <select value={state} onChange={(event) => { list.setPage(0); setState(event.target.value); }}>
