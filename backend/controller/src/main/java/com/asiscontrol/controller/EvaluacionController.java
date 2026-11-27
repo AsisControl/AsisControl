@@ -114,6 +114,13 @@ public class EvaluacionController {
         return evaluacionService.obtener(id);
     }
 
+    @GetMapping("/{id}/resultado-publicado")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ALUMNO','APODERADO') "
+            + "and @moduloAccessGuard.puedeAccederAlumno(#alumnoId)")
+    public EvaluacionDto.ResultadoPublicado resultadoPublicado(@PathVariable Long id, @RequestParam Long alumnoId) {
+        return evaluacionService.resultadoPublicado(id, alumnoId);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR')")

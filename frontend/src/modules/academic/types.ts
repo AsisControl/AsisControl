@@ -54,3 +54,39 @@ export type AssociationInput = {
   competenciaId: number;
   orden: number;
 };
+
+export type PlanCompetency = { id: number; codigo: string; nombre: string; activa: boolean };
+
+export type PlanCourse = Pick<Course, "id" | "codigo" | "nombre" | "horasSemanales"> & {
+  competencias?: PlanCompetency[];
+};
+
+/** OBS-01: sección y curso cuyo horario supera las horas del plan. */
+export type ExceededSection = {
+  seccionId: number;
+  seccion: string;
+  cursoId: number;
+  curso: string;
+  horasPlan: number;
+  minutosProgramados: number;
+};
+
+export type StudyPlan = {
+  anio: number;
+  grado: number;
+  estadoAnio: "BORRADOR" | "ACTIVO" | "CERRADO";
+  definido: boolean;
+  editable: boolean;
+  version: number;
+  cursos: PlanCourse[];
+  seccionesExcedidas?: ExceededSection[];
+};
+
+export type StudyPlanName = { nombre: string; version: number };
+export type PreviousStudyPlan = { anioOrigen: number; cursos: PlanCourse[] };
+
+export type StudyPlanInput = {
+  version: number;
+  cursos: (Pick<PlanCourse, "id" | "nombre" | "horasSemanales"> & { competenciasIds?: number[] })[];
+  motivo?: string;
+};

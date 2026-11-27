@@ -94,10 +94,9 @@ export function TeachersPanel() {
             </tr>
           ))
         }
+        detail={(refresh) => openId !== null &&
+          <TeacherDetail id={openId} onClose={() => setOpenId(null)} onSaved={refresh} />}
       />
-      {openId !== null && (
-        <TeacherDetail id={openId} onClose={() => setOpenId(null)} />
-      )}
     </>
   );
 }

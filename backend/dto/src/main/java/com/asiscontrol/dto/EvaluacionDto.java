@@ -23,6 +23,12 @@ public final class EvaluacionDto {
             @jakarta.validation.constraints.NotNull Long idPeriodoAcademico) { }
     public record PublicacionResponse(int evaluacionesPublicadas) { }
 
+    public record ResultadoPublicado(String titulo, String curso, String estudiante,
+            LocalDate fechaEvaluacion, List<NotaPublicada> notas) {}
+
+    public record NotaPublicada(Long idCompetencia, String competencia,
+            NivelLogro nivelLogro) {}
+
     private EvaluacionDto() {
     }
 

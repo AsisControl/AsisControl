@@ -104,7 +104,7 @@ public class AsistenciaDocenteController {
     }
 
     @PostMapping("/contingencia")
-    @PreAuthorize("hasAuthority('ASISTENCIA_ESCRIBIR')")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ASISTENCIA_ESCRIBIR')")
     public ResponseEntity<AsistenciaDocenteResponse> registrarContingencia(
             @Valid @RequestBody RegistrarContingenciaRequest request) {
         return ResponseEntity.status(201).body(asistenciaService.registrarContingencia(request));

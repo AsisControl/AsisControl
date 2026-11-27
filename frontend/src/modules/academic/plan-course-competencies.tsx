@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { api, message } from "@/core/api/client";
+import { message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, Loading, Pager } from "@/shared/ui";
-import { ASOCIACIONES_PATH } from "./associations/services/asociacionService";
+import { listarCompetenciasDeCurso } from "./associations/services/asociacionService";
 import { COMPETENCIAS_PATH } from "./competencies/services/competenciaService";
-import type { DraftCourse, PlanCompetency } from "./plan-course-list";
-import type { CourseCompetency, Competency } from "./types";
+import type { DraftCourse } from "./plan-course-list";
+import type { Competency, PlanCompetency } from "./types";
 import styles from "./study-plans.module.css";
 
 export function PlanCourseCompetencies({ course, onChange, onClose }: {
@@ -23,7 +23,7 @@ export function PlanCourseCompetencies({ course, onChange, onClose }: {
   useEffect(() => {
     if (!needsDefaults) return;
     let active = true;
-    api<CourseCompetency[]>(`${ASOCIACIONES_PATH}/curso/${course.id}`)
+    listarCompetenciasDeCurso(course.id)
       .then(items => {
         if (active) setDefaults(items.map(item => ({
           id: item.competenciaId, codigo: item.competenciaCodigo, nombre: item.competenciaNombre, activa: true,

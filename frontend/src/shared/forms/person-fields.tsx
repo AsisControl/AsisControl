@@ -2,7 +2,13 @@
 import { useState } from "react";
 import { Field } from "@/shared/ui";
 import type { Persona } from "@/shared/types/person";
-export function PersonFields({ person }: { person?: Persona }) {
+type PersonDefaults = { [K in keyof Persona]?: Persona[K] | null };
+export function PersonFields({ person, requireSecondSurname = true, errors = {} }: {
+  person?: PersonDefaults;
+  requireSecondSurname?: boolean;
+  errors?: Record<string, string>;
+}) {
+  const error = (field: string) => errors[`persona.${field}`] ?? errors[field];
   const [documentType, setDocumentType] = useState(
     person?.tipoDocumento || "DNI",
   );
@@ -16,21 +22,24 @@ export function PersonFields({ person }: { person?: Persona }) {
         name="nombres"
         required
         maxLength={100}
-        defaultValue={person?.nombres}
+        defaultValue={person?.nombres ?? undefined}
+        error={error("nombres")}
       />
       <Field
         label="Apellido paterno"
         name="apellidoPaterno"
         required
         maxLength={80}
-        defaultValue={person?.apellidoPaterno}
+        defaultValue={person?.apellidoPaterno ?? undefined}
+        error={error("apellidoPaterno")}
       />
       <Field
         label="Apellido materno"
         name="apellidoMaterno"
-        required
+        required={requireSecondSurname}
         maxLength={80}
-        defaultValue={person?.apellidoMaterno}
+        defaultValue={person?.apellidoMaterno ?? undefined}
+        error={error("apellidoMaterno")}
       />
       <label className="field">
         Tipo de documento *
@@ -50,7 +59,8 @@ export function PersonFields({ person }: { person?: Persona }) {
         required
         pattern={documentType === "DNI" ? "[0-9]{8}" : "[A-Za-z0-9\\-]{6,20}"}
         maxLength={documentType === "DNI" ? 8 : 20}
-        defaultValue={person?.numeroDocumento}
+        defaultValue={person?.numeroDocumento ?? undefined}
+        error={error("numeroDocumento")}
       />
       <Field
         label="Fecha de nacimiento"
@@ -58,7 +68,8 @@ export function PersonFields({ person }: { person?: Persona }) {
         type="date"
         required
         max={maxBirth}
-        defaultValue={person?.fechaNacimiento}
+        defaultValue={person?.fechaNacimiento ?? undefined}
+        error={error("fechaNacimiento")}
       />
       <label className="field">
         Sexo *
@@ -77,19 +88,22 @@ export function PersonFields({ person }: { person?: Persona }) {
         name="personaCorreo"
         type="email"
         maxLength={150}
-        defaultValue={person?.correo}
+        defaultValue={person?.correo ?? undefined}
+        error={error("correo")}
       />
       <Field
         label="Teléfono"
         name="telefono"
         pattern={"[0-9+\\(\\) \\-]{7,20}"}
         defaultValue={person?.telefono || ""}
+        error={error("telefono")}
       />
       <Field
         label="Dirección"
         name="direccion"
         maxLength={250}
         defaultValue={person?.direccion || ""}
+        error={error("direccion")}
       />
     </div>
   );

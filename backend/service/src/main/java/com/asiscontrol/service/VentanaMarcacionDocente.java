@@ -32,6 +32,10 @@ public record VentanaMarcacionDocente(LocalDateTime apertura, LocalDateTime limi
             throw new BusinessRuleException("MARCACION_CERRADA",
                     "La jornada terminó; solicite un registro administrativo con motivo");
         }
-        return horaServidor.isAfter(limitePuntualidad) ? EstadoAsistencia.TARDANZA : EstadoAsistencia.PRESENTE;
+        return clasificarPuntualidad(horaServidor);
+    }
+
+    EstadoAsistencia clasificarPuntualidad(LocalDateTime hora) {
+        return hora.isAfter(limitePuntualidad) ? EstadoAsistencia.TARDANZA : EstadoAsistencia.PRESENTE;
     }
 }

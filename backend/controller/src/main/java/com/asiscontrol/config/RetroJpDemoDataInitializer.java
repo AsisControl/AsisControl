@@ -405,7 +405,7 @@ public class RetroJpDemoDataInitializer {
             calificacion.setFechaRegistro(Instant.now());
             em.persist(calificacion);
             publicarInforme(asignacion, periodo, calificacion);
-            avisos.enviar(alumno, "Resultados publicados", publicada.getTitulo());
+            avisos.enviar(alumno, "Resultados publicados", publicada);
         }
     }
 

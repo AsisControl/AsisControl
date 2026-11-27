@@ -6,7 +6,7 @@ import { usePaged } from "@/shared/hooks/use-paged";
 import { Dialog, Feedback, Pager } from "@/shared/ui";
 import type { AcademicYear } from "@/modules/academic-config";
 import type { Student } from "@/modules/students";
-import { evaluateRisk, outcomes, type RiskEvaluation } from "./risk-service";
+import { comparison, evaluateRisk, indicators, outcomes, type RiskEvaluation } from "./risk-service";
 
 export function RiskEvaluationDialog({ onClose, onEvaluated }: {
   onClose: () => void; onEvaluated: () => void;
@@ -81,7 +81,13 @@ export function RiskEvaluationDialog({ onClose, onEvaluated }: {
     {result && <div role="status">
       <strong>{outcomes[result.resultado]}</strong>
       {!result.reglas.length && <p>No hay criterios de riesgo activos.</p>}
-      {result.reglas.map((rule) => <p key={rule.idCriterio}>{rule.nombreCriterio} · {outcomes[rule.resultado]}. {rule.motivo}</p>)}
+      {result.reglas.map((rule) => <div key={rule.idCriterio}>
+        <strong>{rule.nombreCriterio}</strong>
+        <p>{indicators[rule.indicador]} · Umbral {comparison(rule.operador, rule.umbral)}
+          {rule.valor != null && ` · Valor evaluado ${rule.valor}`}</p>
+        <p>{outcomes[rule.resultado]}</p>
+        {rule.resultado === "DATOS_INSUFICIENTES" && <p>{rule.motivo}</p>}
+      </div>)}
     </div>}
   </Dialog>;
 }

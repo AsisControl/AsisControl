@@ -15,6 +15,31 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class RiesgoCriteriosHttpTest extends ApiIntegrationSupport {
+    @Test
+    void reservaElNombreNormalizadoSoloEntreCriteriosActivos() throws Exception {
+        String ruta = "/api/criterios-riesgo";
+        var datos = criterio("INASISTENCIAS", "MAYOR_IGUAL", 1, 1);
+        datos.put("nombre", "  Riesgo   por asistencia  ");
+        long primerId = postOk(ruta, datos).path("id").asLong();
+
+        datos.put("nombre", "RIESGO\tPOR ASISTENCIA");
+        assertThat(request("POST", ruta, datos, 409).path("code").asText())
+                .isEqualTo("CRITERIO_NOMBRE_DUPLICADO");
+        assertThat(putOk(ruta + "/" + primerId, datos).path("nombre").asText())
+                .isEqualTo("RIESGO POR ASISTENCIA");
+
+        datos.put("nombre", "Riesgo por tardanzas");
+        long segundoId = postOk(ruta, datos).path("id").asLong();
+        datos.put("nombre", "riesgo por asistencia");
+        request("PUT", ruta + "/" + segundoId, datos, 409);
+        deleteOk(ruta + "/" + primerId);
+        putOk(ruta + "/" + segundoId, datos);
+        request("PUT", ruta + "/" + primerId + "/activacion", null, 409);
+        deleteOk(ruta + "/" + segundoId);
+        assertThat(putOk(ruta + "/" + primerId + "/activacion", null).path("id").asLong())
+                .isEqualTo(primerId);
+    }
+
     @Test void usaNivelesConsolidadosDelModeloCualitativoDinamico() throws Exception {
         var p = periodo(1);
         var inicial = nota(p, NivelLogro.B);

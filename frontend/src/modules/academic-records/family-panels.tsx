@@ -108,10 +108,9 @@ export function GuardiansPanel() {
             </tr>
           ))
         }
+        detail={(refresh) => openId !== null &&
+          <GuardianDetail id={openId} onClose={() => setOpenId(null)} onSaved={refresh} />}
       />
-      {openId !== null && (
-        <GuardianDetail id={openId} onClose={() => setOpenId(null)} />
-      )}
     </>
   );
 }

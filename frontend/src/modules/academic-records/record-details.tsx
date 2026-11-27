@@ -1,9 +1,12 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
-import { api, message } from "@/core/api/client";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { fieldErrorsOf, message } from "@/core/api/client";
+import { PersonFields, personData } from "@/shared/forms/person-fields";
 import {
   Dialog,
   Feedback,
+  Field,
+  FormDialog,
   isoDateLabel,
   PersonSections,
   RecordHeader,
@@ -11,7 +14,8 @@ import {
   RecordSection,
   Loading,
 } from "@/shared/ui";
-import { specialtyLabel, stateLabel } from "@/shared/lib/formatters";
+import { SPECIALTY_LABELS, specialtyLabel, stateLabel } from "@/shared/lib/formatters";
+import { actualizarPerfil, obtenerPerfil } from "./services/profile-service";
 import type { Guardian, Teacher } from "./types";
 
 /** Consulta la ficha al abrirla: el listado puede estar desactualizado. */
@@ -20,30 +24,44 @@ function useRecord<T>(path: string) {
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    api<T>(path)
+    obtenerPerfil<T>(path)
       .then((value) => active && setRecord(value))
       .catch((cause) => active && setError(message(cause)));
     return () => {
       active = false;
     };
   }, [path]);
-  return { record, error };
+  return { record, error, setRecord };
 }
 
-function RecordDialog<T>({
+function RecordDialog<T extends Guardian | Teacher>({
   title,
   path,
   onClose,
+  onSaved,
   children,
 }: {
   title: string;
   path: string;
   onClose: () => void;
+  onSaved: () => void;
   children: (record: T) => ReactNode;
 }) {
-  const { record, error } = useRecord<T>(path);
+  const { record, error, setRecord } = useRecord<T>(path);
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+  if (editing && record) {
+    return <EditRecord path={path} record={record} onClose={() => setEditing(false)}
+      onSaved={(updated) => {
+        setRecord(updated);
+        setEditing(false);
+        setSaved(true);
+        onSaved();
+      }} />;
+  }
   return (
     <Dialog title={title} size="lg" onClose={onClose}>
+      {saved && <Feedback success="Ficha actualizada." />}
       {error ? (
         <Feedback error={error} />
       ) : record ? (
@@ -55,23 +73,83 @@ function RecordDialog<T>({
         <button type="button" onClick={onClose}>
           Cerrar
         </button>
+        {record?.activo && <button type="button" className="primary-action" onClick={() => setEditing(true)}>
+          Editar ficha
+        </button>}
       </div>
     </Dialog>
   );
 }
 
+function EditRecord<T extends Guardian | Teacher>({ path, record, onClose, onSaved }: {
+  path: string; record: T; onClose: () => void; onSaved: (value: T) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const teacher = asTeacher(record);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    setErrors({});
+    try {
+      onSaved(await actualizarPerfil<T>(path, {
+        persona: personData(form, record.persona.nacionalidadId ?? null),
+        ...(teacher && {
+          codigoDocente: teacher.codigoDocente,
+          fechaIngreso: String(form.get("fechaIngreso")),
+          especialidad: String(form.get("especialidad")),
+        }),
+      }));
+    } catch (cause) {
+      setErrors(fieldErrorsOf(cause));
+      setError(message(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <FormDialog title={teacher ? "Editar ficha del docente" : "Editar ficha del apoderado"}
+    description={record.persona.nombreCompleto} size="lg" busy={busy} error={error}
+    onClose={onClose} onSubmit={save} submitLabel="Guardar cambios">
+    <div className="full-field">
+      <PersonFields person={record.persona} requireSecondSurname={false} errors={errors} />
+    </div>
+    {teacher && <>
+      <Field label="Fecha de ingreso" name="fechaIngreso" type="date" required
+        defaultValue={teacher.fechaIngreso} error={errors.fechaIngreso} />
+      <label className="field">Especialidad *
+        <select name="especialidad" required defaultValue={teacher.especialidad}>
+          {Object.entries(SPECIALTY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+    </>}
+  </FormDialog>;
+}
+
+function asTeacher(record: Guardian | Teacher) {
+  return "codigoDocente" in record ? record : null;
+}
+
 export function GuardianDetail({
   id,
   onClose,
+  onSaved,
 }: {
   id: number;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   return (
     <RecordDialog<Guardian>
       title="Ficha del apoderado"
       path={`/api/apoderados/${id}`}
       onClose={onClose}
+      onSaved={onSaved}
     >
       {(guardian) => (
         <>
@@ -126,15 +204,18 @@ export function GuardianDetail({
 export function TeacherDetail({
   id,
   onClose,
+  onSaved,
 }: {
   id: number;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   return (
     <RecordDialog<Teacher>
       title="Ficha del docente"
       path={`/api/docentes/${id}`}
       onClose={onClose}
+      onSaved={onSaved}
     >
       {(teacher) => (
         <>

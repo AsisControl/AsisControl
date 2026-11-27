@@ -2,9 +2,20 @@ import { api } from "@/core/api/client";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
 import type { AssociationInput, Course, CourseCompetency } from "../../types";
-export const ASOCIACIONES_PATH = "/api/cursos-competencias";
-/** El backend no filtra por curso ni competencia: se traen en una sola página. */
+const ASOCIACIONES_PATH = "/api/cursos-competencias";
 const ALL = "size=1000";
+
+export function listarCompetenciasDeCurso(cursoId: number) {
+  return api<CourseCompetency[]>(`${ASOCIACIONES_PATH}/curso/${cursoId}`);
+}
+
+export function reutilizarCompetencias(origen: number, destino: number, competencias: number[]) {
+  return api<{ agregadas: number }>(`${ASOCIACIONES_PATH}/copiar`, {
+    method: "POST",
+    body: JSON.stringify({ origen, destino, competencias }),
+  });
+}
+
 /** Asociaciones vigentes (curso y competencia activos), ordenadas por curso y orden. */
 export async function listarAsociaciones() {
   const page = normalizePage(

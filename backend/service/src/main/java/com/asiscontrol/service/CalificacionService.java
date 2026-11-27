@@ -164,7 +164,7 @@ public class CalificacionService {
             var corregida = corregirInterno(item, motivo, autor, ahora, tarea);
             var evaluacion = corregida.getEvaluacion();
             if (notificados.add(new ResultadoAvisado(evaluacion.getId(), corregida.getAlumno().getId()))) {
-                avisos.enviar(corregida.getAlumno(), "Resultado actualizado", evaluacion.getTitulo());
+                avisos.enviar(corregida.getAlumno(), "Resultado actualizado", evaluacion);
             }
             resultados.add(toResponse(corregida));
         }

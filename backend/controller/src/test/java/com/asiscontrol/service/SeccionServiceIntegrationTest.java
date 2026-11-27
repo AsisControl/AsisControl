@@ -128,15 +128,15 @@ class SeccionServiceIntegrationTest {
     @Test
     void generaPropuestasSaltandoNombresExistentesYMasAllaDeLaZ() {
         anio(1);
-        seccion("A");
+        for (char nombre = 'A'; nombre <= 'Y'; nombre++) {
+            seccion(String.valueOf(nombre));
+        }
 
         List<SeccionPropuestaResponse> propuestas = secciones.generarPropuestas(
-                new GenerarPropuestasSeccionesRequest(ANIO, 1, 28, 30));
+                new GenerarPropuestasSeccionesRequest(ANIO, 1, 3, 30));
 
-        assertThat(propuestas).hasSize(28);
-        assertThat(propuestas.getFirst().nombre()).isEqualTo("B");
         assertThat(propuestas).extracting(SeccionPropuestaResponse::nombre)
-                .doesNotContain("A").contains("Z", "AA", "AB");
+                .containsExactly("Z", "AA", "AB");
     }
 
     @Test
@@ -146,6 +146,8 @@ class SeccionServiceIntegrationTest {
         assertThatThrownBy(() -> secciones.generarPropuestas(new GenerarPropuestasSeccionesRequest(ANIO, 6, 1, 30)))
                 .isInstanceOf(BusinessRuleException.class);
         assertThatThrownBy(() -> secciones.generarPropuestas(new GenerarPropuestasSeccionesRequest(ANIO, 1, 0, 30)))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> secciones.generarPropuestas(new GenerarPropuestasSeccionesRequest(ANIO, 1, 21, 30)))
                 .isInstanceOf(BusinessRuleException.class);
         assertThatThrownBy(() -> secciones.generarPropuestas(new GenerarPropuestasSeccionesRequest(ANIO, 1, 1, 101)))
                 .isInstanceOf(BusinessRuleException.class);

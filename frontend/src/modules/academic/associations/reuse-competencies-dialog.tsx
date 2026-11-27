@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, message } from "@/core/api/client";
+import { message } from "@/core/api/client";
 import { Dialog, Feedback, Loading } from "@/shared/ui";
 import type { CourseCompetency } from "../types";
 import type { Option } from "./association-form-dialog";
-import { ASOCIACIONES_PATH } from "./services/asociacionService";
+import { listarCompetenciasDeCurso, reutilizarCompetencias } from "./services/asociacionService";
 
 function courseLabel(course: Option) {
   return [course.nombre, course.codigo, course.anioAcademico, course.grado ? `${course.grado}.° grado` : null]
@@ -27,8 +27,7 @@ export function ReuseCompetenciesDialog({ courses, initialDestination, onClose, 
   useEffect(() => {
     if (!source || !destination || source === destination) return;
     let active = true;
-    const get = (id: number) => api<CourseCompetency[]>(`${ASOCIACIONES_PATH}/curso/${id}`);
-    Promise.all([get(source), get(destination)]).then(([origin, current]) => {
+    Promise.all([listarCompetenciasDeCurso(source), listarCompetenciasDeCurso(destination)]).then(([origin, current]) => {
       if (active) setPreview({ origin, existing: new Set(current.map(item => item.competenciaId)) });
     }).catch(cause => { if (active) setError(message(cause)); });
     return () => { active = false; };
@@ -51,10 +50,7 @@ export function ReuseCompetenciesDialog({ courses, initialDestination, onClose, 
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ agregadas: number }>(`${ASOCIACIONES_PATH}/copiar`, {
-        method: "POST",
-        body: JSON.stringify({ origen: source, destino: destination, competencias: selected.map(item => item.competenciaId) }),
-      });
+      const result = await reutilizarCompetencias(source, destination, selected.map(item => item.competenciaId));
       onSaved(result.agregadas);
     } catch (cause) {
       setError(message(cause));

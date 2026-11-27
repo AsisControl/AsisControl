@@ -63,6 +63,12 @@ public class CriterioRiesgoController {
         return riesgoService.actualizarCriterio(id, request);
     }
 
+    @PutMapping("/{id}/activacion")
+    @PreAuthorize("hasAuthority('RIESGOS_ESCRIBIR')")
+    public RiesgoDto.CriterioResponse reactivar(@PathVariable Long id) {
+        return riesgoService.reactivarCriterio(id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('RIESGOS_ESCRIBIR')")

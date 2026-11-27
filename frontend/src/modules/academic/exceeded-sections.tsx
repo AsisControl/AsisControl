@@ -1,16 +1,7 @@
 import Link from "next/link";
 import { hoursLabel } from "@/shared/lib/formatters";
 import styles from "./study-plans.module.css";
-
-/** OBS-01: sección y curso cuyo horario supera las horas del plan (SeccionExcedida). */
-export type ExceededSection = {
-  seccionId: number;
-  seccion: string;
-  cursoId: number;
-  curso: string;
-  horasPlan: number;
-  minutosProgramados: number;
-};
+import type { ExceededSection } from "./types";
 
 /** OBS-01: el plan se guarda igual; este aviso indica qué horarios hay que ajustar. */
 export function ExceededSections({ sections }: { sections: ExceededSection[] }) {
