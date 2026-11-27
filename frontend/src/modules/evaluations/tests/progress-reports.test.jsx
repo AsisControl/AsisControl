@@ -348,3 +348,77 @@ test("sin permiso de escritura no ofrece generar ni publicar", () => {
   expect(screen.queryByRole("button", {name:"Generar borradores"})).toBeNull();
   expect(screen.queryByRole("button", {name:"Publicar libretas"})).toBeNull();
 });
+
+// cobertura: libreta inexistente, errores de consulta y descarga, y estados del apoderado
+const disponible = [{ idAlumno: 8, alumno: "Ana", idAsignacionCurso: 3, curso: "Matematica", anio: 2026, idPeriodoAcademico: 4, periodo: "Bimestre 1" }];
+
+async function elegirCurso() {
+  await screen.findByRole("option", { name: /Bimestre 1/ });
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByLabelText("Período académico"), "2026-4");
+  await user.selectOptions(screen.getByLabelText("Curso"), "3");
+  return user;
+}
+
+test("avisa cuando no hay libreta publicada y cuando falla la descarga del PDF", async () => {
+  fakeBackend({
+    "GET /api/calificaciones/informes-disponibles": disponible,
+    "GET /api/calificaciones/avance": reply(404, { code: "INFORME_NO_ENCONTRADO", message: "x" }),
+    "GET /api/calificaciones/reporte-avance": reply(500, { message: "Servidor ocupado" }),
+  });
+  render(<ProgressReports />);
+  const user = await elegirCurso();
+  await user.click(screen.getByText("Ver notas"));
+  expect(await screen.findByText("No hay una libreta publicada para este período y curso.")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: /Descargar/ }));
+  expect(await screen.findByText(/No se pudo descargar el PDF/)).toBeTruthy();
+});
+
+test("informa si falla la consulta de la libreta o la carga inicial", async () => {
+  fakeBackend({
+    "GET /api/calificaciones/informes-disponibles": disponible,
+    "GET /api/calificaciones/avance": reply(500, { message: "Libreta no disponible" }),
+  });
+  const { unmount } = render(<ProgressReports />);
+  const user = await elegirCurso();
+  await user.click(screen.getByText("Ver notas"));
+  expect(await screen.findByText("Libreta no disponible")).toBeTruthy();
+  unmount();
+  fakeBackend({ "GET /api/calificaciones/informes-disponibles": reply(500, { message: "Sin conexión" }) });
+  render(<ProgressReports />);
+  expect(await screen.findByText("Sin conexión")).toBeTruthy();
+});
+
+test("el apoderado sin estudiantes asociados lo ve indicado", async () => {
+  fakeBackend({
+    "GET /api/calificaciones/informes-disponibles": [],
+    "GET /api/familia/estudiantes": [],
+  });
+  render(<ProgressReports guardian />);
+  expect(await screen.findByText("No tienes estudiantes asociados.")).toBeTruthy();
+});
+
+test("la publicación informa si falla el estado de las libretas y permite reintentar", async () => {
+  let fallar = true;
+  fakeBackend({
+    "GET /api/evaluaciones/periodos-informe": [{ id: 4, nombre: "Bimestre 1" }],
+    "GET /api/calificaciones/informes/estado": () => (fallar ? reply(500, { message: "Estado no disponible" })
+      : { alumnos: [], publicable: false, impedimento: null }),
+  });
+  render(<PublishPeriod canWrite assignments={[{ id: 3, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]} />);
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByLabelText("Curso y sección"), "3");
+  await screen.findByRole("option", { name: "Bimestre 1" });
+  await user.selectOptions(screen.getByLabelText("Período académico"), "4");
+  expect(await screen.findByText(/No se pudo consultar el estado de las libretas. Estado no disponible/)).toBeTruthy();
+  fallar = false;
+  await user.click(screen.getByRole("button", { name: "Reintentar consulta" }));
+  expect(await screen.findByText("Todavía no hay libretas para este curso y período. Genera los borradores para empezar.")).toBeTruthy();
+});
+
+test("la publicación informa si fallan los períodos", async () => {
+  fakeBackend({ "GET /api/evaluaciones/periodos-informe": reply(500, { message: "Períodos no disponibles" }) });
+  render(<PublishPeriod canWrite assignments={[{ id: 3, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]} />);
+  await userEvent.setup().selectOptions(screen.getByLabelText("Curso y sección"), "3");
+  expect(await screen.findByText("Períodos no disponibles")).toBeTruthy();
+});

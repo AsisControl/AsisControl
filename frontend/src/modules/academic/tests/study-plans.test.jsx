@@ -271,3 +271,29 @@ test("al guardar un plan con menos horas avisa las secciones que quedan excedida
   expect(notice.textContent).toContain("1° A · Matemática · 4 h programadas, el plan permite 3 h (sobra 1 h)");
   expect(within(notice).getByRole("link", { name: "Horarios › Horario" }).getAttribute("href")).toBe("/horarios/horario");
 });
+// cobertura: errores al cargar el plan y su nombre, error al renombrar y paginación de años
+test("informa si falla el plan del grado o el nombre del plan", async () => {
+  fakeBackend({
+    "GET /api/configuracion-academica/anios": page([year]),
+    [`GET ${namePath}`]: reply(500, { message: "Nombre no disponible" }),
+    [`GET ${path}`]: reply(500, { message: "Plan no disponible" }),
+  });
+  render(<StudyPlansPanel canWrite />);
+  await selectPlan(userEvent.setup());
+  expect(await screen.findByText("Plan no disponible")).toBeTruthy();
+  expect(await screen.findByText("Nombre no disponible")).toBeTruthy();
+});
+
+test("pagina los años académicos y limpia la selección", async () => {
+  const calls = fakeBackend({
+    "GET /api/configuracion-academica/anios": ({ query }) => page(query.page === "1" ? [{ ...year, id: 99, anio: 2026 }] : [year], 2),
+  });
+  render(<StudyPlansPanel canWrite />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: "2027" });
+  await user.selectOptions(screen.getByLabelText("Año académico"), "2027");
+  await user.click(screen.getByRole("button", { name: /Siguiente/ }));
+  expect(await screen.findByRole("option", { name: "2026" })).toBeTruthy();
+  expect(screen.getByLabelText("Año académico").value).toBe("");
+  expect(calls.some(c => c.query.page === "1")).toBe(true);
+});

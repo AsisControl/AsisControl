@@ -344,3 +344,109 @@ test("Configura una escala para todo el colegio, exige motivo y muestra su versi
   expect(calls.find(call => call.method === "PUT").body).toEqual({ rangos: ranges });
   expect(calls.find(call => call.method === "POST").body).toEqual({ version: 0, motivo: "Acuerdo escolar" });
 });
+
+// cobertura: errores de carga, plan sin cursos, solo lectura y paginación de años
+async function elegirGrado(routes, canWrite = true) {
+  fakeBackend({
+    "GET /api/configuracion-academica/anios": page([{ id: 1, anio: 2026, grados: [{ id: 8, numero: 1, activo: true }, { id: 9, numero: 2, activo: false }] }]),
+    "GET /api/escala-institucional": [],
+    ...routes,
+  });
+  const user = userEvent.setup();
+  render(<GradingRulesPanel canWrite={canWrite} />);
+  await screen.findByRole("option", { name: "2026" });
+  await user.selectOptions(screen.getByLabelText("Año académico"), "2026");
+  expect(screen.queryByRole("option", { name: "2.° grado" })).toBeNull();
+  await user.selectOptions(screen.getByLabelText("Grado"), "8");
+  return user;
+}
+
+test("informa si falla el plan de estudios o si el grado no tiene cursos", async () => {
+  await elegirGrado({ "GET /api/planes-estudios/2026/1": reply(500, { message: "Plan no disponible" }) });
+  expect(await screen.findByText("Plan no disponible")).toBeTruthy();
+});
+
+test("avisa cuando el plan del grado no tiene cursos", async () => {
+  await elegirGrado({ "GET /api/planes-estudios/2026/1": { cursos: [] } });
+  expect(await screen.findByText("No hay cursos en el plan de este grado.")).toBeTruthy();
+});
+
+test("informa si fallan las reglas del curso", async () => {
+  const user = await elegirGrado({
+    "GET /api/planes-estudios/2026/1": { cursos: [{ id: 4, nombre: "Matemática", codigo: "MAT" }] },
+    "GET /api/reglas-calificacion": reply(500, { message: "Reglas no disponibles" }),
+  });
+  await screen.findByRole("option", { name: "Matemática · MAT" });
+  await user.selectOptions(screen.getByLabelText("Curso"), "4");
+  expect(await screen.findByText("Reglas no disponibles")).toBeTruthy();
+});
+
+test("en solo lectura avisa que el curso no tiene regla vigente", async () => {
+  const user = await elegirGrado({
+    "GET /api/planes-estudios/2026/1": { cursos: [{ id: 4, nombre: "Matemática", codigo: "MAT" }] },
+    "GET /api/reglas-calificacion": [],
+  }, false);
+  await screen.findByRole("option", { name: "Matemática · MAT" });
+  await user.selectOptions(screen.getByLabelText("Curso"), "4");
+  expect(await screen.findByText("Este curso todavía no tiene una regla vigente.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Nueva versión" })).toBeNull();
+});
+
+test("pagina los años académicos y reinicia la selección", async () => {
+  const calls = fakeBackend({
+    "GET /api/configuracion-academica/anios": ({ query }) => page(query.page === "1"
+      ? [{ id: 2, anio: 2025, grados: [] }] : [{ id: 1, anio: 2026, grados: [] }], 2),
+    "GET /api/escala-institucional": [],
+  });
+  const user = userEvent.setup();
+  render(<GradingRulesPanel canWrite />);
+  await screen.findByRole("option", { name: "2026" });
+  await user.click(screen.getByRole("button", { name: /Siguiente/ }));
+  expect(await screen.findByRole("option", { name: "2025" })).toBeTruthy();
+  expect(calls.some(c => c.query.page === "1")).toBe(true);
+});
+
+// cobertura: guardar con error, reutilizar el borrador, copiar la vigente y simular con resultado pendiente
+test("informa si falla guardar el borrador", async () => {
+  const { user } = await openEditor({ "PUT /api/reglas-calificacion/borrador": reply(500, { message: "No se guardó la regla" }) });
+  const editor = within(await screen.findByRole("dialog", { name: "Editor de regla académica" }));
+  const weight = editor.getByRole("spinbutton");
+  await user.clear(weight);
+  await user.type(weight, "50");
+  await user.click(editor.getByRole("button", { name: "Guardar borrador" }));
+  expect(await editor.findByText("No se guardó la regla")).toBeTruthy();
+});
+
+test("al copiar la regla vigente sobre un borrador pide confirmar y la usa como base", async () => {
+  const { user } = await openEditor({ "GET /api/reglas-calificacion": [{ ...draft, componentes: [exam] }, active] });
+  const editor = within(await screen.findByRole("dialog", { name: "Editor de regla académica" }));
+  const elegirVigente = async () => {
+    await user.click(screen.getByRole("button", { name: /^Configuración de partida/ }));
+    await user.click(screen.getByRole("button", { name: "Copiar regla vigente" }));
+  };
+  await elegirVigente();
+  const confirmar = within(await screen.findByRole("alertdialog", { name: "¿Reemplazar los componentes del editor?" }));
+  await user.click(confirmar.getByRole("button", { name: "Cancelar" }));
+  await elegirVigente();
+  await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Usar como base" }));
+  expect(editor.getAllByRole("textbox").map(input => input.value)).toEqual(["Exámenes", "Proyecto"]);
+  expect(editor.getByText("Esta configuración coincide con la versión vigente. No es necesario crear una nueva versión.")).toBeTruthy();
+});
+
+test("la simulación avisa los componentes sin notas y permite quitar evaluaciones", async () => {
+  const { user } = await openEditor({
+    "GET /api/reglas-calificacion": [draft, active],
+    "POST /api/reglas-calificacion/vista-previa": { nivelConsolidado: null, promedioPonderado: null, componentesFaltantes: ["Proyecto"],
+      componentes: [{ tipo: "EXAMEN", evaluaciones: 1, promedio: 3, pesoEfectivo: 100 }] },
+  });
+  await user.click(await screen.findByRole("button", { name: "Vista previa" }));
+  const modal = within(screen.getByRole("dialog", { name: "Vista previa de la regla" }));
+  await user.click(modal.getAllByRole("button", { name: "Agregar evaluación" })[0]);
+  await user.click(modal.getByRole("button", { name: "Quitar Exámenes 2" }));
+  expect(modal.queryByRole("button", { name: "A: Exámenes 2" })).toBeNull();
+  await user.click(modal.getByRole("button", { name: "AD: Exámenes" }));
+  await user.click(modal.getByRole("button", { name: "B: Proyecto" }));
+  await user.click(modal.getByRole("button", { name: "Simular resultado" }));
+  expect(await modal.findByText("Resultado pendiente. Faltan notas en Proyecto.")).toBeTruthy();
+  expect(modal.getByRole("rowheader", { name: "Exámenes" })).toBeTruthy();
+});

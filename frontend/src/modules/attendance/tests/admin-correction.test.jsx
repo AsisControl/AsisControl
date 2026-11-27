@@ -97,3 +97,38 @@ test("con el plazo vencido explica por qué no se corrige y permite volver al re
   await user.click(within(aviso).getByRole("button", { name: "Volver al reporte" }));
   expect(await screen.findByRole("button", { name: "Aplicar filtros" })).toBeTruthy();
 });
+
+// cobertura: cancelar sin cambios, salir descartando cambios y error al guardar
+test("cancelar sin cambios vuelve al reporte y con cambios pide confirmar la salida", async () => {
+  const user = userEvent.setup();
+  backend();
+  render(<AttendanceReports canCorrect />);
+  await user.click(await screen.findByRole("button", { name: "Ver detalle de Lucía Prado" }));
+  await user.click(screen.getByRole("button", { name: "Corregir asistencia", exact: true }));
+  const marks = await screen.findByRole("group", { name: "Asistencia de Lucía Prado" });
+  await user.click(screen.getByRole("button", { name: "Cancelar" }));
+  expect(await screen.findByRole("button", { name: "Aplicar filtros" })).toBeTruthy();
+  await user.click(await screen.findByRole("button", { name: "Ver detalle de Lucía Prado" }));
+  await user.click(screen.getByRole("button", { name: "Corregir asistencia", exact: true }));
+  await user.click(within(await screen.findByRole("group", { name: "Asistencia de Lucía Prado" })).getByRole("button", { name: "Presente" }));
+  await user.click(screen.getByRole("button", { name: "Cancelar" }));
+  await user.click(within(await screen.findByRole("alertdialog", { name: "¿Salir sin guardar?" })).getByRole("button", { name: "Salir sin guardar" }));
+  expect(await screen.findByRole("button", { name: "Aplicar filtros" })).toBeTruthy();
+  expect(marks).toBeTruthy();
+});
+
+test("si falla guardar la corrección lo informa y permite seguir editando", async () => {
+  const user = userEvent.setup();
+  backend({ conflict: true });
+  render(<AttendanceReports canCorrect />);
+  await user.click(await screen.findByRole("button", { name: "Ver detalle de Lucía Prado" }));
+  await user.click(screen.getByRole("button", { name: "Corregir asistencia", exact: true }));
+  await user.click(within(await screen.findByRole("group", { name: "Asistencia de Lucía Prado" })).getByRole("button", { name: "Presente" }));
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  const dialog = screen.getByRole("dialog", { name: "Confirmar corrección" });
+  await user.type(within(dialog).getByRole("textbox"), "Revisión");
+  await user.click(within(dialog).getByRole("button", { name: /Confirmar/ }));
+  expect(await within(dialog).findByText("La asistencia cambió; vuelva a cargarla")).toBeTruthy();
+  await user.click(within(dialog).getByRole("button", { name: "Seguir editando" }));
+  expect(screen.queryByRole("dialog", { name: "Confirmar corrección" })).toBeNull();
+});

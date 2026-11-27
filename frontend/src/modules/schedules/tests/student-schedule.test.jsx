@@ -75,3 +75,31 @@ test("Sección sin clases programadas: muestra «Sin horarios asignados» sin bl
   expect(within(table).queryAllByRole("button", { name: /Ver detalle/ })).toHaveLength(0);
   expect(screen.getByText("0 bloques de clase · 0 cursos")).toBeTruthy();
 });
+
+// cobertura: errores de carga, sin matrícula activa y cambio de año
+test("informa los errores de carga y sin matrícula activa lo indica", async () => {
+  const { reply } = await import("../../../../tests/support/backend.js");
+  fakeBackend({ "GET /api/matriculas": reply(500, { message: "Matrículas no disponibles" }) });
+  const { unmount } = render(<StudentSchedule />);
+  expect(await screen.findByText("Matrículas no disponibles")).toBeTruthy();
+  unmount();
+  fakeBackend({ "GET /api/matriculas": page([{ ...enrollment, estado: "RETIRADA" }]) });
+  render(<StudentSchedule />);
+  expect(await screen.findByText("No tienes una matrícula activa con horario disponible.")).toBeTruthy();
+});
+
+test("elige entre varios años y avisa si falla el horario", async () => {
+  const { reply } = await import("../../../../tests/support/backend.js");
+  const calls = fakeBackend({
+    "GET /api/matriculas": page([enrollment, { ...enrollment, id: 11, anioAcademico: year - 1, seccionId: 9 }]),
+    "GET /api/horarios/mio": ({ query }) => (query.anioAcademico === String(year - 1)
+      ? reply(500, { message: "Horario no disponible" }) : [block]),
+  });
+  const user = userEvent.setup();
+  render(<StudentSchedule />);
+  await screen.findByRole("table", { name: "Mi horario semanal" });
+  await user.selectOptions(screen.getByLabelText("Año académico"), String(year - 1));
+  expect(await screen.findByText("Horario no disponible")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Actualizar" }));
+  expect(calls.filter(c => c.path === "/api/matriculas").length).toBe(2);
+});
