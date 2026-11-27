@@ -38,11 +38,17 @@ public class ReglaCalificacionController {
 
     @PostMapping("/{id}/activar")
     public ReglaCalificacionDto.Regla activar(@PathVariable Long id, @Valid @RequestBody ReglaCalificacionDto.Activacion request) {
-        return reglas.activar(id, request.version());
+        return reglas.activar(id, request.version(), request.motivo());
     }
 
     @PostMapping("/vista-previa")
     public ReglaCalificacionDto.Resultado vistaPrevia(@Valid @RequestBody ReglaCalificacionDto.VistaPrevia request) {
         return reglas.vistaPrevia(request);
+    }
+
+    @PostMapping("/vista-previa-numerica")
+    public ReglaCalificacionDto.ResultadoNumerico vistaPreviaNumerica(
+            @Valid @RequestBody ReglaCalificacionDto.VistaPreviaNumerica request) {
+        return reglas.vistaPreviaNumerica(request);
     }
 }

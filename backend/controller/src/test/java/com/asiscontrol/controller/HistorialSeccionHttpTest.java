@@ -82,7 +82,7 @@ class HistorialSeccionHttpTest extends ApiIntegrationSupport {
     @Test
     void elEstudianteConservaLoPublicadoHastaElCambioYLoQueEntrego() {
         Long persona = student.getPersona().getId();
-        assertThat(tareas.buscarVisibles(null, null, persona, null, Pageable.unpaged()))
+        assertThat(tareas.buscarVisibles(null, null, null, "", null, persona, null, Pageable.unpaged()))
                 .containsExactlyInAnyOrder(anterior, posteriorConEntrega);
         assertThat(tareas.buscarParaAlumno(student.getId(), "", null, LocalDateTime.now().plusDays(2), Pageable.unpaged()))
                 .containsExactlyInAnyOrder(anterior, posteriorConEntrega);
@@ -102,7 +102,7 @@ class HistorialSeccionHttpTest extends ApiIntegrationSupport {
     @Test
     void elApoderadoVeElMismoHistorialYOtraFamiliaNo() {
         Long persona = guardian.getPersona().getId();
-        assertThat(tareas.buscarVisibles(null, null, null, persona, Pageable.unpaged()))
+        assertThat(tareas.buscarVisibles(null, null, null, "", null, null, persona, Pageable.unpaged()))
                 .containsExactlyInAnyOrder(anterior, posteriorConEntrega);
         assertThat(evaluacionesVisibles(null, persona)).containsExactly(evaluacionAnterior);
         iniciarSesion("APODERADO", guardian.getPersona());
@@ -111,14 +111,14 @@ class HistorialSeccionHttpTest extends ApiIntegrationSupport {
         assertThat(guard.puedeAccederTarea(posterior.getId())).isFalse();
 
         Persona ajeno = person();
-        assertThat(tareas.buscarVisibles(null, null, null, ajeno.getId(), Pageable.unpaged())).isEmpty();
+        assertThat(tareas.buscarVisibles(null, null, null, "", null, null, ajeno.getId(), Pageable.unpaged())).isEmpty();
         iniciarSesion("APODERADO", ajeno);
         assertThat(guard.puedeAccederTarea(anterior.getId())).isFalse();
     }
 
     private List<Evaluacion> evaluacionesVisibles(Long personaAlumno, Long personaApoderado) {
         return evaluaciones.buscar(null, null, null, null, null, null, null,
-                personaAlumno, personaApoderado, Pageable.unpaged()).getContent();
+                personaAlumno, personaApoderado, false, null, Pageable.unpaged()).getContent();
     }
 
     private void iniciarSesion(String rol, Persona persona) {

@@ -167,7 +167,10 @@ export function EvidenceList({
           competencies={competencies}
           periods={periods}
           evidence={editing}
-          onClose={() => setEditing(null)}
+          onClose={(refresh) => {
+            setEditing(null);
+            if (refresh) list.refresh();
+          }}
           onSaved={() => {
             setEditing(null);
             setSuccess("Evidencia actualizada.");

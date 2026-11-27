@@ -3,10 +3,12 @@ package com.asiscontrol.service;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Adjunto;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Crear;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Editar;
+import com.asiscontrol.dto.EvidenciaPedagogicaDto.EvaluacionVinculada;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Respuesta;
 import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.entity.ArchivoAdjunto;
 import com.asiscontrol.entity.AsignacionCurso;
+import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.EvidenciaPedagogica;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
@@ -19,6 +21,7 @@ import com.asiscontrol.repository.EvaluacionRepository;
 import com.asiscontrol.repository.EvidenciaPedagogicaRepository;
 import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository;
+import java.util.Comparator;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -198,6 +201,8 @@ public class EvidenciaPedagogicaService {
                 evidencia.getAsignacion().getCurso().getId(), evidencia.getCompetencia().getId(),
                 evidencia.getCompetencia().getCodigo(), evidencia.getCompetencia().getNombre(),
                 evidencia.getPeriodo().getId(), evidencia.getAutor().getId(), evidencia.getDescripcion(),
-                adjunto, evidencia.getFechaCreacion(), evidencia.getFechaActualizacion());
+                adjunto, evidencia.getFechaCreacion(), evidencia.getFechaActualizacion(),
+                evidencia.getEvaluaciones().stream().sorted(Comparator.comparing(Evaluacion::getId))
+                        .map(e -> new EvaluacionVinculada(e.getId(), e.getTitulo())).toList());
     }
 }

@@ -3,3 +3,6 @@ export { Evaluations } from "./evaluations";
 export { ProgressPreview } from "./progress-preview";
 export { ProgressReports } from "./progress-reports";
 export type { AvailableReport } from "./report-types";
+export type { Evaluation, EvaluationGradingRule } from "./types";
+export { listarEvaluaciones, listarCompetenciasDeAsignacion, obtenerReglaVigente } from "./services/evaluation-service";
+export { evaluationDate, PERIODS } from "./lib/labels";

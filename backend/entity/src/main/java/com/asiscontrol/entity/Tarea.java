@@ -32,6 +32,9 @@ import java.util.Set;
 @Entity
 @Table(name = "Tarea")
 public class Tarea extends AuditableEntity {
+    @Column(name = "modelo_cualitativo", nullable = false)
+    private boolean modeloCualitativo;
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,6 +51,10 @@ public class Tarea extends AuditableEntity {
     @JoinColumn(name = "id_asignacion_curso", nullable = false)
     private AsignacionCurso asignacionCurso;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_evaluacion_academica", unique = true)
+    private Evaluacion evaluacionAcademica;
+
     @Column(name = "fecha_publicacion")
     private LocalDateTime fechaPublicacion;
 
@@ -56,6 +63,9 @@ public class Tarea extends AuditableEntity {
 
     @Column(name = "puntaje_maximo", nullable = false)
     private int puntajeMaximo;
+
+    @Column(name = "puntaje_maximo_fijo", nullable = false)
+    private boolean puntajeMaximoFijo;
 
     @Column(name = "max_archivos_entrega", nullable = false)
     private int maxArchivosEntrega;

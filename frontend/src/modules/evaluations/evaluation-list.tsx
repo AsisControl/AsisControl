@@ -1,6 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { ApiError, message } from "@/core/api/client";
+import { useRouter } from "next/navigation";
+import { api, ApiError, message } from "@/core/api/client";
 import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, StatusPill, Loading } from "@/shared/ui";
 import type { MenuOption } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
@@ -20,7 +21,7 @@ const OPERATIONS: Record<Operation, { title: string; detail: string; done: strin
   PUBLICADA: {
     title: "Publicar evaluación",
     detail:
-      "Los niveles quedarán disponibles para la consolidación. Después solo podrán cambiarse con una corrección y su motivo.",
+      "Los resultados quedarán disponibles para la consolidación. Después solo podrán cambiarse con una corrección y su motivo.",
     done: "Evaluación publicada.",
   },
   CERRADA: {
@@ -58,6 +59,7 @@ export function EvaluationList({
   onCloseCreate: () => void;
   onGrade: (evaluation: Evaluation) => void;
 }) {
+  const router = useRouter();
   const [periodo, setPeriodo] = useState("");
   const [idCurso, setIdCurso] = useState("");
   const [idSeccion, setIdSeccion] = useState("");
@@ -94,7 +96,7 @@ export function EvaluationList({
     } catch (e) {
       setError(
         e instanceof ApiError && e.code === "EVALUACION_INCOMPLETA"
-          ? `${e.message}. Completa la planilla con Calificar.`
+          ? `${e.message.replace(/^(Faltan \d+) niveles.*$/i, "$1 notas por registrar")}. Completa la planilla con Calificar.`
           : message(e),
       );
     } finally {
@@ -102,6 +104,17 @@ export function EvaluationList({
     }
   }
   function menu(item: Evaluation): MenuOption[] {
+    if (item.entregaPorConfigurar) return [{
+      label: "Cancelar configuración de entrega",
+      onSelect: async () => {
+        try {
+          await api(`/api/evaluaciones/${item.id}/cancelar-entrega`, { method: "POST" });
+          list.refresh();
+        } catch (e) {
+          setError(message(e));
+        }
+      },
+    }];
     const options: MenuOption[] = [];
     if (item.estado === "BORRADOR") {
       options.push({ label: "Calificar", onSelect: () => onGrade(item) });
@@ -204,7 +217,7 @@ export function EvaluationList({
           <Loading>Cargando evaluaciones…</Loading>
         ) : list.data?.content.length ? (
           <div className="user-table-wrap">
-            <table className="user-table">
+            <table className={`user-table ${styles.evaluationTable}`}>
               <thead>
                 <tr>
                   <th>Evaluación</th>
@@ -212,6 +225,7 @@ export function EvaluationList({
                   <th>Sección</th>
                   <th>Fecha</th>
                   <th>Competencias</th>
+                  <th>Componente y peso</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -219,7 +233,10 @@ export function EvaluationList({
               <tbody>
                 {list.data.content.map((item) => {
                   const writable = canWrite && ownsAssignment(item);
-                  const options = writable ? menu(item) : [];
+                  const options = item.idTareaVinculada ? [{
+                    label: "Ver planilla",
+                    onSelect: () => router.push(`/evaluaciones/registro-de-calificaciones/${item.id}`),
+                  }] : writable ? menu(item) : [];
                   return (
                     <tr key={item.id}>
                       <td data-label="Evaluación">
@@ -230,21 +247,35 @@ export function EvaluationList({
                       <td data-label="Sección">
                         <strong>{item.seccion}</strong>
                       </td>
-                      <td data-label="Fecha">{evaluationDate(item.fechaEvaluacion)}</td>
+                      <td data-label="Fecha" className={styles.evaluationDate}>{evaluationDate(item.fechaEvaluacion)}</td>
                       <td data-label="Competencias">
                         <span className={styles.count}>{item.competencias.length}</span>{" "}
                         {item.competencias.length === 1 ? "competencia" : "competencias"}
                       </td>
+                      <td data-label="Componente y peso">
+                        {item.pesoComponente != null
+                          ? <>{item.componente}<br /><small>Peso del componente: {item.pesoComponente} %</small></>
+                          : item.reglaVigente ? "Sin peso" : "Sin regla vigente"}
+                      </td>
                       <td data-label="Estado">
                         <StatusPill
                           state={item.estado}
-                          label={stateName(item.estado)}
+                          label={item.idTareaVinculada && item.estado === "BORRADOR" ? "Calificaciones en borrador" : stateName(item.estado)}
                           tone={STATE_TONES[item.estado]}
                         />
+                        {item.idTareaVinculada && <small className={styles.evaluationStateDetail}>{item.estadoActividadVinculada === "BORRADOR"
+                          ? "Actividad en borrador" : item.estadoActividadVinculada === "PUBLICADA" ? "Actividad publicada"
+                            : item.estadoActividadVinculada === "CERRADA" ? "Recepción cerrada"
+                              : item.estadoActividadVinculada === "ARCHIVADA" ? "Actividad archivada" : "Tarea vinculada"}</small>}
+                        {item.entregaPorConfigurar && <small className={styles.evaluationStateDetail}>Entrega por configurar</small>}
                       </td>
                       <td data-label="Acciones">
                         <div className={styles.actions}>
-                          {writable && item.estado === "BORRADOR" ? (
+                          {item.idTareaVinculada || (writable && item.entregaPorConfigurar) ? (
+                            <button type="button" className={styles.deliveryRowAction} onClick={() => onGrade(item)}>
+                              {item.idTareaVinculada ? "Revisar entregas" : "Configurar entrega"}
+                            </button>
+                          ) : writable && item.estado === "BORRADOR" ? (
                             <button type="button" onClick={() => ask(item, "PUBLICADA")}>
                               Publicar
                             </button>

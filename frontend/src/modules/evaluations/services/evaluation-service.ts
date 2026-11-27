@@ -7,6 +7,7 @@ import type {
   CorrectionEntry,
   CourseCompetency,
   Evaluation,
+  EvaluationGradingRule,
   EvaluationInput,
   EvaluationState,
   GradeSheetData,
@@ -23,6 +24,8 @@ export type EvaluationFilters = {
   idSeccion?: string;
   estado?: string;
   busqueda?: string;
+  vinculables?: string;
+  tareaActual?: string;
 };
 /** Ruta del listado con los filtros que tienen valor; usePaged agrega la paginación. */
 export function evaluationsPath(filters: EvaluationFilters) {
@@ -50,6 +53,9 @@ export function obtenerEvaluacion(id: number) {
 export function crearEvaluacion(input: EvaluationInput) {
   return api<Evaluation>(EVALUACIONES_PATH, { method: "POST", body: JSON.stringify(input) });
 }
+export function obtenerReglaVigente(idAsignacionCurso: number) {
+  return api<EvaluationGradingRule | null>(`/api/reglas-calificacion/vigente?idAsignacionCurso=${idAsignacionCurso}`);
+}
 export function actualizarEvaluacion(id: number, input: EvaluationInput) {
   return api<Evaluation>(`${EVALUACIONES_PATH}/${id}`, { method: "PUT", body: JSON.stringify(input) });
 }
@@ -69,20 +75,21 @@ export type DraftGrade = {
   idEvaluacion: number;
   idAlumno: number;
   idCompetencia: number;
-  nivelLogro: AchievementLevel;
+  nivelLogro?: AchievementLevel;
+  notaNumerica?: string;
+  observacion: string | null;
 };
-/** Guarda los niveles de una evaluación en borrador. */
+/** Guarda los niveles y las observaciones de una evaluación en borrador. */
 export function guardarNiveles(grades: DraftGrade[]) {
   return api<unknown[]>(`${CALIFICACIONES_PATH}/lote`, {
     method: "PUT",
-    body: JSON.stringify({
-      calificaciones: grades.map((grade) => ({ ...grade, observacion: null })),
-    }),
+    body: JSON.stringify({ calificaciones: grades }),
   });
 }
 export type GradeCorrection = {
   idCalificacion: number;
-  nivelLogro: AchievementLevel;
+  nivelLogro?: AchievementLevel;
+  notaNumerica?: string;
   version: number;
 };
 /** US-50: corrige niveles publicados con un motivo común. */
@@ -95,9 +102,12 @@ export function corregirNiveles(motivo: string, correcciones: GradeCorrection[])
 export function obtenerCorrecciones(idCalificacion: number) {
   return api<CorrectionEntry[]>(`${CALIFICACIONES_PATH}/${idCalificacion}/correcciones`);
 }
-export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number) {
+export function eliminarCalificacion(idCalificacion: number) {
+  return api<void>(`${CALIFICACIONES_PATH}/${idCalificacion}`, { method: "DELETE" });
+}
+export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number, idPeriodoAcademico?: number) {
   return api<ConsolidatedLevel[]>(
-    `${CALIFICACIONES_PATH}/consolidados?idAlumno=${idAlumno}&idAsignacionCurso=${idAsignacionCurso}`,
+    `${CALIFICACIONES_PATH}/consolidados?idAlumno=${idAlumno}&idAsignacionCurso=${idAsignacionCurso}${idPeriodoAcademico ? `&idPeriodoAcademico=${idPeriodoAcademico}` : ""}`,
   );
 }
 export async function listarAsignacionesPropias() {

@@ -38,6 +38,50 @@ test("Edita un borrador, conserva versión y precisión de fechas, y refresca el
   await waitFor(() => expect(calls.filter((call) => call.path === "/api/tareas")).toHaveLength(2));
 });
 
+test("La tarea independiente conserva sus datos sin configurar una evaluación", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
+  expect((await screen.findByLabelText("Tarea independiente")).checked).toBe(true);
+  expect(screen.queryByLabelText("Peso del componente")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  await waitFor(() => expect(calls.some(call => call.method === "PUT")).toBe(true));
+  const body = calls.find(call => call.method === "PUT").body;
+  expect(body).not.toHaveProperty("nuevaEvaluacion");
+  expect(body).not.toHaveProperty("competenciasSinPeso");
+});
+test("Vincula únicamente evaluaciones elegibles y muestra el nombre de sus competencias", async () => {
+  const candidate = { id: 1, idAsignacionCurso: 42, titulo: "Examen final", estado: "BORRADOR",
+    pesoComponente: 80, componente: "Exámenes", competencias: [{ id: 7, nombre: "Resuelve problemas" }] };
+  const calls = backend({
+    "GET /api/evaluaciones": page([candidate, { ...candidate, id: 2, idAsignacionCurso: 99 },
+      { ...candidate, id: 3, estado: "ANULADA" }, { ...candidate, id: 4, pesoComponente: null },
+      { ...candidate, id: 5, competencias: [] }]),
+  });
+  const user = userEvent.setup();
+  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
+  await user.click(await screen.findByLabelText("Vincular a una evaluación"));
+  await screen.findByRole("option", { name: /Examen final/ });
+  const select = screen.getByLabelText("Evaluación académica");
+  expect([...select.options].map(option => option.value)).toEqual(["", "1"]);
+  await user.selectOptions(select, "1");
+  expect(screen.getByLabelText(/Peso del componente/).value).toBe("80 %");
+  expect(screen.getByText("Competencias: Resuelve problemas")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  await waitFor(() => expect(calls.find(call => call.method === "PUT")?.body)
+    .toMatchObject({ cuentaParaResultadoAcademico: true, idEvaluacionAcademica: 1 }));
+});
+
+test("Remite a Nueva evaluación cuando no existe un borrador elegible", async () => {
+  const calls = backend({ "GET /api/evaluaciones": page([]) });
+  const user = userEvent.setup();
+  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
+  await user.click(await screen.findByLabelText("Vincular a una evaluación"));
+  expect((await screen.findByRole("link", { name: "Nueva evaluación" })).getAttribute("href")).toBe("/evaluaciones?crear=1");
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  expect(screen.getByText("Selecciona una evaluación académica disponible.")).toBeTruthy();
+  expect(calls.some(call => call.method === "PUT")).toBe(false);
+});
 const published = (overrides = {}) => task({ estado: "PUBLICADA", fechaPublicacion: "2026-10-01T08:00:00.123456", ...overrides });
 
 test("Publicada con entregas: conserva la publicación y exige motivo al cambiar la fecha límite", async () => {

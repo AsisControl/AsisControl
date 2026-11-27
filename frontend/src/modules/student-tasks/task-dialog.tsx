@@ -1,10 +1,11 @@
 "use client";
+import { formatWeight } from "@/shared/lib/formatters";
 
 import { useRef, useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { Dialog } from "@/shared/ui/dialog";
 import { downloadTaskFile, findOwnDelivery, getDelivery, submitTask, updateDelivery, uploadTaskFile } from "./api";
-import { canEditDelivery, canSubmit, taskDate, taskStatus } from "./presentation";
+import { canEditDelivery, canSubmit, taskDate, taskGrades, taskStatus } from "./presentation";
 import type { StudentTask, TaskDelivery, TaskFile } from "./types";
 import styles from "./student-tasks.module.css";
 
@@ -16,6 +17,7 @@ export function TaskDialog({ task, onClose, onSaved }: {
 }) {
   const [latestDelivery, setLatestDelivery] = useState<TaskDelivery | null>(null);
   const [editing, setEditing] = useState(false);
+  const [response, setResponse] = useState("");
   const [keptFiles, setKeptFiles] = useState<TaskFile[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -28,11 +30,13 @@ export function TaskDialog({ task, onClose, onSaved }: {
   const { tarea } = task;
   const entrega = latestDelivery ?? task.entrega;
   const currentTask = { ...task, entrega };
+  const grades = taskGrades(currentTask);
   const creating = canSubmit(currentTask);
   const editable = creating || (editing && canEditDelivery(currentTask));
   const totalFiles = keptFiles.length + files.length;
-  const changed = creating || files.length > 0 || keptFiles.length !== entrega?.archivos.length;
-  const canSave = editable && totalFiles > 0 && totalFiles <= tarea.maxArchivosEntrega && changed && !conflict;
+  const text = response.trim();
+  const changed = creating || text !== (entrega?.respuesta ?? "") || files.length > 0 || keptFiles.length !== entrega?.archivos.length;
+  const canSave = editable && (text.length > 0 || totalFiles > 0) && totalFiles <= tarea.maxArchivosEntrega && changed && !conflict;
 
   async function startEditing() {
     if (!entrega || inFlight.current) return;
@@ -41,6 +45,7 @@ export function TaskDialog({ task, onClose, onSaved }: {
       const fresh = await getDelivery(entrega.id);
       setLatestDelivery(fresh);
       setKeptFiles(fresh.archivos);
+      setResponse(fresh.respuesta ?? "");
       setFiles([]);
       setConflict(false);
       setEditing(canEditDelivery({ ...task, entrega: fresh }));
@@ -76,8 +81,8 @@ export function TaskDialog({ task, onClose, onSaved }: {
         ids.push(saved.id);
       }
       setProgress("Guardando entrega..."); registering = true;
-      if (editing && entrega) await updateDelivery(entrega, ids);
-      else await submitTask(task, ids);
+      if (editing && entrega) await updateDelivery(entrega, ids, text);
+      else await submitTask(task, ids, text);
       onSaved();
     } catch (e) {
       const stale = e instanceof ApiError && e.status === 409 && editing;
@@ -86,8 +91,9 @@ export function TaskDialog({ task, onClose, onSaved }: {
       if (registering && !stale) {
         try {
           const saved = editing && entrega ? await getDelivery(entrega.id) : await findOwnDelivery(tarea.id);
-          if (saved && (!editing || (saved.version === entrega!.version + 1 &&
-              saved.archivos.length === ids.length && saved.archivos.every((file) => ids.includes(file.id))))) {
+          if (saved && (!editing || saved.version === entrega!.version + 1) &&
+              (saved.respuesta ?? "") === text && saved.archivos.length === ids.length &&
+              saved.archivos.every((file) => ids.includes(file.id))) {
             onSaved(); return;
           }
         } catch { /* Se conserva el error original y los archivos seleccionados. */ }
@@ -101,9 +107,13 @@ export function TaskDialog({ task, onClose, onSaved }: {
     try { await downloadTaskFile(file); } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
 
-  function attachments(items: TaskFile[], removable = false) {
+  function attachments(items: TaskFile[], removable = false, material = false) {
     return items.map((file) => <div className={styles.selectedFile} key={file.id}>
-      <span>{file.nombreOriginal} <small>({Math.ceil(file.tamanioBytes / 1024)} KB)</small></span>
+      <span className={styles.fileDescription}><span aria-hidden="true" className={styles.fileIcon}>▤</span>
+        <span><strong>{file.nombreOriginal}</strong>
+          <small>{material && `${file.nombreOriginal.includes(".") ? file.nombreOriginal.split(".").pop()?.toUpperCase() : file.tipoMime} · `}{Math.ceil(file.tamanioBytes / 1024)} KB</small>
+        </span>
+      </span>
       <div className={styles.fileActions}>
         <button type="button" disabled={busy} onClick={() => download(file)}>Descargar</button>
         {removable && <button type="button" aria-label={`Eliminar ${file.nombreOriginal}`} disabled={busy} onClick={() => setKeptFiles((current) => current.filter((item) => item.id !== file.id))}>Eliminar</button>}
@@ -116,25 +126,43 @@ export function TaskDialog({ task, onClose, onSaved }: {
       <div className={styles.taskHeader}>
         <h3>{tarea.nombre}</h3>
         <p>{task.curso} · Prof. {task.docente} · Vence: {taskDate(tarea.fechaLimite)}</p>
-        <small>{task.seccion}</small>
+        <small>{task.seccion} · {!tarea.evaluacionAcademica?.cuentaParaResultadoAcademico ? "Sin peso"
+          : grades.components.length ? "Resultado académico" : "Peso pendiente"}</small>
       </div>
-      <p className={styles.description}>{tarea.descripcion}</p>
-      {tarea.archivos.length > 0 && <div><h3>Material de la tarea</h3>{attachments(tarea.archivos)}</div>}
+      <section className={styles.taskInstructions}>
+        <h4>Instrucciones</h4>
+        <p className={styles.description}>{tarea.descripcion}</p>
+      </section>
+      {tarea.archivos.length > 0 && <section className={styles.taskMaterial} aria-label="Material de la tarea"><h3>Material de la tarea</h3>{attachments(tarea.archivos, false, true)}</section>}
+      {(entrega || Boolean(grades.general) || grades.components.length > 0) &&
+        <section className={styles.grade} aria-label="Calificación de la tarea">
+          <div className={styles.gradeHeading}>
+            <h4>Calificación</h4>
+            {grades.general && <strong className={styles.gradeLevel}>{grades.general}</strong>}
+          </div>
+          {grades.components.length ? <ul className={styles.gradeResults}>{grades.components.map((item, index) => <li key={`${item.competencia}-${index}`}>
+            <span>{item.competencia}</span><strong className={styles.gradeLevel}>{item.nivel}</strong>
+            <small>{!tarea.evaluacionAcademica?.cuentaParaResultadoAcademico
+              ? "Sin peso" : item.pesoEfectivo == null ? "Peso pendiente" : formatWeight(item.pesoEfectivo)}</small>
+          </li>)}</ul> : !grades.general && <p>{tarea.evaluacionAcademica
+            ? "Calificación académica aún no disponible"
+            : entrega?.estado === "CALIFICADO" ? "Calificada" : "Pendiente de calificación"}</p>}
+        </section>}
       {entrega && <>
-        <div className={styles.grade} aria-label="Calificación de la tarea">
-          <span>Calificación</span>
-          <strong>{entrega.nota === null ? "Pendiente de calificación" : `${entrega.nota} / ${tarea.puntajeMaximo}`}</strong>
-        </div>
-        {entrega.estado === "CALIFICADO" && entrega.comentario?.trim() && <section className={styles.teacherComment} aria-label="Comentario del profesor">
+        {(entrega.estado === "CALIFICADO" || tarea.modeloCualitativo) && entrega.comentario?.trim() && <section className={styles.teacherComment} aria-label="Comentario del profesor">
           <h4>Comentario del profesor</h4>
           <p className={styles.description}>{entrega.comentario}</p>
         </section>}
-        <div className={styles.attachment}>
+        <section className={`${styles.attachment} ${styles.deliveredWork}`}>
           <h3>Tu entrega</h3>
           <p className={styles.deliveryMeta}>{taskStatus(currentTask)} · {taskDate(entrega.fechaHoraEntrega)}</p>
-          {attachments(editing ? keptFiles : entrega.archivos, editable && editing)}
+          {!editing && entrega.respuesta && <section><h4>Tu respuesta escrita</h4><p className={styles.description}>{entrega.respuesta}</p></section>}
+          {entrega.archivos.length > 0 && <section className={styles.deliveredFiles}>
+            <h4>Archivos ya entregados</h4>
+            {attachments(editing ? keptFiles : entrega.archivos, editable && editing)}
+          </section>}
           {!editable && !entrega.archivos.length && <p className={styles.hint}>Esta entrega no tiene archivos adjuntos.</p>}
-        </div>
+        </section>
         {!editable && !canEditDelivery(currentTask) && <p className={styles.hint}>
           {entrega.estado === "CALIFICADO" ? "La entrega ya fue calificada y no se puede editar."
             : entrega.estado === "ANULADO" ? "La entrega está anulada y no se puede editar."
@@ -147,20 +175,26 @@ export function TaskDialog({ task, onClose, onSaved }: {
         : "Esta tarea no está recibiendo entregas."}</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {conflict && <button type="button" className="secondary-action" disabled={busy} onClick={startEditing}>Recargar entrega</button>}
-      {editable ? <form className={editing ? styles.editForm : undefined} onSubmit={submit}>
+      {editable ? <form className={styles.editForm} onSubmit={submit}>
+        <label className="field">Respuesta
+          <textarea value={response} onChange={event => setResponse(event.target.value)} maxLength={2000} rows={3} disabled={busy || conflict} />
+        </label>
         {tarea.maxArchivosEntrega > 0 ? <>
           <div className={styles.filePicker}>
-            <label htmlFor="task-file">{editing ? "Agregar archivos a la entrega" : "Selecciona los archivos de tu trabajo"}</label>
             <input id="task-file" type="file" multiple accept={ACCEPT} disabled={busy || conflict}
               aria-describedby="task-file-limits" onChange={(e) => { selectFiles(e.target.files); e.target.value = ""; }} />
+            <label htmlFor="task-file">{editing ? "Agregar archivos a la entrega" : "Selecciona los archivos de tu trabajo"}</label>
             <small id="task-file-limits">Hasta {tarea.maxArchivosEntrega} archivos en total, 10 MB por archivo. PDF, JPG, PNG, Word, Excel o PowerPoint.</small>
           </div>
+          <p role="status" className={styles.hint}>{files.length === 1 ? "1 archivo seleccionado" : `${files.length} archivos seleccionados`}</p>
           {files.map((file, index) => <div className={styles.selectedFile} key={index}>
-            <span>{file.name} <small>({Math.ceil(file.size / 1024)} KB)</small></span>
+            <span className={styles.fileDescription}><span aria-hidden="true" className={styles.fileIcon}>▤</span>
+              <span><strong>{file.name}</strong><small>{Math.ceil(file.size / 1024)} KB</small></span>
+            </span>
             <button type="button" aria-label={`Eliminar ${file.name}`} disabled={busy} onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>Eliminar</button>
           </div>)}
-          <p className={styles.hint}>{editing ? "Los archivos que quites se retirarán de esta entrega al guardar los cambios. Debe quedar al menos un archivo." : "Adjunta al menos un archivo para entregar tu trabajo."}</p>
-        </> : <p className={styles.hint}>Esta tarea no admite archivos. Consulta con tu docente para habilitar la entrega.</p>}
+          <p className={styles.hint}>Escribe una respuesta, adjunta archivos o incluye ambos.</p>
+        </> : <p className={styles.hint}>Esta tarea admite únicamente una respuesta escrita.</p>}
         {progress && <p role="status">{progress}</p>}
         <div className="form-actions">
           <button type="button" disabled={busy} onClick={editing ? cancelEditing : onClose}>Cancelar</button>

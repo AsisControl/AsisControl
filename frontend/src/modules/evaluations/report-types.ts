@@ -1,4 +1,4 @@
-import type { AchievementLevel } from "./types";
+import type { AchievementLevel, EvaluationState } from "./types";
 
 export type ReportContext = {
   idAlumno: number;
@@ -13,7 +13,7 @@ export type AvailableReport = ReportContext & {
   periodo: string;
 };
 
-export type ReportPeriod = { id: number; nombre: string };
+export type ReportPeriod = { id: number; nombre: string; fechaInicio: string; fechaFin: string };
 
 export type ReportRowContext = {
   idInforme: number;
@@ -52,13 +52,23 @@ export type ProgressReportRow = ReportRowReferences & {
   resultado: AchievementLevel | "Sin registrar";
   ponderacion: string;
   observacion: string;
+  tipoEvaluacion?: string;
+  estadoEvaluacion?: EvaluationState;
+  tieneSustento?: boolean;
+  numeroVersionEscala?: number | null;
+  notaNumerica?: number | null;
+  pesoInstitucional?: number | null;
 };
 
 /** ReporteAvanceDto: contenido de una versión persistida de la libreta. */
 export type ProgressReport = {
+  versionBorrador?: number | null;
+  competenciasCConsecutivas?: number[];
+  conclusionesDescriptivas?: Record<string, string>;
   reglaCalificacion?: { id: number; numeroVersion: number; formula: string } | null;
   consolidado?: { idCompetencia: number; nombreCompetencia: string; nivelConsolidado: string | null;
-    promedioPonderado: number | null; componentesFaltantes: string[] }[];
+    estadoAvance?: "CONSOLIDADA" | "PENDIENTE" | "NO_EVALUADA";
+    promedioPonderado: number | null; numeroVersionRegla?: number | null; numeroVersionEscala?: number | null; componentesFaltantes: string[] }[];
   alumno: string;
   codigoAlumno: string | null;
   curso: string;

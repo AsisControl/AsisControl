@@ -43,6 +43,7 @@ import java.util.Set;
 
 @Service
 public class CalificacionService {
+    private final FlujoEntregaAcademica flujoEntrega;
 
     private final CalificacionRepository calificacionRepository;
     private final EvaluacionRepository evaluacionRepository;
@@ -55,6 +56,8 @@ public class CalificacionService {
     private final AuditoriaService auditoria;
     private final AvisosAcademicos avisos;
     private final ReglaCalificacionService reglas;
+    private final EscalaInstitucionalService escalas;
+    private final PlanEstudiosService planes;
 
     public CalificacionService(
             CalificacionRepository calificacionRepository,
@@ -65,7 +68,9 @@ public class CalificacionService {
             CorreccionCalificacionRepository correccionRepository,
             EntityManager entityManager,
             ModuloAccessGuard accessGuard,
-            AuditoriaService auditoria, AvisosAcademicos avisos, ReglaCalificacionService reglas) {
+            AuditoriaService auditoria, AvisosAcademicos avisos, ReglaCalificacionService reglas,
+            EscalaInstitucionalService escalas, PlanEstudiosService planes, FlujoEntregaAcademica flujoEntrega) {
+        this.flujoEntrega = flujoEntrega;
         this.correccionRepository = correccionRepository;
         this.entityManager = entityManager;
         this.calificacionRepository = calificacionRepository;
@@ -77,6 +82,8 @@ public class CalificacionService {
         this.auditoria = auditoria;
         this.avisos = avisos;
         this.reglas = reglas;
+        this.escalas = escalas;
+        this.planes = planes;
     }
 
     @Transactional(readOnly = true)
@@ -103,11 +110,15 @@ public class CalificacionService {
 
     @Transactional
     public CalificacionDto.Response registrar(CalificacionDto.Request request) {
-        return toResponse(registrarInterno(request));
+        return toResponse(registrarInterno(request, null));
     }
 
     @Transactional
     public List<CalificacionDto.Response> registrarLote(CalificacionDto.CargaLoteRequest request) {
+        return registrarLote(request, null);
+    }
+
+    List<CalificacionDto.Response> registrarLote(CalificacionDto.CargaLoteRequest request, Long tarea) {
         Set<String> claves = new HashSet<>();
         for (CalificacionDto.Request item : request.calificaciones()) {
             String clave = item.idEvaluacion() + ":" + item.idAlumno() + ":" + item.idCompetencia();
@@ -121,7 +132,7 @@ public class CalificacionService {
 
         List<CalificacionDto.Response> resultados = new ArrayList<>();
         for (CalificacionDto.Request item : request.calificaciones()) {
-            resultados.add(toResponse(registrarInterno(item)));
+            resultados.add(toResponse(registrarInterno(item, tarea)));
         }
         return resultados;
     }
@@ -132,6 +143,10 @@ public class CalificacionService {
      */
     @Transactional
     public List<CalificacionDto.Response> corregir(CalificacionDto.CorreccionRequest request) {
+        return corregir(request, null);
+    }
+
+    List<CalificacionDto.Response> corregir(CalificacionDto.CorreccionRequest request, Long tarea) {
         String motivo = request.motivo().trim();
         String autor = entityManager.find(Persona.class, accessGuard.personaIdActual()).nombreCompleto();
         Instant ahora = Instant.now();
@@ -146,7 +161,7 @@ public class CalificacionService {
                         "La correccion incluye mas de una vez la calificacion " + item.idCalificacion()
                 );
             }
-            var corregida = corregirInterno(item, motivo, autor, ahora);
+            var corregida = corregirInterno(item, motivo, autor, ahora, tarea);
             var evaluacion = corregida.getEvaluacion();
             if (notificados.add(new ResultadoAvisado(evaluacion.getId(), corregida.getAlumno().getId()))) {
                 avisos.enviar(corregida.getAlumno(), "Resultado actualizado", evaluacion.getTitulo());
@@ -157,10 +172,11 @@ public class CalificacionService {
     }
 
     private Calificacion corregirInterno(
-            CalificacionDto.CorreccionItem item, String motivo, String autor, Instant fecha) {
+            CalificacionDto.CorreccionItem item, String motivo, String autor, Instant fecha, Long tarea) {
         Calificacion calificacion = buscarActiva(item.idCalificacion());
         Evaluacion evaluacion = calificacion.getEvaluacion();
         accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        flujoEntrega.verificar(evaluacion, tarea);
         if (evaluacion.getEstado() != EstadoEvaluacion.PUBLICADA) {
             throw new BusinessRuleException(
                     "CALIFICACION_NO_CORREGIBLE",
@@ -174,22 +190,32 @@ public class CalificacionService {
             );
         }
         NivelLogro anterior = calificacion.getNivelLogro();
-        if (anterior == item.nivelLogro()) {
+        var notaAnterior = calificacion.getNotaNumerica();
+        if ((notaAnterior == null) != (item.notaNumerica() == null)) {
+            throw new BusinessRuleException("FORMATO_CORRECCION_INCOMPATIBLE",
+                    "Corrige el resultado en el formato con el que fue publicado.");
+        }
+        var nivelNuevo = notaAnterior == null ? item.nivelLogro()
+                : EscalaInstitucionalService.nivel(evaluacion.getEscalaInstitucional(), item.notaNumerica());
+        if (notaAnterior == null ? anterior == nivelNuevo : notaAnterior.compareTo(item.notaNumerica()) == 0) {
             throw new BusinessRuleException(
                     "CORRECCION_SIN_CAMBIOS",
-                    "El nuevo nivel debe ser distinto del nivel vigente"
+                    "La calificación nueva debe ser distinta de la vigente"
             );
         }
         CorreccionCalificacion correccion = new CorreccionCalificacion();
         correccion.setCalificacion(calificacion);
         correccion.setNumeroVersion(correccionRepository.countByCalificacionId(calificacion.getId()) + 1);
         correccion.setNivelAnterior(anterior);
-        correccion.setNivelNuevo(item.nivelLogro());
+        correccion.setNivelNuevo(nivelNuevo);
+        correccion.setNotaAnterior(notaAnterior);
+        correccion.setNotaNueva(item.notaNumerica());
         correccion.setMotivo(motivo);
         correccion.setAutor(autor);
         correccion.setFechaCorreccion(fecha);
         correccionRepository.save(correccion);
-        calificacion.setNivelLogro(item.nivelLogro());
+        calificacion.setNivelLogro(nivelNuevo);
+        calificacion.setNotaNumerica(item.notaNumerica());
         Calificacion saved = calificacionRepository.saveAndFlush(calificacion);
         auditoria.registrar("CORREGIR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, motivo,
@@ -212,20 +238,28 @@ public class CalificacionService {
                         item.getNivelNuevo(),
                         item.getMotivo(),
                         item.getAutor(),
-                        item.getFechaCorreccion()))
+                        item.getFechaCorreccion(), item.getNotaAnterior(), item.getNotaNueva()))
                 .toList();
     }
 
     @Transactional
     public void eliminar(Long id) {
+        eliminar(id, null, null);
+    }
+
+    void eliminar(Long id, Long tarea, Long version) {
         Calificacion calificacion = buscarActiva(id);
         accessGuard.verificarAsignacionDocente(
                 calificacion.getEvaluacion().getAsignacionCurso());
+        flujoEntrega.verificar(calificacion.getEvaluacion(), tarea);
         if (calificacion.getEvaluacion().getEstado() != EstadoEvaluacion.BORRADOR) {
             throw new BusinessRuleException(
                     "CALIFICACION_NO_ELIMINABLE",
                     "Las calificaciones solo se pueden quitar mientras la evaluacion esta en borrador"
             );
+        }
+        if (version != null && !version.equals(calificacion.getVersion())) {
+            throw new ConflictException("VERSION_DESACTUALIZADA", "La calificación cambió. Actualiza el seguimiento.");
         }
         calificacion.setActivo(false);
         calificacionRepository.save(calificacion);
@@ -282,25 +316,53 @@ public class CalificacionService {
 
     private List<CalificacionDto.ConsolidadoResponse> consolidarConRegla(Long alumno, AsignacionCurso asignacion,
                                                                        ReglaCalificacion regla) {
+        if (regla.getFormula() == ReglaCalificacion.Formula.CUALITATIVA_DINAMICA_V1) {
+            throw new BusinessRuleException("PERIODO_REQUERIDO", "Selecciona un período académico para consolidar.");
+        }
         var muestras = entityManager.createQuery("""
-                select competencia, e.tipoEvaluacion, nota.nivelLogro
+                select competencia, e.tipoEvaluacion, nota.nivelLogro, nota.notaNumerica, e.modeloCualitativo
                 from Evaluacion e join e.competencias competencia
                 left join Calificacion nota on nota.evaluacion = e and nota.competencia = competencia
                     and nota.alumno.id = :alumno and nota.activo = true
-                where e.activo = true and e.asignacionCurso.id = :asignacion
+                where e.activo = true and e.cuentaResultado = true and e.asignacionCurso.id = :asignacion
                 and e.estado in (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                                  com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
                 """, Object[].class).setParameter("asignacion", asignacion.getId()).setParameter("alumno", alumno)
                 .getResultList().stream().map(fila -> new ReglaCalificacionService.NotaCompetencia(
                         (Competencia) fila[0], new ReglaCalificacionDto.Muestra(
-                        (com.asiscontrol.entity.enums.TipoEvaluacion) fila[1], (NivelLogro) fila[2]))).toList();
-        return reglas.consolidar(regla, asignacion.getId(), muestras);
+                        (com.asiscontrol.entity.enums.TipoEvaluacion) fila[1], (NivelLogro) fila[2]),
+                        (BigDecimal) fila[3], (Boolean) fila[4])).toList();
+        var resultados = new ArrayList<CalificacionDto.ConsolidadoResponse>();
+        var calculados = reglas.consolidar(regla, asignacion.getId(), muestras);
+        var ids = new java.util.HashSet<Long>();
+        for (var resultado : calculados) {
+            ids.add(resultado.idCompetencia());
+            resultados.add(new CalificacionDto.ConsolidadoResponse(resultado.idCompetencia(), resultado.codigoCompetencia(),
+                    resultado.nombreCompetencia(), resultado.promedioPonderado(), resultado.nivelConsolidado(),
+                    resultado.evaluacionesConsideradas(), resultado.idAsignacionCurso(), resultado.numeroVersionRegla(),
+                    resultado.componentesFaltantes(), resultado.numeroVersionEscala(),
+                    resultado.nivelConsolidado() == null ? "PENDIENTE" : "CONSOLIDADA"));
+        }
+        for (var competencia : planes.competenciasDeAsignacion(asignacion)) {
+            if (!ids.contains(competencia.getId())) {
+                resultados.add(new CalificacionDto.ConsolidadoResponse(competencia.getId(), competencia.getCodigo(),
+                        competencia.getNombre(), null, null, 0, asignacion.getId(), regla.getNumeroVersion(),
+                        List.of(), null, "NO_EVALUADA"));
+            }
+        }
+        return resultados;
     }
 
     private List<CalificacionDto.ConsolidadoResponse> consolidarHistorico(List<Calificacion> calificaciones) {
         Map<Long, AcumuladoCompetencia> acumulados = new HashMap<>();
+        var numericas = new java.util.LinkedHashMap<Long, Competencia>();
+        for (var nota : calificaciones) {
+            if (nota.getNotaNumerica() != null || nota.getEvaluacion().isModeloCualitativo())
+                numericas.put(nota.getCompetencia().getId(), nota.getCompetencia());
+        }
 
         for (Calificacion calificacion : calificaciones) {
+            if (numericas.containsKey(calificacion.getCompetencia().getId())) continue;
             BigDecimal peso = calificacion.getEvaluacion().getPonderacionPorcentaje();
             if (peso == null || peso.signum() <= 0) {
                 peso = BigDecimal.ONE;
@@ -317,7 +379,7 @@ public class CalificacionService {
             acumulado.cantidad++;
         }
 
-        return acumulados.values().stream()
+        var resultados = acumulados.values().stream()
                 .map(acumulado -> {
                     BigDecimal promedio = acumulado.sumaPonderada
                             .divide(acumulado.sumaPesos, 2, RoundingMode.HALF_UP);
@@ -330,17 +392,24 @@ public class CalificacionService {
                             acumulado.cantidad
                     );
                 })
-                .sorted((a, b) -> a.nombreCompetencia().compareToIgnoreCase(b.nombreCompetencia()))
-                .toList();
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        numericas.values().forEach(competencia -> resultados.add(new CalificacionDto.ConsolidadoResponse(
+                competencia.getId(), competencia.getCodigo(), competencia.getNombre(), null, null, 0,
+                null, null, List.of("Regla de ponderación vigente"), null)));
+        return resultados.stream().sorted((a, b) -> a.nombreCompetencia().compareToIgnoreCase(b.nombreCompetencia())).toList();
     }
 
-    private Calificacion registrarInterno(CalificacionDto.Request request) {
-        Evaluacion evaluacion = evaluacionRepository.findByIdAndActivoTrue(request.idEvaluacion())
+    private Calificacion registrarInterno(CalificacionDto.Request request, Long tarea) {
+        Evaluacion evaluacion = evaluacionRepository.buscarActivaParaEscritura(request.idEvaluacion())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "EVALUACION_NO_ENCONTRADA",
                         "No se encontro la evaluacion con id " + request.idEvaluacion()
                 ));
         accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        flujoEntrega.verificar(evaluacion, tarea);
+        if (evaluacion.isModeloCualitativo() && request.notaNumerica() != null) {
+            throw new BusinessRuleException("NIVEL_CUALITATIVO_REQUERIDO", "Selecciona un nivel AD, A, B o C.");
+        }
         // US-18: lo publicado no se edita directamente; se corrige con motivo (US-50).
         if (evaluacion.getEstado() == EstadoEvaluacion.PUBLICADA) {
             throw new BusinessRuleException(
@@ -391,6 +460,13 @@ public class CalificacionService {
                 )
                 .orElseGet(Calificacion::new);
         boolean nueva = calificacion.getId() == null;
+        if (request.versionEsperada() != null
+                && request.versionEsperada() != (nueva || !calificacion.isActivo() ? -1L : calificacion.getVersion())) {
+            throw new ConflictException("VERSION_DESACTUALIZADA", "La calificación cambió. Actualiza el seguimiento.");
+        }
+        if (calificacion.getNotaNumerica() != null && request.notaNumerica() == null) {
+            throw new BusinessRuleException("NOTA_NUMERICA_REQUERIDA", "Esta calificación requiere una nota numérica.");
+        }
         String anterior = null;
         if (!nueva) {
             anterior = "nivelLogro=" + calificacion.getNivelLogro() + ",observacion=" + calificacion.getObservacion();
@@ -399,7 +475,9 @@ public class CalificacionService {
         calificacion.setAlumno(alumno);
         calificacion.setCompetencia(competencia);
         calificacion.setActivo(true);
-        calificacion.setNivelLogro(request.nivelLogro());
+        calificacion.setNotaNumerica(request.notaNumerica());
+        calificacion.setNivelLogro(request.notaNumerica() == null ? request.nivelLogro()
+                : EscalaInstitucionalService.nivel(escalas.exigirVigente(), request.notaNumerica()));
         calificacion.setObservacion(limpiar(request.observacion()));
         if (nueva) {
             calificacion.setFechaRegistro(Instant.now());

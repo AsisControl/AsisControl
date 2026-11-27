@@ -8,6 +8,8 @@ import type { AvailableReport, ProgressReport, ReportPeriod } from "./report-typ
 import { generateReportDrafts, getProgressReportDraft, publishPeriodReports, getProgressReport, getProgressReportPdf, getReportPeriodStatus, type ReportPeriodStatus, listAvailableReports, listReportPeriods, saveProgressReportPdf } from "./services/report-service";
 import styles from "./evaluations.module.css";
 import { ReportContent, ReportBadge } from "./report-content";
+import { PartialProgress } from "./partial-progress";
+import { ReportPdfDownload } from "./report-pdf-download";
 
 
 type FamilyStudent = { id: number; nombreCompleto: string };
@@ -104,8 +106,10 @@ export function ProgressReports({ guardian = false }: { guardian?: boolean }) {
             {pending === "notes" ? "Consultando…" : "Ver notas"}
           </button>
           <button className="secondary-action" disabled={!option || busy} onClick={() => open(true)}>
-            {pending === "pdf" ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : "Descargar PDF"}
+            {pending === "pdf" ? <><span className={styles.reportSpinner} aria-hidden="true" /> Generando PDF…</> : "Descargar libreta completa"}
           </button>
+          {detail && option && <ReportPdfDownload key={`${option.idAlumno}:${option.idAsignacionCurso}:${option.idPeriodoAcademico}:${detail.periodo}`}
+            context={option} report={detail} showFull={false} disabled={busy} />}
         </div>}
         {pending && <span className={styles.reportSrOnly} role="status">{pending === "pdf" ? "Generando PDF…" : "Consultando libreta…"}</span>}
       </div>}
@@ -126,13 +130,14 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
   const [periods, setPeriods] = useState<ReportPeriod[]>([]);
   const [period, setPeriod] = useState("");
   const [confirm, setConfirm] = useState(false);
+  const [mode, setMode] = useState("complete");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [status, setStatus] = useState<ReportPeriodStatus | null>(null);
   const [statusError, setStatusError] = useState("");
   const [refresh, setRefresh] = useState(0);
-  const [preview, setPreview] = useState<{ report: ProgressReport; draft: boolean } | null>(null);
+  const [preview, setPreview] = useState<{ report: ProgressReport; draft: boolean; studentId: number } | null>(null);
 
   useEffect(() => {
     if (!assignment) return;
@@ -159,8 +164,8 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
   if (status) {
     if (hasDrafts) {
       periodNotice = status.publicable
-        ? "Hay un borrador pendiente con los cambios actuales. Revísalo y publícalo cuando esté listo."
-        : "Hay borradores pendientes. Revísalos antes de publicar.";
+        ? "Los borradores están listos para publicar."
+        : "";
     } else if (status.desactualizada) {
       periodNotice = "Las evaluaciones o notas cambiaron. Genera un nuevo borrador para actualizar la libreta.";
     } else if (allPublished) {
@@ -188,7 +193,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
     setBusy(true); setError(""); setSuccess(""); setPreview(null); setConfirm(false);
     try {
       const result = await generateReportDrafts(Number(assignment), Number(period));
-      setSuccess(`Se generaron ${result.informesProcesados} borradores. Revisa los resultados antes de publicar.`);
+      setSuccess(`Se generaron ${result.informesProcesados} borradores. Puedes consultar los resultados antes de publicar.`);
       reloadStatus();
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
@@ -198,7 +203,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
     setBusy(true); setError(""); setPreview(null);
     try {
       const report = await (draft ? getProgressReportDraft(context) : getProgressReport(context));
-      setPreview({ report, draft });
+      setPreview({ report, draft, studentId: idAlumno });
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
 
@@ -223,7 +228,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
       <h2>Libretas del período</h2>
       <p>Genera, revisa y publica las libretas de la sección para el curso y período elegidos.</p>
     </header>
-    <Feedback error={error} success={success} />
+    <Feedback error={error} />
     <div className={`panel ${styles.reportPanel}`}>
       <div className={styles.reportFilters}>
         <label className="field">Curso y sección
@@ -241,11 +246,19 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
           </select>
         </label>
       </div>
-      {canWrite && <div className={styles.reportActions}>
+      <label className="field">Tipo de informe
+        <select value={mode} disabled={busy} onChange={event => { setMode(event.target.value); setConfirm(false); setPreview(null); }}>
+          <option value="complete">Informe completo</option>
+          <option value="partial">Informe parcial</option>
+        </select>
+      </label>
+      {mode === "complete" && canWrite && <div className={styles.reportActions}>
         <button className="secondary-action" disabled={!period || busy} onClick={generate}>Generar borradores</button>
-        {status?.publicable && !confirm && <button className="primary-action" disabled={busy} onClick={() => setConfirm(true)}>Publicar libretas</button>}
+        {hasDrafts && !confirm && <button className="primary-action" disabled={busy || !status?.publicable}
+          onClick={() => setConfirm(true)}>Publicar libretas</button>}
       </div>}
-      {confirm && status?.publicable && <div className={styles.reportNotice}>
+      <Feedback success={success} />
+      {mode === "complete" && confirm && status?.publicable && <div className={styles.reportNotice}>
         <p>¿Confirmas la publicación de las libretas pendientes de {selectedAssignment?.curso}, sección {selectedAssignment?.seccion}, para {selectedPeriod?.nombre}?</p>
         <div className={styles.reportActions}>
           <button className="primary-action" disabled={busy} onClick={publish}>{busy ? "Publicando…" : "Confirmar publicación"}</button>
@@ -259,9 +272,21 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
       <Feedback error={`No se pudo consultar el estado de las libretas. ${statusError}`} />
       <button className="secondary-action" disabled={busy} onClick={reloadStatus}>Reintentar consulta</button>
     </div>}
+    {mode === "partial" && !!selectedAssignment && !!selectedPeriod && status && <PartialProgress
+      key={`${assignment}:${period}`} assignment={selectedAssignment.id} period={selectedPeriod.id} students={status.alumnos} />}
+    {mode === "complete" && <>
     {periodNotice && <p className={status?.desactualizada && !hasDrafts
       ? `${styles.reportNotice} ${styles.reportWarning}`
       : styles.reportNotice} role="status">{periodNotice}</p>}
+    {hasDrafts && !status?.publicable && <div className={`${styles.reportNotice} ${styles.reportWarning} ${styles.publishBlocker}`} role="status">
+      <strong>Publicación pendiente</strong>
+      <p>{status?.impedimento?.replace(/Faltan (\d+) niveles por registrar antes de publicar la evaluacion/i,
+        "Faltan $1 notas por registrar antes de publicar la evaluación") || "Consulta los resultados del borrador para identificar qué falta."}</p>
+      <p>Consulta los borradores que necesites. Si cambió la información académica, vuelve a generarlos antes de publicar.</p>
+    </div>}
+    {hasDrafts && !canWrite && status?.publicable && <p className={styles.reportNotice}>
+      Se requiere permiso de escritura de calificaciones para publicar las libretas.
+    </p>}
     {status && !status.alumnos.some(item => item.borrador || item.publicada) && <p className={styles.reportNotice}>Todavía no hay libretas para este curso y período. Genera los borradores para empezar.</p>}
     {status && status.alumnos.some(item => item.borrador || item.publicada) && <div className={`panel ${styles.reportPanel}`}>
       <table className={styles.reportRoster}>
@@ -280,6 +305,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
         </tr>)}</tbody>
       </table>
     </div>}
-    {preview && <ReportContent report={preview.report} draft={preview.draft} sustento="docente" />}
+    {preview && <ReportContent key={preview.studentId} report={preview.report} draft={preview.draft} sustento="docente" />}
+    </>}
   </section>;
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { message } from "@/core/api/client";
 import { Feedback, PageHeader, TabNav, type TabItem, Loading } from "@/shared/ui";
 import { EvaluationList } from "./evaluation-list";
@@ -34,6 +34,7 @@ export function Evaluations({
   canWrite: boolean;
 }) {
   const router = useRouter();
+  const createRequested = useSearchParams()?.get("crear") === "1";
   const current = [PUBLISH_TAB, REGISTRY_TAB, EVIDENCE_TAB].includes(tab ?? "") ? (tab as string) : LIST_TAB;
   const [assignments, setAssignments] = useState<OwnAssignment[] | null>(null);
   const [error, setError] = useState("");
@@ -53,7 +54,11 @@ export function Evaluations({
   }, []);
   const parsedId = Number(evaluationId);
   const openGrades = (evaluation: Evaluation) =>
-    router.push(`${PATH}/${REGISTRY_TAB}/${evaluation.id}`);
+    router.push(evaluation.idTareaVinculada
+      ? `/tareas/${evaluation.idTareaVinculada}/entregas`
+      : evaluation.entregaPorConfigurar
+        ? `/tareas?evaluacion=${evaluation.id}&asignacion=${evaluation.idAsignacionCurso}`
+        : `${PATH}/${REGISTRY_TAB}/${evaluation.id}`);
   return (
     <section>
       <PageHeader
@@ -90,8 +95,11 @@ export function Evaluations({
         <EvaluationList
           canWrite={canWrite}
           assignments={assignments}
-          creating={creating}
-          onCloseCreate={() => setCreating(false)}
+          creating={canWrite && (creating || createRequested)}
+          onCloseCreate={() => {
+            setCreating(false);
+            if (createRequested) router.replace(PATH);
+          }}
           onGrade={openGrades}
         />
       ) : (

@@ -57,6 +57,8 @@ public class EvaluacionController {
             @RequestParam(required = false) Long idCurso,
             @RequestParam(required = false) Long idSeccion,
             @RequestParam(required = false) String busqueda,
+            @RequestParam(defaultValue = "false") boolean vinculables,
+            @RequestParam(required = false) Long tareaActual,
             @PageableDefault(size = 20, sort = "fechaEvaluacion", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
@@ -70,7 +72,7 @@ public class EvaluacionController {
                 accessGuard.restriccionDocentePersonaId(),
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
-                pageable);
+                vinculables, tareaActual, pageable);
     }
 
     /** Periodos del curso que el docente puede publicar. */
@@ -96,8 +98,14 @@ public class EvaluacionController {
     /** US-18: alumnos de la seccion y sus niveles; nunca para alumnos ni apoderados. */
     @GetMapping("/{id}/planilla")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and @moduloAccessGuard.puedeGestionarEvaluacion(#id)")
-    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id) {
-        return evaluacionService.planilla(id);
+    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id, @RequestParam(required = false) Long idAlumno) {
+        return evaluacionService.planilla(id, idAlumno);
+    }
+
+    @PostMapping("/{id}/cancelar-entrega")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public EvaluacionDto.Response cancelarEntrega(@PathVariable Long id) {
+        return evaluacionService.cancelarEntrega(id);
     }
 
     @GetMapping("/{id}")

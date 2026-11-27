@@ -18,7 +18,7 @@ import java.util.Map;
         name = "uk_regla_curso_grado_numero", columnNames = {"id_curso", "id_grado_academico", "numero_version"}))
 public class ReglaCalificacion extends AuditableEntity {
     public enum Estado { BORRADOR, VIGENTE, HISTORICA }
-    public enum Formula { PROMEDIO_PONDERADO }
+    public enum Formula { PROMEDIO_PONDERADO, CUALITATIVA_DINAMICA_V1 }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

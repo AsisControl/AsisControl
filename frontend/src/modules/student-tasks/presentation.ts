@@ -1,5 +1,15 @@
 import type { StudentTask } from "./types";
 
+export function taskGrades(task: StudentTask) {
+  const evaluation = task.tarea.evaluacionAcademica;
+  return {
+    components: evaluation?.estado === "PUBLICADA" || evaluation?.estado === "CERRADA"
+      ? task.resultados ?? [] : [],
+    general: evaluation ? null : task.entrega?.estado === "CALIFICADO"
+      ? task.entrega.nivelLogro : task.entrega ? null : task.nivelSinEntrega,
+  };
+}
+
 export function taskStatus(task: StudentTask) {
   if (task.entrega) return {
     PENDIENTE: "Entrega pendiente", ENTREGADO: "Entregada", ENTREGADO_TARDE: "Entregada tarde",
@@ -13,6 +23,7 @@ export function taskStatus(task: StudentTask) {
 
 export function canSubmit(task: StudentTask) {
   return !task.soloConsulta && !task.entrega && task.tarea.estado === "PUBLICADA" &&
+    task.tarea.evaluacionAcademica?.estado !== "PUBLICADA" && task.tarea.evaluacionAcademica?.estado !== "CERRADA" &&
     new Date(task.tarea.fechaLimite) > new Date() &&
     (!task.tarea.fechaPublicacion || new Date(task.tarea.fechaPublicacion) <= new Date());
 }
@@ -20,6 +31,7 @@ export function canSubmit(task: StudentTask) {
 export function canEditDelivery(task: StudentTask) {
   return !task.soloConsulta && !!task.entrega && task.entrega.estado !== "CALIFICADO" && task.entrega.estado !== "ANULADO" &&
     task.tarea.estado === "PUBLICADA" &&
+    task.tarea.evaluacionAcademica?.estado !== "PUBLICADA" && task.tarea.evaluacionAcademica?.estado !== "CERRADA" &&
     new Date(task.tarea.fechaLimite) > new Date() &&
     (!task.tarea.fechaPublicacion || new Date(task.tarea.fechaPublicacion) <= new Date());
 }

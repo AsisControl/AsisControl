@@ -128,6 +128,14 @@ abstract class ApiIntegrationSupport {
         var response = mvc.perform(builder).andExpect(status().is(expected)).andReturn().getResponse();
         return response.getContentAsByteArray().length==0 ? json.nullNode() : json.readTree(response.getContentAsByteArray());
     }
+    protected void revisarInforme(Long periodoId) throws Exception {
+        String base = "/api/calificaciones/informes/borrador";
+        String params = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + periodoId;
+        var borrador = getOk(base + params);
+        putOk(base + "/revision" + params, data("version", borrador.path("versionBorrador").asLong()));
+    }
+
     protected JsonNode postOk(String path,Object body) throws Exception { return request("POST",path,body,201); }
     protected JsonNode getOk(String path) throws Exception { return request("GET",path,null,200); }
     protected JsonNode putOk(String path,Object body) throws Exception { return request("PUT",path,body,200); }

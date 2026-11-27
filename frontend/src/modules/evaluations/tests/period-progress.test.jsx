@@ -14,7 +14,7 @@ function backend(routes = {}) {
     "GET /api/evaluaciones/periodos-informe": periods,
     "GET /api/calificaciones/informes-disponibles": [availableReport, otherStudent],
     "GET /api/calificaciones/avance": ({ query }) => query.idAlumno === "11" ? progressReport : { ...progressReport, alumno: "Luis Díaz", filas: [] },
-    "GET /api/calificaciones/reporte-avance": reply(200, {}, { "Content-Disposition": 'attachment; filename="Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf"' }),
+    "GET /api/calificaciones/reporte-avance": reply(200, {}, { "Content-Disposition": 'attachment; filename="Informe_completo_Ana_Ramos_Matematica_Primer_bimestre.pdf"' }),
     ...routes,
   });
 }
@@ -39,20 +39,74 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   const calls = backend(); render(<ProgressPreview />);
   const interaction = await openPeriod();
   const article = await screen.findByRole("article", { name: "Informe de progreso por período" });
-  for (const value of ["Ana Ramos", "Código: E11", "Matemática · 3° A · 2026", "Docente: María Pérez", "Primer bimestre · 01/03/2026 - 30/04/2026", "Sin registrar", "70 %", "Sin observaciones"])
+  await interaction.click(within(article).getByRole("button", { name: "Ver por evaluación" }));
+  for (const value of ["Ana Ramos", "Código: E11", "Matemática · 3° A · 2026", "Docente: María Pérez", "Primer bimestre · 01/03/2026 - 30/04/2026", "—", "70 %"])
     expect(within(article).getByText(value)).toBeTruthy();
   expect(within(article).getByText(/Generado:.*Lima/)).toBeTruthy();
   expect(within(article).getByText(/Explica su procedimiento/)).toBeTruthy();
-  expect(within(article).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["Competencia", "Evaluación", "Fecha", "Resultado", "Ponderación", "Observación"]);
+  expect(within(within(article).getByRole("table", { name: "Competencias de Práctica" })).getAllByRole("columnheader").map((cell) => cell.textContent))
+    .toEqual(["Competencia", "Resultado", "Ponderación", "Observación", "Sustento"]);
   expect(screen.getByText(/Consulta la última versión publicada/)).toBeTruthy();
   expect(calls.find((call) => call.path.endsWith("periodos-informe")).query).toEqual({ idAsignacionCurso: "5" });
   expect(calls.find((call) => call.path.endsWith("avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
-  await interaction.click(screen.getByRole("button", { name: "Descargar PDF" }));
+  await interaction.click(screen.getByRole("button", { name: "Descargar libreta completa" }));
   await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
-  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toBe("Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf");
+  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toBe("Informe_completo_Ana_Ramos_Matematica_Primer_bimestre.pdf");
   expect(calls.find((call) => call.path.endsWith("reporte-avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
   expect(calls.every((call) => call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: /publicar|generar/i })).toBeNull();
+});
+
+test("Descarga por evaluaciones y competencias, y bloquea una selección vacía", async () => {
+  const calls = backend({
+    "GET /api/calificaciones/avance": { ...progressReport, filas: progressReport.filas.map((row, index) => ({ ...row, idCompetencia: index + 1 })) },
+    "GET /api/calificaciones/reporte-avance": reply(200, {}, {
+      "Content-Disposition": 'attachment; filename="Informe_parcial_Ana_Ramos_Matematica_Primer_bimestre.pdf"',
+    }),
+  });
+  render(<ProgressPreview />);
+  const interaction = await openPeriod();
+  const partial = await screen.findByRole("button", { name: "Descargar evaluaciones seleccionadas" });
+  expect(partial.parentElement).toBe(screen.getByRole("button", { name: "Descargar libreta completa" }).parentElement);
+  expect(partial.compareDocumentPosition(screen.getByRole("article")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await interaction.click(partial);
+  const dialog = within(screen.getByRole("dialog", { name: "Reporte de evaluaciones seleccionadas" }));
+  const download = dialog.getByRole("button", { name: "Descargar reporte seleccionado" });
+  const requests = () => fetch.mock.calls.map(([url]) => new URL(url)).filter((url) => url.pathname.endsWith("reporte-avance"));
+  expect(download.disabled).toBe(true);
+  expect(dialog.getByText("Selecciona al menos una evaluación para descargar el reporte.")).toBeTruthy();
+  await interaction.click(download);
+  expect(requests()).toHaveLength(0);
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar evaluaciones" }));
+  await interaction.click(dialog.getByRole("checkbox", { name: /Práctica/ }));
+  expect(dialog.getByRole("button", { name: "1 evaluación seleccionada" })).toBeTruthy();
+  await interaction.click(download);
+  await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+  expect(requests()[0].searchParams.getAll("idEvaluacion")).toEqual(["20"]);
+  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toMatch(/^Informe_parcial_/);
+  await interaction.click(dialog.getByRole("button", { name: "1 evaluación seleccionada" }));
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar todas" }));
+  expect(dialog.getByRole("button", { name: "Todas las evaluaciones" })).toBeTruthy();
+  await interaction.click(download);
+  await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(2));
+  expect(requests()[1].searchParams.getAll("idEvaluacion")).toEqual(["20", "21"]);
+  expect(calls.filter(({ path }) => path.endsWith("reporte-avance")).every(({ query }) =>
+    query.idAlumno === "11" && query.idAsignacionCurso === "5" && query.idPeriodoAcademico === "40")).toBe(true);
+  await interaction.click(dialog.getByRole("button", { name: "Todas las evaluaciones" }));
+  await interaction.click(dialog.getByRole("button", { name: "Limpiar selección" }));
+  expect(download.disabled).toBe(true);
+  expect(dialog.getByRole("button", { name: "Seleccionar evaluaciones" })).toBeTruthy();
+  await interaction.click(dialog.getByRole("button", { name: "Todas las competencias" }));
+  await interaction.click(dialog.getByRole("button", { name: "Limpiar selección" }));
+  expect(dialog.queryByRole("checkbox", { name: /Práctica/ })).toBeNull();
+  const [competency] = dialog.getAllByRole("checkbox");
+  await interaction.click(competency);
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar evaluaciones" }));
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar todas" }));
+  await interaction.click(download);
+  await waitFor(() => expect(requests()).toHaveLength(3));
+  expect(requests()[2].searchParams.getAll("idCompetencia")).toEqual(["1"]);
+  expect(requests()[2].searchParams.getAll("idEvaluacion")).toEqual(["20"]);
 });
 
 test("Solo ofrece estudiantes autorizados de la asignación y período seleccionados", async () => {
@@ -77,7 +131,7 @@ test.each(["student", "period", "assignment", "mode"])("Cambiar %s limpia el det
   if (change === "mode") await interaction.click(screen.getByRole("button", { name: "Consulta por evaluación" }));
   await act(async () => resolveReport(progressReport));
   expect(screen.queryByRole("article")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Descargar PDF" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Descargar libreta completa" })).toBeNull();
   if (change === "assignment") {
     await interaction.selectOptions(screen.getByLabelText("Curso y sección"), "5");
     expect((await screen.findByLabelText("Período académico")).value).toBe("");
@@ -121,7 +175,7 @@ test("Una descarga fallida conserva el informe y permite reintentar", async () =
   let failed = true;
   backend({ "GET /api/calificaciones/reporte-avance": () => failed ? reply(500, { message: "No se pudo generar el PDF" }) : {} });
   render(<ProgressPreview />); const interaction = await openPeriod();
-  await interaction.click(await screen.findByRole("button", { name: "Descargar PDF" }));
+  await interaction.click(await screen.findByRole("button", { name: "Descargar libreta completa" }));
   expect((await screen.findByRole("alert")).textContent).toContain("No se pudo generar");
   expect(screen.getByRole("article")).toBeTruthy();
   expect(URL.createObjectURL).not.toHaveBeenCalled();
@@ -135,7 +189,7 @@ test("Cambiar período durante una descarga evita guardar un PDF del contexto an
   let resolvePdf;
   backend({ "GET /api/calificaciones/reporte-avance": () => new Promise((resolve) => { resolvePdf = resolve; }) });
   render(<ProgressPreview />); const interaction = await openPeriod();
-  await interaction.click(await screen.findByRole("button", { name: "Descargar PDF" }));
+  await interaction.click(await screen.findByRole("button", { name: "Descargar libreta completa" }));
   await waitFor(() => expect(resolvePdf).toBeTypeOf("function"));
   expect(screen.getByRole("button", { name: "Generando PDF…" }).disabled).toBe(true);
   await interaction.selectOptions(screen.getByLabelText("Período académico"), "41");

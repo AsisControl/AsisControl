@@ -10,7 +10,14 @@ export type EvaluationPeriod =
   | "PERIODO_ACADEMICO"
   | "ANUAL";
 export type EvaluationCompetency = { id: number; codigo: string; nombre: string };
+export type EvaluationGradingRule = {
+  componentes: { tipoEvaluacion: string; nombre: string; peso: number }[];
+};
 export type Evaluation = {
+  entregaPorConfigurar?: boolean;
+  idTareaVinculada?: number | null;
+  estadoActividadVinculada?: "BORRADOR" | "PUBLICADA" | "CERRADA" | "ARCHIVADA" | null;
+  modeloCualitativo?: boolean;
   id: number;
   idAsignacionCurso: number;
   titulo: string;
@@ -20,6 +27,9 @@ export type Evaluation = {
   estado: EvaluationState;
   fechaEvaluacion: string;
   ponderacionPorcentaje: number;
+  reglaVigente?: boolean;
+  componente?: string | null;
+  pesoComponente?: number | null;
   competencias: EvaluationCompetency[];
   idCurso: number;
   curso: string;
@@ -28,19 +38,22 @@ export type Evaluation = {
   anioAcademico: number;
 };
 export type EvaluationInput = {
+  permitirEntrega?: boolean;
   idAsignacionCurso: number;
   titulo: string;
   descripcion: string | null;
   tipoEvaluacion: string;
   periodoEvaluacion: EvaluationPeriod;
   fechaEvaluacion: string;
-  ponderacionPorcentaje: number;
   idsCompetencia: number[];
 };
 export type GradeCell = {
+  notaNumerica?: number | null;
+  pesoEfectivo?: number | null;
   idCalificacion: number;
   idCompetencia: number;
   nivelLogro: AchievementLevel;
+  observacion: string | null;
   version: number;
   corregida: boolean;
 };
@@ -50,8 +63,10 @@ export type GradeSheetStudent = {
   nombreCompleto: string;
   notas: GradeCell[];
 };
-export type GradeSheetData = { evaluacion: Evaluation; alumnos: GradeSheetStudent[] };
+export type GradeSheetData = { evaluacion: Evaluation; alumnos: GradeSheetStudent[]; numeroVersionEscala?: number | null };
 export type CorrectionEntry = {
+  notaAnterior?: number | null;
+  notaNueva?: number | null;
   numeroVersion: number;
   nivelAnterior: AchievementLevel;
   nivelNuevo: AchievementLevel;
@@ -65,6 +80,7 @@ export type ConsolidatedLevel = {
   nivelConsolidado: AchievementLevel | null;
   evaluacionesConsideradas: number;
   componentesFaltantes?: string[];
+  estadoAvance?: "CONSOLIDADA" | "PENDIENTE" | "NO_EVALUADA";
   numeroVersionRegla?: number;
 };
 /** Asignación propia del docente (AsignacionCursoResponse). */

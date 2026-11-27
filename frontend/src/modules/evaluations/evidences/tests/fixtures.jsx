@@ -7,7 +7,7 @@ import { Evaluations } from "@/modules/evaluations";
 export const assignment = { id: 5, cursoId: 100, curso: "Matemática", seccionId: 8, seccion: "A", grado: 3, anioAcademico: 2026 };
 export const evaluation = {
   id: 10, idAsignacionCurso: 5, titulo: "Examen", estado: "BORRADOR", periodoEvaluacion: "BIMESTRAL",
-  fechaEvaluacion: "2026-09-22", competencias: [], idCurso: 100, curso: "Matemática", idSeccion: 8, seccion: "3° A", anioAcademico: 2026,
+  fechaEvaluacion: "2026-09-22", competencias: [{ id: 1 }], idCurso: 100, curso: "Matemática", idSeccion: 8, seccion: "3° A", anioAcademico: 2026,
 };
 export const students = [
   { idAlumno: 1, codigoAlumno: "E1", nombreCompleto: "Alvarado Medina, Diego", notas: [] },
@@ -15,7 +15,7 @@ export const students = [
 ];
 export const evidence = (overrides = {}) => ({
   id: 70, asignacionId: 5, alumnoId: 1, cursoId: 100, competenciaId: 1, periodoId: 3, autorId: 9,
-  descripcion: "Maqueta del sistema solar", archivo: null,
+  descripcion: "Maqueta del sistema solar", archivo: null, evaluaciones: [],
   fechaCreacion: "2026-10-01T15:00:00", fechaActualizacion: "2026-10-01T15:00:00", ...overrides,
 });
 export const withFile = { id: 31, nombreOriginal: "maqueta.pdf", tipoMime: "application/pdf", tamanioBytes: 2048 };
@@ -25,7 +25,10 @@ export function backend(routes = {}) {
     "GET /api/asignaciones-cursos/mias": page([assignment]),
     "GET /api/evaluaciones": page([evaluation]),
     "GET /api/evaluaciones/:id/planilla": { evaluacion: evaluation, alumnos: students },
-    "GET /api/evaluaciones/periodos-informe": [{ id: 3, nombre: "I Bimestre" }, { id: 4, nombre: "II Bimestre" }],
+    "GET /api/evaluaciones/periodos-informe": [
+      { id: 3, nombre: "I Bimestre", fechaInicio: "2026-08-01", fechaFin: "2026-09-22" },
+      { id: 4, nombre: "II Bimestre", fechaInicio: "2026-10-01", fechaFin: "2026-11-30" },
+    ],
     "GET /api/evaluaciones/competencias": [
       { id: 1, codigo: "MAT-C1", nombre: "Resuelve problemas" },
       { id: 2, codigo: "MAT-C2", nombre: "Razona en geometría" },

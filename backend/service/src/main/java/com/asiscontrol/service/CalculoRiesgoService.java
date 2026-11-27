@@ -1,11 +1,13 @@
 package com.asiscontrol.service;
 
+import com.asiscontrol.dto.CalificacionDto.ConsolidadoResponse;
 import com.asiscontrol.dto.RiesgoDto;
 import com.asiscontrol.entity.*;
 import com.asiscontrol.entity.enums.*;
 import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ResourceNotFoundException;
+import com.asiscontrol.service.ReporteAvanceService.ConsolidadoRiesgo;
 
 
 import jakarta.persistence.EntityManager;
@@ -22,11 +24,13 @@ import static com.asiscontrol.dto.RiesgoDto.Resultado.*;
 public class CalculoRiesgoService {
     private final EntityManager em;
     private final EvidenciaRiesgoService evidencia;
+    private final ReporteAvanceService informes;
 
 
-    public CalculoRiesgoService(EntityManager em, EvidenciaRiesgoService evidencia) {
+    public CalculoRiesgoService(EntityManager em, EvidenciaRiesgoService evidencia, ReporteAvanceService informes) {
         this.em = em;
         this.evidencia = evidencia;
+        this.informes = informes;
     }
 
     @Transactional
@@ -51,8 +55,21 @@ public class CalculoRiesgoService {
         List<RiesgoDto.ResultadoRegla> resultados = new ArrayList<>();
         var criterios = em.createQuery("from CriterioRiesgo c where c.activo = true order by c.id", CriterioRiesgo.class)
                 .getResultList();
+        boolean medirInicio = criterios.stream().anyMatch(c -> c.getIndicador() == IndicadorRiesgo.COMPETENCIAS_EN_INICIO);
+        var notas = criterios.stream().anyMatch(c -> c.getIndicador() == IndicadorRiesgo.PROMEDIO_ACADEMICO)
+                ? notasAcademicas(alumno, periodo, seccion) : List.<Calificacion>of();
+        boolean numerico = notas.stream().anyMatch(nota -> nota.getNotaNumerica() != null);
+        boolean consolidarPromedio = numerico || notas.stream().anyMatch(nota -> nota.getEvaluacion().isModeloCualitativo());
+        boolean usarVersionPublicada = consolidarPromedio && periodo.getEstado() == EstadoPeriodoAcademico.CERRADO;
+        var consolidados = medirInicio || consolidarPromedio && !usarVersionPublicada
+                ? consolidados(alumno, periodo, seccion, false) : List.<ConsolidadoRiesgo>of();
+        var inicio = medirInicio ? competenciasEnInicio(consolidados.stream().map(ConsolidadoRiesgo::resultado).toList()) : null;
+        mediciones.put(IndicadorRiesgo.PROMEDIO_ACADEMICO,
+                consolidarPromedio ? promedioConsolidado(usarVersionPublicada
+                        ? consolidados(alumno, periodo, seccion, true) : consolidados) : promedioHistorico(notas));
         for (CriterioRiesgo criterio : criterios) {
-            Medicion medicion = mediciones.get(criterio.getIndicador());
+            Medicion medicion = criterio.getIndicador() == IndicadorRiesgo.COMPETENCIAS_EN_INICIO
+                    ? inicio.medir(criterio) : mediciones.get(criterio.getIndicador());
             int minimoDatos = evidencia.minimoDatos(criterio.getId());
             boolean suficiente = medicion.valor() != null && medicion.cantidad() >= minimoDatos;
             var resultado = !suficiente ? DATOS_INSUFICIENTES
@@ -68,10 +85,15 @@ public class CalculoRiesgoService {
                 return anterior != null && anterior.idPeriodo().equals(periodo.getId());
             }).findFirst().orElse(null);
             String motivo = !suficiente
-                    ? "No se puede determinar el riesgo: " + medicion.cantidad() + " datos disponibles; minimo " + minimoDatos
+                    ? criterio.getIndicador() == IndicadorRiesgo.COMPETENCIAS_EN_INICIO && medicion.cantidad() >= minimoDatos
+                        ? "Las competencias sin consolidar pueden cambiar el cumplimiento del umbral."
+                        : "No se puede determinar el riesgo: " + medicion.cantidad() + " datos disponibles; mínimo " + minimoDatos
                     : "Indicador " + criterio.getIndicador() + ": valor " + medicion.valor().toPlainString()
                         + "; regla " + criterio.getOperador() + " " + criterio.getUmbral().toPlainString()
                         + "; resultado " + resultado + "; periodo " + periodo.getNombre();
+            if (criterio.getIndicador() == IndicadorRiesgo.PROMEDIO_ACADEMICO && consolidarPromedio && medicion.valor() == null) {
+                motivo += ". Consulta el detalle de las competencias pendientes y las calificaciones elegibles.";
+            }
             if (resultado == EN_RIESGO) {
                 if (alerta == null) {
                     alerta = new AlertaRiesgo();
@@ -117,18 +139,56 @@ public class CalculoRiesgoService {
 
     private record Medicion(BigDecimal valor, int cantidad, List<String> evidencias) {}
 
-    private Map<IndicadorRiesgo, Medicion> calcularIndicadores(Alumno alumno, PeriodoAcademico periodo, Seccion seccion) {
-        Map<IndicadorRiesgo, Medicion> datos = new EnumMap<>(IndicadorRiesgo.class);
-        var notas = em.createQuery("""
+    private record CompetenciasEnInicio(long enInicio, long pendientes, int consolidadas, List<String> evidencias) {
+        Medicion medir(CriterioRiesgo criterio) {
+            var inferior = BigDecimal.valueOf(enInicio);
+            var superior = BigDecimal.valueOf(enInicio + pendientes);
+            var umbral = criterio.getUmbral();
+            boolean indeterminado = consolidadas == 0
+                    || cumple(criterio.getOperador(), inferior, umbral) != cumple(criterio.getOperador(), superior, umbral)
+                    || criterio.getOperador() == OperadorComparacion.IGUAL && pendientes > 0
+                        && inferior.compareTo(umbral) < 0 && superior.compareTo(umbral) > 0
+                        && umbral.stripTrailingZeros().scale() <= 0;
+            var detalle = new ArrayList<String>();
+            detalle.add("Competencias C confirmadas: " + enInicio + ". Sin consolidar: " + pendientes + ".");
+            detalle.addAll(evidencias);
+            return new Medicion(indeterminado ? null : inferior, consolidadas, detalle);
+        }
+    }
+
+    private List<ConsolidadoRiesgo> consolidados(Alumno alumno, PeriodoAcademico periodo, Seccion seccion,
+                                               boolean usarVersionPublicada) {
+        var asignaciones = em.createQuery("""
+                select a from AsignacionCurso a where a.activo = true and a.seccion = :seccion
+                """, AsignacionCurso.class).setParameter("seccion", seccion).getResultList();
+        return asignaciones.stream().flatMap(asignacion ->
+                informes.consolidadoRiesgo(alumno, asignacion, periodo, usarVersionPublicada).stream()).toList();
+    }
+
+    private CompetenciasEnInicio competenciasEnInicio(List<ConsolidadoResponse> resultados) {
+        var detalles = resultados.stream().map(item -> "asignación=" + item.idAsignacionCurso()
+                + ", competencia=" + item.nombreCompetencia() + ", estado=" + item.estadoAvance()
+                + ", nivel=" + Objects.toString(item.nivelConsolidado(), "sin resultado")
+                + ", regla=" + Objects.toString(item.numeroVersionRegla(), "sin regla")
+                + ", escala=" + Objects.toString(item.numeroVersionEscala(), "histórica o pendiente")).toList();
+        int disponibles = (int) resultados.stream().filter(item -> item.nivelConsolidado() != null).count();
+        long enInicio = resultados.stream().filter(item -> item.nivelConsolidado() == NivelLogro.C).count();
+        return new CompetenciasEnInicio(enInicio, resultados.size() - disponibles, disponibles, detalles);
+    }
+
+    private List<Calificacion> notasAcademicas(Alumno alumno, PeriodoAcademico periodo, Seccion seccion) {
+        return em.createQuery("""
                 from Calificacion c where c.activo = true and c.alumno.id = :alumno
-                and c.evaluacion.activo = true and c.evaluacion.asignacionCurso.activo = true
+                and c.evaluacion.activo = true and c.evaluacion.cuentaResultado = true and c.evaluacion.asignacionCurso.activo = true
                 and c.evaluacion.asignacionCurso.seccion.id = :seccion
                 and c.evaluacion.estado in (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                     com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
                 and c.evaluacion.fechaEvaluacion between :inicio and :fin order by c.id
                 """, Calificacion.class).setParameter("alumno", alumno.getId()).setParameter("seccion", seccion.getId())
                 .setParameter("inicio", periodo.getFechaInicio()).setParameter("fin", periodo.getFechaFin()).getResultList();
-        // Misma escala y ponderacion del consolidado: C=1, B=2, A=3, AD=4.
+    }
+
+    private Medicion promedioHistorico(List<Calificacion> notas) {
         Map<String, BigDecimal[]> competencias = new LinkedHashMap<>();
         List<String> evidenciaNotas = new ArrayList<>();
         for (Calificacion nota : notas) {
@@ -144,10 +204,35 @@ public class CalculoRiesgoService {
         var promedios = competencias.values().stream().map(a -> a[0].divide(a[1], 2, RoundingMode.HALF_UP)).toList();
         BigDecimal promedio = promedios.isEmpty() ? null : promedios.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
                 .divide(BigDecimal.valueOf(promedios.size()), 4, RoundingMode.HALF_UP);
-        datos.put(IndicadorRiesgo.PROMEDIO_ACADEMICO, new Medicion(promedio, notas.size(), evidenciaNotas));
-        datos.put(IndicadorRiesgo.COMPETENCIAS_EN_INICIO, new Medicion(promedios.isEmpty() ? null
-                : BigDecimal.valueOf(promedios.stream().filter(p -> NivelLogro.desdePromedio(p.doubleValue()) == NivelLogro.C).count()),
-                notas.size(), evidenciaNotas));
+        return new Medicion(promedio, notas.size(), evidenciaNotas);
+    }
+
+    private Medicion promedioConsolidado(List<ConsolidadoRiesgo> consolidados) {
+        var resultados = consolidados.stream().filter(ConsolidadoRiesgo::tieneEvaluacionPublicada)
+                .map(ConsolidadoRiesgo::resultado).toList();
+        var elegibles = resultados.stream().filter(item -> item.nivelConsolidado() != null).toList();
+        var pendientes = resultados.stream().filter(item -> "PENDIENTE".equals(item.estadoAvance())).toList();
+        int cantidad = elegibles.stream().mapToInt(ConsolidadoResponse::evaluacionesConsideradas).sum();
+        var detalle = new ArrayList<String>();
+        detalle.add("Promedio interno de niveles consolidados. Calificaciones elegibles: " + cantidad + ".");
+        for (var item : elegibles) {
+            detalle.add("Asignación " + item.idAsignacionCurso() + ", " + item.nombreCompetencia()
+                    + ": " + item.nivelConsolidado() + ", calificaciones: " + item.evaluacionesConsideradas()
+                    + ", versión de regla: " + item.numeroVersionRegla() + ", versión de escala: "
+                    + Objects.toString(item.numeroVersionEscala(), "cualitativa") + ".");
+        }
+        for (var item : pendientes) {
+            detalle.add("Asignación " + item.idAsignacionCurso() + ", " + item.nombreCompetencia() + ": pendiente"
+                    + (item.componentesFaltantes().isEmpty() ? "." : ". " + String.join(", ", item.componentesFaltantes()) + "."));
+        }
+        BigDecimal promedio = elegibles.isEmpty() || !pendientes.isEmpty() ? null
+                : BigDecimal.valueOf(elegibles.stream().mapToInt(item -> item.nivelConsolidado().getValor()).sum())
+                        .divide(BigDecimal.valueOf(elegibles.size()), 4, RoundingMode.HALF_UP);
+        return new Medicion(promedio, cantidad, detalle);
+    }
+
+    private Map<IndicadorRiesgo, Medicion> calcularIndicadores(Alumno alumno, PeriodoAcademico periodo, Seccion seccion) {
+        Map<IndicadorRiesgo, Medicion> datos = new EnumMap<>(IndicadorRiesgo.class);
         var asistencias = em.createQuery("""
                 from AsistenciaAlumno a where a.activo = true and a.alumno.id = :alumno
                 and a.asignacionCurso.activo = true and a.asignacionCurso.seccion.id = :seccion

@@ -62,6 +62,8 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     void correccionPropiaActualizaNotaHistorialAuditoriaYConsolidado(NivelLogro nivel) throws Exception {
         String anterior = nivel == NivelLogro.C ? "AD" : "C";
         JsonNode nota = publicada(assignment, anterior);
+        em.find(com.asiscontrol.entity.Evaluacion.class, nota.path("idEvaluacion").asLong()).setModeloCualitativo(false);
+        em.flush();
         // La base guarda microsegundos y puede redondear: se deja 1 ms de margen en cada extremo.
         Instant antes = Instant.now().minus(1, ChronoUnit.MILLIS);
 
@@ -246,6 +248,9 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
         JsonNode ajena = publicada(asignacionDe(otroDocente()), "C");
         JwtRequestPostProcessor actor = comoDocente();
         Map<String, Object> cambioValido = item(primera, "A");
+        em.find(com.asiscontrol.entity.Evaluacion.class, primera.path("idEvaluacion").asLong()).setModeloCualitativo(false);
+        em.find(com.asiscontrol.entity.Evaluacion.class, segunda.path("idEvaluacion").asLong()).setModeloCualitativo(false);
+        em.find(com.asiscontrol.entity.Evaluacion.class, ajena.path("idEvaluacion").asLong()).setModeloCualitativo(false);
         // Se confirma SOLO la base de pruebas. Cada solicitud abre y finaliza su propia transacción.
         TestTransaction.flagForCommit();
         TestTransaction.end();
@@ -290,7 +295,7 @@ class CorreccionCalificacionHttpTest extends ApiIntegrationSupport {
     private JsonNode publicada(AsignacionCurso asignacion, String nivel) throws Exception {
         long evaluacion = postOk("/api/evaluaciones", data("idAsignacionCurso", asignacion.getId(),
                 "titulo", "Evaluación de regresión " + key(), "tipoEvaluacion", "EXAMEN",
-                "periodoEvaluacion", "BIMESTRAL", "fechaEvaluacion", LocalDate.now(),
+                "periodoEvaluacion", "BIMESTRAL", "fechaEvaluacion", LocalDate.of(asignacion.getSeccion().getAnioAcademico(), 4, 1),
                 "ponderacionPorcentaje", 100, "idsCompetencia", Set.of(competence.getId())))
                 .path("id").asLong();
         JsonNode nota = postOk(CALIFICACIONES, data("idEvaluacion", evaluacion, "idAlumno", student.getId(),

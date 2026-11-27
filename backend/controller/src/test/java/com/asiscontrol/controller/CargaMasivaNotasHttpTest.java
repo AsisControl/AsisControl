@@ -71,7 +71,7 @@ class CargaMasivaNotasHttpTest extends ApiIntegrationSupport {
         em.flush();
         evaluacion = postOk("/api/evaluaciones", data("idAsignacionCurso", assignment.getId(),
                 "titulo", "Práctica " + key(), "tipoEvaluacion", "EXAMEN",
-                "periodoEvaluacion", "BIMESTRAL", "fechaEvaluacion", LocalDate.now(),
+                "periodoEvaluacion", "BIMESTRAL", "fechaEvaluacion", LocalDate.of(section.getAnioAcademico(), 4, 1),
                 "ponderacionPorcentaje", 100, "idsCompetencia", Set.of(competence.getId(), segunda.getId())))
                 .path("id").asLong();
     }

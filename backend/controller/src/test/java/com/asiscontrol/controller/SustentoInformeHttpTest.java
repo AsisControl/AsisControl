@@ -13,6 +13,8 @@ import java.time.*;
 import java.util.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class SustentoInformeHttpTest extends ApiIntegrationSupport {
@@ -55,7 +57,8 @@ class SustentoInformeHttpTest extends ApiIntegrationSupport {
                     .andExpect(jsonPath("$.filas[0].idDetalleInforme").value(detalle.getId()))
                     .andExpect(jsonPath("$.filas[0].idEvaluacion").value(evaluacion.getId()))
                     .andExpect(jsonPath("$.filas[0].idCompetencia").value(competence.getId()))
-                    .andExpect(jsonPath("$.filas[0].idCalificacion").value(detalle.getCalificacion().getId()));
+                    .andExpect(jsonPath("$.filas[0].idCalificacion").value(detalle.getCalificacion().getId()))
+                    .andExpect(jsonPath("$.filas[0].tieneSustento").value(true));
             mvc.perform(get(url()).with(usuario)).andExpect(status().isOk())
                     .andExpect(header().string("Cache-Control","no-store"))
                     .andExpect(jsonPath("$.evidencias.length()").value(1))
@@ -67,6 +70,71 @@ class SustentoInformeHttpTest extends ApiIntegrationSupport {
                     .andExpect(content().bytes(contenido)).andExpect(content().contentType("application/pdf"))
                     .andExpect(header().string("Cache-Control","no-store"));
         }
+    }
+
+    @Test void parcialSinLibretaConsultaSoloSustentoExactoYAutorizaPorRol() throws Exception {
+        em.remove(detalle);
+        em.remove(informe);
+        var ajena = evidencia(false);
+        ajena.setArchivo(archivo);
+        em.flush();
+        String base = "/api/calificaciones/informes/parcial";
+        String contexto = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + periodo.getId() + "&idEvaluacion=" + evaluacion.getId()
+                + "&idCompetencia=" + competence.getId();
+        var docente = como("DOCENTE", teacher.getPersona());
+        mvc.perform(get(base + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].idDetalleInforme").value(0))
+                .andExpect(jsonPath("$.filas[0].tieneSustento").value(true));
+        mvc.perform(get(base + "/evidencias" + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.evidencias.length()").value(1))
+                .andExpect(jsonPath("$.evidencias[0].idEvidencia").value(evidencia.getId()));
+        String descarga = base + "/evidencias/" + evidencia.getId() + "/archivo";
+        mvc.perform(get(descarga + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store")).andExpect(content().bytes(contenido));
+        mvc.perform(get(base + "/evidencias/" + ajena.getId() + "/archivo" + contexto).with(docente))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(descarga + contexto.replaceFirst("idCompetencia=[0-9]+", "idCompetencia=999999")).with(docente))
+                .andExpect(status().isNotFound());
+        for (var usuario : List.of(como("ALUMNO", student.getPersona()), como("APODERADO", guardian.getPersona()),
+                como("DOCENTE", person()))) {
+            mvc.perform(get(base + "/evidencias" + contexto).with(usuario)).andExpect(status().isForbidden());
+            mvc.perform(get(descarga + contexto).with(usuario)).andExpect(status().isForbidden());
+        }
+        evidencia.setActivo(false);
+        em.flush();
+        mvc.perform(get(base + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].tieneSustento").value(false));
+    }
+
+    @Test void altaSinVinculoNoSustentaLaFilaYElPutIdempotenteLaHaceVisible() throws Exception {
+        evidencia.setActivo(false);
+        var docente = jwt().jwt(j -> j.claim("personaId", teacher.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCENTE"),
+                        new SimpleGrantedAuthority("CALIFICACIONES_LEER"), new SimpleGrantedAuthority("CALIFICACIONES_ESCRIBIR"));
+        String base = "/api/evidencias-pedagogicas";
+        var alta = json.writeValueAsString(data("asignacionId", assignment.getId(), "alumnoId", student.getId(),
+                "competenciaId", competence.getId(), "periodoId", periodo.getId(), "descripcion", "Producto de la evaluación"));
+        var response = mvc.perform(post(base).with(docente).contentType("application/json").content(alta))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.evaluaciones.length()").value(0)).andReturn();
+        var id = json.readTree(response.getResponse().getContentAsString()).path("id").asLong();
+        String avance = "/api/calificaciones/avance?idAlumno=" + student.getId() + "&idAsignacionCurso="
+                + assignment.getId() + "&idPeriodoAcademico=" + periodo.getId();
+        mvc.perform(get(avance).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].tieneSustento").value(false));
+        mvc.perform(get(url()).with(docente)).andExpect(status().isOk()).andExpect(jsonPath("$.evidencias.length()").value(0));
+
+        String vinculo = base + "/" + id + "/evaluaciones/" + evaluacion.getId();
+        mvc.perform(put(vinculo).with(docente)).andExpect(status().isNoContent());
+        mvc.perform(put(vinculo).with(docente)).andExpect(status().isNoContent());
+        mvc.perform(get(base + "/" + id).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.evaluaciones.length()").value(1))
+                .andExpect(jsonPath("$.evaluaciones[0].id").value(evaluacion.getId()))
+                .andExpect(jsonPath("$.evaluaciones[0].titulo").value(evaluacion.getTitulo()));
+        mvc.perform(get(url()).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.evidencias.length()").value(1))
+                .andExpect(jsonPath("$.evidencias[0].idEvidencia").value(id))
+                .andExpect(jsonPath("$.evidencias[0].descripcion").value("Producto de la evaluación"));
     }
 
     @Test void soloIncluyeVinculosExactosYNoAceptaSustituirIds() throws Exception {

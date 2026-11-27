@@ -1,6 +1,7 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.CalificacionDto;
+import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.service.CalificacionService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.service.ReporteAvanceService;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.HashSet;
 
 @RestController
 @RequestMapping("/api/calificaciones")
@@ -60,7 +62,8 @@ public class CalificacionController {
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
     public com.asiscontrol.dto.ReporteAvanceDto consultarAvance(@RequestParam Long idAlumno,
             @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico) {
-        return reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        var reporte = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        return consultaFamiliar() ? reporte.sinPromediosNumericos() : reporte;
     }
 
     @PostMapping("/informes/generar")
@@ -91,29 +94,86 @@ public class CalificacionController {
         return reporteAvanceService.prepararBorrador(idAlumno, idAsignacionCurso, idPeriodoAcademico);
     }
 
+    @PutMapping("/informes/borrador/revision")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public com.asiscontrol.dto.ReporteAvanceDto revisarInforme(
+            @RequestParam Long idAlumno, @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico,
+            @Valid @RequestBody ReporteAvanceService.RevisionRequest request) {
+        return reporteAvanceService.revisarBorrador(idAlumno, idAsignacionCurso, idPeriodoAcademico, request);
+    }
+
+    @GetMapping("/informes/parcial/evaluaciones")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public List<ReporteAvanceService.EvaluacionDtoParcial> evaluacionesParciales(
+            @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico) {
+        return reporteAvanceService.evaluacionesParciales(idAsignacionCurso, idPeriodoAcademico);
+    }
+
+    @GetMapping("/informes/parcial")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public com.asiscontrol.dto.ReporteAvanceDto informeParcial(
+            @RequestParam Long idAlumno, @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico,
+            @RequestParam List<Long> idEvaluacion, @RequestParam(required = false) List<Long> idCompetencia) {
+        return reporteAvanceService.prepararParcial(idAlumno, idAsignacionCurso, idPeriodoAcademico, idEvaluacion, idCompetencia).sinPromediosNumericos();
+    }
+
+    @GetMapping(value = "/informes/parcial/pdf", produces = "application/pdf")
+    @PreAuthorize("hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public ResponseEntity<byte[]> pdfParcial(
+            @RequestParam Long idAlumno, @RequestParam Long idAsignacionCurso, @RequestParam Long idPeriodoAcademico,
+            @RequestParam List<Long> idEvaluacion, @RequestParam(required = false) List<Long> idCompetencia) {
+        var datos = reporteAvanceService.prepararParcial(idAlumno, idAsignacionCurso, idPeriodoAcademico, idEvaluacion, idCompetencia);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "attachment; filename=\"" + nombrePdf(datos, true) + "\"")
+                .cacheControl(CacheControl.noStore())
+                .body(generadorReporteAvance.generarParcialVigente(datos));
+    }
+
     /** US-20: el PDF utiliza exclusivamente los detalles de la ultima version publicada. */
     @GetMapping(value = "/reporte-avance", produces = "application/pdf")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ADMINISTRADOR','DOCENTE','ALUMNO','APODERADO')")
     public ResponseEntity<byte[]> descargarReporteAvance(
             @RequestParam Long idAlumno,
             @RequestParam Long idAsignacionCurso,
-            @RequestParam Long idPeriodoAcademico) {
-        var datos = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
-        byte[] pdf = generadorReporteAvance.generar(datos);
+            @RequestParam Long idPeriodoAcademico,
+            @RequestParam(required = false) List<Long> idEvaluacion,
+            @RequestParam(required = false) List<Long> idCompetencia) {
+        var reporte = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        var datos = reporte.sinPromediosNumericos();
+        var seleccionadas = idEvaluacion == null ? null : new HashSet<>(idEvaluacion);
+        var competencias = idCompetencia == null ? null : new HashSet<>(idCompetencia);
+        if (competencias != null && (seleccionadas == null || competencias.isEmpty())) {
+            throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona evaluaciones y competencias de esta libreta.");
+        }
+        if (seleccionadas != null) {
+            var filas = datos.filas().stream().filter(fila -> seleccionadas.contains(fila.idEvaluacion()))
+                    .filter(fila -> competencias == null || competencias.contains(fila.idCompetencia())).toList();
+            var disponibles = filas.stream().map(com.asiscontrol.dto.ReporteAvanceDto.Fila::idEvaluacion)
+                    .collect(java.util.stream.Collectors.toSet());
+            if (seleccionadas.isEmpty() || !disponibles.containsAll(seleccionadas) || (competencias != null && !filas.stream()
+                    .map(com.asiscontrol.dto.ReporteAvanceDto.Fila::idCompetencia).collect(java.util.stream.Collectors.toSet()).containsAll(competencias))) {
+                throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona al menos una evaluación de esta libreta para descargar el reporte.");
+            }
+        }
+        byte[] pdf = seleccionadas == null ? generadorReporteAvance.generar(datos) : generadorReporteAvance.generar(datos, seleccionadas, competencias);
+        String nombre = nombrePdf(datos, seleccionadas != null);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header("Content-Disposition", "attachment; filename=\"" + nombrePdf(datos) + "\"")
+                .header("Content-Disposition", "attachment; filename=\"" + nombre + "\"")
                 .cacheControl(CacheControl.noStore())
                 .body(pdf);
     }
 
-    private static String nombrePdf(com.asiscontrol.dto.ReporteAvanceDto datos) {
+    private static String nombrePdf(com.asiscontrol.dto.ReporteAvanceDto datos, boolean parcial) {
         var version = java.util.regex.Pattern.compile(" \\| Version ([0-9]+) \\| PUBLICADA$").matcher(datos.periodo());
-        if (!version.find()) return "Avance.pdf";
-        String base = String.join("_", datos.alumno(), datos.curso(), datos.periodo().substring(0, version.start()));
+        boolean publicada = version.find();
+        String periodo = publicada ? datos.periodo().substring(0, version.start()) : datos.periodo();
+        String base = String.join("_", datos.alumno(), datos.curso(), periodo);
         String limpio = java.text.Normalizer.normalize(base, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").replaceAll("[^A-Za-z0-9]+", "_").replaceAll("^_+|_+$", "");
-        return "Avance_" + limpio.substring(0, Math.min(limpio.length(), 160)) + "_V" + version.group(1) + ".pdf";
+        return (parcial ? "Informe_parcial_" : "Informe_completo_")
+                + limpio.substring(0, Math.min(limpio.length(), 160))
+                + (publicada && !"1".equals(version.group(1)) ? "_V" + version.group(1) : "") + ".pdf";
     }
 
     @GetMapping
@@ -174,9 +234,21 @@ public class CalificacionController {
     @PreAuthorize("@moduloAccessGuard.puedeAccederAlumno(#idAlumno)")
     public List<CalificacionDto.ConsolidadoResponse> obtenerConsolidado(
             @RequestParam Long idAlumno,
-            @RequestParam(required = false) Long idAsignacionCurso
+            @RequestParam(required = false) Long idAsignacionCurso,
+            @RequestParam(required = false) Long idPeriodoAcademico
     ) {
-        return calificacionService.obtenerConsolidado(idAlumno, idAsignacionCurso);
+        if (idPeriodoAcademico != null && idAsignacionCurso == null) {
+            throw new BusinessRuleException("ASIGNACION_REQUERIDA", "Selecciona el curso y sección del período.");
+        }
+        var resultados = idPeriodoAcademico == null ? calificacionService.obtenerConsolidado(idAlumno, idAsignacionCurso)
+                : consultaFamiliar() ? reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico).consolidado()
+                : reporteAvanceService.consultarConsolidado(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        return consultaFamiliar() ? resultados.stream().map(CalificacionDto.ConsolidadoResponse::sinPromedioNumerico).toList()
+                : resultados;
+    }
+
+    private boolean consultaFamiliar() {
+        return accessGuard.restriccionAlumnoPersonaId() != null || accessGuard.restriccionApoderadoPersonaId() != null;
     }
 
     @DeleteMapping("/{id}")

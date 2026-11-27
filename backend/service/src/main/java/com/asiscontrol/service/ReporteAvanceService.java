@@ -28,32 +28,41 @@ import java.util.stream.Stream;
 @Service
 public class ReporteAvanceService {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private record GrupoPeso(Long competencia, TipoEvaluacion tipo) {}
     private final AlumnoRepository alumnos;
     private final AsignacionCursoRepository asignaciones;
     private final PeriodoAcademicoRepository periodos;
     private final MatriculaRepository matriculas;
     private final ModuloAccessGuard acceso;
-    private final EvaluacionService evaluaciones;
+    private final PlanEstudiosService planes;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<List<CalificacionDto.ConsolidadoResponse>> CONSOLIDADO = new TypeReference<>() {};
+    private static final TypeReference<Map<Long, String>> CONCLUSIONES = new TypeReference<>() {};
     private final EntityManager em;
     private final ReglaCalificacionService reglas;
+    private final EscalaInstitucionalService escalas;
+    private final EvidenciaPedagogicaRepository evidencias;
+    private final AuditoriaService auditoria;
 
     public ReporteAvanceService(AlumnoRepository alumnos, AsignacionCursoRepository asignaciones,
             PeriodoAcademicoRepository periodos, MatriculaRepository matriculas,
-            ModuloAccessGuard acceso, EvaluacionService evaluaciones, EntityManager em, ReglaCalificacionService reglas) {
+            ModuloAccessGuard acceso, PlanEstudiosService planes, EntityManager em, ReglaCalificacionService reglas,
+            EscalaInstitucionalService escalas, EvidenciaPedagogicaRepository evidencias, AuditoriaService auditoria) {
         this.alumnos = alumnos;
         this.asignaciones = asignaciones;
         this.periodos = periodos;
         this.matriculas = matriculas;
         this.acceso = acceso;
-        this.evaluaciones = evaluaciones;
+        this.planes = planes;
         this.em = em;
         this.reglas = reglas;
+        this.escalas = escalas;
+        this.evidencias = evidencias;
+        this.auditoria = auditoria;
     }
 
     public record ResultadoPeriodo(int informesProcesados, List<InformeDisponibleDto> informes) { }
-    public record EstadoAlumno(Long idAlumno, String alumno, boolean borrador, boolean publicada) { }
+    public record EstadoAlumno(Long idAlumno, String alumno, boolean borrador, boolean publicada, boolean revisado) { }
     public record EstadoPeriodo(List<EstadoAlumno> alumnos, boolean publicable, boolean desactualizada,
                                 String impedimento) { }
 
@@ -71,11 +80,11 @@ public class ReporteAvanceService {
             var actual = ultimo(alumno.getId(), curso, periodoId, false).orElse(null);
             var publicada = ultimo(alumno.getId(), curso, periodoId, true).orElse(null);
             boolean borrador = actual != null && actual.getEstado() == EstadoInformeProgreso.BORRADOR;
-            alumnosPeriodo.add(new EstadoAlumno(alumno.getId(), nombre(alumno.getPersona()), borrador, publicada != null));
+            alumnosPeriodo.add(new EstadoAlumno(alumno.getId(), nombre(alumno.getPersona()), borrador, publicada != null, borrador && actual.isRevisado()));
             if (publicada != null && !desactualizada) {
                 try {
                     validarRegla(publicada, regla);
-                    validarVigencia(detalles(publicada), asignacion, periodo);
+                    validarVigencia(publicada, asignacion, periodo, regla);
                 } catch (BusinessRuleException e) {
                     desactualizada = true;
                 }
@@ -92,13 +101,6 @@ public class ReporteAvanceService {
         if (tieneBorradores && impedimento == null) {
             if (alumnosPeriodo.stream().anyMatch(a -> !a.borrador() && !a.publicada())) {
                 impedimento = "Genera borradores para todos los estudiantes antes de publicar.";
-            } else {
-                try {
-                    evaluaciones.validarPublicacion(evaluacionesDelPeriodo(asignacion, periodo).stream()
-                            .filter(e -> e.getEstado() == EstadoEvaluacion.BORRADOR).toList());
-                } catch (BusinessRuleException e) {
-                    impedimento = e.getMessage();
-                }
             }
         }
         return new EstadoPeriodo(alumnosPeriodo, tieneBorradores && impedimento == null, desactualizada, impedimento);
@@ -133,46 +135,61 @@ public class ReporteAvanceService {
         var pendientes = new ArrayList<InformeProgreso>();
         for (var alumno : estudiantes) {
             var informe = ultimo(alumno.getId(), curso, periodoId, false)
-                    .orElseGet(() -> generar(alumno, asignacion, periodo, regla));
+                    .orElseThrow(() -> new BusinessRuleException("INFORME_BORRADOR_REQUERIDO", "Genera los borradores antes de publicar."));
             if (informe.getEstado() == EstadoInformeProgreso.PUBLICADA) continue;
             validarBorrador(informe, asignacion, periodo, regla);
             pendientes.add(informe);
         }
-        // Mantiene las validaciones existentes de las planillas y publica sus evaluaciones.
-        if (!pendientes.isEmpty()) evaluaciones.publicarPeriodo(curso, periodoId);
         var fecha = Instant.now();
         for (var informe : pendientes) {
+            informe.setRevisado(true);
             informe.setEstado(EstadoInformeProgreso.PUBLICADA);
+            auditoria.registrar("PUBLICAR_INFORME_PROGRESO", ModuloAuditoria.ACADEMICO, "InformeProgreso",
+                    informe.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                    "versión=" + informe.getNumeroVersion());
             informe.setFechaPublicacion(fecha);
         }
         return new ResultadoPeriodo(pendientes.size(), List.of());
     }
 
+    public record RevisionRequest(@jakarta.validation.constraints.NotNull Long version) {}
+
+    @Transactional
+    public ReporteAvanceDto revisarBorrador(Long alumno, Long curso, Long periodoId, RevisionRequest request) {
+        var asignacion = asignacion(curso);
+        acceso.verificarAsignacionDocente(asignacion);
+        em.lock(asignacion, LockModeType.PESSIMISTIC_WRITE);
+        var periodo = periodo(periodoId, asignacion);
+        var informe = ultimo(alumno, curso, periodoId, false)
+                .filter(item -> item.getEstado() == EstadoInformeProgreso.BORRADOR)
+                .orElseThrow(() -> new ResourceNotFoundException("INFORME_NO_ENCONTRADO", "No hay un borrador disponible."));
+        if (!Objects.equals(request.version(), informe.getVersion())) {
+            throw new com.asiscontrol.exception.ConflictException("INFORME_DESACTUALIZADO", "Vuelve a abrir el borrador antes de revisarlo.");
+        }
+        validarBorrador(informe, asignacion, periodo, reglas.vigenteParaLibreta(asignacion).orElse(null));
+        if (!informe.isRevisado()) {
+            informe.setRevisado(true);
+            auditoria.registrar("REVISAR_INFORME_PROGRESO", ModuloAuditoria.ACADEMICO, "InformeProgreso",
+                    informe.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
+                    "versión=" + informe.getNumeroVersion());
+        }
+        em.flush();
+        return prepararBorrador(alumno, curso, periodoId);
+    }
+
+    private Map<Long, String> conclusiones(InformeProgreso informe) {
+        if (informe.getConclusionesDescriptivas() == null) return Map.of();
+        try {
+            return JSON.readValue(informe.getConclusionesDescriptivas(), CONCLUSIONES);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("No se pudieron leer las conclusiones de la libreta " + informe.getId(), e);
+        }
+    }
+
     private void validarBorrador(InformeProgreso informe, AsignacionCurso asignacion, PeriodoAcademico periodo,
                                  ReglaCalificacion regla) {
         validarRegla(informe, regla);
-        var faltantes = consolidadoGuardado(informe).stream().filter(item -> !item.componentesFaltantes().isEmpty())
-                .map(item -> item.nombreCompetencia() + " (" + String.join(", ", item.componentesFaltantes()) + ")")
-                .toList();
-        if (!faltantes.isEmpty()) {
-            throw new BusinessRuleException("INFORME_REGLA_DATOS_INSUFICIENTES",
-                    "Faltan resultados para los siguientes componentes: " + String.join("; ", faltantes));
-        }
-        var filas = detalles(informe);
-        if (filas.isEmpty() || filas.stream().anyMatch(d -> d.getNivelLogro() == null || d.getCalificacion() == null)) {
-            throw new BusinessRuleException("INFORME_INCOMPLETO",
-                    "Completa los niveles de logro y vuelve a generar los borradores antes de publicar");
-        }
-        validarVigencia(filas, asignacion, periodo);
-        if (regla != null) {
-            var actual = reglas.consolidar(regla, asignacion.getId(), filas.stream()
-                    .map(fila -> new ReglaCalificacionService.NotaCompetencia(fila.getCompetencia(),
-                            new ReglaCalificacionDto.Muestra(fila.getEvaluacion().getTipoEvaluacion(), fila.getNivelLogro())))
-                    .toList());
-            if (!actual.equals(consolidadoGuardado(informe))) {
-                throw new BusinessRuleException("INFORME_DESACTUALIZADO", "El consolidado cambió. Genera nuevamente el borrador");
-            }
-        }
+        validarVigencia(informe, asignacion, periodo, regla);
     }
 
     private void validarRegla(InformeProgreso informe, ReglaCalificacion vigente) {
@@ -213,18 +230,11 @@ public class ReporteAvanceService {
 
     private InformeProgreso generar(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo,
                                     ReglaCalificacion regla) {
-        var pruebas = evaluacionesDelPeriodo(asignacion, periodo);
-        if (pruebas.isEmpty() || pruebas.stream().allMatch(e -> e.getCompetencias().isEmpty())) {
-            throw new BusinessRuleException("REPORTE_SIN_CALIFICACIONES", "No hay evaluaciones con competencias en el periodo seleccionado");
-        }
-        var notas = em.createQuery("""
-                select c from Calificacion c where c.activo = true and c.alumno.id = :alumno
-                and c.evaluacion.asignacionCurso.id = :curso
-                """, Calificacion.class).setParameter("alumno", alumno.getId()).setParameter("curso", asignacion.getId())
-                .getResultList().stream().collect(Collectors.toMap(c -> c.getEvaluacion().getId() + ":" + c.getCompetencia().getId(), c -> c));
+        var captura = capturar(alumno, asignacion, periodo, regla);
         var anterior = ultimo(alumno.getId(), asignacion.getId(), periodo.getId(), false).orElse(null);
         InformeProgreso informe;
-        if (anterior != null && anterior.getEstado() == EstadoInformeProgreso.BORRADOR) {
+        if (anterior != null && anterior.getEstado() == EstadoInformeProgreso.BORRADOR
+                && anterior.getConclusionesDescriptivas() == null) {
             informe = anterior;
             detalles(informe).forEach(em::remove);
             em.flush(); // Libera las claves unicas antes de insertar los nuevos detalles.
@@ -239,51 +249,201 @@ public class ReporteAvanceService {
         }
         informe.setDocente(asignacion.getDocente());
         informe.setReglaCalificacion(regla);
-        var muestras = new ArrayList<ReglaCalificacionService.NotaCompetencia>();
-        for (var prueba : pruebas) for (var competencia : prueba.getCompetencias()) {
-            var nota = notas.get(prueba.getId() + ":" + competencia.getId());
-            var detalle = new DetalleInformeProgreso();
-            detalle.setInforme(informe); detalle.setEvaluacion(prueba); detalle.setCompetencia(competencia);
-            detalle.setCalificacion(nota); detalle.setNombreCompetencia(competencia.getNombre());
-            detalle.setTituloEvaluacion(prueba.getTitulo()); detalle.setFechaEvaluacion(prueba.getFechaEvaluacion());
-            detalle.setPonderacionPorcentaje(prueba.getPonderacionPorcentaje());
-            detalle.setNivelLogro(nota == null ? null : nota.getNivelLogro());
-            detalle.setObservacion(nota == null ? null : nota.getObservacion());
+        informe.setEscalaInstitucional(captura.escala());
+        informe.setRevisado(false);
+        for (var detalle : captura.filas()) {
+            detalle.setInforme(informe);
             em.persist(detalle);
-            muestras.add(new ReglaCalificacionService.NotaCompetencia(competencia,
-                    new ReglaCalificacionDto.Muestra(prueba.getTipoEvaluacion(), detalle.getNivelLogro())));
         }
-        informe.setConsolidadoRegla(regla == null ? null : serializarConsolidado(reglas.consolidar(regla, asignacion.getId(), muestras)));
+        informe.setConsolidadoRegla(serializarConsolidado(captura.consolidado()));
         return informe;
     }
 
-    private List<Evaluacion> evaluacionesDelPeriodo(AsignacionCurso asignacion, PeriodoAcademico periodo) {
+    private record Captura(List<DetalleInformeProgreso> filas,
+                           List<CalificacionDto.ConsolidadoResponse> consolidado, EscalaInstitucional escala) {}
+
+    private Captura capturar(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo,
+                             ReglaCalificacion regla) {
+        return capturar(alumno, asignacion, periodo, regla, false);
+    }
+
+    private Captura capturar(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo,
+                             ReglaCalificacion regla, boolean incluirSinPeso) {
+        return capturar(alumno, asignacion, periodo, regla, incluirSinPeso, null);
+    }
+
+    private Captura capturar(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo,
+                             ReglaCalificacion regla, boolean incluirSinPeso, EscalaInstitucional escalaFijada) {
+        var pruebas = evaluacionesDelPeriodo(asignacion, periodo, incluirSinPeso);
+        boolean dinamica = regla != null && regla.getFormula() == ReglaCalificacion.Formula.CUALITATIVA_DINAMICA_V1;
+        boolean contextoNuevo = dinamica || pruebas.stream().anyMatch(Evaluacion::isModeloCualitativo);
+        var tareasComprometidas = contextoNuevo ? em.createQuery("""
+                select t.evaluacionAcademica.id, t.nombre from Tarea t where t.activo = true
+                and t.asignacionCurso.id = :curso and t.evaluacionAcademica.cuentaResultado = true
+                and (t.fechaPublicacion is null or t.fechaPublicacion <= :ahora)
+                and t.estadoPublicacion in (com.asiscontrol.entity.enums.EstadoPublicacionTarea.PUBLICADA,
+                    com.asiscontrol.entity.enums.EstadoPublicacionTarea.CERRADA,
+                    com.asiscontrol.entity.enums.EstadoPublicacionTarea.ARCHIVADA)
+                """, Object[].class).setParameter("curso", asignacion.getId())
+                .setParameter("ahora", java.time.LocalDateTime.now()).getResultList().stream()
+                .collect(Collectors.toMap(fila -> (Long) fila[0], fila -> (String) fila[1], (nombre, otro) -> nombre))
+                : Map.<Long, String>of();
+        var publicadas = pruebas.stream().filter(prueba -> prueba.getEstado() == EstadoEvaluacion.PUBLICADA
+                || prueba.getEstado() == EstadoEvaluacion.CERRADA || tareasComprometidas.containsKey(prueba.getId())).toList();
+        var notas = em.createQuery("""
+                select c from Calificacion c where c.activo = true and c.alumno.id = :alumno
+                and c.evaluacion.asignacionCurso.id = :curso and c.evaluacion.activo = true
+                and (:incluirSinPeso = true or c.evaluacion.cuentaResultado = true)
+                and c.evaluacion.fechaEvaluacion between :inicio and :fin
+                and c.evaluacion.estado in (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
+                        com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
+                """, Calificacion.class).setParameter("alumno", alumno.getId()).setParameter("curso", asignacion.getId())
+                .setParameter("incluirSinPeso", incluirSinPeso)
+                .setParameter("inicio", periodo.getFechaInicio()).setParameter("fin", periodo.getFechaFin())
+                .getResultList().stream().collect(Collectors.toMap(c -> c.getEvaluacion().getId() + ":" +
+                        c.getCompetencia().getId(), c -> c));
+        var escala = escalaFijada != null ? escalaFijada
+                : notas.values().stream().anyMatch(nota -> nota.getEvaluacion().isCuentaResultado() && nota.getNotaNumerica() != null)
+                ? escalas.vigente().orElse(null) : null;
+        var filas = new ArrayList<DetalleInformeProgreso>();
+        var cantidades = new HashMap<GrupoPeso, Long>();
+        for (var prueba : publicadas) for (var competencia : prueba.getCompetencias()) {
+            var nota = notas.get(prueba.getId() + ":" + competencia.getId());
+            var fila = new DetalleInformeProgreso();
+            fila.setEvaluacion(prueba);
+            fila.setCompetencia(competencia);
+            fila.setCalificacion(nota);
+            fila.setNombreCompetencia(competencia.getNombre());
+            fila.setTituloEvaluacion(prueba.getEstado() == EstadoEvaluacion.BORRADOR
+                    ? tareasComprometidas.get(prueba.getId()) : prueba.getTitulo());
+            fila.setFechaEvaluacion(prueba.getFechaEvaluacion());
+            fila.setPonderacionPorcentaje(prueba.getPonderacionPorcentaje());
+            fila.setEstadoEvaluacion(prueba.getEstado().name());
+            if (nota != null) {
+                fila.setNotaNumerica(nota.getNotaNumerica());
+                fila.setNivelLogro(nota.getNivelLogro());
+                fila.setObservacion(nota.getObservacion());
+            }
+            if (prueba.isCuentaResultado() && (dinamica || nota != null && nota.getNivelLogro() != null))
+                cantidades.merge(new GrupoPeso(competencia.getId(), prueba.getTipoEvaluacion()), 1L, Long::sum);
+            filas.add(fila);
+        }
+        for (var fila : filas) {
+            if (!fila.getEvaluacion().isCuentaResultado()) fila.setPesoResultado("Sin peso");
+            else if (regla != null) fila.setPesoResultado(pesoResultado(regla, fila, cantidades));
+        }
+        var muestras = filas.stream().filter(fila -> fila.getEvaluacion().isCuentaResultado()).map(fila -> new ReglaCalificacionService.NotaCompetencia(fila.getCompetencia(),
+                new ReglaCalificacionDto.Muestra(fila.getEvaluacion().getTipoEvaluacion(), fila.getNivelLogro()),
+                fila.getNotaNumerica(), fila.getEvaluacion().isModeloCualitativo())).toList();
+        var calculados = regla == null ? List.<CalificacionDto.ConsolidadoResponse>of()
+                : reglas.consolidar(regla, asignacion.getId(), muestras, escala);
+        var porCompetencia = calculados.stream().collect(Collectors.toMap(CalificacionDto.ConsolidadoResponse::idCompetencia, item -> item));
+        var actividades = (contextoNuevo ? publicadas : pruebas).stream().filter(Evaluacion::isCuentaResultado)
+                .filter(prueba -> !dinamica || regla.getComponentes().containsKey(prueba.getTipoEvaluacion()))
+                .flatMap(prueba -> prueba.getCompetencias().stream())
+                .collect(Collectors.toMap(Competencia::getId, item -> item, (a, b) -> a));
+        var catalogo = new LinkedHashMap<Long, Competencia>();
+        planes.competenciasDeAsignacion(asignacion).forEach(competencia -> catalogo.put(competencia.getId(), competencia));
+        actividades.forEach(catalogo::putIfAbsent);
+        var consolidado = catalogo.values().stream().map(competencia -> {
+            var resultado = porCompetencia.get(competencia.getId());
+            boolean tieneActividad = actividades.containsKey(competencia.getId());
+            boolean tieneNotas = muestras.stream().anyMatch(item -> item.competencia().getId().equals(competencia.getId())
+                    && item.nota().nivel() != null);
+            String estado = resultado != null && resultado.nivelConsolidado() != null ? "CONSOLIDADA"
+                    : tieneActividad ? "PENDIENTE" : "NO_EVALUADA";
+            var faltantes = new ArrayList<String>();
+            if (tieneActividad && !tieneNotas) faltantes.add("Sin calificaciones publicadas");
+            if (dinamica) filas.stream().filter(fila -> fila.getCompetencia().getId().equals(competencia.getId())
+                    && fila.getEvaluacion().isCuentaResultado() && fila.getNivelLogro() == null
+                    && regla.getComponentes().containsKey(fila.getEvaluacion().getTipoEvaluacion()))
+                    .map(DetalleInformeProgreso::getTituloEvaluacion).distinct().forEach(faltantes::add);
+            if (resultado != null && !resultado.componentesFaltantes().isEmpty())
+                faltantes.add("Faltan resultados de " + String.join(", ", resultado.componentesFaltantes()));
+            if (regla == null && (tieneNotas || contextoNuevo && tieneActividad)) faltantes.add("Regla de ponderación vigente");
+            return new CalificacionDto.ConsolidadoResponse(competencia.getId(), competencia.getCodigo(), competencia.getNombre(),
+                    resultado == null ? null : resultado.promedioPonderado(), resultado == null ? null : resultado.nivelConsolidado(),
+                    resultado == null ? 0 : resultado.evaluacionesConsideradas(), asignacion.getId(),
+                    regla == null ? null : regla.getNumeroVersion(), faltantes,
+                    resultado == null ? null : resultado.numeroVersionEscala(), estado);
+        }).sorted(Comparator.comparing(CalificacionDto.ConsolidadoResponse::nombreCompetencia, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(CalificacionDto.ConsolidadoResponse::idCompetencia)).toList();
+        return new Captura(filas, consolidado, escala);
+    }
+
+    record ConsolidadoRiesgo(CalificacionDto.ConsolidadoResponse resultado, boolean tieneEvaluacionPublicada) {}
+
+    List<ConsolidadoRiesgo> consolidadoRiesgo(Alumno alumno, AsignacionCurso asignacion, PeriodoAcademico periodo,
+                                           boolean usarVersionPublicada) {
+        var publicada = usarVersionPublicada ? ultimo(alumno.getId(), asignacion.getId(), periodo.getId(), true)
+                .filter(informe -> informe.getReglaCalificacion() != null && (informe.getEscalaInstitucional() != null
+                        || informe.getReglaCalificacion().getFormula() == ReglaCalificacion.Formula.CUALITATIVA_DINAMICA_V1))
+                .orElse(null) : null;
+        var captura = publicada == null ? capturar(alumno, asignacion, periodo, reglas.vigente(asignacion).orElse(null))
+                : capturar(alumno, asignacion, periodo, publicada.getReglaCalificacion(), false, publicada.getEscalaInstitucional());
+        var competenciasPublicadas = captura.filas().stream().map(fila -> fila.getCompetencia().getId())
+                .collect(Collectors.toSet());
+        return captura.consolidado().stream()
+                .map(item -> new ConsolidadoRiesgo(item, competenciasPublicadas.contains(item.idCompetencia()))).toList();
+    }
+
+    private String pesoResultado(ReglaCalificacion regla, DetalleInformeProgreso fila, Map<GrupoPeso, Long> cantidades) {
+        var tipo = fila.getEvaluacion().getTipoEvaluacion();
+        var componente = regla.getComponentes().get(tipo);
+        if (componente == null) return "Sin peso";
+        if (regla.getFormula() == ReglaCalificacion.Formula.CUALITATIVA_DINAMICA_V1) {
+            long cantidad = cantidades.getOrDefault(new GrupoPeso(fila.getCompetencia().getId(), tipo), 0L);
+            if (cantidad == 0) return "Pendiente";
+            var total = regla.getComponentes().entrySet().stream()
+                    .filter(item -> cantidades.containsKey(new GrupoPeso(fila.getCompetencia().getId(), item.getKey())))
+                    .map(item -> item.getValue().getPeso()).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+            return ReglaCalificacionService.pesoNormalizado(componente.getPeso(), total, cantidad)
+                    .setScale(4, java.math.RoundingMode.HALF_UP)
+                    .stripTrailingZeros().toPlainString() + " %";
+        }
+        if (fila.getNivelLogro() == null) return "Pendiente";
+        var peso = ReglaCalificacionService.pesoEfectivo(componente.getPeso(),
+                cantidades.getOrDefault(new GrupoPeso(fila.getCompetencia().getId(), tipo), 0L));
+        return peso.setScale(4, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() + " %";
+    }
+
+    private List<Evaluacion> evaluacionesDelPeriodo(AsignacionCurso asignacion, PeriodoAcademico periodo, boolean incluirSinPeso) {
         return em.createQuery("""
                 select distinct e from Evaluacion e left join fetch e.competencias
-                where e.activo = true and e.asignacionCurso.id = :curso
+                where e.activo = true and (:incluirSinPeso = true or e.cuentaResultado = true) and e.asignacionCurso.id = :curso
                 and e.fechaEvaluacion between :inicio and :fin
                 and e.estado <> com.asiscontrol.entity.enums.EstadoEvaluacion.ANULADA
                 order by e.fechaEvaluacion, e.id
-                """, Evaluacion.class).setParameter("curso", asignacion.getId())
+                """, Evaluacion.class).setParameter("curso", asignacion.getId()).setParameter("incluirSinPeso", incluirSinPeso)
                 .setParameter("inicio", periodo.getFechaInicio()).setParameter("fin", periodo.getFechaFin()).getResultList();
     }
 
-    private void validarVigencia(List<DetalleInformeProgreso> filas, AsignacionCurso asignacion, PeriodoAcademico periodo) {
-        var claves = evaluacionesDelPeriodo(asignacion, periodo).stream().flatMap(e -> e.getCompetencias().stream()
-                .map(c -> e.getId() + ":" + c.getId())).collect(Collectors.toSet());
-        boolean cambio = !claves.equals(filas.stream().map(d -> d.getEvaluacion().getId() + ":" + d.getCompetencia().getId())
-                .collect(Collectors.toSet())) || filas.stream().anyMatch(d -> {
-                    var nota = d.getCalificacion();
-                    var prueba = d.getEvaluacion();
-                    return !nota.isActivo() || nota.getNivelLogro() != d.getNivelLogro()
-                            || !Objects.equals(nota.getObservacion(), d.getObservacion())
-                            || !Objects.equals(prueba.getTitulo(), d.getTituloEvaluacion())
-                            || !Objects.equals(prueba.getFechaEvaluacion(), d.getFechaEvaluacion())
-                            || prueba.getPonderacionPorcentaje().compareTo(d.getPonderacionPorcentaje()) != 0
-                            || !Objects.equals(d.getCompetencia().getNombre(), d.getNombreCompetencia());
-                });
-        if (cambio) throw new BusinessRuleException("INFORME_DESACTUALIZADO",
-                "Las evaluaciones o notas cambiaron. Vuelve a generar y revisar los borradores antes de publicar");
+    private void validarVigencia(InformeProgreso informe, AsignacionCurso asignacion,
+                                 PeriodoAcademico periodo, ReglaCalificacion regla) {
+        var actual = capturar(informe.getAlumno(), asignacion, periodo, regla);
+        var actuales = actual.filas().stream().map(this::contenido).collect(Collectors.toSet());
+        var anteriores = detalles(informe).stream().map(this::contenido).collect(Collectors.toSet());
+        if (!actuales.equals(anteriores) || !actual.consolidado().equals(consolidadoGuardado(informe))
+                || !Objects.equals(idEscala(actual.escala()), idEscala(informe.getEscalaInstitucional()))) {
+            throw new BusinessRuleException("INFORME_DESACTUALIZADO",
+                    "Las evaluaciones, notas o competencias cambiaron. Genera y revisa un nuevo borrador.");
+        }
+    }
+
+    private Long idEscala(EscalaInstitucional escala) {
+        return escala == null ? null : escala.getId();
+    }
+
+    private record ContenidoFila(Long evaluacion, Long competencia, Long calificacion, String nombre, String titulo,
+            java.time.LocalDate fecha, String peso, NivelLogro nivel, java.math.BigDecimal nota, String observacion,
+            String estado, java.math.BigDecimal ponderacion) {}
+
+    private ContenidoFila contenido(DetalleInformeProgreso fila) {
+        return new ContenidoFila(fila.getEvaluacion().getId(), fila.getCompetencia().getId(),
+                fila.getCalificacion() == null ? null : fila.getCalificacion().getId(),
+                fila.getNombreCompetencia(), fila.getTituloEvaluacion(), fila.getFechaEvaluacion(),
+                fila.getPesoResultado(), fila.getNivelLogro(), fila.getNotaNumerica() == null ? null : fila.getNotaNumerica().stripTrailingZeros(),
+                fila.getObservacion(), fila.getEstadoEvaluacion(), fila.getPonderacionPorcentaje().stripTrailingZeros());
     }
 
     @Transactional(readOnly = true)
@@ -316,8 +476,89 @@ public class ReporteAvanceService {
     }
 
     @Transactional(readOnly = true)
+    public List<EvaluacionDtoParcial> evaluacionesParciales(Long curso, Long periodoId) {
+        var asignacion = asignacion(curso);
+        acceso.verificarAsignacionDocente(asignacion);
+        return evaluacionesDelPeriodo(asignacion, periodo(periodoId, asignacion), true).stream()
+                .filter(prueba -> (prueba.getEstado() == EstadoEvaluacion.PUBLICADA
+                        || prueba.getEstado() == EstadoEvaluacion.CERRADA) && !prueba.getCompetencias().isEmpty())
+                .map(prueba -> new EvaluacionDtoParcial(prueba.getId(), prueba.getTitulo(),
+                        prueba.getTipoEvaluacion().name(), prueba.getFechaEvaluacion(), prueba.getCompetencias().stream()
+                                .map(c -> new CompetenciaDtoParcial(c.getId(), c.getNombre())).toList())).toList();
+    }
+
+    public record CompetenciaDtoParcial(Long id, String nombre) {}
+    public record EvaluacionDtoParcial(Long id, String nombre, String tipo, java.time.LocalDate fecha,
+                                       List<CompetenciaDtoParcial> competencias) {}
+
+    @Transactional(readOnly = true)
+    public void validarFilaParcial(Long alumno, Long curso, Long periodoId, Long evaluacion, Long competencia) {
+        var asignacion = asignacion(curso);
+        acceso.verificarAsignacionDocente(asignacion);
+        var periodo = periodo(periodoId, asignacion);
+        acceso.verificarConsultaInforme(asignacion, alumno);
+        if (estudiantes(asignacion).stream().noneMatch(item -> item.getId().equals(alumno))
+                || evaluacionesDelPeriodo(asignacion, periodo, true).stream().noneMatch(item ->
+                    item.getId().equals(evaluacion) && (item.getEstado() == EstadoEvaluacion.PUBLICADA
+                    || item.getEstado() == EstadoEvaluacion.CERRADA) && item.getCompetencias().stream()
+                    .anyMatch(c -> c.getId().equals(competencia)))) {
+            throw new ResourceNotFoundException("FILA_INFORME_NO_ENCONTRADA", "La evaluación y la competencia no pertenecen al informe parcial.");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public ReporteAvanceDto prepararParcial(Long alumnoId, Long curso, Long periodoId, List<Long> evaluaciones, List<Long> competencias) {
+        var asignacion = asignacion(curso);
+        acceso.verificarAsignacionDocente(asignacion);
+        var periodo = periodo(periodoId, asignacion);
+        var alumno = estudiantes(asignacion).stream().filter(item -> item.getId().equals(alumnoId)).findFirst()
+                .orElseThrow(() -> new BusinessRuleException("ALUMNO_CURSO_INVALIDO", "El estudiante no pertenece a esta sección."));
+        var regla = reglas.vigente(asignacion).orElse(null);
+        var captura = capturar(alumno, asignacion, periodo, regla, true);
+        var disponibles = captura.filas().stream()
+                .filter(fila -> !"BORRADOR".equals(fila.getEstadoEvaluacion()))
+                .map(fila -> fila.getEvaluacion().getId()).collect(Collectors.toSet());
+        if (evaluaciones.isEmpty() || !disponibles.containsAll(evaluaciones)) {
+            throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona evaluaciones publicadas de este curso y período.");
+        }
+        var seleccionadas = new HashSet<>(evaluaciones);
+        var elegidas = competencias == null ? null : new HashSet<>(competencias);
+        var conSustento = evidencias.filasParciales(curso, alumnoId, periodoId, seleccionadas).stream()
+                .map(fila -> fila.getEvaluacion() + ":" + fila.getCompetencia()).collect(Collectors.toSet());
+        var filas = captura.filas().stream().filter(fila -> seleccionadas.contains(fila.getEvaluacion().getId()))
+                .filter(fila -> elegidas == null || elegidas.contains(fila.getCompetencia().getId()))
+                .map(fila -> filaDto(fila, 0L, conSustento.contains(fila.getEvaluacion().getId() + ":" + fila.getCompetencia().getId()), regla)).toList();
+        if (filas.isEmpty() || !filas.stream().map(ReporteAvanceDto.Fila::idEvaluacion).collect(Collectors.toSet()).containsAll(seleccionadas)
+                || (elegidas != null && !filas.stream().map(ReporteAvanceDto.Fila::idCompetencia).collect(Collectors.toSet()).containsAll(elegidas))) {
+            throw new BusinessRuleException("SELECCION_PDF_INVALIDA", "Selecciona competencias con evaluaciones publicadas de este curso y período.");
+        }
+        var seccion = asignacion.getSeccion();
+        return new ReporteAvanceDto(nombre(alumno.getPersona()), alumno.getCodigoAlumno(), asignacion.nombreCurso(),
+                nombre(asignacion.getDocente().getPersona()), seccion.getGrado(), seccion.getNombre(),
+                seccion.getAnioAcademico(), periodo.getNombre(), FECHA.format(periodo.getFechaInicio()) + " - " +
+                FECHA.format(periodo.getFechaFin()), Instant.now(), filas,
+                regla == null ? null : new ReglaCalificacionDto.Aplicada(regla.getId(), regla.getNumeroVersion(), regla.getFormula()),
+                List.of(), null, Map.of(), List.of());
+    }
+
+    @Transactional(readOnly = true)
     public ReporteAvanceDto preparar(Long alumnoId, Long curso, Long periodoId) {
         return preparar(alumnoId, curso, periodoId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CalificacionDto.ConsolidadoResponse> consultarConsolidado(Long alumnoId, Long curso, Long periodoId) {
+        var asignacion = asignacion(curso);
+        acceso.verificarConsultaInforme(asignacion, alumnoId);
+        acceso.verificarAsignacionDocente(asignacion);
+        var periodo = periodo(periodoId, asignacion);
+        if (periodo.getEstado() == com.asiscontrol.entity.enums.EstadoPeriodoAcademico.CERRADO) {
+            var publicada = ultimo(alumnoId, curso, periodoId, true);
+            if (publicada.isPresent()) return consolidadoGuardado(publicada.orElseThrow());
+        }
+        var alumno = estudiantes(asignacion).stream().filter(item -> item.getId().equals(alumnoId)).findFirst()
+                .orElseThrow(() -> new BusinessRuleException("ALUMNO_CURSO_INVALIDO", "El estudiante no pertenece a esta sección."));
+        return capturar(alumno, asignacion, periodo, reglas.vigente(asignacion).orElse(null)).consolidado();
     }
 
     @Transactional(readOnly = true)
@@ -338,19 +579,39 @@ public class ReporteAvanceService {
         }
         var informe = ultimo(alumnoId, curso, periodoId, !borrador)
                 .orElseThrow(() -> new ResourceNotFoundException("INFORME_NO_ENCONTRADO", "No hay un informe disponible para este periodo"));
-        var filas = detalles(informe).stream().map(d -> new ReporteAvanceDto.Fila(
-                informe.getId(), d.getId(), d.getEvaluacion().getId(), d.getCompetencia().getId(),
-                d.getCalificacion() == null ? null : d.getCalificacion().getId(), d.getNombreCompetencia(),
-                d.getTituloEvaluacion(), FECHA.format(d.getFechaEvaluacion()),
-                d.getNivelLogro() == null ? "Sin registrar" : d.getNivelLogro().name(),
-                d.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %",
-                d.getObservacion() == null || d.getObservacion().isBlank() ? "Sin observaciones" : d.getObservacion())).toList();
+        Set<Long> conSustento = asignacion.getDocente().isActivo()
+                ? evidencias.filasConSustento(informe.getId()) : Set.of();
+        var filas = detalles(informe).stream()
+                .map(fila -> filaDto(fila, informe.getId(), conSustento.contains(fila.getId()), informe.getReglaCalificacion())).toList();
         return new ReporteAvanceDto(nombre(alumno.getPersona()), alumno.getCodigoAlumno(),
                 asignacion.nombreCurso(), nombre(informe.getDocente().getPersona()),
                 seccion.getGrado(), seccion.getNombre(), seccion.getAnioAcademico(),
                 periodo.getNombre() + " | Version " + informe.getNumeroVersion() + " | " + informe.getEstado(),
                 FECHA.format(periodo.getFechaInicio()) + " - " + FECHA.format(periodo.getFechaFin()), Instant.now(), filas,
-                reglaAplicada(informe), consolidadoGuardado(informe));
+                reglaAplicada(informe), consolidadoGuardado(informe), borrador ? informe.getVersion() : null,
+                borrador ? Map.of() : conclusiones(informe), List.of());
+    }
+
+    private ReporteAvanceDto.Fila filaDto(DetalleInformeProgreso fila, Long informeId, boolean tieneSustento,
+                                         ReglaCalificacion regla) {
+        var componente = regla != null && fila.getEvaluacion().isCuentaResultado()
+                ? regla.getComponentes().get(fila.getEvaluacion().getTipoEvaluacion()) : null;
+        String peso = fila.getPesoResultado();
+        if (peso == null) {
+            boolean historica = informeId > 0 && fila.getEstadoEvaluacion() == null;
+            peso = historica ? fila.getPonderacionPorcentaje().stripTrailingZeros().toPlainString() + " %" : "Pendiente";
+        }
+        return new ReporteAvanceDto.Fila(informeId, fila.getId() == null ? 0L : fila.getId(),
+                fila.getEvaluacion().getId(), fila.getCompetencia().getId(),
+                fila.getCalificacion() == null ? null : fila.getCalificacion().getId(), fila.getNombreCompetencia(),
+                fila.getTituloEvaluacion(), FECHA.format(fila.getFechaEvaluacion()),
+                fila.getNivelLogro() == null ? "Sin registrar" : fila.getNivelLogro().name(), peso,
+                fila.getObservacion() == null || fila.getObservacion().isBlank() ? "Sin observaciones" : fila.getObservacion(),
+                fila.getEvaluacion().getTipoEvaluacion().name(),
+                Objects.requireNonNullElse(fila.getEstadoEvaluacion(), fila.getEvaluacion().getEstado().name()), tieneSustento,
+                informeId == 0L && fila.getEvaluacion().getEscalaInstitucional() != null
+                        ? fila.getEvaluacion().getEscalaInstitucional().getNumeroVersion() : null, fila.getNotaNumerica(),
+                componente == null ? null : componente.getPeso());
     }
 
     private ReglaCalificacionDto.Aplicada reglaAplicada(InformeProgreso informe) {

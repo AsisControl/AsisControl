@@ -14,6 +14,20 @@ import java.util.Optional;
 
 public interface EvidenciaPedagogicaRepository extends JpaRepository<EvidenciaPedagogica, Long> {
 
+    interface FilaSustento {
+        Long getEvaluacion();
+        Long getCompetencia();
+    }
+
+    @Query("""
+            select distinct v.id as evaluacion, e.competencia.id as competencia
+            from EvidenciaPedagogica e join e.evaluaciones v
+            where e.activo = true and v.id in :evaluaciones and e.asignacion.id = :asignacion
+              and e.alumno.id = :alumno and e.periodo.id = :periodo
+            """)
+    java.util.List<FilaSustento> filasParciales(@Param("asignacion") Long asignacion, @Param("alumno") Long alumno,
+            @Param("periodo") Long periodo, @Param("evaluaciones") java.util.Set<Long> evaluaciones);
+
     /** El vinculo explicito con la evaluacion es obligatorio: no basta coincidir por competencia. */
     @Query("""
             SELECT DISTINCT e FROM EvidenciaPedagogica e JOIN e.evaluaciones v
@@ -28,6 +42,16 @@ public interface EvidenciaPedagogicaRepository extends JpaRepository<EvidenciaPe
             @Param("asignacion") Long asignacion, @Param("alumno") Long alumno,
             @Param("competencia") Long competencia, @Param("periodo") Long periodo,
             @Param("evaluacion") Long evaluacion, @Param("id") Long id);
+
+    @Query("""
+            SELECT DISTINCT d.id FROM DetalleInformeProgreso d
+            WHERE d.informe.id = :informe AND d.activo = true AND EXISTS (
+                SELECT e.id FROM EvidenciaPedagogica e JOIN e.evaluaciones v
+                WHERE e.activo = true AND v = d.evaluacion AND e.competencia = d.competencia
+                  AND e.asignacion = d.informe.asignacionCurso AND e.alumno = d.informe.alumno
+                  AND e.periodo = d.informe.periodoAcademico)
+            """)
+    java.util.Set<Long> filasConSustento(@Param("informe") Long informe);
 
     @EntityGraph(attributePaths = {"asignacion", "asignacion.curso", "archivo"})
     @Query("""

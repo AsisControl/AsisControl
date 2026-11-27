@@ -7,7 +7,7 @@ import { Pager } from "@/shared/ui/pager";
 import type { Page } from "@/shared/types/api";
 import { listStudentTasks } from "./api";
 import type { StudentTask } from "./types";
-import { canSubmit, taskDate, taskStatus } from "./presentation";
+import { canSubmit, taskDate, taskGrades, taskStatus } from "./presentation";
 import { TaskDialog } from "./task-dialog";
 import styles from "./student-tasks.module.css";
 
@@ -57,18 +57,32 @@ export function StudentTasks() {
           <div className={styles.tableWrap}>
             <table className={`user-table ${styles.table}`} aria-label="Tareas asignadas">
               <thead><tr>{["Curso", "Tarea", "Docente", "Fecha límite", "Estado", "Acción"].map((title) => <th key={title} scope="col">{title}</th>)}</tr></thead>
-              <tbody>{data?.content.map((task) => (
+              <tbody>{data?.content.map((task) => {
+                const grades = taskGrades(task);
+                return (
                 <tr key={task.tarea.id}>
                   <td data-label="Curso" className={styles.course}>{task.curso}</td>
-                  <td data-label="Tarea" className={styles.taskTitle}>{task.tarea.nombre}<small className={styles.context}>{task.seccion}</small></td>
+                  <td data-label="Tarea" className={styles.taskTitle}>{task.tarea.nombre}<small className={styles.context}>
+                    {task.seccion} · {!task.tarea.evaluacionAcademica?.cuentaParaResultadoAcademico ? "Sin peso" : grades.components.length
+                      ? "Resultado disponible" : "Peso pendiente"}
+                  </small></td>
                   <td data-label="Docente" className={styles.teacher}>{task.docente}</td>
                   <td data-label="Fecha límite" className={styles.deadline}>{taskDate(task.tarea.fechaLimite)}</td>
-                  <td data-label="Estado"><span className={`${styles.badge} ${task.entrega ? styles.submitted : styles.pending}`}>{taskStatus(task)}</span></td>
+                  <td data-label="Estado"><div className={styles.taskStatusStack}>
+                    <span className={`${styles.badge} ${task.entrega ? styles.submitted : styles.pending}`}>{taskStatus(task)}</span>
+                    {grades.components.length > 0 && <ul className={styles.taskGradeList} aria-label="Niveles por competencia">
+                      {grades.components.map((item, index) => <li className={styles.taskGradeSummary} key={`${item.competencia}-${index}`}>
+                        {item.competencia}: {item.nivel}
+                      </li>)}
+                    </ul>}
+                    {grades.general && <span className={styles.taskGradeSummary}>Calificación: {grades.general}</span>}
+                  </div></td>
                   <td data-label="Acción"><button type="button" className={canSubmit(task) ? styles.deliverButton : undefined}
                     aria-label={`${canSubmit(task) ? "Entregar" : "Ver detalle de"} ${task.tarea.nombre}`}
                     onClick={() => setSelectedTask(task)}>{canSubmit(task) ? "Entregar" : "Ver detalle"}</button></td>
                 </tr>
-              ))}</tbody>
+                );
+              })}</tbody>
             </table>
           </div>
           {data?.content.length === 0 && <p className={styles.empty} role="status">No hay tareas disponibles con estos filtros. Solo se muestran tareas publicadas de tus matrículas activas.</p>}
