@@ -182,7 +182,7 @@ test("Carga todas las páginas del servidor y pagina solo el año elegido", asyn
   expect(screen.getByText("Práctica 21")).toBeTruthy();
   expect(screen.queryByText("Práctica 20")).toBeNull();
   await user.selectOptions(yearSelect(), "2025");
-  expect(screen.getByText("1 registros · Página 1 de 1")).toBeTruthy();
+  expect(screen.getByText("1 registro · Página 1 de 1")).toBeTruthy();
   await user.selectOptions(yearSelect(), "2026");
   expect(screen.getByText("25 registros · Página 1 de 2")).toBeTruthy();
   expect(listCalls(calls)).toHaveLength(2);

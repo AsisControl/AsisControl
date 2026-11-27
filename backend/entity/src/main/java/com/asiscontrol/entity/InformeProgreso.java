@@ -65,7 +65,7 @@ public class InformeProgreso extends AuditableEntity {
     private String consolidadoRegla;
 
     @jakarta.persistence.Lob
-    @Column(name = "conclusiones_descriptivas")
+    @Column(name = "conclusiones_descriptivas", length = Integer.MAX_VALUE)
     private String conclusionesDescriptivas;
 
     @Column(name = "revisado", nullable = false)
