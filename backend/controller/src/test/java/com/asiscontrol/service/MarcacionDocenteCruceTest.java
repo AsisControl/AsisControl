@@ -54,7 +54,8 @@ class MarcacionDocenteCruceTest {
                 JORNADA.atTime(19, 0).atZone(LIMA).toInstant(), LIMA);
         servicio = new AsistenciaDocenteService(
                 asistencias, codigos, sesiones, docentes, sieteDeLaNoche,
-                mock(EntityManager.class), accessGuard, mock(AuditoriaService.class), 120);
+                mock(EntityManager.class), accessGuard, mock(AuditoriaService.class),
+                mock(com.asiscontrol.repository.CorreccionAsistenciaDocenteRepository.class), 120);
         docente = new Docente();
         docente.setId(7L);
         Persona persona = new Persona();

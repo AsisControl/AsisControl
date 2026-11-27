@@ -137,12 +137,18 @@ class PlanEstudiosHttpTest extends ApiIntegrationSupport {
                 data("id", course.getId(), "nombre", "  Matemática y razonamiento  ", "horasSemanales", 6),
                 data("id", taller.getId(), "nombre", taller.getNombre(), "horasSemanales", taller.getHorasSemanales(),
                         "competenciasIds", List.of(competence.getId()))));
+        assertThat(request("PUT", PLAN, datos, 409).path("code").asText()).isEqualTo("PLAN_ANIO_ACTIVO_BLOQUEADO");
+        // inscripcion cursos: agregar cursos del plan anterior se hace antes de activar el año
+        year.setEstado(EstadoAnioAcademico.BORRADOR);
+        em.flush();
         assertThat(request("PUT", PLAN, datos, 422).path("code").asText()).isEqualTo("MOTIVO_EDICION_PLAN_REQUERIDO");
         datos.put("motivo", "Adecuación del currículo");
         var guardado = putOk(PLAN, datos);
+        year.setEstado(EstadoAnioAcademico.ACTIVO);
+        em.flush();
         assertThat(guardado.path("version").asLong()).isGreaterThan(version);
         em.clear();
-        assertThat(getOk(PLAN)).isEqualTo(guardado);
+        assertThat(getOk(PLAN).path("cursos")).isEqualTo(guardado.path("cursos"));
         assertThat(getOk(PLAN + "/anterior")).isEqualTo(consulta);
         assertThat(getOk("/api/cursos/" + course.getId()).path("nombre").asText()).isEqualTo(course.getNombre());
         var cursosDocente = comoRol("DOCENTE", teacher.getPersona(), "GET",
@@ -210,12 +216,21 @@ class PlanEstudiosHttpTest extends ApiIntegrationSupport {
         assertThat(guardado.path("editable").asBoolean()).isTrue();
         assertThat(guardado.path("definido").asBoolean()).isTrue();
         long guardada = guardado.path("version").asLong();
-        assertThat(request("PUT", PLAN, data("version", guardada, "cursosIds", List.of(course.getId()),
-                "motivo", "   "), 422).path("code").asText()).isEqualTo("MOTIVO_EDICION_PLAN_REQUERIDO");
-        assertThat(getOk(PLAN)).isEqualTo(guardado);
         assertThat(putOk(PLAN, data("version", guardada, "cursosIds", List.of(catalogo, course.getId()))))
                 .isEqualTo(guardado);
+        // inscripcion cursos: en el año activo el grado conserva sus cursos todo el año
+        assertThat(request("PUT", PLAN, data("version", guardada, "cursosIds", List.of(course.getId()),
+                "motivo", "Rectificación del curso en el plan"), 409).path("code").asText())
+                .isEqualTo("PLAN_ANIO_ACTIVO_BLOQUEADO");
+        assertThat(request("PUT", PLAN, data("version", guardada, "cursosIds", List.of(),
+                "motivo", "Se intentó dejar vacío"), 422).path("code").asText()).isEqualTo("PLAN_ESTUDIOS_VACIO");
+        assertThat(getOk(PLAN)).isEqualTo(guardado);
 
+        // El plan de un año en borrador sí admite quitar cursos, con motivo.
+        year.setEstado(EstadoAnioAcademico.BORRADOR);
+        em.flush();
+        assertThat(request("PUT", PLAN, data("version", guardada, "cursosIds", List.of(course.getId()),
+                "motivo", "   "), 422).path("code").asText()).isEqualTo("MOTIVO_EDICION_PLAN_REQUERIDO");
         var actualizado = putOk(PLAN, data("version", guardada, "cursosIds", List.of(course.getId()),
                 "motivo", "  Rectificación del curso en el plan  "));
         assertThat(actualizado.path("version").asLong()).isGreaterThan(guardada);
@@ -224,8 +239,6 @@ class PlanEstudiosHttpTest extends ApiIntegrationSupport {
         assertThat(request("PUT", PLAN, data("version", guardado.path("version").asLong(),
                 "cursosIds", List.of(course.getId(), catalogo), "motivo", "Versión anterior"), 409)
                 .path("code").asText()).isEqualTo("VERSION_DESACTUALIZADA");
-        assertThat(request("PUT", PLAN, data("version", actualizado.path("version").asLong(), "cursosIds", List.of(),
-                "motivo", "Se intentó dejar vacío"), 422).path("code").asText()).isEqualTo("PLAN_ESTUDIOS_VACIO");
 
         var registros = getOk("/api/auditoria/registros?modulo=ACADEMICO&size=50").path("content");
         var exitosos = registros.findValuesAsText("motivo");

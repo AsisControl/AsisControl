@@ -147,7 +147,12 @@ export function fechaLocal(hoy = new Date()) {
   return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 }
 
-export type ClaseDelDia = { clave: string; curso: string; hora: string; registro: AsistenciaEstudiante | null };
+export type ClaseDelDia = {
+  clave: string; curso: string; hora: string; horaFin: string | null;
+  docente: string | null; aula: string | null; registro: AsistenciaEstudiante | null;
+  /** "Sesión 1 de 2" cuando el mismo curso tiene más de una sesión en el día. */
+  sesion: string | null;
+};
 
 /**
  * Clases de hoy según el horario, con su asistencia si el docente ya la tomó. Los bloques
@@ -173,12 +178,29 @@ export function clasesDelDia(bloques: BloqueHorario[], asistencias: AsistenciaEs
       (fila) => fila.asignacionCursoId === encuentro.asignacionCursoId && fila.horaSesion?.slice(0, 5) === hora,
     );
     if (registro) usados.add(registro.id);
-    return { clave: `${encuentro.asignacionCursoId}-${hora}`, curso: encuentro.curso, hora, registro: registro ?? null };
+    return {
+      clave: `${encuentro.asignacionCursoId}-${hora}`, curso: encuentro.curso, hora,
+      horaFin: encuentro.horaFin.slice(0, 5), docente: encuentro.docente ?? null, aula: encuentro.aula ?? null,
+      registro: registro ?? null, sesion: null,
+    };
   });
   registros
     .filter((fila) => !usados.has(fila.id))
-    .forEach((fila) => clases.push({ clave: `r${fila.id}`, curso: fila.curso, hora: horaDe(fila), registro: fila }));
-  return clases.sort((a, b) => a.hora.localeCompare(b.hora));
+    .forEach((fila) => clases.push({
+      clave: `r${fila.id}`, curso: fila.curso, hora: horaDe(fila), horaFin: null, docente: null, aula: null,
+      registro: fila, sesion: null,
+    }));
+  clases.sort((a, b) => a.hora.localeCompare(b.hora));
+  const total = new Map<string, number>();
+  clases.forEach((clase) => total.set(clase.curso, (total.get(clase.curso) ?? 0) + 1));
+  const vistas = new Map<string, number>();
+  return clases.map((clase) => {
+    const veces = total.get(clase.curso) ?? 1;
+    if (veces < 2) return clase;
+    const numero = (vistas.get(clase.curso) ?? 0) + 1;
+    vistas.set(clase.curso, numero);
+    return { ...clase, sesion: `Sesión ${numero} de ${veces}` };
+  });
 }
 
 export const componerMotivo = (motivo: string, observaciones: string) => {

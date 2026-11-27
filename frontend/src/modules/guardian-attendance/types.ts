@@ -35,4 +35,7 @@ export type BloqueHorario = {
   diaSemana: string;
   horaInicio: string;
   horaFin: string;
+  /** Lo envía el horario propio; sirve para distinguir dos sesiones del mismo curso en el día. */
+  docente?: string | null;
+  aula?: string | null;
 };

@@ -219,6 +219,8 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
   if (!plan) return error ? <Feedback error={error} /> : <Loading skeleton="table" columns={4} rows={5}>Cargando plan de estudios…</Loading>;
   const permitted = canWrite && plan.editable;
   const editable = permitted && (editing || !plan.definido);
+  // inscripcion cursos: en el año activo el grado conserva sus cursos; solo cambian nombre, horas y competencias
+  const coursesLocked = plan.estadoAnio === "ACTIVO" && plan.definido;
   const selectedIds = new Set(selection.map(course => course.id));
   const original = new Map(plan.cursos.map(course => [course.id, course]));
   const changed = selection.length !== plan.cursos.length || selection.some(course => {
@@ -269,7 +271,7 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
             </div>
             <p>{countLabel(selection.length, "curso", "cursos")} · {countLabel(totalHours, "hora semanal", "horas semanales")}</p>
           </div>
-          {editable && (
+          {editable && !coursesLocked && (
             <div className={styles.sectionActions}>
               <button ref={previousButton} type="button" className="secondary-action" aria-expanded={showPrevious}
                 aria-controls={showPrevious ? previousId : undefined} onClick={() => {
@@ -297,6 +299,7 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
           )}
         </div>
         {plan.estadoAnio === "CERRADO" && <p className={styles.note}>El contenido de este plan histórico es de solo lectura.</p>}
+        {coursesLocked && permitted && <p className={styles.note}>Los cursos del plan del año en curso no se modifican, porque todos los alumnos del grado llevan los mismos cursos durante el año. Para agregar o quitar cursos, edita el plan del próximo año.</p>}
         <Feedback error={error} success={success} />
         <ExceededSections sections={plan.seccionesExcedidas ?? []} />
         {showPrevious && editable && <PreviousPlanImport id={previousId} path={path} grade={plan.grado}
@@ -321,7 +324,7 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
                 onClick={() => competencyCourseId === course.id ? closeCompetencies() : setCompetencyCourseId(course.id)}>
                 {course.competencias ? countLabel(course.competencias.length, "competencia", "competencias") : "Competencias"}
               </button>
-              {editable && <button type="button" className="secondary-action" aria-label={`Quitar ${course.nombre || course.codigo}`}
+              {editable && !coursesLocked && <button type="button" className="secondary-action" aria-label={`Quitar ${course.nombre || course.codigo}`}
                 onClick={() => {
                   if (course.id === competencyCourseId) setCompetencyCourseId(null);
                   setSelection(current => current.filter(item => item.id !== course.id));

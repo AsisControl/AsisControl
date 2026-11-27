@@ -2,7 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, Loading, initialsOf } from "@/shared/ui";
+import { Feedback, Loading, PageHeader, initialsOf } from "@/shared/ui";
 import { AttendanceRecord } from "./attendance-record";
 import { JustifyDialog } from "./justify-dialog";
 import { listarAsistencias, listarEstudiantes } from "./services/asistencia-apoderado-service";
@@ -55,12 +55,11 @@ export function GuardianAttendance() {
   };
   return (
     <section className={styles.pagina}>
-      <div className={styles.encabezado}>
-        <div>
-          <h2>Asistencia</h2>
-          <p>{estudiante ? `${estudiante.nombreCompleto} · ` : ""}Consulta y justificación de inasistencias</p>
-        </div>
-        {estudiantes && estudiantes.length > 0 && (
+      <PageHeader
+        title="Asistencia"
+        description={`${estudiante ? `${estudiante.nombreCompleto} · ` : ""}Consulta y justificación de inasistencias`}
+        actions={
+          estudiantes && estudiantes.length > 0 ? (
           <label className={styles.selector}>
             <span>Estudiante:</span>
             <select
@@ -74,8 +73,9 @@ export function GuardianAttendance() {
               ))}
             </select>
           </label>
-        )}
-      </div>
+          ) : undefined
+        }
+      />
       <p className={styles.aviso}>
         Puedes consultar la asistencia del estudiante seleccionado y solicitar la justificación de sus inasistencias.
       </p>
