@@ -10,6 +10,10 @@ import {
 } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import { GuardianLinkDialog } from "./guardian-link-dialog";
+import {
+  GuardianUnlinkDialog,
+  type GuardianLink,
+} from "./guardian-unlink-dialog";
 import { RecordsPanel } from "./records-panel";
 import { RegisterProfile } from "./register-profile";
 import { GuardianDetail } from "./record-details";
@@ -130,6 +134,11 @@ export function GuardiansPanel() {
 export function RelationshipsPanel() {
   /** Ventana abierta, con la función que vuelve a consultar el listado. */
   const [linking, setLinking] = useState<{ refresh: () => void } | null>(null);
+  const [unlinking, setUnlinking] = useState<{
+    student: Student;
+    link: GuardianLink;
+    refresh: () => void;
+  } | null>(null);
   const [success, setSuccess] = useState("");
   return (
     <>
@@ -139,7 +148,13 @@ export function RelationshipsPanel() {
         path="/api/alumnos"
         noun={["estudiante", "estudiantes"]}
         searchLabel="Buscar estudiante por nombre, código o documento"
-        columns={["Estudiante", "Apoderado", "Parentesco", "Principal"]}
+        columns={[
+          "Estudiante",
+          "Apoderado",
+          "Parentesco",
+          "Principal",
+          "Acción",
+        ]}
         emptyText="Todavía no hay estudiantes registrados."
         actions={(refresh) => (
           <>
@@ -156,7 +171,7 @@ export function RelationshipsPanel() {
             </button>
           </>
         )}
-        renderRows={(students) =>
+        renderRows={(students, refresh) =>
           students.flatMap((student) => {
             const name = (
               <td data-label="Estudiante">
@@ -170,7 +185,7 @@ export function RelationshipsPanel() {
               return (
                 <tr key={student.id}>
                   {name}
-                  <td data-label="Apoderado" colSpan={3}>
+                  <td data-label="Apoderado" colSpan={4}>
                     <span className={styles.warning}>
                       Sin apoderado registrado
                     </span>
@@ -183,6 +198,18 @@ export function RelationshipsPanel() {
                 <td data-label="Apoderado">{link.nombreCompleto}</td>
                 <td data-label="Parentesco">{stateLabel(link.parentesco)}</td>
                 <td data-label="Principal">{link.principal ? "Sí" : "No"}</td>
+                <td data-label="Acción">
+                  <button
+                    type="button"
+                    aria-label={`Retirar a ${link.nombreCompleto} de ${student.persona.nombreCompleto}`}
+                    onClick={() => {
+                      setSuccess("");
+                      setUnlinking({ student, link, refresh });
+                    }}
+                  >
+                    Retirar
+                  </button>
+                </td>
               </tr>
             ));
           })
@@ -197,6 +224,21 @@ export function RelationshipsPanel() {
               `Apoderado vinculado a ${student.persona.nombreCompleto}.`,
             );
             linking.refresh();
+          }}
+        />
+      )}
+      {unlinking && (
+        <GuardianUnlinkDialog
+          student={unlinking.student}
+          link={unlinking.link}
+          onClose={() => setUnlinking(null)}
+          onOutdated={unlinking.refresh}
+          onUnlinked={() => {
+            setUnlinking(null);
+            setSuccess(
+              `Se retiró el vínculo de ${unlinking.link.nombreCompleto} con ${unlinking.student.persona.nombreCompleto}.`,
+            );
+            unlinking.refresh();
           }}
         />
       )}

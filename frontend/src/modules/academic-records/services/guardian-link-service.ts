@@ -13,3 +13,10 @@ export function linkGuardian(studentId: number, values: GuardianLinkValues) {
     body: JSON.stringify(values),
   });
 }
+
+/** Retira el vínculo: el apoderado deja de acceder a ese estudiante. */
+export function unlinkGuardian(studentId: number, guardianId: number) {
+  return api(`/api/alumnos/${studentId}/apoderados/${guardianId}`, {
+    method: "DELETE",
+  });
+}

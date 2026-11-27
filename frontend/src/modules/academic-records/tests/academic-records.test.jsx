@@ -158,8 +158,8 @@ test("Parentescos muestra una fila por vínculo y avisa si falta el apoderado", 
   render(<RecordsScreen />);
   const rows = (await screen.findAllByText("Lucía Flores")).map((name) => name.closest("tr"));
   expect(rows.map((row) => [...row.cells].slice(1).map((cell) => cell.textContent))).toEqual([
-    ["Carmen Flores Vega", "Madre", "Sí"],
-    ["Pedro Flores", "Tutor legal", "No"],
+    ["Carmen Flores Vega", "Madre", "Sí", "Retirar"],
+    ["Pedro Flores", "Tutor legal", "No", "Retirar"],
   ]);
   const missing = screen.getByText("Mario Díaz").closest("tr");
   expect(within(missing).getByText("Sin apoderado registrado")).toBeTruthy();

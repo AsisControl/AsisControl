@@ -7,7 +7,7 @@ import styles from "./academic-records.module.css";
 
 /**
  * Listado con búsqueda y paginación de una vista de Fichas académicas. Las acciones de la
- * cabecera reciben `refresh` para volver a consultar tras una carga masiva.
+ * cabecera y las filas reciben `refresh` para volver a consultar tras un cambio.
  */
 export function RecordsPanel<T>({
   title,
@@ -27,7 +27,7 @@ export function RecordsPanel<T>({
   noun: [string, string];
   searchLabel: string;
   columns: string[];
-  renderRows: (items: T[]) => ReactNode;
+  renderRows: (items: T[], refresh: () => void) => ReactNode;
   emptyText: string;
   actions?: (refresh: () => void) => ReactNode;
   /** Parámetros de consulta de los filtros elegidos. */
@@ -105,7 +105,7 @@ export function RecordsPanel<T>({
                   ))}
                 </tr>
               </thead>
-              <tbody>{renderRows(list.data.content)}</tbody>
+              <tbody>{renderRows(list.data.content, list.refresh)}</tbody>
             </table>
           </div>
           <Pager
