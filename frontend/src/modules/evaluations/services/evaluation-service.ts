@@ -102,9 +102,12 @@ export function corregirNiveles(motivo: string, correcciones: GradeCorrection[])
 export function obtenerCorrecciones(idCalificacion: number) {
   return api<CorrectionEntry[]>(`${CALIFICACIONES_PATH}/${idCalificacion}/correcciones`);
 }
-export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number) {
+export function eliminarCalificacion(idCalificacion: number) {
+  return api<void>(`${CALIFICACIONES_PATH}/${idCalificacion}`, { method: "DELETE" });
+}
+export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number, idPeriodoAcademico?: number) {
   return api<ConsolidatedLevel[]>(
-    `${CALIFICACIONES_PATH}/consolidados?idAlumno=${idAlumno}&idAsignacionCurso=${idAsignacionCurso}`,
+    `${CALIFICACIONES_PATH}/consolidados?idAlumno=${idAlumno}&idAsignacionCurso=${idAsignacionCurso}${idPeriodoAcademico ? `&idPeriodoAcademico=${idPeriodoAcademico}` : ""}`,
   );
 }
 export async function listarAsignacionesPropias() {

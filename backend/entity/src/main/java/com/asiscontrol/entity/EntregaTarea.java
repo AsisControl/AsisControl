@@ -35,6 +35,10 @@ import java.util.Set;
         @UniqueConstraint(name = "uk_entrega_tarea_alumno", columnNames = {"id_tarea", "id_alumno"})
 })
 public class EntregaTarea extends AuditableEntity {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "nivel_logro", length = 2)
+    private com.asiscontrol.entity.enums.NivelLogro nivelLogro;
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
+import { InstitutionalScalePanel } from "../grading-rules/institutional-scale-panel";
 import { GradingRulesPanel } from "../grading-rules/grading-rules-panel";
 
 const exam = { tipoEvaluacion: "EXAMEN", nombre: "Exámenes", peso: 60 };
@@ -27,17 +28,15 @@ async function openEditor(routes = {}, canWrite = true) {
   await screen.findByRole("option", { name: "Matemática · MAT" });
   await user.selectOptions(screen.getByLabelText("Curso"), "4");
   const workspace = await screen.findByRole("region", { name: "Fórmula del curso" });
-  const start = within(workspace).queryByRole("button", { name: "Crear regla" });
-  if (start) {
-    expect(within(workspace).queryByRole("region", { name: "Editor de borrador" })).toBeNull();
-    await user.click(start);
-  }
+  const resume = within(workspace).queryByRole("button", { name: "Continuar borrador" });
+  const start = within(workspace).queryByRole("button", { name: "Nueva versión" });
+  if (resume || start) await user.click(resume ?? start);
   return { calls, user };
 }
 
 test("Empieza con un componente, agrega uno por clic e impide repetir tipos", async () => {
   const { user } = await openEditor();
-  const editor = within(await screen.findByRole("region", { name: "Editor de borrador" }));
+  const editor = within(await screen.findByRole("dialog", { name: "Editor de regla académica" }));
   expect(editor.getAllByRole("group", { name: /Componente/ })).toHaveLength(1);
   expect(editor.queryByLabelText(/Nivel/)).toBeNull();
   for (let count = 2; count <= 5; count++) {
@@ -53,6 +52,36 @@ test("Empieza con un componente, agrega uno por clic e impide repetir tipos", as
   expect(screen.queryByText("1 registro · Página 1 de 1")).toBeNull();
 });
 
+test("cierra y descarta una versión de regla sin crear un borrador", async () => {
+  const { user, calls } = await openEditor();
+  const modal = await screen.findByRole("dialog", { name: "Editor de regla académica" });
+  await user.type(within(modal).getByRole("textbox"), " de prueba");
+  await user.click(within(modal).getByRole("button", { name: "Cerrar ventana" }));
+  const confirm = within(screen.getByRole("alertdialog", { name: "¿Descartar cambios de la regla?" }));
+  await user.click(confirm.getByRole("button", { name: "Seguir editando" }));
+  expect(within(modal).getByRole("textbox").value).toBe("Exámenes de prueba");
+  await user.click(within(modal).getByRole("button", { name: "Cerrar ventana" }));
+  await user.click(screen.getByRole("button", { name: "Descartar cambios" }));
+  expect(screen.queryByRole("dialog", { name: "Editor de regla académica" })).toBeNull();
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+});
+
+test("busca una versión histórica entre más de cinco y conserva una sola base", async () => {
+  const history = Array.from({ length: 8 }, (_, index) => ({
+    ...active, id: 20 + index, numeroVersion: index + 2, estado: "HISTORICA",
+    componentes: [{ ...exam, nombre: `Versión histórica ${index + 2}` }],
+  }));
+  const { user } = await openEditor({ "GET /api/reglas-calificacion": [active, ...history] });
+  await user.click(screen.getByRole("button", { name: /^Configuración de partida/ }));
+  const search = screen.getByRole("searchbox", { name: "Buscar versión" });
+  await user.type(search, "versión 9");
+  const list = within(screen.getByRole("group", { name: "Versiones disponibles" }));
+  expect(list.getAllByRole("button")).toHaveLength(1);
+  await user.click(list.getByRole("button", { name: /versión 9/ }));
+  expect(screen.getByRole("textbox", { name: "Nombre" }).value).toBe("Versión histórica 9");
+  expect(screen.getByRole("button", { name: /^Configuración de partida/ }).getAttribute("aria-expanded")).toBe("false");
+});
+
 test.each([
   ["Empezar desde cero", [100]],
   ["Copiar regla vigente", [60, 40]],
@@ -61,9 +90,11 @@ test.each([
   const current = within(await screen.findByRole("region", { name: "Regla vigente · versión 1" }));
   expect(current.getByRole("cell", { name: "60 %" })).toBeTruthy();
   expect(current.queryByRole("spinbutton")).toBeNull();
-  expect(screen.queryByRole("region", { name: "Editor de borrador" })).toBeNull();
-  await user.click(screen.getByRole("button", { name: action }));
-  const editor = within(screen.getByRole("region", { name: "Editor de borrador" }));
+  if (action === "Copiar regla vigente") {
+    await user.click(screen.getByRole("button", { name: /^Configuración de partida/ })); await user.click(screen.getByRole("button", { name: "Copiar regla vigente" }));
+    expect(screen.getByRole("button", { name: "Guardar borrador" }).disabled).toBe(true);
+  }
+  const editor = within(screen.getByRole("dialog", { name: "Editor de regla académica" }));
   expect(editor.getAllByRole("spinbutton").map(input => Number(input.value))).toEqual(expected);
   expect(current.getByRole("cell", { name: "40 %" })).toBeTruthy();
 });
@@ -73,7 +104,7 @@ test("Guarda una regla nueva incompleta sin enviar una versión previa", async (
     "PUT /api/reglas-calificacion/borrador": ({ body }) =>
       ({ ...draft, numeroVersion: 1, version: 0, componentes: body.componentes }),
   });
-  const editor = within(await screen.findByRole("region", { name: "Editor de borrador" }));
+  const editor = within(await screen.findByRole("dialog", { name: "Editor de regla académica" }));
   const weight = editor.getByRole("spinbutton");
   await user.clear(weight);
   expect(editor.getByRole("button", { name: "Guardar borrador" }).disabled).toBe(true);
@@ -81,7 +112,7 @@ test("Guarda una regla nueva incompleta sin enviar una versión previa", async (
   await user.click(editor.getByRole("button", { name: "Guardar borrador" }));
   await screen.findByText("Borrador de la versión 1 guardado.");
   expect(calls.find(call => call.method === "PUT").body).toEqual({
-    idCurso: 4, idGrado: 8, formula: "PROMEDIO_PONDERADO", componentes: [exam],
+    idCurso: 4, idGrado: 8, formula: "CUALITATIVA_DINAMICA_V1", componentes: [exam],
   });
   expect(editor.getByRole("button", { name: "Activar regla" }).disabled).toBe(true);
 });
@@ -91,8 +122,8 @@ test("Recupera el borrador y distingue total incompleto, excedido y correcto", a
     "GET /api/reglas-calificacion": [draft, active],
     "PUT /api/reglas-calificacion/borrador": ({ body }) => ({ ...draft, version: 4, componentes: body.componentes }),
   });
-  const editor = within(await screen.findByRole("region", { name: "Editor de borrador" }));
-  expect(editor.getByRole("heading", { name: "Versión 2 en edición" })).toBeTruthy();
+  const editor = within(await screen.findByRole("dialog", { name: "Editor de regla académica" }));
+  expect(editor.getByText("Versión 2 en edición")).toBeTruthy();
   expect(editor.getAllByRole("textbox").map(input => input.value)).toEqual(["Exámenes", "Proyecto"]);
   expect(editor.queryByText("La suma es correcta.")).toBeNull();
   expect(editor.getByRole("progressbar").value).toBe(100);
@@ -104,7 +135,7 @@ test("Recupera el borrador y distingue total incompleto, excedido y correcto", a
   expect(editor.getByRole("button", { name: "Activar regla" }).disabled).toBe(true);
   await user.clear(weight);
   await user.type(weight, "30");
-  expect(editor.getByText("Falta 10 %.")).toBeTruthy();
+  expect(editor.queryByText("Falta 10 %.")).toBeNull();
   expect(editor.getByRole("progressbar").value).toBe(90);
   await user.click(editor.getByRole("button", { name: "Guardar borrador" }));
   await screen.findByText("Borrador de la versión 2 guardado.");
@@ -119,32 +150,36 @@ test("Simula con el endpoint existente y permite reintentar en el modal", async 
   let attempts = 0;
   const { user, calls } = await openEditor({
     "GET /api/reglas-calificacion": [draft, active],
-    "POST /api/reglas-calificacion/vista-previa-numerica": () => ++attempts === 1
+    "POST /api/reglas-calificacion/vista-previa": () => ++attempts === 1
       ? reply(422, { message: "No se pudo simular la regla." })
-      : { nivelConsolidado: "A", promedioPonderado: 16.35, notaRedondeada: 16,
+      : { nivelConsolidado: "A", promedioPonderado: 2.9,
           numeroVersionEscala: 2, componentesFaltantes: [] },
   });
   await user.click(await screen.findByRole("button", { name: "Vista previa" }));
   const modal = within(screen.getByRole("dialog", { name: "Vista previa de la regla" }));
-  expect(modal.getByText(/no modifica las calificaciones reales/)).toBeTruthy();
+  expect(modal.getByText(/niveles hipotéticos/)).toBeTruthy();
   expect(modal.getByText("60 %")).toBeTruthy();
-  await user.type(modal.getByLabelText("Nota hipotética de Exámenes"), "16.25");
-  await user.type(modal.getByLabelText("Nota hipotética de Proyecto"), "16.50");
+  await user.click(modal.getByRole("button", { name: "AD: Exámenes" }));
+  await user.click(modal.getByRole("button", { name: "B: Proyecto" }));
+  await user.click(modal.getAllByRole("button", { name: "Agregar evaluación" })[0]);
+  expect(modal.getByRole("button", { name: "Simular resultado" }).disabled).toBe(true);
+  await user.click(modal.getByRole("button", { name: "A: Exámenes 2" }));
   await user.click(modal.getByRole("button", { name: "Simular resultado" }));
   await modal.findByRole("alert");
   await user.click(modal.getByRole("button", { name: "Simular resultado" }));
   const result = within(await modal.findByRole("region", { name: "Resultado simulado" }));
   expect(result.getByText("A")).toBeTruthy();
   expect(result.getByText("Promedio ponderado")).toBeTruthy();
-  expect(result.getByText(/16[.,]35/)).toBeTruthy();
-  expect(result.getByText("Nota redondeada")).toBeTruthy();
-  expect(result.getByText("Escala institucional v2")).toBeTruthy();
+  expect(result.getByText(/2[.,]9/)).toBeTruthy();
+
+
   expect(calls.filter(call => call.method === "POST").at(-1).body).toEqual({
-    formula: "PROMEDIO_PONDERADO", componentes: [exam, project],
-    muestra: [{ tipoEvaluacion: "EXAMEN", nota: "16.25" }, { tipoEvaluacion: "PROYECTO", nota: "16.5" }],
+    formula: "CUALITATIVA_DINAMICA_V1", componentes: [exam, project],
+    muestra: [{ tipoEvaluacion: "EXAMEN", nivel: "AD" }, { tipoEvaluacion: "EXAMEN", nivel: "A" },
+      { tipoEvaluacion: "PROYECTO", nivel: "B" }],
   });
-  await user.click(modal.getByRole("button", { name: "Cerrar", exact: true }));
-  expect(screen.queryByRole("dialog")).toBeNull();
+  await user.click(modal.getByRole("button", { name: "Cerrar ventana" }));
+  expect(screen.queryByRole("dialog", { name: "Vista previa de la regla" })).toBeNull();
 });
 
 test("Exige guardar y confirmar antes de activar y conserva la versión histórica", async () => {
@@ -157,7 +192,7 @@ test("Exige guardar y confirmar antes de activar y conserva la versión históri
       : { ...draft, estado: "VIGENTE", version: 5 },
   });
   const button = await screen.findByRole("button", { name: "Activar regla" });
-  const editor = within(screen.getByRole("region", { name: "Editor de borrador" }));
+  const editor = within(screen.getByRole("dialog", { name: "Editor de regla académica" }));
   await user.type(editor.getAllByRole("textbox")[0], " finales");
   expect(button.disabled).toBe(true);
   await user.click(editor.getByRole("button", { name: "Guardar borrador" }));
@@ -203,14 +238,15 @@ test("Recupera el borrador de escala, mantiene la vigente y muestra el error al 
   ];
   const current = { id: 9, numeroVersion: 1, version: 1, estado: "VIGENTE", rangos: ranges,
     fechaAplicacion: "2026-06-01T12:00:00Z", actorAplicacion: "admin", motivoAplicacion: "Acuerdo anterior" };
-  const draftScale = { ...current, id: 10, numeroVersion: 2, estado: "BORRADOR" };
+  const draftScale = { ...current, id: 10, numeroVersion: 2, estado: "BORRADOR",
+    rangos: ranges.map(item => item.nivel === "A" ? { ...item, maximo: 17 } : item.nivel === "AD" ? { ...item, minimo: 18 } : item) };
   const calls = fakeBackend({
     "GET /api/configuracion-academica/anios": page([]),
     "GET /api/escala-institucional": [draftScale, current],
     "POST /api/escala-institucional/10/activar": reply(409, { message: "Otra sesión actualizó la escala." }),
   });
   const user = userEvent.setup();
-  render(<GradingRulesPanel canWrite />);
+  render(<InstitutionalScalePanel canWrite />);
   const panel = within(screen.getByRole("region", { name: "Escala institucional" }));
   await panel.findByText("Escala v1 · Vigente");
   expect(panel.getByText("admin")).toBeTruthy();
@@ -227,7 +263,7 @@ test("Recupera el borrador de escala, mantiene la vigente y muestra el error al 
   await dialog.findByText("Otra sesión actualizó la escala.");
   await user.click(dialog.getByRole("button", { name: "Cancelar" }));
   fireEvent.change(input, { target: { value: "8" } });
-  expect(panel.getByText(/Hay rangos superpuestos/)).toBeTruthy();
+  expect(screen.getByText(/Hay rangos superpuestos/)).toBeTruthy();
   expect(save.disabled).toBe(true);
   expect(activate.disabled).toBe(true);
   expect(calls.filter(call => call.method === "POST")).toHaveLength(1);
@@ -235,14 +271,15 @@ test("Recupera el borrador de escala, mantiene la vigente y muestra el error al 
 
 test("copia una escala histórica y confirma antes de reemplazar el borrador", async () => {
   const historica = { id: 1, numeroVersion: 1, version: 1, estado: "HISTORICA", rangos: [{ nivel: "C", minimo: 0, maximo: 7 }] };
-  const vigente = { ...historica, id: 2, numeroVersion: 2, estado: "VIGENTE" };
+  const vigente = { ...historica, id: 2, numeroVersion: 2, estado: "VIGENTE", rangos: [{ nivel: "C", minimo: 0, maximo: 6 }] };
   const guardada = { ...historica, id: 3, numeroVersion: 3, version: 5, estado: "BORRADOR", rangos: [{ nivel: "C", minimo: 0, maximo: 8 }] };
   const calls = fakeBackend({ "GET /api/configuracion-academica/anios": page([]), "GET /api/escala-institucional": [guardada, vigente, historica],
     "PUT /api/escala-institucional/borrador": ({ body }) => ({ ...guardada, version: 6, rangos: body.rangos }) });
   const user = userEvent.setup();
-  render(<GradingRulesPanel canWrite />);
+  render(<InstitutionalScalePanel canWrite />);
   await user.click(await screen.findByText("Escala v1 · Histórica", { selector: "summary" }));
-  await user.click(screen.getByRole("button", { name: "Usar como base" }));
+  await user.click(screen.getByRole("button", { name: "Nueva versión" }));
+  await user.click(screen.getByRole("button", { name: /^Configuración de partida/ })); await user.click(screen.getByRole("button", { name: /Recuperar versión 1/ }));
   const confirm = within(screen.getByRole("alertdialog", { name: "¿Reemplazar los rangos del borrador?" }));
   expect(calls.every(call => call.method === "GET")).toBe(true);
   await user.click(confirm.getByRole("button", { name: "Usar como base" }));
@@ -256,11 +293,11 @@ test("copia una escala histórica y confirma antes de reemplazar el borrador", a
 test("Cerrar el editor de escala protege los cambios sin guardar", async () => {
   const calls = fakeBackend({ "GET /api/configuracion-academica/anios": page([]), "GET /api/escala-institucional": [] });
   const user = userEvent.setup();
-  render(<GradingRulesPanel canWrite />);
-  await user.click(await screen.findByRole("button", { name: "Configurar escala" }));
+  render(<InstitutionalScalePanel canWrite />);
+  await user.click(await screen.findByRole("button", { name: "Nueva versión" }));
   const initial = screen.getByLabelText("Mínimo de C");
   await user.type(initial, "0");
-  const close = screen.getByRole("button", { name: "Cerrar editor" });
+  const close = screen.getByRole("button", { name: "Cerrar ventana" });
   await user.click(close);
   const modal = within(screen.getByRole("alertdialog", { name: "¿Descartar cambios de la escala?" }));
   await user.click(modal.getByRole("button", { name: "Seguir editando" }));
@@ -284,10 +321,10 @@ test("Configura una escala para todo el colegio, exige motivo y muestra su versi
     "POST /api/escala-institucional/10/activar": { ...scale, estado: "VIGENTE", motivoAplicacion: "Acuerdo escolar" },
   });
   const user = userEvent.setup();
-  render(<GradingRulesPanel canWrite />);
+  render(<InstitutionalScalePanel canWrite />);
   const panel = within(screen.getByRole("region", { name: "Escala institucional" }));
   await panel.findByText("Todavía no hay una escala vigente.");
-  await user.click(panel.getByRole("button", { name: "Configurar escala" }));
+  await user.click(panel.getByRole("button", { name: "Nueva versión" }));
   for (const { nivel, minimo, maximo } of ranges) {
     fireEvent.change(panel.getByLabelText(`Mínimo de ${nivel}`), { target: { value: String(minimo) } });
     fireEvent.change(panel.getByLabelText(`Máximo de ${nivel}`), { target: { value: String(maximo) } });

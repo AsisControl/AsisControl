@@ -11,15 +11,17 @@ import java.util.Optional;
 
 public interface TareaRepository extends JpaRepository<Tarea, Long> {
 
-    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            SELECT t FROM Tarea t
-            WHERE t.activo = true
-              AND t.estadoPublicacion = com.asiscontrol.entity.enums.EstadoPublicacionTarea.PUBLICADA
-              AND t.fechaLimite <= :ahora
-            ORDER BY t.id
+            SELECT n FROM NotaTareaSinEntrega n
+            WHERE n.alumno.id = :alumno AND n.tarea.id IN :tareas
+              AND n.tarea.evaluacionAcademica IS NULL AND n.nivelLogro IS NOT NULL
             """)
-    java.util.List<Tarea> buscarVencidasParaCerrar(@Param("ahora") java.time.LocalDateTime ahora, Pageable pageable);
+    java.util.List<com.asiscontrol.entity.NotaTareaSinEntrega> buscarNivelesSinEntrega(
+            @Param("alumno") Long alumno, @Param("tareas") java.util.List<Long> tareas);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Tarea t WHERE t.id = :id AND t.activo = true")
+    Optional<Tarea> buscarActivaParaPublicar(@Param("id") Long id);
 
     @Query("""
             SELECT t FROM Tarea t
@@ -51,9 +53,14 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
     Page<Tarea> findAllByAsignacionCursoIdAndActivoTrue(Long asignacionCursoId, Pageable pageable);
 
     @Query("""
-            SELECT t FROM Tarea t
+            SELECT t FROM Tarea t LEFT JOIN t.evaluacionAcademica evaluacion
             WHERE t.activo = true
               AND (:asignacionCursoId IS NULL OR t.asignacionCurso.id = :asignacionCursoId)
+              AND (:cursoId IS NULL OR t.asignacionCurso.curso.id = :cursoId)
+              AND (:estado IS NULL OR t.estadoPublicacion = :estado)
+              AND (:search = '' OR locate(:search, lower(t.nombre)) > 0
+                   OR locate(:search, lower(t.asignacionCurso.curso.nombre)) > 0
+                   OR locate(:search, lower(evaluacion.titulo)) > 0)
               AND (:personaDocenteId IS NULL OR t.asignacionCurso.docente.persona.id = :personaDocenteId)
               AND (:personaAlumnoId IS NULL OR (
                     t.estadoPublicacion <> com.asiscontrol.entity.enums.EstadoPublicacionTarea.BORRADOR
@@ -80,6 +87,9 @@ public interface TareaRepository extends JpaRepository<Tarea, Long> {
             """)
     Page<Tarea> buscarVisibles(
             @Param("asignacionCursoId") Long asignacionCursoId,
+            @Param("cursoId") Long cursoId,
+            @Param("estado") com.asiscontrol.entity.enums.EstadoPublicacionTarea estado,
+            @Param("search") String search,
             @Param("personaDocenteId") Long personaDocenteId,
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,

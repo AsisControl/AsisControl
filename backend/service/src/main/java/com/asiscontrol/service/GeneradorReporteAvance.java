@@ -6,6 +6,8 @@ import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -77,7 +79,7 @@ public class GeneradorReporteAvance {
                 var resumen = resumenes.get(id);
                 String nombre = resumen == null ? resultados.getFirst().competencia() : resumen.nombreCompetencia();
                 String estado = resumen == null ? "" : resumen.nivelConsolidado() != null ? "Nivel consolidado: " + resumen.nivelConsolidado()
-                        : "NO_EVALUADA".equals(resumen.estadoAvance()) ? "Aún no evaluada" : "Pendiente";
+                        : "—";
                 var notas = new ArrayList<String>();
                 if (!estado.isBlank()) notas.add(estado);
                 if (resumen != null && !resumen.componentesFaltantes().isEmpty()) notas.add(String.join(" · ", resumen.componentesFaltantes()));
@@ -90,8 +92,9 @@ public class GeneradorReporteAvance {
                         "resultado", "—", "ponderacion", "—", "observacion", "—"));
                 for (var fila : resultados) {
                     filas.add(Map.of("idCompetencia", id, "competencia", nombre, "detalleCompetencia", detalle,
-                            "evaluacion", fila.evaluacion() + "\nFecha: " + fila.fecha(), "resultado", fila.resultado(),
-                            "ponderacion", fila.ponderacion(), "observacion", Objects.toString(fila.observacion(), "Sin observaciones")));
+                            "evaluacion", fila.evaluacion() + "\nFecha: " + fila.fecha(), "resultado",
+                            "Sin registrar".equals(fila.resultado()) ? "—" : fila.resultado(),
+                            "ponderacion", presentarPeso(fila.ponderacion()), "observacion", Objects.toString(fila.observacion(), "Sin observaciones")));
                 }
             });
             var documento = JasperFillManager.fillReport(plantilla(), parametros, new JRMapCollectionDataSource(filas));
@@ -99,6 +102,14 @@ public class GeneradorReporteAvance {
         } catch (JRException | IOException e) {
             throw new IllegalStateException("No se pudo generar el informe de progreso", e);
         }
+    }
+
+    private static String presentarPeso(String peso) {
+        if (peso == null || !peso.matches("\\d+(?:[.,]\\d+)?\\s*%")) {
+            return Objects.toString(peso, "—");
+        }
+        return new BigDecimal(peso.substring(0, peso.length() - 1).strip().replace(',', '.'))
+                .setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',') + " %";
     }
 
     private synchronized JasperReport plantilla() throws JRException, IOException {

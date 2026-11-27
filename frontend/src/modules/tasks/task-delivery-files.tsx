@@ -22,13 +22,16 @@ export function TaskDeliveryFiles({ files }: { files: ArchivoResponse[] }) {
       setBusy([...lock.current]);
     }
   }
+  if (!files.length) return <span>Sin adjuntos</span>;
   return <>
-    {files.length ? <ul className={styles.fileList}>{files.map((file) => <li key={file.id}>
-      <button type="button" className={styles.fileButton} disabled={busy.includes(file.id)}
+    <ul className={styles.fileList}>{files.map((file) => <li key={file.id} className={styles.reviewFile}>
+      <span aria-hidden="true">▤</span>
+      <span>{file.nombreOriginal}<small>{file.tamanioBytes > 0 ? `${Math.ceil(file.tamanioBytes / 1024)} KB` : file.tipoMime}</small></span>
+      <button type="button" className="secondary-action" disabled={busy.includes(file.id)}
         aria-label={`Descargar ${file.nombreOriginal}`} onClick={() => download(file)}>
-        {busy.includes(file.id) ? "Descargando…" : file.nombreOriginal}
+        {busy.includes(file.id) ? "Descargando…" : "Descargar"}
       </button>
-    </li>)}</ul> : <span>Sin adjuntos</span>}
+    </li>)}</ul>
     <Feedback error={error} />
   </>;
 }

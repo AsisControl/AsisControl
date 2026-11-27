@@ -9,6 +9,8 @@ import com.asiscontrol.dto.tarea.TareaDtos.TareaResponse;
 import com.asiscontrol.dto.tarea.TareaDtos.EvaluacionAcademica;
 import com.asiscontrol.dto.tarea.TareaDtos.ResultadoCompetencia;
 import com.asiscontrol.dto.tarea.TareaDtos.CerosFaltantes;
+import com.asiscontrol.dto.tarea.TareaDtos.RevisionSinEntrega;
+import com.asiscontrol.dto.tarea.TareaDtos.NivelSinEntregaRequest;
 import com.asiscontrol.dto.CalificacionDto;
 import com.asiscontrol.dto.EvaluacionDto;
 import com.asiscontrol.dto.tarea.TareaDtos.CompetenciasSinPeso;
@@ -17,6 +19,9 @@ import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.EntregaTarea;
 import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.Tarea;
+import com.asiscontrol.entity.Alumno;
+import com.asiscontrol.entity.NotaTareaSinEntrega;
+import com.asiscontrol.entity.DevolucionTareaSinEntrega;
 import com.asiscontrol.entity.enums.EstadoPublicacionTarea;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.EstadoTarea;
@@ -41,6 +46,7 @@ import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
@@ -97,8 +103,9 @@ public class TareaService {
         tarea.setFechaLimite(request.fechaLimite());
         tarea.setPuntajeMaximo(20);
         tarea.setPuntajeMaximoFijo(true);
+        tarea.setModeloCualitativo(true);
         configurarEvaluacion(tarea, request.cuentaParaResultadoAcademico(), request.idEvaluacionAcademica(),
-                request.competenciasSinPeso(), request.nuevaEvaluacion());
+                request.competenciasSinPeso(), request.nuevaEvaluacion(), request.fechaLimite());
         tarea.setMaxArchivosEntrega(request.maxArchivosEntrega());
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.BORRADOR);
@@ -142,8 +149,8 @@ public class TareaService {
         }
         String anterior = describir(tarea);
         configurarEvaluacion(tarea, request.cuentaParaResultadoAcademico(), request.idEvaluacionAcademica(),
-                request.competenciasSinPeso(), request.nuevaEvaluacion());
-        if (tarea.isPuntajeMaximoFijo() && request.puntajeMaximo() != 20) {
+                request.competenciasSinPeso(), request.nuevaEvaluacion(), request.fechaLimite());
+        if (tarea.isPuntajeMaximoFijo() && request.puntajeMaximo() != null && request.puntajeMaximo() != 20) {
             throw new BusinessRuleException("TAREA_PUNTAJE_FIJO", "El puntaje máximo de esta tarea es 20.", "puntajeMaximo");
         }
 
@@ -151,7 +158,7 @@ public class TareaService {
         tarea.setDescripcion(request.descripcion().trim());
         tarea.setFechaPublicacion(fechaPublicacion);
         tarea.setFechaLimite(request.fechaLimite());
-        tarea.setPuntajeMaximo(request.puntajeMaximo());
+        if (request.puntajeMaximo() != null) tarea.setPuntajeMaximo(request.puntajeMaximo());
         tarea.setMaxArchivosEntrega(request.maxArchivosEntrega());
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         int recalculadas = publicada && cambiaLimite ? recalcularEntregas(tarea) : 0;
@@ -163,7 +170,8 @@ public class TareaService {
     }
 
     private void configurarEvaluacion(Tarea tarea, Boolean cuenta, Long idEvaluacion, CompetenciasSinPeso sinPeso,
-                                       com.asiscontrol.dto.tarea.TareaDtos.EvaluacionParaTarea nueva) {
+                                       com.asiscontrol.dto.tarea.TareaDtos.EvaluacionParaTarea nueva,
+                                       LocalDateTime fechaLimite) {
         boolean modificaVinculo = nueva != null || sinPeso != null || idEvaluacion != null
                 || (cuenta != null && tarea.getEvaluacionAcademica() != null);
         if (modificaVinculo) {
@@ -172,6 +180,9 @@ public class TareaService {
                     .noneMatch(permiso -> "CALIFICACIONES_ESCRIBIR".equals(permiso.getAuthority()))) {
                 throw new AccessDeniedException("Se requiere permiso para gestionar calificaciones de la tarea.");
             }
+        }
+        if (tarea.isModeloCualitativo() && (nueva != null || sinPeso != null)) {
+            throw new BusinessRuleException("TAREA_EVALUACION_PREVIA_REQUERIDA", "Crea primero la evaluación y selecciona su borrador sin calificaciones.");
         }
         if (nueva != null) {
             if (!Boolean.TRUE.equals(cuenta) || idEvaluacion != null || sinPeso != null
@@ -185,7 +196,8 @@ public class TareaService {
             }
             var creada = evaluaciones.crear(new EvaluacionDto.Request(tarea.getAsignacionCurso().getId(),
                     tarea.getNombre(), null, nueva.tipoEvaluacion(),
-                    com.asiscontrol.entity.enums.PeriodoEvaluacion.PERIODO_ACADEMICO, nueva.fechaEvaluacion(), nueva.idsCompetencia()));
+                    com.asiscontrol.entity.enums.PeriodoEvaluacion.PERIODO_ACADEMICO,
+                    fechaAcademica(tarea, fechaLimite), nueva.idsCompetencia()));
             tarea.setEvaluacionAcademica(entityManager.getReference(Evaluacion.class, creada.id()));
             return;
         }
@@ -197,7 +209,8 @@ public class TareaService {
             }
             var creada = evaluaciones.crearSinPeso(new EvaluacionDto.Request(tarea.getAsignacionCurso().getId(),
                     tarea.getNombre(), null, com.asiscontrol.entity.enums.TipoEvaluacion.TRABAJO_ACADEMICO,
-                    com.asiscontrol.entity.enums.PeriodoEvaluacion.PERIODO_ACADEMICO, sinPeso.fechaEvaluacion(), sinPeso.idsCompetencia()));
+                    com.asiscontrol.entity.enums.PeriodoEvaluacion.PERIODO_ACADEMICO,
+                    fechaAcademica(tarea, fechaLimite), sinPeso.idsCompetencia()));
             tarea.setEvaluacionAcademica(entityManager.getReference(Evaluacion.class, creada.id()));
             return;
         }
@@ -208,7 +221,7 @@ public class TareaService {
         var anterior = tarea.getEvaluacionAcademica();
         if (Objects.equals(anterior == null ? null : anterior.getId(), idEvaluacion)) return;
         if (tarea.getEstadoPublicacion() != EstadoPublicacionTarea.BORRADOR
-                || (anterior != null && anterior.getEstado() != EstadoEvaluacion.BORRADOR)) {
+                || (anterior != null && (anterior.getEstado() != EstadoEvaluacion.BORRADOR || tieneCalificaciones(anterior.getId())))) {
             throw new BusinessRuleException("TAREA_VINCULO_NO_EDITABLE", "El vínculo académico ya no se puede modificar.");
         }
         if (idEvaluacion == null) {
@@ -216,9 +229,11 @@ public class TareaService {
             return;
         }
         var evaluacion = buscarActivo(Evaluacion.class, idEvaluacion, "EVALUACION_NO_ENCONTRADA", "evaluación");
+        entityManager.refresh(evaluacion, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         var asignacion = tarea.getAsignacionCurso();
         if (!asignacion.getId().equals(evaluacion.getAsignacionCurso().getId())
-                || !evaluacion.isCuentaResultado() || evaluacion.getEstado() == EstadoEvaluacion.ANULADA
+                || !evaluacion.isCuentaResultado() || !evaluacion.isModeloCualitativo()
+                || evaluacion.getEstado() != EstadoEvaluacion.BORRADOR || tieneCalificaciones(evaluacion.getId())
                 || evaluacion.getCompetencias().isEmpty()) {
             throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE",
                     "La evaluación debe pertenecer a la asignación, tener competencias y estar habilitada.");
@@ -231,6 +246,62 @@ public class TareaService {
             throw new ConflictException("EVALUACION_YA_VINCULADA", "La evaluación ya está vinculada a otra tarea.");
         }
         tarea.setEvaluacionAcademica(evaluacion);
+        evaluacion.setEntregaPorConfigurar(false);
+    }
+
+    private boolean tieneCalificaciones(Long evaluacion) {
+        return entityManager.createQuery("select count(c) from Calificacion c where c.evaluacion.id = :evaluacion", Long.class)
+                .setParameter("evaluacion", evaluacion).getSingleResult() > 0;
+    }
+
+    private Tarea tareaParaResultados(Long id) {
+        var tarea = bloquearTareaActiva(id);
+        accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
+        if (tarea.getEvaluacionAcademica() == null || tarea.getEstadoPublicacion() == EstadoPublicacionTarea.BORRADOR
+                || tarea.getEstadoPublicacion() == EstadoPublicacionTarea.ARCHIVADA) {
+            throw new BusinessRuleException("TAREA_NO_CALIFICABLE", "La tarea no está habilitada para gestionar resultados académicos.");
+        }
+        return tarea;
+    }
+
+    @Transactional
+    public List<CalificacionDto.Response> calificarEntregas(Long id, CalificacionDto.CargaLoteRequest request) {
+        var tarea = tareaParaResultados(id);
+        var estados = entregaRepository.findAllByTareaIdAndActivoTrue(id).stream()
+                .collect(java.util.stream.Collectors.toMap(entrega -> entrega.getAlumno().getId(), EntregaTarea::getEstado));
+        if (request.calificaciones().stream().anyMatch(nota ->
+                estados.get(nota.idAlumno()) == EstadoTarea.ANULADO
+                        || (!estados.containsKey(nota.idAlumno()) && tarea.getEstadoPublicacion() != EstadoPublicacionTarea.CERRADA))) {
+            throw new BusinessRuleException("TAREA_ENTREGA_REQUERIDA", "El estudiante debe tener una entrega válida o la recepción debe estar cerrada.");
+        }
+        return registro.registrarLote(request, tarea.getId());
+    }
+
+    @Transactional
+    public List<CalificacionDto.Response> corregirResultados(Long id, CalificacionDto.CorreccionRequest request) {
+        return registro.corregir(request, tareaParaResultados(id).getId());
+    }
+
+    @Transactional
+    public void quitarCalificacion(Long id, Long calificacion, Long version) {
+        tareaParaResultados(id);
+        registro.eliminar(calificacion, id, version);
+    }
+
+    @Transactional
+    public EvaluacionDto.Response publicarResultados(Long id) {
+        var tarea = tareaParaResultados(id);
+        return evaluaciones.cambiarEstado(tarea.getEvaluacionAcademica().getId(), EstadoEvaluacion.PUBLICADA, id);
+    }
+
+    private java.time.LocalDate fechaAcademica(Tarea tarea, LocalDateTime fechaLimite) {
+        var fecha = fechaLimite.toLocalDate();
+        try {
+            evaluaciones.validarFechaEvaluacion(fecha, tarea.getAsignacionCurso().getSeccion().getAnioAcademico());
+        } catch (com.asiscontrol.exception.FormFieldException error) {
+            throw new com.asiscontrol.exception.FormFieldException("fechaLimite", error.getMessage());
+        }
+        return fecha;
     }
 
     private void validarCambiosConEntregas(
@@ -246,7 +317,8 @@ public class TareaService {
                     "La tarea ya tiene entregas: indique el motivo del cambio de fecha límite", "motivo");
         }
         BigDecimal notaMaxima = entregaRepository.maxNotaPorTarea(tarea.getId());
-        if (notaMaxima != null && BigDecimal.valueOf(request.puntajeMaximo()).compareTo(notaMaxima) < 0) {
+        if (notaMaxima != null && request.puntajeMaximo() != null
+                && BigDecimal.valueOf(request.puntajeMaximo()).compareTo(notaMaxima) < 0) {
             throw new BusinessRuleException(
                     "TAREA_PUNTAJE_MENOR_A_NOTAS",
                     "El puntaje máximo no puede ser menor que una nota ya registrada (" + notaMaxima + ")",
@@ -274,9 +346,14 @@ public class TareaService {
 
     @Transactional
     public TareaResponse publicar(Long id) {
-        Tarea tarea = obtenerEntidad(id);
+        Tarea tarea = bloquearTareaActiva(id);
         accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
         exigirEstado(tarea, EstadoPublicacionTarea.BORRADOR, "La tarea debe estar en borrador para publicarse");
+        var evaluacion = tarea.getEvaluacionAcademica();
+        if (evaluacion != null && (!evaluacion.isActivo() || evaluacion.getEstado() == EstadoEvaluacion.ANULADA)) {
+            throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE",
+                    "La evaluación vinculada ya no está disponible para activar la actividad.");
+        }
         LocalDateTime ahora = LocalDateTime.now();
         if (!tarea.getFechaLimite().isAfter(ahora)) {
             throw new BusinessRuleException("TAREA_FECHA_LIMITE_VENCIDA", "No se puede publicar una tarea ya vencida");
@@ -336,12 +413,18 @@ public class TareaService {
     public void eliminar(Long id, String motivoRecibido) {
         Tarea tarea = obtenerEntidad(id);
         accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
+        entityManager.refresh(tarea, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         long entregas = entregaRepository.countByTareaIdAndActivoTrue(id);
         String motivo = normalizar(motivoRecibido);
         if (entregas > 0 && motivo == null) {
             throw new BusinessRuleException(
                     "TAREA_MOTIVO_REQUERIDO",
                     "La tarea ya tiene entregas: indique el motivo de la eliminación", "motivo");
+        }
+        var evaluacion = tarea.getEvaluacionAcademica();
+        if (evaluacion != null && entregas == 0 && tarea.getEstadoPublicacion() == EstadoPublicacionTarea.BORRADOR
+                && evaluacion.getEstado() == EstadoEvaluacion.BORRADOR && !tieneCalificaciones(evaluacion.getId())) {
+            tarea.setEvaluacionAcademica(null);
         }
         tarea.setActivo(false);
         tareaRepository.save(tarea);
@@ -356,6 +439,9 @@ public class TareaService {
 
     public Page<TareaResponse> listar(
             Long asignacionCursoId,
+            Long cursoId,
+            EstadoPublicacionTarea estado,
+            String search,
             Long personaDocenteId,
             Long personaAlumnoId,
             Long personaApoderadoId,
@@ -363,6 +449,9 @@ public class TareaService {
     ) {
         return tareaRepository.buscarVisibles(
                         asignacionCursoId,
+                        cursoId,
+                        estado,
+                        search == null ? "" : search.strip().toLowerCase(java.util.Locale.ROOT),
                         personaDocenteId,
                         personaAlumnoId,
                         personaApoderadoId,
@@ -377,7 +466,9 @@ public class TareaService {
     }
 
     public CerosFaltantes previsualizarCeros(Long id) {
-        return resumirCeros(cerosPendientes(obtenerEntidad(id)));
+        var tarea = obtenerEntidad(id);
+        exigirFlujoHistoricoDeCeros(tarea);
+        return resumirCeros(cerosPendientes(tarea));
     }
 
     @Transactional
@@ -385,6 +476,7 @@ public class TareaService {
         var tarea = obtenerEntidad(id);
         entityManager.lock(tarea, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
+        exigirFlujoHistoricoDeCeros(tarea);
         if (tarea.getEvaluacionAcademica() != null) {
             entityManager.refresh(tarea.getEvaluacionAcademica(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         }
@@ -393,15 +485,28 @@ public class TareaService {
         if (resumen.estudiantes() != estudiantesEsperados) {
             throw new ConflictException("TAREA_FALTANTES_CAMBIARON", "Consulta de nuevo cuántos estudiantes faltan.");
         }
-        registro.registrarLote(new CalificacionDto.CargaLoteRequest(notas));
+        registro.registrarLote(new CalificacionDto.CargaLoteRequest(notas), id);
         auditoria.registrar("CALIFICAR_TAREA_FALTANTES_CON_CERO", ModuloAuditoria.TAREAS, "Tarea",
                 tarea.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "estudiantes=" + resumen.estudiantes() + ",calificaciones=" + resumen.calificaciones());
         return resumen;
     }
 
+    private void exigirFlujoHistoricoDeCeros(Tarea tarea) {
+        accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
+        if (tarea.isModeloCualitativo() || tarea.getEvaluacionAcademica() != null && tarea.getEvaluacionAcademica().isModeloCualitativo()) {
+            throw new BusinessRuleException("NIVEL_CUALITATIVO_REQUERIDO", "Usa Calificar sin entrega y selecciona AD, A, B o C.");
+        }
+    }
+
     public com.asiscontrol.dto.tarea.TareaDtos.SinEntregaDisponible sinEntrega(Long id) {
         var tarea = obtenerEntidad(id);
+        if (tarea.getEvaluacionAcademica() == null) {
+            var alumnos = alumnosSinEntregaCalificable(tarea).stream().map(alumno ->
+                    new com.asiscontrol.dto.tarea.TareaDtos.SinEntregaAlumno(alumno.getId(), alumno.getPersona().nombreCompleto(),
+                            alumno.getCodigoAlumno(), List.of())).toList();
+            return new com.asiscontrol.dto.tarea.TareaDtos.SinEntregaDisponible(alumnos, List.of(), tarea.getPuntajeMaximo(), tarea.isModeloCualitativo());
+        }
         var porAlumno = cerosPendientes(tarea).stream().collect(java.util.stream.Collectors.groupingBy(
                 CalificacionDto.Request::idAlumno, java.util.stream.Collectors.mapping(
                         CalificacionDto.Request::idCompetencia, java.util.stream.Collectors.toList())));
@@ -413,34 +518,163 @@ public class TareaService {
         var competencias = tarea.getEvaluacionAcademica().getCompetencias().stream()
                 .map(competencia -> new com.asiscontrol.dto.tarea.TareaDtos.SinEntregaCompetencia(
                         competencia.getId(), competencia.getNombre())).toList();
-        return new com.asiscontrol.dto.tarea.TareaDtos.SinEntregaDisponible(alumnos, competencias, Math.min(20, tarea.getPuntajeMaximo()));
+        return new com.asiscontrol.dto.tarea.TareaDtos.SinEntregaDisponible(alumnos, competencias, Math.min(20, tarea.getPuntajeMaximo()),
+                tarea.getEvaluacionAcademica().isModeloCualitativo());
     }
 
     @Transactional
     public CerosFaltantes calificarSinEntrega(Long id, com.asiscontrol.dto.tarea.TareaDtos.SinEntregaRequest request) {
-        var tarea = obtenerEntidad(id);
+        String observacion = normalizar(request.observacion());
+        var tarea = bloquearTareaActiva(id);
         accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
-        entityManager.refresh(tarea, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if (tarea.getEvaluacionAcademica() != null) {
-            entityManager.refresh(tarea.getEvaluacionAcademica(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        int maximo = tarea.getEvaluacionAcademica() == null ? tarea.getPuntajeMaximo() : Math.min(20, tarea.getPuntajeMaximo());
+        boolean cualitativa = tarea.getEvaluacionAcademica() == null ? tarea.isModeloCualitativo()
+                : tarea.getEvaluacionAcademica().isModeloCualitativo();
+        if (cualitativa ? request.nivelLogro() == null || request.nota() != null
+                : request.nota() == null || request.nivelLogro() != null) {
+            throw new BusinessRuleException("TAREA_CALIFICACION_INCOMPATIBLE",
+                    cualitativa ? "Selecciona un nivel AD, A, B o C." : "Registra el puntaje histórico de la tarea.");
         }
-        if (request.nota().compareTo(BigDecimal.valueOf(Math.min(20, tarea.getPuntajeMaximo()))) > 0) {
+        if (request.nota() != null && request.nota().compareTo(BigDecimal.valueOf(maximo)) > 0) {
             throw new BusinessRuleException("TAREA_NOTA_INVALIDA", "La nota supera el puntaje máximo de la tarea.");
+        }
+        if (tarea.getEvaluacionAcademica() == null) {
+            if (!request.competencias().isEmpty()) {
+                throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE", "Esta tarea se califica sin seleccionar competencias.");
+            }
+            var alumnos = alumnosSinEntregaCalificable(tarea).stream()
+                    .filter(alumno -> request.alumnos().contains(alumno.getId())).toList();
+            if (alumnos.size() != request.alumnos().size()) {
+                throw new ConflictException("TAREA_FALTANTES_CAMBIARON", "Hay estudiantes que ya no admiten la calificación. Actualiza la selección.");
+            }
+            alumnos.forEach(alumno -> entityManager.persist(new com.asiscontrol.entity.NotaTareaSinEntrega(
+                    tarea, alumno, request.nota(), request.nivelLogro(), observacion)));
+            auditarCalificacionSinEntrega(id, request);
+            return new CerosFaltantes(alumnos.size(), alumnos.size());
+        }
+        if (request.competencias().isEmpty()) {
+            throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE", "Selecciona las competencias que deseas calificar.");
         }
         var notas = cerosPendientes(tarea).stream()
                 .filter(nota -> request.alumnos().contains(nota.idAlumno()) && request.competencias().contains(nota.idCompetencia()))
                 .map(nota -> new CalificacionDto.Request(nota.idEvaluacion(), nota.idAlumno(), nota.idCompetencia(),
-                        null, null, request.nota())).toList();
-        if (notas.size() != (long) request.alumnos().size() * request.competencias().size()) {
+                        request.nivelLogro(), observacion, request.nota(), -1L)).toList();
+        if (notas.stream().map(CalificacionDto.Request::idAlumno).distinct().count() != request.alumnos().size()) {
             throw new ConflictException("TAREA_FALTANTES_CAMBIARON",
                     "Hay estudiantes o competencias que ya no admiten la calificación. Actualiza la selección.");
         }
-        registro.registrarLote(new CalificacionDto.CargaLoteRequest(notas));
+        registro.registrarLote(new CalificacionDto.CargaLoteRequest(notas), id);
         var resumen = resumirCeros(notas);
+        auditarCalificacionSinEntrega(id, request);
+        return resumen;
+    }
+
+    public RevisionSinEntrega revisionSinEntrega(Long id, Long alumno) {
+        var tarea = obtenerEntidad(id);
+        verificarRevisionSinEntrega(tarea, alumno, false);
+        var calificacion = notaSinEntrega(id, alumno);
+        var devolucion = entityManager.find(DevolucionTareaSinEntrega.class, new DevolucionTareaSinEntrega.Clave(id, alumno));
+        return new RevisionSinEntrega(calificacion == null ? null : calificacion.getNota(),
+                calificacion == null ? null : calificacion.getNivelLogro(),
+                calificacion == null ? null : calificacion.getObservacion(),
+                devolucion == null ? null : devolucion.getComentario());
+    }
+
+    @Transactional
+    public void guardarNivelSinEntrega(Long id, Long alumno, NivelSinEntregaRequest request) {
+        var tarea = tareaParaRevisionSinEntrega(id, alumno);
+        if (tarea.getEvaluacionAcademica() != null) {
+            throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE", "Registra el nivel de cada competencia en la evaluación vinculada.");
+        }
+        if (tarea.isModeloCualitativo() ? request.nivelLogro() == null || request.nota() != null
+                : request.nivelLogro() != null || request.nota() == null || request.nota().compareTo(BigDecimal.valueOf(tarea.getPuntajeMaximo())) > 0) {
+            throw new BusinessRuleException("TAREA_CALIFICACION_INCOMPATIBLE", "Selecciona un nivel o un puntaje válido para esta tarea.");
+        }
+        var nota = notaSinEntrega(id, alumno);
+        String anterior = nota == null ? null : describirNivelSinEntrega(alumno, nota.getNota(), nota.getNivelLogro(), nota.getObservacion());
+        var observacion = normalizar(request.observacion());
+        if (nota == null) {
+            entityManager.persist(new NotaTareaSinEntrega(tarea, entityManager.getReference(Alumno.class, alumno),
+                    request.nota(), request.nivelLogro(), observacion));
+        } else {
+            nota.actualizar(request.nota(), request.nivelLogro(), observacion);
+        }
+        auditoria.registrar("CALIFICAR_TAREA_SIN_ENTREGA", ModuloAuditoria.TAREAS, "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
+                describirNivelSinEntrega(alumno, request.nota(), request.nivelLogro(), observacion));
+    }
+
+    private String describirNivelSinEntrega(Long alumno, BigDecimal nota, com.asiscontrol.entity.enums.NivelLogro nivel,
+                                           String observacion) {
+        return "alumno=" + alumno + ",nota=" + nota + ",nivel=" + nivel + ",observacion=" + observacion;
+    }
+
+    @Transactional
+    public void guardarDevolucionSinEntrega(Long id, Long alumno, String comentario) {
+        tareaParaRevisionSinEntrega(id, alumno);
+        var clave = new DevolucionTareaSinEntrega.Clave(id, alumno);
+        var devolucion = entityManager.find(DevolucionTareaSinEntrega.class, clave);
+        String anterior = devolucion == null ? null : "alumno=" + alumno + ",devolucion=" + devolucion.getComentario();
+        String texto = normalizar(comentario);
+        if (texto == null) {
+            if (devolucion != null) entityManager.remove(devolucion);
+        } else if (devolucion == null) {
+            entityManager.persist(new DevolucionTareaSinEntrega(clave, texto));
+        } else {
+            devolucion.setComentario(texto);
+        }
+        auditoria.registrar("DEVOLUCION_TAREA_SIN_ENTREGA", ModuloAuditoria.TAREAS, "Tarea",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, "alumno=" + alumno + ",devolucion=" + texto);
+    }
+
+    private Tarea tareaParaRevisionSinEntrega(Long id, Long alumno) {
+        var tarea = bloquearTareaActiva(id);
+        verificarRevisionSinEntrega(tarea, alumno, true);
+        return tarea;
+    }
+
+    private Tarea bloquearTareaActiva(Long id) {
+        return tareaRepository.buscarActivaParaPublicar(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TAREA_NO_ENCONTRADA", "No existe una tarea activa con id " + id));
+    }
+
+    private void verificarRevisionSinEntrega(Tarea tarea, Long alumno, boolean escritura) {
+        accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
+        var estado = tarea.getEstadoPublicacion();
+        if ((estado != EstadoPublicacionTarea.CERRADA && (escritura || estado != EstadoPublicacionTarea.ARCHIVADA))
+                || entregaRepository.existsByTareaIdAndAlumnoIdAndActivoTrue(tarea.getId(), alumno)
+                || !matriculas.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(alumno,
+                        tarea.getAsignacionCurso().getSeccion().getId(), com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA)) {
+            throw new BusinessRuleException("TAREA_REVISION_SIN_ENTREGA_NO_DISPONIBLE", "La revisión requiere una tarea cerrada y un estudiante matriculado sin entrega.");
+        }
+    }
+
+    private NotaTareaSinEntrega notaSinEntrega(Long tarea, Long alumno) {
+        return entityManager.createQuery("""
+                select n from NotaTareaSinEntrega n where n.tarea.id = :tarea and n.alumno.id = :alumno
+                """, NotaTareaSinEntrega.class).setParameter("tarea", tarea).setParameter("alumno", alumno)
+                .getResultList().stream().findFirst().orElse(null);
+    }
+
+    private void auditarCalificacionSinEntrega(Long id, com.asiscontrol.dto.tarea.TareaDtos.SinEntregaRequest request) {
         auditoria.registrar("CALIFICAR_TAREA_SIN_ENTREGA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, null,
-                "nota=" + request.nota() + ",estudiantes=" + request.alumnos() + ",competencias=" + request.competencias());
-        return resumen;
+                "nota=" + request.nota() + ",nivel=" + request.nivelLogro()
+                        + ",estudiantes=" + request.alumnos() + ",competencias=" + request.competencias());
+    }
+
+    private List<com.asiscontrol.entity.Alumno> alumnosSinEntregaCalificable(Tarea tarea) {
+        accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
+        if (tarea.getEstadoPublicacion() != EstadoPublicacionTarea.CERRADA) {
+            throw new BusinessRuleException("TAREA_CEROS_NO_DISPONIBLES", "La tarea debe estar cerrada.");
+        }
+        var excluidos = entregaRepository.findAllByTareaIdAndActivoTrue(tarea.getId()).stream()
+                .map(item -> item.getAlumno().getId()).collect(java.util.stream.Collectors.toSet());
+        excluidos.addAll(entityManager.createQuery(
+                "select n.alumno.id from NotaTareaSinEntrega n where n.tarea.id = :tarea and (n.nota is not null or n.nivelLogro is not null)", Long.class)
+                .setParameter("tarea", tarea.getId()).getResultList());
+        return matriculas.buscarAlumnosActivosDeSeccion(tarea.getAsignacionCurso().getSeccion().getId()).stream()
+                .filter(alumno -> !excluidos.contains(alumno.getId())).toList();
     }
 
     private List<CalificacionDto.Request> cerosPendientes(Tarea tarea) {
@@ -451,7 +685,7 @@ public class TareaService {
             throw new BusinessRuleException("TAREA_CEROS_NO_DISPONIBLES",
                     "La tarea debe estar cerrada y su evaluación vinculada debe seguir en borrador.");
         }
-        escalas.exigirVigente();
+        if (!evaluacion.isModeloCualitativo()) escalas.exigirVigente();
         var entregaron = entregaRepository.findAllByTareaIdAndActivoTrue(tarea.getId()).stream()
                 .map(item -> item.getAlumno().getId()).collect(java.util.stream.Collectors.toSet());
         record Celda(Long alumno, Long competencia) {}
@@ -483,7 +717,7 @@ public class TareaService {
                 tarea.getMaxArchivosEntrega(),
                 tarea.getEstadoPublicacion(),
                 tarea.getArchivos().stream().map(archivoService::mapResponse).toList(),
-                tarea.getVersion(), tarea.isPuntajeMaximoFijo(), evaluacionAcademica(tarea));
+                tarea.getVersion(), tarea.isPuntajeMaximoFijo(), tarea.isModeloCualitativo(), evaluacionAcademica(tarea));
     }
 
     private EvaluacionAcademica evaluacionAcademica(Tarea tarea) {
@@ -503,8 +737,11 @@ public class TareaService {
             return List.of();
         }
         var academica = evaluacionAcademica(tarea);
+        var dinamica = reglas.vigente(tarea.getAsignacionCurso())
+                .filter(regla -> regla.getFormula() == com.asiscontrol.entity.ReglaCalificacion.Formula.CUALITATIVA_DINAMICA_V1);
+        var pesos = dinamica.map(regla -> reglas.pesosDinamicos(evaluacion, regla)).orElseGet(Map::of);
         var cantidades = new HashMap<Long, Long>();
-        if (academica.pesoComponente() != null) {
+        if (dinamica.isEmpty() && academica.pesoComponente() != null) {
             calificaciones.contarPorComponente(tarea.getAsignacionCurso().getId(), evaluacion.getTipoEvaluacion()).stream()
                     .filter(item -> alumnoId.equals(item.getAlumno()))
                     .forEach(item -> cantidades.put(item.getCompetencia(), item.getCantidad()));
@@ -512,7 +749,8 @@ public class TareaService {
         return calificaciones.findAllByEvaluacionIdAndAlumnoIdAndActivoTrue(evaluacion.getId(), alumnoId).stream()
                 .filter(nota -> evaluacion.getCompetencias().contains(nota.getCompetencia()))
                 .map(nota -> new ResultadoCompetencia(nota.getCompetencia().getNombre(), nota.getNivelLogro(),
-                        academica.pesoComponente() == null ? null : ReglaCalificacionService.pesoEfectivo(
+                        dinamica.isPresent() ? pesos.get(nota.getCompetencia().getId())
+                                : academica.pesoComponente() == null ? null : ReglaCalificacionService.pesoEfectivo(
                                 academica.pesoComponente(), cantidades.getOrDefault(nota.getCompetencia().getId(), 0L))))
                 .toList();
     }

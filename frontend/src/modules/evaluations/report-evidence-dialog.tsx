@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { saveBlob } from "@/shared/lib/save-blob";
 import { Dialog, Feedback, Loading } from "@/shared/ui";
-import type { ProgressReportRow, ReportEvidence } from "./report-types";
-import { getReportEvidenceAttachment, getReportRowEvidence } from "./services/report-service";
+import type { ProgressReportRow, ReportEvidence, ReportContext } from "./report-types";
+import { getReportEvidenceAttachment, getReportRowEvidence, getPartialEvidenceAttachment, getPartialRowEvidence } from "./services/report-service";
 import { EvidenceFileCard } from "./evidence-file-card";
 import styles from "./evaluations.module.css";
 
@@ -19,7 +19,7 @@ function evidenceError(error: unknown, action: "consultar" | "descargar") {
   return `No se pudo ${action} el sustento. ${message(error)}`;
 }
 
-export function ReportEvidenceDialog({ row, onClose }: { row: ProgressReportRow; onClose: () => void }) {
+export function ReportEvidenceDialog({ row, partialContext, onClose }: { row: ProgressReportRow; partialContext?: ReportContext; onClose: () => void }) {
   const [result, setResult] = useState<{ evidence: ReportEvidence[] } | { error: string } | null>(null);
   const [downloadError, setDownloadError] = useState("");
   const [downloading, setDownloading] = useState<number | null>(null);
@@ -28,12 +28,13 @@ export function ReportEvidenceDialog({ row, onClose }: { row: ProgressReportRow;
   useEffect(() => {
     let current = true;
     active.current = true;
-    getReportRowEvidence(row).then(
+    (partialContext ? getPartialRowEvidence(partialContext, row.idEvaluacion, row.idCompetencia)
+      : getReportRowEvidence(row)).then(
       response => { if (current) setResult({ evidence: response.evidencias }); },
       error => { if (current) setResult({ error: evidenceError(error, "consultar") }); },
     );
     return () => { current = false; active.current = false; };
-  }, [row]);
+  }, [row, partialContext]);
 
   async function download(evidence: ReportEvidence) {
     if (!evidence.archivo || downloading !== null) return;
@@ -41,7 +42,8 @@ export function ReportEvidenceDialog({ row, onClose }: { row: ProgressReportRow;
     setDownloading(evidence.idEvidencia);
     setDownloadError("");
     try {
-      const file = await getReportEvidenceAttachment(row, evidence.idEvidencia);
+      const file = await (partialContext ? getPartialEvidenceAttachment(partialContext, row.idEvaluacion, row.idCompetencia, evidence.idEvidencia)
+        : getReportEvidenceAttachment(row, evidence.idEvidencia));
       if (active.current) saveBlob(file, filename);
     } catch (error) {
       if (active.current) setDownloadError(evidenceError(error, "descargar"));

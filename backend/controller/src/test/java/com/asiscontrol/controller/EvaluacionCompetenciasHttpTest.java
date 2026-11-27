@@ -234,6 +234,8 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
     @Test
     void corregirCreaNuevaVersionConservaHistorialYActualizaElConsolidado() throws Exception {
         JsonNode nota = publicada("C");
+        em.find(com.asiscontrol.entity.Evaluacion.class, nota.path("idEvaluacion").asLong()).setModeloCualitativo(false);
+        em.flush();
         String ruta = CALIFICACIONES + "/correcciones";
         long id = nota.path("id").asLong();
 

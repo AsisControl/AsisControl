@@ -1,3 +1,6 @@
+const weightFormat = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2 });
+export const formatWeight = (value: number) => `${weightFormat.format(value)} %`;
+
 export const stateLabel = (state: string) =>
   state
     .replaceAll("_", " ")

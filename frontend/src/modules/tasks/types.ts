@@ -6,8 +6,8 @@ export type EstadoPublicacionTarea =
   | "ARCHIVADA";
 
 export type CrearTareaRequest = {
-  nuevaEvaluacion?: { tipoEvaluacion: string; fechaEvaluacion: string; idsCompetencia: number[] };
-  competenciasSinPeso?: { fechaEvaluacion: string; idsCompetencia: number[] };
+  nuevaEvaluacion?: { tipoEvaluacion: string; idsCompetencia: number[] };
+  competenciasSinPeso?: { idsCompetencia: number[] };
   cuentaParaResultadoAcademico?: boolean;
   idEvaluacionAcademica?: number | null;
   asignacionCursoId: number;
@@ -15,7 +15,7 @@ export type CrearTareaRequest = {
   descripcion: string;
   fechaPublicacion: string | null;
   fechaLimite: string;
-  puntajeMaximo: number;
+  puntajeMaximo?: number;
   maxArchivosEntrega: number;
   archivoIds: number[];
 };
@@ -37,6 +37,11 @@ export type SeguimientoAlumno = {
   estado: EstadoEntrega;
   fechaHoraEntrega: string | null;
   nota: number | null;
+  nivelLogro?: "AD" | "A" | "B" | "C" | null;
+  tieneRespuesta: boolean;
+  cantidadArchivos: number;
+  competenciasCalificadas: number;
+  totalCompetencias: number;
 };
 
 /** Respuesta de GET /api/tareas/{id}/seguimiento: padrón completo de la sección. */
@@ -59,6 +64,7 @@ export type EntregaTareaResponse = {
   fechaHoraEntrega: string;
   archivos: ArchivoResponse[];
   nota: number | null;
+  nivelLogro?: "AD" | "A" | "B" | "C" | null;
   comentario: string | null;
   respuesta?: string | null;
   estado: EstadoEntrega;
@@ -66,7 +72,8 @@ export type EntregaTareaResponse = {
 };
 
 export type CalificarEntregaRequest = {
-  nota: number;
+  nota?: number;
+  nivelLogro?: "AD" | "A" | "B" | "C";
   comentario: string | null;
   version: number;
 };
@@ -90,6 +97,7 @@ export type ArchivoResponse = {
 
 export type TareaResponse = {
   puntajeMaximoFijo?: boolean;
+  modeloCualitativo?: boolean;
   evaluacionAcademica?: { id: number; titulo: string; estado: string; cuentaParaResultadoAcademico: boolean; componente: string | null; pesoComponente: number | null } | null;
   id: number;
   asignacionCursoId: number;

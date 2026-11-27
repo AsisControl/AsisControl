@@ -28,6 +28,8 @@ export function TaskTransitionDialog({ task, action, onClose, onRefresh, onSaved
   onSaved: (task: TareaResponse) => void;
 }) {
   const operation = operations[action];
+  const activating = action === "publicar" && !!task.evaluacionAcademica;
+  const actionLabel = activating ? "Activar actividad" : `${operation.label} tarea`;
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -56,16 +58,18 @@ export function TaskTransitionDialog({ task, action, onClose, onRefresh, onSaved
       setBusy(false);
     }
   }
-  return <Dialog title={`${operation.label} tarea`} description={task.nombre} busy={busy} onClose={onClose}>
+  return <Dialog title={actionLabel} description={task.nombre} busy={busy} onClose={onClose}>
     <div className={action === "cerrar" ? styles.closeMessage : undefined}>
-      <p>{operation.description}</p>
+      <p>{activating
+        ? "La tarea vinculada estará disponible para los estudiantes y habilitará la recepción de entregas. Las calificaciones se publican por separado."
+        : operation.description}</p>
       <Feedback error={error} />
     </div>
     {error && (action !== "cerrar" || requiresRefresh) && <button type="button" disabled={busy} onClick={onRefresh}>Actualizar listado</button>}
     <div className="form-actions">
       <button type="button" disabled={busy} onClick={onClose}>Cancelar</button>
       <button type="button" className="primary-action" disabled={busy || requiresRefresh} onClick={confirm}>
-        {busy ? "Procesando…" : `${operation.label} tarea`}
+        {busy ? "Procesando…" : actionLabel}
       </button>
     </div>
   </Dialog>;

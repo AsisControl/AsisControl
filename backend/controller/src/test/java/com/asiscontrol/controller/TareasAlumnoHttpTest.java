@@ -40,6 +40,41 @@ class TareasAlumnoHttpTest extends ApiIntegrationSupport {
         t.setPuntajeMaximo(20); em.persist(t); em.flush(); return t;
     }
 
+    @Test void activarUnaTareaVinculadaHabilitaEntregasConCalificacionesEnBorrador() throws Exception {
+        var evaluacion = new Evaluacion();
+        evaluacion.setAsignacionCurso(assignment);
+        evaluacion.setTitulo("Evaluación con entrega");
+        evaluacion.setTipoEvaluacion(TipoEvaluacion.EXAMEN);
+        evaluacion.setPeriodoEvaluacion(PeriodoEvaluacion.PERIODO_ACADEMICO);
+        evaluacion.setFechaEvaluacion(java.time.LocalDate.of(2090, 3, 10));
+        evaluacion.setPonderacionPorcentaje(java.math.BigDecimal.valueOf(100));
+        evaluacion.setModeloCualitativo(true);
+        evaluacion.setCompetencias(new java.util.LinkedHashSet<>(Set.of(competence)));
+        em.persist(evaluacion);
+        var tarea = task("Actividad vinculada", EstadoPublicacionTarea.BORRADOR);
+        tarea.setEvaluacionAcademica(evaluacion);
+        em.flush();
+        String path = "/api/tareas/" + tarea.getId();
+        String listado = "/api/alumnos/me/tareas";
+        var entrega = data("alumnoId", student.getId(), "respuesta", "Mi trabajo", "archivoIds", Set.of());
+
+        mvc.perform(get(listado).param("busqueda", "Actividad vinculada").with(asStudent(student)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(post(path + "/entregas").with(asStudent(student)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(entrega))).andExpect(status().is4xxClientError());
+
+        assertThat(request("POST", path + "/publicar", null, 200).path("estado").asText()).isEqualTo("PUBLICADA");
+        var detalle = getOk("/api/evaluaciones/" + evaluacion.getId());
+        assertThat(detalle.path("estadoActividadVinculada").asText()).isEqualTo("PUBLICADA");
+        assertThat(detalle.path("estado").asText()).isEqualTo("BORRADOR");
+        mvc.perform(get(listado).param("busqueda", "Actividad vinculada").with(asStudent(student)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].tarea.id").value(tarea.getId()));
+        mvc.perform(post(path + "/entregas").with(asStudent(student)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsBytes(entrega))).andExpect(status().isCreated());
+        assertThat(request("POST", path + "/publicar-calificaciones", null, 422).path("code").asText())
+                .isEqualTo("EVALUACION_INCOMPLETA");
+    }
+
     @Test void listaSoloTareasVisiblesDelAlumnoConFiltrosYPaginacion() throws Exception {
         grade.getCursosPlan().put(course, new CursoEnPlan("Matemática y razonamiento", 4));
         task("Borrador", EstadoPublicacionTarea.BORRADOR);

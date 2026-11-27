@@ -98,8 +98,14 @@ public class EvaluacionController {
     /** US-18: alumnos de la seccion y sus niveles; nunca para alumnos ni apoderados. */
     @GetMapping("/{id}/planilla")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and @moduloAccessGuard.puedeGestionarEvaluacion(#id)")
-    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id) {
-        return evaluacionService.planilla(id);
+    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id, @RequestParam(required = false) Long idAlumno) {
+        return evaluacionService.planilla(id, idAlumno);
+    }
+
+    @PostMapping("/{id}/cancelar-entrega")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public EvaluacionDto.Response cancelarEntrega(@PathVariable Long id) {
+        return evaluacionService.cancelarEntrega(id);
     }
 
     @GetMapping("/{id}")

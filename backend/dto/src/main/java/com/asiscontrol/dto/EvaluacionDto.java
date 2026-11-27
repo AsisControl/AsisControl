@@ -33,8 +33,13 @@ public final class EvaluacionDto {
             @NotNull TipoEvaluacion tipoEvaluacion,
             @NotNull PeriodoEvaluacion periodoEvaluacion,
             @NotNull LocalDate fechaEvaluacion,
-            @NotEmpty Set<@NotNull Long> idsCompetencia
+            @NotEmpty Set<@NotNull Long> idsCompetencia,
+            Boolean permitirEntrega
     ) {
+        public Request(Long idAsignacionCurso, String titulo, String descripcion, TipoEvaluacion tipoEvaluacion,
+                       PeriodoEvaluacion periodoEvaluacion, LocalDate fechaEvaluacion, Set<Long> idsCompetencia) {
+            this(idAsignacionCurso, titulo, descripcion, tipoEvaluacion, periodoEvaluacion, fechaEvaluacion, idsCompetencia, null);
+        }
     }
 
     public record EstadoRequest(@NotNull EstadoEvaluacion estado) {
@@ -64,7 +69,11 @@ public final class EvaluacionDto {
             int anioAcademico,
             boolean reglaVigente,
             String componente,
-            BigDecimal pesoComponente
+            BigDecimal pesoComponente,
+            boolean modeloCualitativo,
+            boolean entregaPorConfigurar,
+            Long idTareaVinculada,
+            com.asiscontrol.entity.enums.EstadoPublicacionTarea estadoActividadVinculada
     ) {
     }
 

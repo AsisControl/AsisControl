@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { countLabel, dateLabel } from "@/shared/lib/formatters";
+import { countLabel, dateLabel, formatWeight } from "@/shared/lib/formatters";
 import { StatusPill } from "@/shared/ui";
-import type { ProgressReport, ProgressReportRow } from "./report-types";
+import type { ProgressReport, ProgressReportRow, ReportContext } from "./report-types";
 import { ReportEvidenceDialog } from "./report-evidence-dialog";
 import { STATE_TONES } from "./lib/labels";
 import styles from "./evaluations.module.css";
@@ -34,10 +34,11 @@ export function ReportBadge({ status }: { status: "BORRADOR" | "PUBLICADA" }) {
   return <StatusPill state={status} label={status} tone={status === "BORRADOR" ? "warning" : "success"} />;
 }
 
-export function ReportContent({ report, draft = false, partial = false, sustento }: {
+export function ReportContent({ report, draft = false, partial = false, partialContext, sustento }: {
   report: ProgressReport;
   draft?: boolean;
   partial?: boolean;
+  partialContext?: ReportContext;
   sustento: "docente" | "publicado";
 }) {
   const [selection, setSelection] = useState<{ report: ProgressReport; row: ProgressReportRow } | null>(null);
@@ -55,6 +56,10 @@ export function ReportContent({ report, draft = false, partial = false, sustento
   const version = report.periodo.match(/^(.*) \| Version (\d+) \| (BORRADOR|PUBLICADA)$/);
   const status = version?.[3] === "BORRADOR" ? "BORRADOR" : version?.[3] === "PUBLICADA" ? "PUBLICADA" : undefined;
   const showEvidence = sustento === "docente" || status === "PUBLICADA";
+  const showNumbers = sustento === "docente";
+  const dynamic = report.reglaCalificacion?.formula === "CUALITATIVA_DINAMICA_V1";
+  const decimal = new Intl.NumberFormat("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const originalGrade = new Intl.NumberFormat("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 10 });
   const selectedRow = showEvidence && selection?.report === report ? selection.row : null;
   if (sustento === "publicado" && status === "BORRADOR") {
     return <p className={styles.reportNotice}>No hay una libreta publicada para este período y curso.</p>;
@@ -77,6 +82,14 @@ export function ReportContent({ report, draft = false, partial = false, sustento
   function resultTable(rows: ProgressReportRow[], groupedByCompetency: boolean, title: string) {
     return <div className={styles.reportGroupContent}>
       <table aria-label={title}>
+        <colgroup>
+          <col className={styles.reportSubjectColumn} />
+          {groupedByCompetency && <col className={styles.reportDateColumn} />}
+          <col className={styles.reportResultColumn} />
+          <col className={styles.reportWeightColumn} />
+          <col />
+          <col className={styles.reportEvidenceColumn} />
+        </colgroup>
         <thead><tr>{[...(groupedByCompetency ? ["Evaluación", "Fecha"] : ["Competencia"]), "Resultado", weightHeading, "Observación", "Sustento"]
           .map(label => <th key={label} scope="col" className={label === "Resultado" || label === weightHeading ? styles.reportNumeric : undefined}>{label}</th>)}</tr></thead>
         <tbody>{rows.map(row => <tr key={row.idDetalleInforme > 0 ? row.idDetalleInforme
@@ -84,15 +97,20 @@ export function ReportContent({ report, draft = false, partial = false, sustento
           <th scope="row">{groupedByCompetency ? <>{row.evaluacion}
             {row.tipoEvaluacion && <small className="hint"> · {EVALUATION_TYPES[row.tipoEvaluacion] ?? row.tipoEvaluacion}</small>}</> : row.competencia}</th>
           {groupedByCompetency && <td data-label="Fecha">{row.fecha}</td>}
-          <td data-label="Resultado" className={styles.reportNumeric}>{/^(AD|A|B|C)$/.test(row.resultado) ? <span className={styles.reportGrade}>{row.resultado}</span> : row.resultado}</td>
-          <td data-label={weightHeading} className={styles.reportNumeric}>{row.ponderacion}</td>
-          <td data-label="Observación" className={styles.reportObservation}>{row.observacion || "Sin observaciones"}</td>
+          <td data-label="Resultado" className={styles.reportNumeric}>{/^(AD|A|B|C)$/.test(row.resultado) ? <span className={styles.reportGrade}>{row.resultado}</span> : "—"}
+            {showNumbers && row.notaNumerica != null && <small className="hint"> · {originalGrade.format(row.notaNumerica)}</small>}</td>
+          <td data-label={weightHeading} className={styles.reportNumeric}>
+            {/^[\d.,]+\s*%$/.test(row.ponderacion) ? formatWeight(Number.parseFloat(row.ponderacion.replace(",", "."))) : row.ponderacion}
+            {row.pesoInstitucional != null && <small className={`hint ${styles.institutionalWeightLabel}`}>
+              Institucional: {formatWeight(row.pesoInstitucional)}
+            </small>}</td>
+          <td data-label="Observación" className={styles.reportObservation}>{row.observacion === "Sin observaciones" ? "" : row.observacion}</td>
           <td data-label="Sustento" className={styles.reportEvidenceAction}>
-            {showEvidence && row.tieneSustento === true && row.idInforme > 0 && row.idDetalleInforme > 0
+            {showEvidence && row.tieneSustento === true && (partialContext || (row.idInforme > 0 && row.idDetalleInforme > 0))
               ? <button type="button" className="secondary-action" aria-haspopup="dialog"
                 aria-label={`Ver sustento de ${row.competencia} en ${row.evaluacion}`}
                 onClick={() => setSelection({ report, row })}>Ver sustento</button>
-              : <span className="hint">{!partial && row.tieneSustento === false ? "Sin sustento registrado" : "Sustento no disponible"}</span>}
+              : <span className="hint">{row.tieneSustento === false ? "Sin sustento registrado" : "Sustento no disponible"}</span>}
           </td>
         </tr>)}</tbody>
       </table>
@@ -101,6 +119,8 @@ export function ReportContent({ report, draft = false, partial = false, sustento
 
   return <article className={`panel ${styles.reportDocument}`} aria-label="Informe de progreso por período">
     <header className={styles.reportCover}>
+      {!partial && !!evaluations.length && <button type="button" className={`secondary-action ${styles.reportViewToggle}`}
+        onClick={() => setEvaluationReport(evaluationView ? null : report)}>{evaluationView ? "Ver por competencia" : "Ver por evaluación"}</button>}
       {partial && <p>Informe parcial de progreso</p>}
       {partial && (report.reglaCalificacion || report.filas.some(row => row.numeroVersionEscala != null)) &&
         <div className={styles.consolidationVersions}>
@@ -128,26 +148,30 @@ export function ReportContent({ report, draft = false, partial = false, sustento
       {report.reglaCalificacion && <span>Regla v{report.reglaCalificacion.numeroVersion}</span>}
       {scaleVersions.map(version => <span key={version}>Escala institucional v{version}</span>)}
     </div>}
-    {!partial && !!evaluations.length && <button type="button" className="secondary-action"
-      onClick={() => setEvaluationReport(evaluationView ? null : report)}>{evaluationView ? "Ver por competencia" : "Ver por evaluación"}</button>}
+    <p className="hint">— indica que el resultado todavía no está disponible.</p>
     {(partial || !evaluationView) && (groups.size ? <section className={styles.reportResults}
       aria-label={partial ? "Resultados seleccionados" : "Consolidado por competencia"}>
       <div className={styles.reportCompetencies}>{[...groups].map(([key, { name, rows, summary }], index) =>
         <section className={styles.reportCompetency} key={key} aria-label={name}>
           <header><h3>{name}</h3>
             {summary && <StatusPill state={summary.nivelConsolidado ?? summary.estadoAvance ?? "PENDIENTE"}
-              label={summary.nivelConsolidado ?? (summary.estadoAvance === "NO_EVALUADA" ? "Aún no evaluada" : "Pendiente")}
+              label={summary.nivelConsolidado ?? "—"}
               tone={summary.nivelConsolidado ? "info" : summary.estadoAvance === "NO_EVALUADA" ? "neutral" : "warning"} />}
           </header>
-          {!!summary?.componentesFaltantes.length && <p className="hint">
-            {summary.estadoAvance ? summary.componentesFaltantes.join(" · ") : `Faltan resultados de ${summary.componentesFaltantes.join(" · ")}`}
-          </p>}
           {status === "PUBLICADA" && summary && report.conclusionesDescriptivas?.[summary.idCompetencia] && <p className={styles.conclusionText}>
             <strong>Conclusión descriptiva histórica</strong> {report.conclusionesDescriptivas[summary.idCompetencia]}
           </p>}
-          {!!rows.length && <details className={styles.resultDetails} open={partial && index === 0}>
+          {(summary || rows.length > 0) && <details className={styles.resultDetails} open={partial && index === 0}>
             <summary>Ver detalle del resultado<span className={styles.srOnly}> de {name}</span></summary>
-            {resultTable(rows, true, `Evaluaciones de ${name}`)}
+            {summary && <div className={styles.reportMeta}>
+              {showNumbers && <span>{dynamic ? "Resultado ponderado interno" : "Promedio ponderado"}: {summary.nivelConsolidado
+                && (dynamic || summary.numeroVersionEscala != null)
+                && summary.promedioPonderado != null ? decimal.format(summary.promedioPonderado) : "—"}</span>}
+              <span>Nivel de logro: {summary.nivelConsolidado ?? "—"}</span>
+              {!summary.nivelConsolidado && <span>{summary.estadoAvance === "NO_EVALUADA" ? "Aún no evaluada" : "Pendiente"}</span>}
+              {!!summary.componentesFaltantes.length && <span>{summary.componentesFaltantes.join(" · ")}</span>}
+            </div>}
+            {rows.length > 0 && resultTable(rows, true, `Evaluaciones de ${name}`)}
           </details>}
         </section>)}</div>
     </section> : <p>No hay resultados disponibles en este informe.</p>)}
@@ -189,7 +213,7 @@ export function ReportContent({ report, draft = false, partial = false, sustento
         </div>
       </nav>}
     </section>}
-    {selectedRow && <ReportEvidenceDialog key={`${selectedRow.idInforme}:${selectedRow.idDetalleInforme}`}
-      row={selectedRow} onClose={() => setSelection(null)} />}
+    {selectedRow && <ReportEvidenceDialog key={`${selectedRow.idInforme}:${selectedRow.idDetalleInforme}:${selectedRow.idEvaluacion}:${selectedRow.idCompetencia}`}
+      row={selectedRow} partialContext={partialContext} onClose={() => setSelection(null)} />}
   </article>;
 }

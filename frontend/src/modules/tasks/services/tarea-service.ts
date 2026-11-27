@@ -32,15 +32,17 @@ export type MissingDeliveries = {
   alumnos: { id: number; nombre: string; codigo: string | null; competencias: number[] }[];
   competencias: { id: number; nombre: string }[];
   maximo: number;
+  modeloCualitativo?: boolean;
 };
 
 export function listMissingDeliveries(id: number) {
   return api<MissingDeliveries>(`${TAREAS_PATH}/${id}/calificaciones-sin-entrega`);
 }
 
-export function gradeMissingDeliveries(id: number, alumnos: number[], competencias: number[], nota: string) {
+export function gradeMissingDeliveries(id: number, alumnos: number[], competencias: number[],
+    calificacion: ({ nota: string } | { nivelLogro: string }) & { observacion?: string }) {
   return api<MissingZeros>(`${TAREAS_PATH}/${id}/calificaciones-sin-entrega`, {
-    method: "POST", body: JSON.stringify({ alumnos, competencias, nota }),
+    method: "POST", body: JSON.stringify({ alumnos, competencias, ...calificacion }),
   });
 }
 

@@ -91,4 +91,11 @@ public class EntregaTareaController {
         return accessGuard.restriccionAlumnoPersonaId() != null || accessGuard.restriccionApoderadoPersonaId() != null
                 ? entrega.sinNotaNumerica() : entrega;
     }
+
+    @PutMapping("/entregas/{id}/devolucion")
+    @PreAuthorize("hasAuthority('TAREAS_ESCRIBIR')")
+    public EntregaTareaResponse devolver(@PathVariable Long id,
+            @Valid @RequestBody com.asiscontrol.dto.tarea.TareaDtos.DevolucionRequest request) {
+        return proyectar(entregaService.devolver(id, request));
+    }
 }

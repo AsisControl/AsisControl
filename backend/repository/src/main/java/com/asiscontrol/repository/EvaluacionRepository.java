@@ -63,7 +63,9 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
             WHERE e.activo = true
               AND (:estado IS NULL OR e.estado = :estado)
               AND (:vinculables = false OR (e.cuentaResultado = true
-                   AND e.estado <> com.asiscontrol.entity.enums.EstadoEvaluacion.ANULADA
+                   AND e.modeloCualitativo = true
+                   AND e.estado = com.asiscontrol.entity.enums.EstadoEvaluacion.BORRADOR
+                   AND NOT EXISTS (SELECT c.id FROM Calificacion c WHERE c.evaluacion = e)
                    AND NOT EXISTS (SELECT t.id FROM Tarea t WHERE t.evaluacionAcademica = e
                                    AND (:tareaActual IS NULL OR t.id <> :tareaActual))))
               AND (:idAsignacionCurso IS NULL OR e.asignacionCurso.id = :idAsignacionCurso)

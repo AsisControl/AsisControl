@@ -23,12 +23,19 @@ public record ReporteAvanceDto(
                        Long idCompetencia, Long idCalificacion,
                        String competencia, String evaluacion, String fecha,
                        String resultado, String ponderacion, String observacion,
-                       String tipoEvaluacion, String estadoEvaluacion, boolean tieneSustento, Integer numeroVersionEscala) {
+                       String tipoEvaluacion, String estadoEvaluacion, boolean tieneSustento, Integer numeroVersionEscala,
+                       @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                       java.math.BigDecimal notaNumerica, java.math.BigDecimal pesoInstitucional) {
         public Fila(Long idInforme, Long idDetalleInforme, Long idEvaluacion, Long idCompetencia, Long idCalificacion,
                     String competencia, String evaluacion, String fecha, String resultado, String ponderacion,
                     String observacion, String tipoEvaluacion, String estadoEvaluacion, boolean tieneSustento) {
             this(idInforme, idDetalleInforme, idEvaluacion, idCompetencia, idCalificacion, competencia, evaluacion,
-                    fecha, resultado, ponderacion, observacion, tipoEvaluacion, estadoEvaluacion, tieneSustento, null);
+                    fecha, resultado, ponderacion, observacion, tipoEvaluacion, estadoEvaluacion, tieneSustento, null, null, null);
+        }
+        Fila sinNotaNumerica() {
+            return new Fila(idInforme, idDetalleInforme, idEvaluacion, idCompetencia, idCalificacion,
+                    competencia, evaluacion, fecha, resultado, ponderacion, observacion, tipoEvaluacion,
+                    estadoEvaluacion, tieneSustento, numeroVersionEscala, null, pesoInstitucional);
         }
         public Fila(Long idInforme, Long idDetalleInforme, Long idEvaluacion, Long idCompetencia, Long idCalificacion,
                     String competencia, String evaluacion, String fecha, String resultado, String ponderacion,
@@ -40,7 +47,7 @@ public record ReporteAvanceDto(
 
     public ReporteAvanceDto sinPromediosNumericos() {
         return new ReporteAvanceDto(alumno, codigoAlumno, curso, docente, grado, seccion, anio, periodo, fechas,
-                generadoEn, filas, reglaCalificacion,
+                generadoEn, filas.stream().filter(fila -> !"BORRADOR".equals(fila.estadoEvaluacion())).map(Fila::sinNotaNumerica).toList(), reglaCalificacion,
                 consolidado.stream().map(CalificacionDto.ConsolidadoResponse::sinPromedioNumerico).toList(), null, conclusionesDescriptivas, List.of());
     }
 }

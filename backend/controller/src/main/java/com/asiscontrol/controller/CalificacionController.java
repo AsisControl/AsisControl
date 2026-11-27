@@ -124,7 +124,7 @@ public class CalificacionController {
             @RequestParam List<Long> idEvaluacion, @RequestParam(required = false) List<Long> idCompetencia) {
         var datos = reporteAvanceService.prepararParcial(idAlumno, idAsignacionCurso, idPeriodoAcademico, idEvaluacion, idCompetencia);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
-                .header("Content-Disposition", "attachment; filename=\"Informe_parcial_de_progreso.pdf\"")
+                .header("Content-Disposition", "attachment; filename=\"" + nombrePdf(datos, true) + "\"")
                 .cacheControl(CacheControl.noStore())
                 .body(generadorReporteAvance.generarParcialVigente(datos));
     }
@@ -138,7 +138,8 @@ public class CalificacionController {
             @RequestParam Long idPeriodoAcademico,
             @RequestParam(required = false) List<Long> idEvaluacion,
             @RequestParam(required = false) List<Long> idCompetencia) {
-        var datos = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        var reporte = reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico);
+        var datos = reporte.sinPromediosNumericos();
         var seleccionadas = idEvaluacion == null ? null : new HashSet<>(idEvaluacion);
         var competencias = idCompetencia == null ? null : new HashSet<>(idCompetencia);
         if (competencias != null && (seleccionadas == null || competencias.isEmpty())) {
@@ -155,8 +156,7 @@ public class CalificacionController {
             }
         }
         byte[] pdf = seleccionadas == null ? generadorReporteAvance.generar(datos) : generadorReporteAvance.generar(datos, seleccionadas, competencias);
-        String nombre = nombrePdf(datos);
-        if (seleccionadas != null) nombre = "Evaluaciones_seleccionadas_" + nombre;
+        String nombre = nombrePdf(datos, seleccionadas != null);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header("Content-Disposition", "attachment; filename=\"" + nombre + "\"")
@@ -164,13 +164,16 @@ public class CalificacionController {
                 .body(pdf);
     }
 
-    private static String nombrePdf(com.asiscontrol.dto.ReporteAvanceDto datos) {
+    private static String nombrePdf(com.asiscontrol.dto.ReporteAvanceDto datos, boolean parcial) {
         var version = java.util.regex.Pattern.compile(" \\| Version ([0-9]+) \\| PUBLICADA$").matcher(datos.periodo());
-        if (!version.find()) return "Avance.pdf";
-        String base = String.join("_", datos.alumno(), datos.curso(), datos.periodo().substring(0, version.start()));
+        boolean publicada = version.find();
+        String periodo = publicada ? datos.periodo().substring(0, version.start()) : datos.periodo();
+        String base = String.join("_", datos.alumno(), datos.curso(), periodo);
         String limpio = java.text.Normalizer.normalize(base, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").replaceAll("[^A-Za-z0-9]+", "_").replaceAll("^_+|_+$", "");
-        return "Avance_" + limpio.substring(0, Math.min(limpio.length(), 160)) + "_V" + version.group(1) + ".pdf";
+        return (parcial ? "Informe_parcial_" : "Informe_completo_")
+                + limpio.substring(0, Math.min(limpio.length(), 160))
+                + (publicada && !"1".equals(version.group(1)) ? "_V" + version.group(1) : "") + ".pdf";
     }
 
     @GetMapping
@@ -231,9 +234,15 @@ public class CalificacionController {
     @PreAuthorize("@moduloAccessGuard.puedeAccederAlumno(#idAlumno)")
     public List<CalificacionDto.ConsolidadoResponse> obtenerConsolidado(
             @RequestParam Long idAlumno,
-            @RequestParam(required = false) Long idAsignacionCurso
+            @RequestParam(required = false) Long idAsignacionCurso,
+            @RequestParam(required = false) Long idPeriodoAcademico
     ) {
-        var resultados = calificacionService.obtenerConsolidado(idAlumno, idAsignacionCurso);
+        if (idPeriodoAcademico != null && idAsignacionCurso == null) {
+            throw new BusinessRuleException("ASIGNACION_REQUERIDA", "Selecciona el curso y sección del período.");
+        }
+        var resultados = idPeriodoAcademico == null ? calificacionService.obtenerConsolidado(idAlumno, idAsignacionCurso)
+                : consultaFamiliar() ? reporteAvanceService.preparar(idAlumno, idAsignacionCurso, idPeriodoAcademico).consolidado()
+                : reporteAvanceService.consultarConsolidado(idAlumno, idAsignacionCurso, idPeriodoAcademico);
         return consultaFamiliar() ? resultados.stream().map(CalificacionDto.ConsolidadoResponse::sinPromedioNumerico).toList()
                 : resultados;
     }

@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
 import { Dialog, Feedback, Loading } from "@/shared/ui";
+import { VersionSelect } from "@/shared/ui/version-select";
 import styles from "./grading-rules-panel.module.css";
 
 const PATH = "/api/escala-institucional";
@@ -24,13 +25,7 @@ export function InstitutionalScalePanel({ canWrite }: { canWrite: boolean }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [started, setStarted] = useState(false);
-  const [base, setBase] = useState<Scale>();
-  const [replace, setReplace] = useState<Scale>();
-  function copyHistoricalScale(scale: Scale) {
-    setBase(scale);
-    setReplace(undefined);
-    setStarted(true);
-  }
+  const [resume, setResume] = useState(false);
   useEffect(() => {
     let active = true;
     api<Scale[]>(PATH).then(
@@ -54,30 +49,26 @@ export function InstitutionalScalePanel({ canWrite }: { canWrite: boolean }) {
   return <section className={styles.card} aria-label="Escala institucional">
     <header className={styles.scaleHeader}>
       <div><h4>Escala institucional</h4><p>Equivalencias de notas y niveles de logro para todo el colegio.</p></div>
-      {history && canWrite && !started && <button type="button" className="secondary-action"
-        onClick={() => { setBase(undefined); setStarted(true); }}>{draft ? "Continuar borrador" : current ? "Nueva versión" : "Configurar escala"}</button>}
+      {history && canWrite && !started && <div className={styles.actions}>
+        <button type="button" className="primary-action" onClick={() => { setResume(false); setStarted(true); }}>Nueva versión</button>
+        {draft && <button type="button" className="secondary-action" onClick={() => { setResume(true); setStarted(true); }}>Continuar borrador</button>}
+      </div>}
     </header>
     <Feedback error={error} success={success} />
     {!history && !error && <Loading variant="inline">Cargando escala institucional…</Loading>}
     {history && <div className={styles.workspace}>
       {current ? <ScaleDetails scale={current} expanded /> : <p className={styles.scaleEmpty}>Todavía no hay una escala vigente.</p>}
-      {canWrite && started && <ScaleEditor key={base?.id ?? "borrador"} draft={draft} base={base} onUpdate={update} onClose={() => setStarted(false)} />}
+      {canWrite && started && <ScaleEditor draft={draft} current={current} history={history.filter(scale => scale.estado === "HISTORICA")}
+        resume={resume} onUpdate={update} onClose={() => setStarted(false)} />}
       {history.some(scale => scale.estado === "HISTORICA") && <section aria-label="Historial de escalas" className={styles.history}>
         <h4>Historial de escalas</h4>
-        {history.filter(scale => scale.estado === "HISTORICA").map(scale => <ScaleDetails key={scale.id} scale={scale} action={canWrite && !started ? () => draft ? setReplace(scale) : copyHistoricalScale(scale) : undefined} />)}
+        {history.filter(scale => scale.estado === "HISTORICA").map(scale => <ScaleDetails key={scale.id} scale={scale} />)}
       </section>}
     </div>}
-    {replace && <Dialog title="¿Reemplazar los rangos del borrador?" role="alertdialog" onClose={() => setReplace(undefined)}>
-      <p>El borrador guardado se actualizará cuando guardes la copia.</p>
-      <div className={styles.confirmActions}>
-        <button type="button" onClick={() => setReplace(undefined)}>Cancelar</button>
-        <button type="button" className="primary-action" onClick={() => copyHistoricalScale(replace)}>Usar como base</button>
-      </div>
-    </Dialog>}
   </section>;
 }
 
-function ScaleDetails({ scale, expanded, action }: { scale: Scale; expanded?: boolean; action?: () => void }) {
+function ScaleDetails({ scale, expanded }: { scale: Scale; expanded?: boolean }) {
   const title = `Escala v${scale.numeroVersion} · ${STATUS[scale.estado]}`;
   const content = <div className={styles.scaleOverview}>
     <table className={styles.scaleTable}>
@@ -94,7 +85,7 @@ function ScaleDetails({ scale, expanded, action }: { scale: Scale; expanded?: bo
   </div>;
   return expanded ? <section className={styles.currentScale}>
     <h5>{title}</h5>{content}
-  </section> : <details><summary>{title}</summary>{content}{action && <button type="button" className="secondary-action" onClick={action}>Usar como base</button>}</details>;
+  </section> : <details><summary>{title}</summary>{content}</details>;
 }
 
 type Bounds = { minimo: string; maximo: string };
@@ -105,9 +96,14 @@ function toFields(ranges: Range[] = []) {
   })) as Record<Level, Bounds>;
 }
 
-function ScaleEditor({ draft, base, onUpdate, onClose }: { draft?: Scale; base?: Scale; onUpdate: (scale: Scale) => void; onClose: () => void }) {
-  const [fields, setFields] = useState(() => toFields(base?.rangos ?? draft?.rangos));
-  const [dirty, setDirty] = useState(Boolean(base));
+function ScaleEditor({ draft, current, history, resume, onUpdate, onClose }: {
+  draft?: Scale; current?: Scale; history: Scale[]; resume: boolean;
+  onUpdate: (scale: Scale) => void; onClose: () => void;
+}) {
+  const [source, setSource] = useState(resume ? "draft" : "new");
+  const [fields, setFields] = useState(() => toFields(resume ? draft?.rangos : undefined));
+  const [dirty, setDirty] = useState(false);
+  const [replace, setReplace] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [reason, setReason] = useState("");
@@ -128,11 +124,25 @@ function ScaleEditor({ draft, base, onUpdate, onClose }: { draft?: Scale; base?:
   const valid = !problem;
   const complete = valid && ranges.length === 4 && ranges[0].minimo === 0 && ranges[3].maximo === 20
     && ranges.slice(1).every(({ minimo }, index) => minimo === ranges[index].maximo + 1);
-  const canActivate = Boolean(draft) && complete && !dirty && !busy;
+  const matchesCurrent = Boolean(current && current.rangos.length === ranges.length && ranges.every(range =>
+    current.rangos.some(item => item.nivel === range.nivel && item.minimo === range.minimo && item.maximo === range.maximo)));
+  const matchesDraft = Boolean(draft && source !== "draft" && draft.rangos.length === ranges.length && ranges.every(range =>
+    draft.rangos.some(item => item.nivel === range.nivel && item.minimo === range.minimo && item.maximo === range.maximo)));
+  const canActivate = Boolean(draft) && source === "draft" && complete && !dirty && !busy && !matchesCurrent;
+
+  function choose(value: string) {
+    const base = value === "draft" ? draft : [current, ...history].find(item => String(item?.id) === value);
+    setFields(toFields(base?.rangos));
+    setSource(value);
+    setDirty(value !== "draft");
+    setError("");
+    setReplace(null);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || (confirm ? !canActivate || !reason.trim() : !valid)) return;
+    if (busy || (confirm ? !canActivate || !reason.trim() : !valid || matchesCurrent)) return;
+    if (!confirm && matchesDraft) { choose("draft"); return; }
     setBusy(true);
     setError("");
     try {
@@ -145,13 +155,21 @@ function ScaleEditor({ draft, base, onUpdate, onClose }: { draft?: Scale; base?:
           });
       setConfirm(false);
       setFields(toFields(scale.rangos));
+      setSource("draft");
       setDirty(false);
       onUpdate(scale);
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(false); }
   }
 
-  return <>
+  return <><Dialog title="Editor de escala institucional" size="lg" busy={busy} active={!discard && !confirm && replace === null}
+    onClose={() => dirty ? setDiscard(true) : onClose()}>
+    <VersionSelect value={source} options={[
+      { value: "new", label: "Empezar desde cero" },
+      ...(draft ? [{ value: "draft", label: "Continuar borrador" }] : []),
+      ...(current ? [{ value: String(current.id), label: "Copiar escala vigente" }] : []),
+      ...history.map(item => ({ value: String(item.id), label: `Recuperar versión ${item.numeroVersion} · Histórica${item.fechaAplicacion ? ` · ${dateFormat.format(new Date(item.fechaAplicacion))}` : ""}` })),
+    ]} onChange={value => dirty || draft && value !== "draft" ? setReplace(value) : choose(value)} />
     <form onSubmit={submit} className={`${styles.editor} ${styles.scaleEditor}`} aria-label="Borrador de escala">
       <h4>{draft ? `Borrador de escala v${draft.numeroVersion}` : "Nueva escala institucional"}</h4>
       <table className={styles.scaleTable}>
@@ -173,14 +191,23 @@ function ScaleEditor({ draft, base, onUpdate, onClose }: { draft?: Scale; base?:
       </p>}
       {!confirm && <Feedback error={error} />}
       <div className={styles.actions}>
-        <button type="button" className="secondary-action" disabled={busy} onClick={() => dirty ? setDiscard(true) : onClose()}>Cerrar editor</button>
-        <button className="primary-action" disabled={!valid || busy}>Guardar escala en borrador</button>
+        <button className="primary-action" disabled={!valid || busy || matchesCurrent}>{matchesDraft ? "Continuar borrador existente" : "Guardar escala en borrador"}</button>
         {draft && <button type="button" className="secondary-action" disabled={!canActivate} onClick={() => {
           setError("");
           setConfirm(true);
         }}>Activar escala</button>}
       </div>
     </form>
+    {matchesCurrent && <p className="hint">Esta configuración coincide con la escala vigente. No es necesario crear una nueva versión.</p>}
+    {matchesDraft && !matchesCurrent && <p className="hint">Ya existe un borrador con estos rangos.</p>}
+    </Dialog>
+    {replace !== null && <Dialog title="¿Reemplazar los rangos del borrador?" role="alertdialog" onClose={() => setReplace(null)}>
+      <p>Los cambios del editor se reemplazarán. El borrador guardado solo cambiará al guardar.</p>
+      <div className={styles.confirmActions}>
+        <button type="button" onClick={() => setReplace(null)}>Cancelar</button>
+        <button type="button" className="primary-action" onClick={() => choose(replace)}>Usar como base</button>
+      </div>
+    </Dialog>}
     {discard && <Dialog title="¿Descartar cambios de la escala?" role="alertdialog" onClose={() => setDiscard(false)}
       description="Se conservará la última versión guardada.">
       <div className={styles.confirmActions}>

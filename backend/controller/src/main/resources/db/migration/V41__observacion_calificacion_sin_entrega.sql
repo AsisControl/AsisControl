@@ -1,0 +1,1 @@
+ALTER TABLE NotaTareaSinEntrega ADD COLUMN observacion VARCHAR(1000) NULL;

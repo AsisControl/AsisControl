@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckboxSelect } from "@/shared/ui/checkbox-select";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { Feedback, Loading } from "@/shared/ui";
@@ -22,10 +23,9 @@ export function PartialProgress({ assignment, period, students }: {
   const [student, setStudent] = useState("");
   const [evaluations, setEvaluations] = useState<PartialEvaluation[] | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
-  const [filter, setFilter] = useState("");
   const [competencies, setCompetencies] = useState<number[] | null>(null);
-  const [competencyFilter, setCompetencyFilter] = useState("");
   const [report, setReport] = useState<ProgressReport | null>(null);
+  const [removed, setRemoved] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -49,7 +49,9 @@ export function PartialProgress({ assignment, period, students }: {
 
   function selectCompetencies(ids: number[] | null) {
     setCompetencies(ids);
-    select(selected.filter(id => ids === null || evaluations?.find(item => item.id === id)?.competencias?.some(c => ids.includes(c.id))));
+    const retained = selected.filter(id => ids === null || evaluations?.find(item => item.id === id)?.competencias?.some(c => ids.includes(c.id)));
+    setRemoved(selected.length - retained.length);
+    select(retained);
   }
 
   async function run(pdf = false) {
@@ -66,8 +68,7 @@ export function PartialProgress({ assignment, period, students }: {
     finally { setBusy(false); }
   }
 
-  const shown = eligible.filter(item =>
-    `${item.nombre} ${types[item.tipo] ?? item.tipo}`.toLocaleLowerCase("es").includes(filter.trim().toLocaleLowerCase("es")));
+
   return <>
     <section className={styles.reportPanel} aria-label="Selección del informe parcial">
       <Feedback error={error} />
@@ -75,48 +76,30 @@ export function PartialProgress({ assignment, period, students }: {
       {evaluations?.length === 0 && <p>Aún no hay evaluaciones publicadas para este curso y período. Publica una evaluación desde Mis evaluaciones y vuelve a consultar.</p>}
       {!!evaluations?.length && <fieldset className={styles.reportPdfSelection} disabled={busy}>
         <legend>Evaluaciones publicadas</legend>
-        <div className={styles.reportFilters}>
+        <div className={`${styles.reportFilters} ${styles.partialFilters}`}>
           <label className="field">Estudiante<select value={student}
             onChange={event => { setStudent(event.target.value); setReport(null); }}>
             <option value="">Selecciona un estudiante</option>
             {students.map(item => <option key={item.idAlumno} value={item.idAlumno}>{item.alumno}</option>)}
           </select></label>
-          {!!options.length && <label className="field">Buscar competencias<input type="search" value={competencyFilter}
-            onChange={event => setCompetencyFilter(event.target.value)} /></label>}
-          <label className="field">Filtrar evaluaciones<input type="search" value={filter} onChange={event => setFilter(event.target.value)} /></label>
+          {!!options.length && <div><span className={styles.partialFieldLabel}>Competencias</span><CheckboxSelect singular="competencia" plural="competencias"
+            options={options.map(item => ({ id: item.id, label: item.nombre }))}
+            selected={competencies ?? options.map(item => item.id)}
+            onChange={ids => selectCompetencies(ids.length === options.length ? null : ids)} /></div>}
+          <div><span className={styles.partialFieldLabel}>Evaluaciones</span><CheckboxSelect singular="evaluación" plural="evaluaciones"
+            options={eligible.map(item => ({ id: item.id, label: item.nombre + " · " + (types[item.tipo] ?? item.tipo) + " · " + evaluationDate(item.fecha) }))}
+            selected={selectedEligible} onChange={ids => { setRemoved(0); select(ids); }} /></div>
         </div>
-        {!!options.length && <fieldset className={styles.reportPdfSelection}>
-          <legend>Competencias</legend>
-          <div className={styles.reportActions}>
-            <button type="button" className="secondary-action" onClick={() => selectCompetencies(null)}>Todas las competencias</button>
-            <button type="button" className="secondary-action" onClick={() => selectCompetencies([])}>Limpiar competencias</button>
-            <span>{competencies?.length ?? options.length} de {options.length}</span>
-          </div>
-          <div className={styles.reportPdfList}>{options.filter(item => item.nombre.toLocaleLowerCase("es")
-            .includes(competencyFilter.trim().toLocaleLowerCase("es"))).map(item => <label key={item.id}>
-            <input type="checkbox" checked={competencies === null || competencies.includes(item.id)} onChange={event => {
-              const current = competencies ?? options.map(c => c.id);
-              selectCompetencies(event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id));
-            }} />{item.nombre}
-          </label>)}</div>
-        </fieldset>}
-        <div className={styles.reportActions}>
-          <button type="button" className="secondary-action" disabled={!eligible.length} onClick={() => select(eligible.map(item => item.id))}>Seleccionar todas</button>
-          <button type="button" className="secondary-action" disabled={!selected.length} onClick={() => select([])}>Limpiar selección</button>
-          <span role="status">Seleccionadas: {selectedEligible.length} de {eligible.length}</span>
-        </div>
-        <div className={styles.reportPdfList}>{shown?.map(item => <label key={item.id}>
-          <input type="checkbox" checked={selected.includes(item.id)} onChange={event =>
-            select(event.target.checked ? [...selected, item.id] : selected.filter(id => id !== item.id))} />
-          <span>{item.nombre} · {types[item.tipo] ?? item.tipo} · {evaluationDate(item.fecha)}</span>
-        </label>)}</div>
-        {shown?.length === 0 && <p>El filtro no encontró evaluaciones.</p>}
-        <div className={styles.reportActions}>
+        {removed > 0 && <p role="status">Se quitaron {removed} evaluaciones que ya no corresponden a las competencias seleccionadas.</p>}
+
+        <div className={`${styles.reportActions} ${styles.partialActions}`}>
           <button type="button" className="primary-action" disabled={!student || !selectedEligible.length} onClick={() => void run()}>Consultar informe parcial</button>
           {report && <button type="button" className="secondary-action" onClick={() => void run(true)}>Descargar PDF parcial</button>}
         </div>
       </fieldset>}
     </section>
-    {report && <ReportContent report={report} partial sustento="docente" />}
+    {report && <ReportContent report={report} partial sustento="docente" partialContext={{
+      idAlumno: Number(student), idAsignacionCurso: assignment, idPeriodoAcademico: period,
+    }} />}
   </>;
 }

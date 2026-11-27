@@ -32,6 +32,9 @@ import java.util.Set;
 @Entity
 @Table(name = "Tarea")
 public class Tarea extends AuditableEntity {
+    @Column(name = "modelo_cualitativo", nullable = false)
+    private boolean modeloCualitativo;
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

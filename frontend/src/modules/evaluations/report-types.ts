@@ -56,6 +56,8 @@ export type ProgressReportRow = ReportRowReferences & {
   estadoEvaluacion?: EvaluationState;
   tieneSustento?: boolean;
   numeroVersionEscala?: number | null;
+  notaNumerica?: number | null;
+  pesoInstitucional?: number | null;
 };
 
 /** ReporteAvanceDto: contenido de una versión persistida de la libreta. */

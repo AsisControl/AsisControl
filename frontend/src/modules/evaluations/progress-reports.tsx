@@ -228,7 +228,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
       <h2>Libretas del período</h2>
       <p>Genera, revisa y publica las libretas de la sección para el curso y período elegidos.</p>
     </header>
-    <Feedback error={error} success={success} />
+    <Feedback error={error} />
     <div className={`panel ${styles.reportPanel}`}>
       <div className={styles.reportFilters}>
         <label className="field">Curso y sección
@@ -257,6 +257,7 @@ export function PublishPeriod({ assignments, canWrite }: { assignments: OwnAssig
         {hasDrafts && !confirm && <button className="primary-action" disabled={busy || !status?.publicable}
           onClick={() => setConfirm(true)}>Publicar libretas</button>}
       </div>}
+      <Feedback success={success} />
       {mode === "complete" && confirm && status?.publicable && <div className={styles.reportNotice}>
         <p>¿Confirmas la publicación de las libretas pendientes de {selectedAssignment?.curso}, sección {selectedAssignment?.seccion}, para {selectedPeriod?.nombre}?</p>
         <div className={styles.reportActions}>

@@ -1,4 +1,5 @@
 "use client";
+import { formatWeight } from "@/shared/lib/formatters";
 import { useEffect, useState } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { Feedback, Loading } from "@/shared/ui";
@@ -66,14 +67,22 @@ export function GradeSheet({
   const { evaluacion, alumnos } = sheet;
   const draft = evaluacion.estado === "BORRADOR";
   const correction = evaluacion.estado === "PUBLICADA";
-  const editable = canWrite && (draft || correction);
-  const numericDraft = draft && sheet.numeroVersionEscala !== undefined;
+  const editable = canWrite && (draft || correction)
+    && !evaluacion.idTareaVinculada && !evaluacion.entregaPorConfigurar;
+  const numericDraft = draft && evaluacion.modeloCualitativo === false && sheet.numeroVersionEscala !== undefined;
   const validGrade = (value: string) => /^\d{1,2}(?:\.\d{1,10})?$/.test(value) && Number(value) <= 20;
   const invalidNumeric = [...numericChanges.values()].some(value => !validGrade(value));
   // El backend las entrega como conjunto: sin ordenar, las columnas cambiarían al recargar.
   const competencias = evaluacion.competencias
     .filter((item) => competencyId === null || item.id === competencyId)
     .sort((a, b) => a.codigo.localeCompare(b.codigo));
+  const pesoCompartido = new Map<number, number>();
+  for (const item of competencias) {
+    const peso = alumnos[0] ? noteOf(alumnos[0], item.id)?.pesoEfectivo : null;
+    if (peso != null && alumnos.every(person => noteOf(person, item.id)?.pesoEfectivo === peso)) {
+      pesoCompartido.set(item.id, peso);
+    }
+  }
   function choose(person: GradeSheetStudent, idCompetencia: number, level: AchievementLevel) {
     const key = cellKey(person.idAlumno, idCompetencia);
     const saved = noteOf(person, idCompetencia)?.nivelLogro;
@@ -248,6 +257,9 @@ export function GradeSheet({
                     {competencias.map((item) => (
                       <th key={item.id} scope="col">
                         {item.nombre}
+                        {pesoCompartido.has(item.id) && <small className={styles.institutionalWeightLabel}>
+                          Peso efectivo: {formatWeight(pesoCompartido.get(item.id)!)}
+                        </small>}
                       </th>
                     ))}
                   </tr>
@@ -295,7 +307,7 @@ export function GradeSheet({
                                   aria-pressed={value === level}
                                   aria-label={`${level}: ${person.nombreCompleto}, ${item.nombre}`}
                                   disabled={!editable || busy || (correction && !note)}
-                                  className={`${styles.level} ${value === level ? styles.levelActive : ""} ${changes.get(key) === level ? styles.levelChanged : ""}`}
+                                  className={`${styles.level} ${value === level ? styles.levelActive : ""} ${correction && note && note.nivelLogro !== level && changes.get(key) === level ? styles.levelChanged : ""}`}
                                   onClick={() => choose(person, item.id, level)}
                                 >
                                   {level}
@@ -303,14 +315,14 @@ export function GradeSheet({
                               ))}
                             </div>}
                             {note?.corregida && <small className={styles.corrected}>Corregida</small>}
-                            {evaluacion.reglaVigente && (evaluacion.pesoComponente == null || note?.pesoEfectivo != null) &&
+                            {evaluacion.reglaVigente && !pesoCompartido.has(item.id) && (evaluacion.pesoComponente == null || note?.pesoEfectivo != null) &&
                               <small className={styles.corrected}>{evaluacion.pesoComponente == null ? "Sin peso"
-                                : note?.pesoEfectivo != null && `Peso efectivo: ${note.pesoEfectivo.toLocaleString("es-PE", { maximumFractionDigits: 4 })} %`}</small>}
+                                : note?.pesoEfectivo != null && `Peso efectivo: ${formatWeight(note.pesoEfectivo)}`}</small>}
                             <label className={`field ${styles.gradeObservation}`}>
                               <textarea
                                 placeholder={draft && editable ? "Añadir observación" : undefined}
                                 aria-label={`Observación: ${person.nombreCompleto}, ${item.nombre}`}
-                                rows={1}
+                                rows={2}
                                 maxLength={OBSERVATION_MAX}
                                 value={observations.get(key) ?? note?.observacion ?? ""}
                                 readOnly={!draft || !editable}

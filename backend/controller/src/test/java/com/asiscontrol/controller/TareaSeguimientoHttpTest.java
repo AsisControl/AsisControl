@@ -125,53 +125,113 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
         request("POST", reglas + "/" + regla.path("id").asLong() + "/activar",
                 data("version", regla.path("version").asLong(), "motivo", "Acuerdo académico"), 200);
 
-        var datos = datosTarea(limite);
+        var fechaAcademica = LocalDateTime.of(2090, 3, 18, 18, 0);
+        var datos = datosTarea(fechaAcademica);
         datos.put("cuentaParaResultadoAcademico", true);
         datos.put("nuevaEvaluacion", data("tipoEvaluacion", "PROYECTO", "fechaEvaluacion", "2090-03-10",
                 "idsCompetencia", List.of(competence.getId())));
-        assertThat(request("POST", TAREAS, datos, 422).path("code").asText()).isEqualTo("COMPONENTE_NO_VIGENTE");
-
-        datos.put("nuevaEvaluacion", data("tipoEvaluacion", "EXAMEN", "fechaEvaluacion", "2090-03-10",
-                "idsCompetencia", List.of(competence.getId())));
+        assertThat(request("POST", TAREAS, datos, 422).path("code").asText()).isEqualTo("TAREA_EVALUACION_PREVIA_REQUERIDA");
+        var borrador = postOk("/api/evaluaciones", data("idAsignacionCurso", assignment.getId(),
+                "titulo", "Evaluación con entrega", "tipoEvaluacion", "EXAMEN",
+                "periodoEvaluacion", "PERIODO_ACADEMICO", "fechaEvaluacion", fechaAcademica.toLocalDate().toString(),
+                "idsCompetencia", List.of(competence.getId()), "permitirEntrega", true));
+        assertThat(borrador.path("entregaPorConfigurar").asBoolean()).isTrue();
+        datos.remove("nuevaEvaluacion");
+        datos.put("idEvaluacionAcademica", borrador.path("id").asLong());
         mvc.perform(post(TAREAS).with(comoDocente(teacher)).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsBytes(datos))).andExpect(status().isForbidden());
-        var evaluacion = postOk(TAREAS, datos).path("evaluacionAcademica");
+        var tarea = postOk(TAREAS, datos);
+        var evaluacion = tarea.path("evaluacionAcademica");
+        assertThat(em.find(com.asiscontrol.entity.Evaluacion.class, evaluacion.path("id").asLong()).getFechaEvaluacion())
+                .isEqualTo(fechaAcademica.toLocalDate());
         assertThat(evaluacion.path("cuentaParaResultadoAcademico").asBoolean()).isTrue();
         assertThat(evaluacion.path("pesoComponente").decimalValue()).isEqualByComparingTo("100");
-        datos.remove("nuevaEvaluacion");
-        datos.put("idEvaluacionAcademica", evaluacion.path("id").asLong());
+        long idEvaluacion = evaluacion.path("id").asLong();
+        var nota = data("idEvaluacion", idEvaluacion, "idAlumno", student.getId(),
+                "idCompetencia", competence.getId(), "nivelLogro", "A", "versionEsperada", -1);
+        request("PUT", "/api/calificaciones/lote", data("calificaciones", List.of(nota)), 422);
         assertThat(request("POST", TAREAS, datos, 409).path("code").asText()).isEqualTo("EVALUACION_YA_VINCULADA");
+        String tareaPath = TAREAS + "/" + tarea.path("id").asLong();
+        request("PUT", tareaPath + "/calificaciones", data("calificaciones", List.of(nota)), 422);
+        var publicada = request("POST", tareaPath + "/publicar", null, 200);
+        entregar(publicada, student);
+        putOk(tareaPath + "/calificaciones", data("calificaciones", List.of(nota)));
+        request("PUT", tareaPath + "/calificaciones", data("calificaciones", List.of(nota)), 409);
+        var planilla = getOk("/api/evaluaciones/" + idEvaluacion + "/planilla?idAlumno=" + student.getId());
+        assertThat(planilla.path("alumnos")).hasSize(1);
+        var registrada = planilla.path("alumnos").get(0).path("notas").get(0);
+        assertThat(registrada.path("nivelLogro").asText()).isEqualTo("A");
+        String quitar = tareaPath + "/calificaciones/" + registrada.path("idCalificacion").asLong();
+        request("DELETE", quitar + "?version=-1", null, 409);
+        request("DELETE", quitar + "?version=" + registrada.path("version").asLong(), null, 204);
+        assertThat(getOk("/api/evaluaciones/" + idEvaluacion + "/planilla?idAlumno=" + student.getId())
+                .path("alumnos").get(0).path("notas")).isEmpty();
+        registrada = putOk(tareaPath + "/calificaciones", data("calificaciones", List.of(nota))).get(0);
+        assertThat(getOk(TAREAS + "?search=ENTREGA&estado=PUBLICADA&orden=titulo&cursoId=" + course.getId())
+                .path("content")).singleElement().satisfies(item -> assertThat(item.path("id")).isEqualTo(tarea.path("id")));
+        assertThat(request("POST", tareaPath + "/publicar-calificaciones", null, 200)
+                .path("estado").asText()).isEqualTo("PUBLICADA");
+        var correccion = data("motivo", "Revisión de evidencia", "correcciones", List.of(data(
+                "idCalificacion", registrada.path("id").asLong(),
+                "version", registrada.path("version").asLong(), "nivelLogro", "AD")));
+        request("POST", "/api/calificaciones/correcciones", correccion, 422);
+        assertThat(request("POST", tareaPath + "/correcciones", correccion, 200)
+                .get(0).path("nivelLogro").asText()).isEqualTo("AD");
     }
 
     @Test
     void registraCeroSoloSinEntregaYNuncaPublicaElResultadoDeLaTareaSinPeso() throws Exception {
-        String escalas = "/api/escala-institucional";
-        var escala = putOk(escalas + "/borrador", data("rangos", List.of(
-                data("nivel", "C", "minimo", 0, "maximo", 8),
-                data("nivel", "B", "minimo", 9, "maximo", 12),
-                data("nivel", "A", "minimo", 13, "maximo", 17),
-                data("nivel", "AD", "minimo", 18, "maximo", 20))));
-        request("POST", escalas + "/" + escala.path("id").asLong() + "/activar",
-                data("version", escala.path("version").asLong(), "motivo", "Escala de prueba"), 200);
-
         Alumno entrego = matricularOtroAlumno();
+        var fechaAcademica = LocalDateTime.of(2090, 3, 18, 18, 0);
         var datos = datosTarea(limite);
-        datos.put("competenciasSinPeso", data("fechaEvaluacion", "2090-03-10",
+        datos.put("competenciasSinPeso", data(
                 "idsCompetencia", List.of(competence.getId())));
-        var tarea = postOk(TAREAS, datos);
+        request("POST", TAREAS, datos, 422);
+        datos.remove("competenciasSinPeso");
+        datos.put("fechaLimite", fechaAcademica.toString());
+        var independiente = postOk(TAREAS, datos);
+        var borrador = postOk("/api/evaluaciones", data("idAsignacionCurso", assignment.getId(),
+                "titulo", "Rúbrica histórica", "tipoEvaluacion", "TRABAJO_ACADEMICO",
+                "periodoEvaluacion", "PERIODO_ACADEMICO", "fechaEvaluacion", fechaAcademica.toLocalDate().toString(),
+                "idsCompetencia", List.of(competence.getId())));
+        var historica = em.find(com.asiscontrol.entity.Evaluacion.class, borrador.path("id").asLong());
+        historica.setCuentaResultado(false);
+        var segunda = new com.asiscontrol.entity.Competencia();
+        segunda.setCodigo("SINENTREGA" + key());
+        segunda.setNombre("Explica su procedimiento");
+        em.persist(segunda);
+        historica.getCompetencias().add(segunda);
+        em.find(com.asiscontrol.entity.Tarea.class, independiente.path("id").asLong()).setEvaluacionAcademica(historica);
+        em.flush();
+        var tarea = getOk(TAREAS + "/" + independiente.path("id").asLong());
         var evaluacion = tarea.path("evaluacionAcademica");
+        assertThat(em.find(com.asiscontrol.entity.Evaluacion.class, evaluacion.path("id").asLong()).getFechaEvaluacion())
+                .isEqualTo(fechaAcademica.toLocalDate());
         assertThat(evaluacion.path("cuentaParaResultadoAcademico").asBoolean(true)).isFalse();
         String path = TAREAS + "/" + tarea.path("id").asLong();
         var publicada = request("POST", path + "/publicar", null, 200);
         assertThat(publicada.path("evaluacionAcademica").path("estado").asText()).isEqualTo("BORRADOR");
-        entregar(publicada, entrego);
+        var entrega = entregar(publicada, entrego);
+        var devolucion = data("comentario", "Revisa tu procedimiento", "version", entrega.path("version").asLong());
+        String entregaPath = "/api/entregas/" + entrega.path("id").asLong() + "/devolucion";
+        var devuelta = putOk(entregaPath, devolucion);
+        assertThat(devuelta.path("respuesta")).isEqualTo(entrega.path("respuesta"));
+        assertThat(devuelta.path("comentario").asText()).isEqualTo("Revisa tu procedimiento");
+        request("PUT", entregaPath, devolucion, 409);
         String masiva = path + "/calificaciones-sin-entrega";
         request("GET", masiva, null, 422);
+        var individual = data("calificaciones", List.of(data("idEvaluacion", historica.getId(),
+                "idAlumno", student.getId(), "idCompetencia", competence.getId(), "nivelLogro", "A", "versionEsperada", -1)));
+        request("PUT", path + "/calificaciones", individual, 422);
         em.find(com.asiscontrol.entity.Tarea.class, tarea.path("id").asLong())
                 .setEstadoPublicacion(com.asiscontrol.entity.enums.EstadoPublicacionTarea.CERRADA);
         em.flush();
-        assertThat(getOk(masiva).path("alumnos")).hasSize(1);
-        var seleccion = data("alumnos", List.of(student.getId()), "competencias", List.of(competence.getId()), "nota", 5.5);
+        putOk(path + "/calificaciones", individual);
+        var pendientes = getOk(masiva).path("alumnos");
+        assertThat(pendientes).hasSize(1);
+        assertThat(pendientes.get(0).path("competencias").get(0).asLong()).isEqualTo(segunda.getId());
+        var seleccion = data("alumnos", List.of(student.getId()), "competencias", List.of(competence.getId(), segunda.getId()),
+                "nivelLogro", "C", "observacion", "  Revisar estrategia  ");
         assertThat(request("POST", masiva, seleccion, 200).path("calificaciones").asInt()).isEqualTo(1);
         request("POST", masiva, seleccion, 409);
         assertThat(getOk(masiva).path("alumnos")).isEmpty();
@@ -181,10 +241,60 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
         var notas = em.createQuery("select c from Calificacion c where c.evaluacion.id = :id",
                         com.asiscontrol.entity.Calificacion.class)
                 .setParameter("id", evaluacion.path("id").asLong()).getResultList();
-        assertThat(notas).singleElement().satisfies(nota -> {
+        assertThat(notas).hasSize(2);
+        assertThat(notas.stream().filter(nota -> nota.getCompetencia().getId().equals(competence.getId())).findFirst().orElseThrow()
+                .getNivelLogro()).isEqualTo(com.asiscontrol.entity.enums.NivelLogro.A);
+        assertThat(notas.stream().filter(nota -> nota.getCompetencia().getId().equals(segunda.getId())).findFirst().orElseThrow()).satisfies(nota -> {
             assertThat(nota.getAlumno().getId()).isEqualTo(student.getId());
-            assertThat(nota.getNotaNumerica()).isEqualByComparingTo("5.5");
+            assertThat(nota.getNotaNumerica()).isNull();
+            assertThat(nota.getNivelLogro()).isEqualTo(com.asiscontrol.entity.enums.NivelLogro.C);
+            assertThat(nota.getObservacion()).isEqualTo("Revisar estrategia");
         });
+    }
+
+    @Test void calificaSinEntregaEnTareaSinEvaluacionYConservaElPadron() throws Exception {
+        var publicada = tareaPublicada();
+        var entrego = matricularOtroAlumno();
+        entregar(publicada, entrego);
+        long id = publicada.path("id").asLong();
+        String path = TAREAS + "/" + id;
+        String masiva = path + "/calificaciones-sin-entrega";
+        request("GET", masiva, null, 422);
+        var tarea = em.find(com.asiscontrol.entity.Tarea.class, id);
+        tarea.setEstadoPublicacion(com.asiscontrol.entity.enums.EstadoPublicacionTarea.CERRADA);
+        em.flush();
+        var disponibles = getOk(masiva);
+        assertThat(disponibles.path("competencias")).isEmpty();
+        assertThat(disponibles.path("alumnos")).hasSize(1);
+        request("POST", masiva, data("alumnos", List.of(entrego.getId()), "competencias", List.of(), "nivelLogro", "B"), 409);
+        request("POST", masiva, data("alumnos", List.of(student.getId()), "competencias", List.of(), "nota", 20.5), 422);
+        var seleccion = data("alumnos", List.of(student.getId()), "competencias", List.of(), "nivelLogro", "B",
+                "observacion", "Completar la práctica");
+        assertThat(request("POST", masiva, seleccion, 200).path("calificaciones").asInt()).isEqualTo(1);
+        request("POST", masiva, seleccion, 409);
+        assertThat(getOk(masiva).path("alumnos")).isEmpty();
+        var seguimiento = getOk(path + "/seguimiento");
+        assertThat(seguimiento.path("entregados").asInt()).isEqualTo(1);
+        assertThat(seguimiento.path("pendientes").asInt()).isEqualTo(1);
+        assertThat(seguimiento.path("calificados").asInt()).isEqualTo(1);
+        var alumno = java.util.stream.StreamSupport.stream(seguimiento.path("alumnos").spliterator(), false)
+                .filter(item -> item.path("alumnoId").asLong() == student.getId()).findFirst().orElseThrow();
+        assertThat(alumno.path("entregaId").isNull()).isTrue();
+        assertThat(alumno.path("estado").asText()).isEqualTo("PENDIENTE");
+        assertThat(alumno.path("nota").isNull()).isTrue();
+        assertThat(alumno.path("nivelLogro").asText()).isEqualTo("B");
+        assertThat(em.createQuery("select n.observacion from NotaTareaSinEntrega n where n.tarea.id = :tarea",
+                        String.class).setParameter("tarea", id).getSingleResult()).isEqualTo("Completar la práctica");
+        assertThat(auditoria(id, "CALIFICAR_TAREA_SIN_ENTREGA")).hasSize(1);
+        String revision = masiva + "/" + student.getId();
+        request("PUT", revision + "/devolucion", data("comentario", "Revisa la guía"), 204);
+        request("PUT", revision, data("nivelLogro", "A", "observacion", "Observación individual"), 204);
+        var revisada = getOk(revision);
+        assertThat(revisada.path("nivelLogro").asText()).isEqualTo("A");
+        assertThat(revisada.path("observacion").asText()).isEqualTo("Observación individual");
+        assertThat(revisada.path("devolucion").asText()).isEqualTo("Revisa la guía");
+        assertThat(em.createQuery("select count(e) from EntregaTarea e where e.tarea.id = :tarea and e.alumno.id = :alumno",
+                Long.class).setParameter("tarea", id).setParameter("alumno", student.getId()).getSingleResult()).isZero();
     }
 
     private JsonNode tareaPublicada() throws Exception {
@@ -256,7 +366,9 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
     void noBajaElPuntajeDebajoDeUnaNotaHistoricaNiEditaTareasCerradas() throws Exception {
         JsonNode tarea = tareaPublicada();
         long id = tarea.path("id").asLong();
-        em.find(com.asiscontrol.entity.Tarea.class, id).setPuntajeMaximoFijo(false);
+        var historica = em.find(com.asiscontrol.entity.Tarea.class, id);
+        historica.setPuntajeMaximoFijo(false);
+        historica.setModeloCualitativo(false);
         em.flush();
         JsonNode entrega = entregar(tarea, student);
         var calificada = request("POST", "/api/entregas/" + entrega.path("id").asLong() + "/calificar",

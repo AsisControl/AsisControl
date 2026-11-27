@@ -21,6 +21,31 @@ async function openEvidence() {
   await userEvent.click(screen.getByRole("button", { name: /^Ver sustento de/ }));
 }
 
+test("el parcial consulta y descarga sustento con el contexto real aunque la fila tenga id cero", async () => {
+  signIn({ role: "DOCENTE", permissions: ["CALIFICACIONES_LEER"] });
+  const base = "/api/calificaciones/informes/parcial/evidencias";
+  const calls = fakeBackend({
+    [`GET ${base}`]: { evidencias: [{ idEvidencia: 51, descripcion: "Evidencia parcial", archivo: {
+      idArchivo: 67, nombreOriginal: "Trabajo.pdf", tipoMime: "application/pdf", tamanioBytes: 123,
+    } }] },
+    [`GET ${base}/51/archivo`]: {},
+  });
+  URL.createObjectURL = vi.fn(() => "blob:parcial");
+  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const noEvidence = { ...row, idEvaluacion: 19, evaluacion: "Proyecto", idInforme: 0, idDetalleInforme: 0, tieneSustento: false };
+  render(<ReportContent partial sustento="docente" partialContext={availableReport}
+    report={{ ...progressReport, filas: [{ ...row, idInforme: 0, idDetalleInforme: 0 }, noEvidence] }} />);
+  expect(screen.getByText("Sin sustento registrado")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: /^Ver sustento de/ }));
+  await screen.findByText("Evidencia parcial");
+  await userEvent.click(screen.getByRole("button", { name: "Descargar Trabajo.pdf" }));
+  await waitFor(() => expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledOnce());
+  expect(calls.map(({ path, query }) => ({ path, query }))).toEqual([base, `${base}/51/archivo`].map(path => ({
+    path, query: { idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40", idEvaluacion: "18", idCompetencia: "7" },
+  })));
+});
+
 test("un docente consulta el sustento del borrador y descarga el adjunto con su sesión", async () => {
   signIn({ role: "DOCENTE", permissions: ["CALIFICACIONES_LEER"] });
   const calls = fakeBackend({
@@ -60,13 +85,13 @@ test("un docente consulta el sustento del borrador y descarga el adjunto con su 
 
 test("Distingue pesos efectivos por competencia y muestra la versión una sola vez", async () => {
   const user = userEvent.setup();
-  render(<ReportContent report={{ ...published, reglaCalificacion: { numeroVersion: 1 },
+  render(<ReportContent sustento="docente" report={{ ...published, reglaCalificacion: { numeroVersion: 1 },
     consolidado: [
-      { idCompetencia: 7, nombreCompetencia: row.competencia, nivelConsolidado: "A", numeroVersionEscala: 2, componentesFaltantes: [] },
+      { idCompetencia: 7, nombreCompetencia: row.competencia, nivelConsolidado: "A", promedioPonderado: 16.25, numeroVersionEscala: 2, componentesFaltantes: [] },
       { idCompetencia: 8, nombreCompetencia: "Comunica", nivelConsolidado: null, numeroVersionEscala: 2, componentesFaltantes: ["Proyectos"] },
       { idCompetencia: 9, nombreCompetencia: "Modela", nivelConsolidado: null, estadoAvance: "NO_EVALUADA", componentesFaltantes: [] },
     ],
-    filas: [{ ...row, tipoEvaluacion: "EXAMEN", ponderacion: "15 %" },
+    filas: [{ ...row, tipoEvaluacion: "EXAMEN", ponderacion: "15 %", notaNumerica: 0 },
       { ...row, idDetalleInforme: 205, idEvaluacion: 20, tipoEvaluacion: "EXAMEN", ponderacion: "15 %" },
       { ...row, idDetalleInforme: 204, idCompetencia: 8, competencia: "Comunica", tipoEvaluacion: "EXAMEN", ponderacion: "30 %" }],
   }} />);
@@ -75,12 +100,15 @@ test("Distingue pesos efectivos por competencia y muestra la versión una sola v
   expect(summary.getByText("Pendiente")).toBeTruthy();
   const unassessed = summary.getByRole("region", { name: "Modela" });
   expect(within(unassessed).getByText("Aún no evaluada")).toBeTruthy();
-  expect(unassessed.querySelector("details")).toBeNull();
-  expect(summary.getByText("Faltan resultados de Proyectos")).toBeTruthy();
+  expect(unassessed.querySelector("details")).toBeTruthy();
+  expect(summary.getByText("Proyectos")).toBeTruthy();
   expect([...document.querySelectorAll("article details")].every(detail => !detail.open)).toBe(true);
   for (const detail of summary.getAllByText(/^Ver detalle del resultado/, { selector: "summary" })) {
     await user.click(detail);
   }
+  expect(summary.getByText(/Promedio ponderado: 16[.,]25/)).toBeTruthy();
+  expect(summary.getAllByText("Promedio ponderado: —")).toHaveLength(2);
+  expect(summary.getByText(/· 0[.,]00/)).toBeTruthy();
   expect(within(summary.getByRole("region", { name: row.competencia })).getAllByRole("cell", { name: "15 %" })).toHaveLength(2);
   expect(within(summary.getByRole("region", { name: "Comunica" })).getByRole("cell", { name: "30 %" })).toBeTruthy();
 });

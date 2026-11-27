@@ -16,6 +16,7 @@ export function FormDialog({
   submitLabel = "Confirmar",
   danger = false,
   noValidate = false,
+  active = true,
 }: {
   title: string;
   description?: ReactNode;
@@ -34,6 +35,7 @@ export function FormDialog({
   danger?: boolean;
   /** El formulario valida por su cuenta y muestra los errores en cada campo. */
   noValidate?: boolean;
+  active?: boolean;
 }) {
   return (
     <Dialog
@@ -42,6 +44,7 @@ export function FormDialog({
       size={size}
       onClose={onClose}
       busy={busy}
+      active={active}
     >
       <form onSubmit={onSubmit} noValidate={noValidate}>
         <Feedback error={error} />

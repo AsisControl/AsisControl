@@ -157,7 +157,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 + "&idAsignacionCurso=" + assignment.getId() + "&idPeriodoAcademico=" + periodo.getId();
         var alumno = como("ALUMNO", student.getPersona().getId());
         var completo = mvc.perform(get(url).with(alumno)).andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"Avance_")))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"Informe_completo_")))
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(textoPdf(completo)).contains("Informe de progreso por competencias", "Evaluación", "Nivel", "Peso", "Observación")
                 .containsSubsequence(examen.getTitulo(), "Fecha: 15/03/2090", practica.getTitulo(), proyecto.getTitulo())
@@ -165,7 +165,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
 
         var parcial = mvc.perform(get(url).param("idEvaluacion", examen.getId().toString(), proyecto.getId().toString()).with(alumno))
                 .andExpect(status().isOk()).andExpect(content().contentType("application/pdf"))
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"Evaluaciones_seleccionadas_")))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment; filename=\"Informe_parcial_")))
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(textoPdf(parcial)).contains("Informe parcial de progreso", "Primer bimestre")
                 .containsSubsequence(examen.getTitulo(), "Fecha: 15/03/2090", proyecto.getTitulo())
@@ -183,6 +183,9 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
 
     @Test void generaParcialDocenteSinLibretaPublicadaYRechazaContextoNoAutorizado() throws Exception {
         var periodo = new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Primer bimestre");
+        student.getPersona().setNombres("Sofía");
+        student.getPersona().setApellidoPaterno("Quispe");
+        student.getPersona().setApellidoMaterno("Flóres");
         periodo.setOrden(1); periodo.setFechaInicio(LocalDate.of(2090, 3, 1)); periodo.setFechaFin(LocalDate.of(2090, 4, 30));
         em.persist(periodo);
         var primera = evaluacionConNota(LocalDate.of(2090, 3, 15), true);
@@ -224,7 +227,9 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                         .with(como("APODERADO", guardian.getPersona().getId())))
                 .andExpect(status().isForbidden());
         var pdf = mvc.perform(get(base + "/pdf" + contexto).param("idEvaluacion", primera.getId().toString()).param("idCompetencia", competence.getId().toString()).with(docente))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+                .andExpect(status().isOk()).andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.matchesPattern("attachment; filename=\"Informe_parcial_Sofia_Quispe_Flores_[A-Za-z0-9_]+_Primer_bimestre\\.pdf\"")))
+                .andReturn().getResponse().getContentAsByteArray();
         assertThat(textoPdf(pdf)).contains("Informe parcial de progreso", "40 %", competence.getNombre())
                 .doesNotContain("Consolidado", otraCompetencia.getNombre());
         assertThat(em.createQuery("select count(i) from InformeProgreso i", Long.class).getSingleResult()).isZero();
@@ -261,9 +266,18 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         assertThat(incompleta.getEstado()).isEqualTo(EstadoEvaluacion.BORRADOR);
         assertThat(fuera.getEstado()).isEqualTo(EstadoEvaluacion.BORRADOR);
         String url="/api/calificaciones/avance?idAlumno="+student.getId()+"&idAsignacionCurso="+assignment.getId()+"&idPeriodoAcademico="+p.getId();
+        var detalle = em.createQuery("from DetalleInformeProgreso d where d.informe.alumno.id = :alumno",
+                        com.asiscontrol.entity.DetalleInformeProgreso.class)
+                .setParameter("alumno", student.getId()).getSingleResult();
+        detalle.setNotaNumerica(new java.math.BigDecimal("0"));
+        em.flush();
+        assertThat(getOk(url).path("filas").get(0).path("notaNumerica").decimalValue()).isEqualByComparingTo("0");
         mvc.perform(get(url).with(como("ALUMNO",student.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("A"))
+                .andExpect(jsonPath("$.filas[0].notaNumerica").doesNotHaveJsonPath())
                 .andExpect(jsonPath("$.filas.length()").value(1));
+        mvc.perform(get(url).with(como("APODERADO", guardian.getPersona().getId())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].notaNumerica").doesNotHaveJsonPath());
         // El informe publicado conserva sus resultados aunque las notas de origen se desactiven.
         em.createQuery("update Calificacion c set c.activo=false where c.alumno.id=:id")
                 .setParameter("id",student.getId()).executeUpdate(); em.flush(); em.clear();
@@ -352,7 +366,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         mvc.perform(get("/api/calificaciones/reporte-avance" + params).with(asAdmin()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition",
-                        org.hamcrest.Matchers.matchesPattern("attachment; filename=\"Avance_[A-Za-z0-9_]+_Periodo_V2\\.pdf\"")));
+                        org.hamcrest.Matchers.matchesPattern("attachment; filename=\"Informe_completo_[A-Za-z0-9_]+_Periodo_V2\\.pdf\"")));
         var versiones = em.createQuery("select i from InformeProgreso i order by i.numeroVersion",com.asiscontrol.entity.InformeProgreso.class).getResultList();
         assertThat(versiones).hasSize(2);
         assertThat(versiones).allMatch(i -> i.getEstado() == EstadoInformeProgreso.PUBLICADA && i.getFechaPublicacion() != null);

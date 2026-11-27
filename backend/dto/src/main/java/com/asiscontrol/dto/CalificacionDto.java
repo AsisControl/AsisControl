@@ -26,8 +26,13 @@ public final class CalificacionDto {
             @NotNull Long idCompetencia,
             NivelLogro nivelLogro,
             @Size(max = 1000) String observacion,
-            @DecimalMin("0") @DecimalMax("20") @Digits(integer = 2, fraction = 10) BigDecimal notaNumerica
+            @DecimalMin("0") @DecimalMax("20") @Digits(integer = 2, fraction = 10) BigDecimal notaNumerica,
+            Long versionEsperada
     ) {
+        public Request(Long idEvaluacion, Long idAlumno, Long idCompetencia, NivelLogro nivelLogro,
+                       String observacion, BigDecimal notaNumerica) {
+            this(idEvaluacion, idAlumno, idCompetencia, nivelLogro, observacion, notaNumerica, null);
+        }
         public Request(Long idEvaluacion, Long idAlumno, Long idCompetencia, NivelLogro nivelLogro, String observacion) {
             this(idEvaluacion, idAlumno, idCompetencia, nivelLogro, observacion, null);
         }

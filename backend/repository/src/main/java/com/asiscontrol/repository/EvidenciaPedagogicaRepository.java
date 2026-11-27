@@ -14,6 +14,20 @@ import java.util.Optional;
 
 public interface EvidenciaPedagogicaRepository extends JpaRepository<EvidenciaPedagogica, Long> {
 
+    interface FilaSustento {
+        Long getEvaluacion();
+        Long getCompetencia();
+    }
+
+    @Query("""
+            select distinct v.id as evaluacion, e.competencia.id as competencia
+            from EvidenciaPedagogica e join e.evaluaciones v
+            where e.activo = true and v.id in :evaluaciones and e.asignacion.id = :asignacion
+              and e.alumno.id = :alumno and e.periodo.id = :periodo
+            """)
+    java.util.List<FilaSustento> filasParciales(@Param("asignacion") Long asignacion, @Param("alumno") Long alumno,
+            @Param("periodo") Long periodo, @Param("evaluaciones") java.util.Set<Long> evaluaciones);
+
     /** El vinculo explicito con la evaluacion es obligatorio: no basta coincidir por competencia. */
     @Query("""
             SELECT DISTINCT e FROM EvidenciaPedagogica e JOIN e.evaluaciones v

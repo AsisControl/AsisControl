@@ -34,17 +34,33 @@ export function getReportEvidenceAttachment(row: ReportRowContext, evidenceId: n
   return apiBlob(`${evidencePath(row)}/${evidenceId}/archivo`, { timeoutMs: 60000 });
 }
 
+function partialEvidenceQuery(context: ReportContext, evaluacion: number, competencia: number) {
+  const query = reportQuery(context);
+  query.set("idEvaluacion", String(evaluacion));
+  query.set("idCompetencia", String(competencia));
+  return query;
+}
+
+export function getPartialRowEvidence(context: ReportContext, evaluation: number, competency: number) {
+  return api<Pick<SustentoInformeDto, "evidencias">>(`/api/calificaciones/informes/parcial/evidencias?${partialEvidenceQuery(context, evaluation, competency)}`);
+}
+
+export function getPartialEvidenceAttachment(context: ReportContext, evaluation: number, competency: number, evidenceId: number) {
+  return apiBlob(`/api/calificaciones/informes/parcial/evidencias/${evidenceId}/archivo?${partialEvidenceQuery(context, evaluation, competency)}`, { timeoutMs: 60000 });
+}
+
 export async function getProgressReportPdf(context: ReportContext, evaluationIds?: number[], competencyIds?: number[]) {
   if (evaluationIds?.length === 0) throw new Error("Selecciona al menos una evaluación para descargar el reporte.");
   const query = reportQuery(context);
   evaluationIds?.forEach((id) => query.append("idEvaluacion", String(id)));
   competencyIds?.forEach((id) => query.append("idCompetencia", String(id)));
-  let filename = evaluationIds ? "Reporte_evaluaciones_seleccionadas.pdf" : "Avance.pdf";
-  const filenamePattern = evaluationIds
-    ? /filename="(Evaluaciones_seleccionadas_Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/
-    : /filename="(Avance_[A-Za-z0-9_]+_V[0-9]+\.pdf)"/;
-  const blob = await apiBlob(`/api/calificaciones/reporte-avance?${query}`, { timeoutMs: 60000 }, headers => {
-    const candidate = headers.get("Content-Disposition")?.match(filenamePattern)?.[1];
+  return fetchReportPdf(`/api/calificaciones/reporte-avance?${query}`, Boolean(evaluationIds));
+}
+
+async function fetchReportPdf(path: string, partial: boolean) {
+  let filename = partial ? "Informe_parcial.pdf" : "Informe_completo.pdf";
+  const blob = await apiBlob(path, { timeoutMs: 60000 }, headers => {
+    const candidate = headers.get("Content-Disposition")?.match(/filename="((?:Informe_(?:completo|parcial)|(?:Evaluaciones_seleccionadas_)?Avance)_[A-Za-z0-9_]+\.pdf)"/)?.[1];
     if (candidate) filename = candidate;
   });
   return { blob, filename };
@@ -95,8 +111,7 @@ export function getPartialReport(context: ReportContext, ids: number[], competen
 }
 
 export async function downloadPartialReport(context: ReportContext, ids: number[], competencias: number[] = []) {
-  const blob = await apiBlob(`/api/calificaciones/informes/parcial/pdf?${partialQuery(context, ids, competencias)}`);
-  saveBlob(blob, "Informe_parcial_de_progreso.pdf");
+  saveProgressReportPdf(await fetchReportPdf(`/api/calificaciones/informes/parcial/pdf?${partialQuery(context, ids, competencias)}`, true));
 }
 
 function periodReportRequest(idAsignacionCurso: number, idPeriodoAcademico: number) {

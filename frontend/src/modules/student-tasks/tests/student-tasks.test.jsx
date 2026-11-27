@@ -26,6 +26,21 @@ beforeEach(() => signIn({ role: "ESTUDIANTE", id: "999", permissions: ["TAREAS_L
 afterEach(signOut);
 
 describe("Tareas del estudiante", () => {
+  it("muestra el nivel general y solo los niveles publicados de las vinculadas", async () => {
+    const linked = (id, estado) => ({
+      ...task, tarea: { ...task.tarea, id, evaluacionAcademica: { estado, cuentaParaResultadoAcademico: true } },
+      entrega: { ...delivery, estado: "CALIFICADO", nivelLogro: "AD" },
+      resultados: [{ competencia: estado === "BORRADOR" ? "Borrador privado" : "Resuelve problemas", nivel: "B" }],
+    });
+    backend(() => response(page([
+      { ...task, nivelSinEntrega: "A" }, linked(9, "PUBLICADA"), linked(10, "BORRADOR"),
+    ])));
+    render(<StudentTasks />);
+    expect(await screen.findByText("Calificación: A")).toBeTruthy();
+    expect(screen.getByText("Resuelve problemas: B")).toBeTruthy();
+    expect(screen.queryByText("Borrador privado: B")).toBeNull();
+    expect(screen.queryByText("Calificación: AD")).toBeNull();
+  });
   it.each([null, delivery])("bloquea entregas y ediciones al vencer el plazo, antes del cierre automático (%j)", async (entrega) => {
     const expired = { ...task, entrega, tarea: { ...task.tarea, fechaLimite: "2020-03-10T23:59:00" } };
     backend(() => response(page([expired])));
@@ -56,6 +71,9 @@ describe("Tareas del estudiante", () => {
     fireEvent.click(screen.getByRole("button", { name: "Eliminar trabajo.pdf" }));
     expect(screen.getByRole("button", { name: "Guardar cambios" }).disabled).toBe(true);
     fireEvent.change(input, { target: { files: [new File(["pdf"], "nuevo.pdf")] } });
+    expect(screen.getByText("1 archivo seleccionado")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Eliminar nuevo.pdf" })).toBeTruthy();
+    expect(onSaved).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
     expect(fetch.mock.calls.filter(([, options]) => options.method === "PUT")).toHaveLength(1);

@@ -33,8 +33,17 @@ class EscalaInstitucionalHttpTest extends ApiIntegrationSupport {
         assertThat(vigente.path("actorAplicacion").asText()).isNotBlank();
         assertThat(vigente.path("fechaAplicacion").asText()).isNotBlank();
         assertThat(vigente.path("motivoAplicacion").asText()).isEqualTo("Validación de pruebas");
-        activarNueva();
+        var iguales = new java.util.ArrayList<>(rangos());
+        java.util.Collections.reverse(iguales);
+        assertThat(request("PUT", ESCALA + "/borrador", data("rangos", iguales), 422).path("code").asText())
+                .isEqualTo("ESCALA_CONFIGURACION_VIGENTE");
+        var distintos = List.of(rango("C", 0, 8), rango("B", 9, 12), rango("A", 13, 17), rango("AD", 18, 20));
+        var nueva = putOk(ESCALA + "/borrador", data("rangos", distintos));
+        assertThat(putOk(ESCALA + "/borrador", data("rangos", distintos)).path("id")).isEqualTo(nueva.path("id"));
+        request("POST", ESCALA + "/" + nueva.path("id").asLong() + "/activar",
+                data("version", nueva.path("version").asLong(), "motivo", "Cambio de escala"), 200);
         assertThat(getOk(ESCALA).findValuesAsText("estado")).containsExactly("VIGENTE", "HISTORICA");
+        assertThat(putOk(ESCALA + "/borrador", data("rangos", iguales)).path("numeroVersion").asInt()).isEqualTo(3);
     }
 
     @Test void simulaConEscalaVigenteSinRedondearAntesYConservaElCero() throws Exception {
@@ -69,6 +78,10 @@ class EscalaInstitucionalHttpTest extends ApiIntegrationSupport {
                 "fechaEvaluacion", "2090-03-10", "idsCompetencia", List.of(competence.getId()))).path("id").asLong();
         var entrada = data("idEvaluacion", evaluacion, "idAlumno", student.getId(), "idCompetencia", competence.getId(),
                 "notaNumerica", "17.49", "observacion", "Comentario del docente");
+        assertThat(request("POST", "/api/calificaciones", entrada, 422).path("code").asText())
+                .isEqualTo("NIVEL_CUALITATIVO_REQUERIDO");
+        em.find(com.asiscontrol.entity.Evaluacion.class, evaluacion).setModeloCualitativo(false);
+        em.flush();
         var registrada = postOk("/api/calificaciones", entrada);
         assertThat(registrada.path("nivelLogro").asText()).isEqualTo("A");
 

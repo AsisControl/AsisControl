@@ -97,8 +97,9 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         getOk(tp+"/entregas"); getOk(dp);
         putOk(dp,data("archivoIds",Set.of(),"comentario","Entrega final","version",0));
         long v=getOk(dp).path("version").asLong();
-        var graded=request("POST",dp+"/calificar",data("nota",18,"comentario","Buen trabajo","version",v),200);
+        var graded=request("POST",dp+"/calificar",data("nivelLogro","AD","comentario","Buen trabajo","version",v),200);
         assertThat(graded.path("estado").asText()).isEqualTo("CALIFICADO");
+        assertThat(graded.path("nivelLogro").asText()).isEqualTo("AD");
         var entity=em.find(Tarea.class,tid); entity.setFechaLimite(LocalDateTime.now().minusSeconds(1)); em.flush();
         request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200);
         // US-22: con entregas, eliminar exige motivo.
@@ -129,7 +130,7 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         putOk(ep+"/estado",data("estado","PUBLICADA"));
         var consolidated=getOk("/api/calificaciones/consolidados?idAlumno="+student.getId());
         assertThat(consolidated).hasSize(1);
-        assertThat(consolidated.get(0).path("nivelConsolidado").asText()).isEqualTo("AD");
+        assertThat(consolidated.get(0).path("nivelConsolidado").isNull()).isTrue();
         request("DELETE","/api/calificaciones/"+id,null,422);
         request("POST","/api/calificaciones",nota(evaluation.path("id").asLong(),"C"),422);
         putOk(ep+"/estado",data("estado","CERRADA"));

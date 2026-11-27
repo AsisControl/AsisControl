@@ -14,6 +14,10 @@ export type EvaluationGradingRule = {
   componentes: { tipoEvaluacion: string; nombre: string; peso: number }[];
 };
 export type Evaluation = {
+  entregaPorConfigurar?: boolean;
+  idTareaVinculada?: number | null;
+  estadoActividadVinculada?: "BORRADOR" | "PUBLICADA" | "CERRADA" | "ARCHIVADA" | null;
+  modeloCualitativo?: boolean;
   id: number;
   idAsignacionCurso: number;
   titulo: string;
@@ -34,6 +38,7 @@ export type Evaluation = {
   anioAcademico: number;
 };
 export type EvaluationInput = {
+  permitirEntrega?: boolean;
   idAsignacionCurso: number;
   titulo: string;
   descripcion: string | null;

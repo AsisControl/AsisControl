@@ -2,6 +2,8 @@ package com.asiscontrol.service;
 
 import com.asiscontrol.dto.tarea.TareaDtos.TareaAlumnoResponse;
 import com.asiscontrol.entity.EntregaTarea;
+import com.asiscontrol.entity.Tarea;
+import com.asiscontrol.entity.NotaTareaSinEntrega;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AlumnoRepository;
 import com.asiscontrol.repository.EntregaTareaRepository;
@@ -44,8 +46,12 @@ public class TareasAlumnoService {
                         "ALUMNO_NO_ENCONTRADO", "No existe un perfil de estudiante activo para esta cuenta"));
         var pagina = tareas.buscarParaAlumno(alumno.getId(), busqueda.trim(), entregada,
                 java.time.LocalDateTime.now(), pageable);
+        var idsTareas = pagina.getContent().stream().map(Tarea::getId).toList();
+        var nivelesSinEntrega = idsTareas.isEmpty() ? java.util.Map.<Long, com.asiscontrol.entity.enums.NivelLogro>of()
+                : tareas.buscarNivelesSinEntrega(alumno.getId(), idsTareas).stream()
+                        .collect(Collectors.toMap(nota -> nota.getTarea().getId(), NotaTareaSinEntrega::getNivelLogro));
         var porTarea = entregas.findAllByAlumnoIdAndTareaIdInAndActivoTrue(alumno.getId(),
-                        pagina.getContent().stream().map(t -> t.getId()).toList())
+                        idsTareas)
                 .stream().collect(Collectors.toMap(e -> e.getTarea().getId(), e -> e));
         return pagina.map(t -> {
             var asignacion = t.getAsignacionCurso();
@@ -59,7 +65,8 @@ public class TareasAlumnoService {
                     asignacion.nombreCurso(), nombre,
                     seccion.getGrado() + "° Grado " + seccion.getNombre() + " · " + seccion.getAnioAcademico(),
                     entrega == null ? null : entregaService.mapResponse(entrega).sinNotaNumerica(),
-                    tareaService.resultadosParaAlumno(t, alumno.getId()));
+                    tareaService.resultadosParaAlumno(t, alumno.getId()),
+                    entrega == null ? nivelesSinEntrega.get(t.getId()) : null);
         });
     }
 }

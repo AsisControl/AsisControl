@@ -14,7 +14,7 @@ function backend(routes = {}) {
     "GET /api/evaluaciones/periodos-informe": periods,
     "GET /api/calificaciones/informes-disponibles": [availableReport, otherStudent],
     "GET /api/calificaciones/avance": ({ query }) => query.idAlumno === "11" ? progressReport : { ...progressReport, alumno: "Luis Díaz", filas: [] },
-    "GET /api/calificaciones/reporte-avance": reply(200, {}, { "Content-Disposition": 'attachment; filename="Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf"' }),
+    "GET /api/calificaciones/reporte-avance": reply(200, {}, { "Content-Disposition": 'attachment; filename="Informe_completo_Ana_Ramos_Matematica_Primer_bimestre.pdf"' }),
     ...routes,
   });
 }
@@ -40,7 +40,7 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   const interaction = await openPeriod();
   const article = await screen.findByRole("article", { name: "Informe de progreso por período" });
   await interaction.click(within(article).getByRole("button", { name: "Ver por evaluación" }));
-  for (const value of ["Ana Ramos", "Código: E11", "Matemática · 3° A · 2026", "Docente: María Pérez", "Primer bimestre · 01/03/2026 - 30/04/2026", "Sin registrar", "70 %", "Sin observaciones"])
+  for (const value of ["Ana Ramos", "Código: E11", "Matemática · 3° A · 2026", "Docente: María Pérez", "Primer bimestre · 01/03/2026 - 30/04/2026", "—", "70 %"])
     expect(within(article).getByText(value)).toBeTruthy();
   expect(within(article).getByText(/Generado:.*Lima/)).toBeTruthy();
   expect(within(article).getByText(/Explica su procedimiento/)).toBeTruthy();
@@ -51,7 +51,7 @@ test("Informe por período usa IDs reales, muestra cabecera completa, filas y de
   expect(calls.find((call) => call.path.endsWith("avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
   await interaction.click(screen.getByRole("button", { name: "Descargar libreta completa" }));
   await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
-  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toBe("Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf");
+  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toBe("Informe_completo_Ana_Ramos_Matematica_Primer_bimestre.pdf");
   expect(calls.find((call) => call.path.endsWith("reporte-avance")).query).toEqual({ idAlumno: "11", idAsignacionCurso: "5", idPeriodoAcademico: "40" });
   expect(calls.every((call) => call.method === "GET")).toBe(true);
   expect(screen.queryByRole("button", { name: /publicar|generar/i })).toBeNull();
@@ -61,7 +61,7 @@ test("Descarga por evaluaciones y competencias, y bloquea una selección vacía"
   const calls = backend({
     "GET /api/calificaciones/avance": { ...progressReport, filas: progressReport.filas.map((row, index) => ({ ...row, idCompetencia: index + 1 })) },
     "GET /api/calificaciones/reporte-avance": reply(200, {}, {
-      "Content-Disposition": 'attachment; filename="Evaluaciones_seleccionadas_Avance_Ana_Ramos_Matematica_Primer_bimestre_V1.pdf"',
+      "Content-Disposition": 'attachment; filename="Informe_parcial_Ana_Ramos_Matematica_Primer_bimestre.pdf"',
     }),
   });
   render(<ProgressPreview />);
@@ -77,26 +77,31 @@ test("Descarga por evaluaciones y competencias, y bloquea una selección vacía"
   expect(dialog.getByText("Selecciona al menos una evaluación para descargar el reporte.")).toBeTruthy();
   await interaction.click(download);
   expect(requests()).toHaveLength(0);
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar evaluaciones" }));
   await interaction.click(dialog.getByRole("checkbox", { name: /Práctica/ }));
-  expect(dialog.getByText("1 evaluación seleccionada")).toBeTruthy();
+  expect(dialog.getByRole("button", { name: "1 evaluación seleccionada" })).toBeTruthy();
   await interaction.click(download);
   await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
   expect(requests()[0].searchParams.getAll("idEvaluacion")).toEqual(["20"]);
-  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toMatch(/^Evaluaciones_seleccionadas_/);
+  expect(HTMLAnchorElement.prototype.click.mock.instances.at(-1).download).toMatch(/^Informe_parcial_/);
+  await interaction.click(dialog.getByRole("button", { name: "1 evaluación seleccionada" }));
   await interaction.click(dialog.getByRole("button", { name: "Seleccionar todas" }));
-  expect(dialog.getByText("2 evaluaciones seleccionadas")).toBeTruthy();
+  expect(dialog.getByRole("button", { name: "Todas las evaluaciones" })).toBeTruthy();
   await interaction.click(download);
   await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(2));
   expect(requests()[1].searchParams.getAll("idEvaluacion")).toEqual(["20", "21"]);
   expect(calls.filter(({ path }) => path.endsWith("reporte-avance")).every(({ query }) =>
     query.idAlumno === "11" && query.idAsignacionCurso === "5" && query.idPeriodoAcademico === "40")).toBe(true);
+  await interaction.click(dialog.getByRole("button", { name: "Todas las evaluaciones" }));
   await interaction.click(dialog.getByRole("button", { name: "Limpiar selección" }));
   expect(download.disabled).toBe(true);
-  expect(dialog.getByText("0 evaluaciones seleccionadas")).toBeTruthy();
-  await interaction.click(dialog.getByRole("button", { name: "Limpiar competencias" }));
+  expect(dialog.getByRole("button", { name: "Seleccionar evaluaciones" })).toBeTruthy();
+  await interaction.click(dialog.getByRole("button", { name: "Todas las competencias" }));
+  await interaction.click(dialog.getByRole("button", { name: "Limpiar selección" }));
   expect(dialog.queryByRole("checkbox", { name: /Práctica/ })).toBeNull();
   const [competency] = dialog.getAllByRole("checkbox");
   await interaction.click(competency);
+  await interaction.click(dialog.getByRole("button", { name: "Seleccionar evaluaciones" }));
   await interaction.click(dialog.getByRole("button", { name: "Seleccionar todas" }));
   await interaction.click(download);
   await waitFor(() => expect(requests()).toHaveLength(3));

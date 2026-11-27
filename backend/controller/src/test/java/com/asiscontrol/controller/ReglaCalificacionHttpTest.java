@@ -22,6 +22,60 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
     private static final String REGLAS = "/api/reglas-calificacion";
     private static final String INFORMES = "/api/calificaciones/informes/";
 
+    @Test void consolidaEnElPeriodoYLaPublicacionExcluyeBorradoresDelDenominador() throws Exception {
+        var datos = entrada(course, null, 60, 40);
+        datos.put("formula", "CUALITATIVA_DINAMICA_V1");
+        activar(putOk(REGLAS + "/borrador", datos));
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year); periodo.setOrden(1); periodo.setNombre("Primer período");
+        periodo.setFechaInicio(LocalDate.of(2090, 3, 1)); periodo.setFechaFin(LocalDate.of(2090, 4, 30));
+        em.persist(periodo);
+        long evaluacion = registrar(assignment, TipoEvaluacion.EXAMEN, NivelLogro.AD);
+        em.find(Evaluacion.class, evaluacion).setModeloCualitativo(true);
+        long borrador = postOk("/api/evaluaciones", data("idAsignacionCurso", assignment.getId(),
+                "titulo", "Proyecto", "tipoEvaluacion", "PROYECTO", "periodoEvaluacion", "PERIODO_ACADEMICO",
+                "fechaEvaluacion", "2090-04-15", "idsCompetencia", List.of(competence.getId()))).path("id").asLong();
+        String path = "/api/calificaciones/consolidados?idAlumno=" + student.getId()
+                + "&idAsignacionCurso=" + assignment.getId();
+        request("GET", path, null, 422);
+        var resultado = getOk(path + "&idPeriodoAcademico=" + periodo.getId()).get(0);
+        assertThat(resultado.path("promedioPonderado").decimalValue()).isEqualByComparingTo("4");
+        assertThat(resultado.path("nivelConsolidado").asText()).isEqualTo("AD");
+        var nota = getOk("/api/evaluaciones/" + evaluacion + "/planilla").path("alumnos").get(0).path("notas").get(0);
+        assertThat(nota.path("pesoEfectivo").decimalValue()).isEqualByComparingTo("100");
+        request("POST", "/api/calificaciones/correcciones", data("motivo", "Verificación de evidencia",
+                "correcciones", List.of(data("idCalificacion", nota.path("idCalificacion").asLong(),
+                        "version", nota.path("version").asLong(), "nivelLogro", "B"))), 200);
+        assertThat(getOk(path + "&idPeriodoAcademico=" + periodo.getId()).get(0)
+                .path("nivelConsolidado").asText()).isEqualTo("B");
+        var tarea = postOk("/api/tareas", data("asignacionCursoId", assignment.getId(), "nombre", "Proyecto asignado",
+                "descripcion", "Presentar el proyecto", "fechaLimite", "2090-04-15T18:00:00",
+                "maxArchivosEntrega", 0, "archivoIds", List.of(), "cuentaParaResultadoAcademico", true,
+                "idEvaluacionAcademica", borrador));
+        request("POST", "/api/tareas/" + tarea.path("id").asLong() + "/publicar", null, 200);
+        var pendiente = getOk(path + "&idPeriodoAcademico=" + periodo.getId()).get(0);
+        assertThat(pendiente.path("nivelConsolidado").isNull()).isTrue();
+        assertThat(pendiente.path("componentesFaltantes").toString()).contains("PROYECTO");
+        var notaConCompromiso = getOk("/api/evaluaciones/" + evaluacion + "/planilla").path("alumnos").get(0).path("notas").get(0);
+        assertThat(notaConCompromiso.path("pesoEfectivo").decimalValue()).isEqualByComparingTo("60");
+    }
+
+    @Test void detectaDuplicadosSemanticosYPermiteRecuperarUnaHistorica() throws Exception {
+        var primera = putOk(REGLAS + "/borrador", entrada(course, null, 60, 40));
+        var misma = entrada(course, null, 60, 40);
+        misma.put("componentes", List.of(
+                data("tipoEvaluacion", "PROYECTO", "nombre", " Proyectos ", "peso", new BigDecimal("40.00")),
+                data("tipoEvaluacion", "EXAMEN", "nombre", "Exámenes", "peso", new BigDecimal("60.00"))));
+        assertThat(putOk(REGLAS + "/borrador", misma).path("id")).isEqualTo(primera.path("id"));
+        activar(primera);
+        assertThat(request("PUT", REGLAS + "/borrador", misma, 422).path("code").asText())
+                .isEqualTo("REGLA_CONFIGURACION_VIGENTE");
+        activar(putOk(REGLAS + "/borrador", entrada(course, null, 70, 30)));
+        var restaurada = putOk(REGLAS + "/borrador", misma);
+        assertThat(restaurada.path("numeroVersion").asInt()).isEqualTo(3);
+        assertThat(restaurada.path("id")).isNotEqualTo(primera.path("id"));
+    }
+
     @Test void validaComponentesNuevosYPermiteConservarElTipoHistorico() throws Exception {
         String evaluaciones = "/api/evaluaciones";
         var datos = data("idAsignacionCurso", assignment.getId(), "titulo", "Evaluación",

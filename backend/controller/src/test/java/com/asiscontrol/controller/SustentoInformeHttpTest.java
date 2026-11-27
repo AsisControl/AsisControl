@@ -72,6 +72,41 @@ class SustentoInformeHttpTest extends ApiIntegrationSupport {
         }
     }
 
+    @Test void parcialSinLibretaConsultaSoloSustentoExactoYAutorizaPorRol() throws Exception {
+        em.remove(detalle);
+        em.remove(informe);
+        var ajena = evidencia(false);
+        ajena.setArchivo(archivo);
+        em.flush();
+        String base = "/api/calificaciones/informes/parcial";
+        String contexto = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + periodo.getId() + "&idEvaluacion=" + evaluacion.getId()
+                + "&idCompetencia=" + competence.getId();
+        var docente = como("DOCENTE", teacher.getPersona());
+        mvc.perform(get(base + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].idDetalleInforme").value(0))
+                .andExpect(jsonPath("$.filas[0].tieneSustento").value(true));
+        mvc.perform(get(base + "/evidencias" + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.evidencias.length()").value(1))
+                .andExpect(jsonPath("$.evidencias[0].idEvidencia").value(evidencia.getId()));
+        String descarga = base + "/evidencias/" + evidencia.getId() + "/archivo";
+        mvc.perform(get(descarga + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store")).andExpect(content().bytes(contenido));
+        mvc.perform(get(base + "/evidencias/" + ajena.getId() + "/archivo" + contexto).with(docente))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(descarga + contexto.replaceFirst("idCompetencia=[0-9]+", "idCompetencia=999999")).with(docente))
+                .andExpect(status().isNotFound());
+        for (var usuario : List.of(como("ALUMNO", student.getPersona()), como("APODERADO", guardian.getPersona()),
+                como("DOCENTE", person()))) {
+            mvc.perform(get(base + "/evidencias" + contexto).with(usuario)).andExpect(status().isForbidden());
+            mvc.perform(get(descarga + contexto).with(usuario)).andExpect(status().isForbidden());
+        }
+        evidencia.setActivo(false);
+        em.flush();
+        mvc.perform(get(base + contexto).with(docente)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].tieneSustento").value(false));
+    }
+
     @Test void altaSinVinculoNoSustentaLaFilaYElPutIdempotenteLaHaceVisible() throws Exception {
         evidencia.setActivo(false);
         var docente = jwt().jwt(j -> j.claim("personaId", teacher.getPersona().getId()))

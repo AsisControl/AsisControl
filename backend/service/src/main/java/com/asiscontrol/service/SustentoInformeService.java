@@ -23,14 +23,39 @@ public class SustentoInformeService {
     private final MatriculaRepository matriculas;
     private final EvidenciaPedagogicaRepository evidencias;
     private final ArchivoStorageService archivos;
+    private final ReporteAvanceService informes;
 
     public SustentoInformeService(EntityManager em, ModuloAccessGuard acceso,
-            MatriculaRepository matriculas, EvidenciaPedagogicaRepository evidencias, ArchivoStorageService archivos) {
+            MatriculaRepository matriculas, EvidenciaPedagogicaRepository evidencias, ArchivoStorageService archivos,
+            ReporteAvanceService informes) {
         this.em = em;
         this.acceso = acceso;
         this.matriculas = matriculas;
         this.evidencias = evidencias;
         this.archivos = archivos;
+        this.informes = informes;
+    }
+
+    public record FilaParcial(Long alumno, Long curso, Long periodo, Long evaluacion, Long competencia) {}
+
+    public java.util.List<SustentoInformeDto.Evidencia> listarParcial(FilaParcial fila) {
+        String ruta = "/api/calificaciones/informes/parcial/evidencias/";
+        String contexto = "?idAlumno=" + fila.alumno() + "&idAsignacionCurso=" + fila.curso()
+                + "&idPeriodoAcademico=" + fila.periodo() + "&idEvaluacion=" + fila.evaluacion()
+                + "&idCompetencia=" + fila.competencia();
+        return buscarParcial(fila, null).stream()
+                .map(e -> respuesta(e, ruta + e.getId() + "/archivo" + contexto)).toList();
+    }
+
+    public ArchivoStorageService.DescargaArchivo descargarParcial(FilaParcial fila, Long evidenciaId) {
+        var evidencia = buscarParcial(fila, evidenciaId).stream().findFirst().orElseThrow(() ->
+                new ResourceNotFoundException("SUSTENTO_NO_ENCONTRADO", "La evidencia no está disponible para esta fila"));
+        return descargarArchivo(evidencia);
+    }
+
+    private java.util.List<EvidenciaPedagogica> buscarParcial(FilaParcial fila, Long evidenciaId) {
+        informes.validarFilaParcial(fila.alumno(), fila.curso(), fila.periodo(), fila.evaluacion(), fila.competencia());
+        return evidencias.buscarSustento(fila.curso(), fila.alumno(), fila.competencia(), fila.periodo(), fila.evaluacion(), evidenciaId);
     }
 
     public SustentoInformeDto listar(Long informeId, Long detalleId) {
@@ -49,7 +74,10 @@ public class SustentoInformeService {
 
     public ArchivoStorageService.DescargaArchivo descargar(Long informeId, Long detalleId, Long evidenciaId) {
         var d = detalleAutorizado(informeId, detalleId);
-        var e = evidenciaAutorizada(d, evidenciaId);
+        return descargarArchivo(evidenciaAutorizada(d, evidenciaId));
+    }
+
+    private ArchivoStorageService.DescargaArchivo descargarArchivo(EvidenciaPedagogica e) {
         if (e.getArchivo() == null || !e.getArchivo().isActivo()) {
             throw new ResourceNotFoundException("SUSTENTO_SIN_ARCHIVO", "La evidencia no tiene un adjunto disponible");
         }
@@ -89,11 +117,15 @@ public class SustentoInformeService {
     }
 
     private SustentoInformeDto.Evidencia respuesta(DetalleInformeProgreso d, EvidenciaPedagogica e) {
+        return respuesta(e, "/api/calificaciones/informes/" + d.getInforme().getId() + "/filas/" + d.getId()
+                + "/evidencias/" + e.getId() + "/archivo");
+    }
+
+    private SustentoInformeDto.Evidencia respuesta(EvidenciaPedagogica e, String url) {
         var a = e.getArchivo();
         var adjunto = a == null || !a.isActivo() ? null : new SustentoInformeDto.Adjunto(a.getId(),
                 a.getNombreOriginal(), a.getTipoMime(), a.getTamanioBytes(),
-                "/api/calificaciones/informes/" + d.getInforme().getId() + "/filas/" + d.getId()
-                        + "/evidencias/" + e.getId() + "/archivo");
+                url);
         return new SustentoInformeDto.Evidencia(e.getId(), e.getDescripcion(), adjunto);
     }
 }

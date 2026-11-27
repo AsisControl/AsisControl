@@ -39,7 +39,8 @@ test("selecciona actividades publicadas y consulta un informe parcial para el es
       ? reply(503, { message: "Vuelve a consultar el informe." })
       : { ...progressReport, consolidado: [{ idCompetencia: 7, nombreCompetencia: "Argumenta", nivelConsolidado: null,
         estadoAvance: "NO_EVALUADA", componentesFaltantes: [] }] },
-    "GET /api/calificaciones/informes/parcial/pdf": reply(200, "%PDF-1.7", { "Content-Type": "application/pdf" }),
+    "GET /api/calificaciones/informes/parcial/pdf": reply(200, "%PDF-1.7", { "Content-Type": "application/pdf",
+      "Content-Disposition": 'attachment; filename="Informe_parcial_Ana_Ramos_Matematica_Bimestre_1.pdf"' }),
   });
   render(<PublishPeriod canWrite assignments={[{ id: 3, curso: "Matemática", seccion: "A", anioAcademico: 2026 }]} />);
   const user = userEvent.setup();
@@ -48,15 +49,17 @@ test("selecciona actividades publicadas y consulta un informe parcial para el es
   await user.selectOptions(screen.getByLabelText("Período académico"), "4");
   await user.selectOptions(screen.getByLabelText("Tipo de informe"), "partial");
   await user.selectOptions(await screen.findByLabelText("Estudiante"), "8");
+  await user.click(screen.getByRole("button", { name: "Todas las competencias" }));
   await user.click(screen.getByRole("checkbox", { name: "Modela" }));
   const preview = screen.getByRole("button", { name: "Consultar informe parcial" });
   expect(preview.disabled).toBe(true);
+  await user.click(screen.getByRole("button", { name: "Seleccionar evaluaciones" }));
   await user.click(screen.getByRole("button", { name: "Seleccionar todas" }));
-  expect(screen.getByText("Seleccionadas: 2 de 2")).toBeTruthy();
-  await user.type(screen.getByLabelText("Filtrar evaluaciones"), "Proyecto");
+  expect(screen.getByRole("button", { name: "Todas las evaluaciones" })).toBeTruthy();
+  await user.type(screen.getByLabelText("Buscar evaluaciones"), "Proyecto");
   expect(screen.queryByRole("checkbox", { name: /Examen de números/ })).toBeNull();
   await user.click(screen.getByRole("checkbox", { name: /Proyecto de medidas/ }));
-  expect(screen.getByText("Seleccionadas: 1 de 2")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "1 evaluación seleccionada" })).toBeTruthy();
   await user.click(preview);
   await screen.findByText("Vuelve a consultar el informe.");
   await user.click(preview);
@@ -68,6 +71,7 @@ test("selecciona actividades publicadas y consulta un informe parcial para el es
   const link = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   await user.click(screen.getByRole("button", { name: "Descargar PDF parcial" }));
   await waitFor(() => expect(link).toHaveBeenCalledOnce());
+  expect(link.mock.instances[0].download).toBe("Informe_parcial_Ana_Ramos_Matematica_Bimestre_1.pdf");
   expect(calls.find(call => call.path.endsWith("/parcial/pdf")).query).toMatchObject({ idEvaluacion: "18", idCompetencia: "7" });
   expect(calls.find(call => call.path.endsWith("/parcial")).query.idCompetencia).toBe("7");
   expect(calls.every(call => call.method === "GET")).toBe(true);
@@ -216,7 +220,7 @@ test("progreso muestra notas y descarga el informe elegido", async () => {
   await user.selectOptions(screen.getByLabelText("Curso"), "3");
   await user.click(screen.getByText("Ver notas"));
   await screen.findByText("Buen avance");
-  expect(screen.getByText("Sin registrar")).toBeTruthy();
+  expect(screen.getByText("—")).toBeTruthy();
   const full = screen.getByRole("button", { name: "Descargar libreta completa" });
   const partial = screen.getByRole("button", { name: "Descargar evaluaciones seleccionadas" });
   expect(full.parentElement.contains(partial)).toBe(true);
@@ -333,7 +337,7 @@ test.each([
   expect(screen.queryByText(staleReports)).toBeNull();
   expect(screen.getByRole("button", {name:"Ver libreta de Ana"})).toBeTruthy();
   expect(screen.getByRole("button", {name:"Publicar libretas"}).disabled).toBe(true);
-  await screen.findByText("Sin registrar");
+  await screen.findByText("—");
   expect(screen.getByText("Versión 2")).toBeTruthy();
   expect(calls.filter(c => c.method === "POST")).toHaveLength(1);
   expect(calls.find(c => c.path.endsWith("borrador")).query).toEqual({idAlumno:"8",idAsignacionCurso:"3",idPeriodoAcademico:"4"});

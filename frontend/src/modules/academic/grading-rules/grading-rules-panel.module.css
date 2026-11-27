@@ -26,6 +26,23 @@
   min-width: 0;
 }
 
+.componentRows { max-block-size: 40vh; overflow: auto; min-width: 0; }
+.componentRows .component { margin: 0; padding: .3rem 0; border: 0; align-items: center; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.5fr) minmax(5rem, .5fr) 3rem; }
+.componentRows input[type="number"] { text-align: center; }
+.componentRows button { align-self: center; justify-self: center; }
+.componentRows .componentHead { font-weight: 600; color: var(--muted); }
+.editingVersion { margin: 0 0 .4rem; color: var(--muted); }
+:global(.dialog-body):has(.componentRows), :global(.dialog-body):has(.scaleEditor) { padding-block: .75rem 1rem; }
+@media (min-width: 641px) {
+  .componentRows fieldset :global(.field) { gap: 0; margin: 0; }
+  .componentLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .componentRows fieldset :is(input, select) { font-size: .9rem; }
+}
+@media (max-width: 640px) {
+  .componentRows .component { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
+  .componentRows .componentHead { display: none; }
+}
+
 .card {
   border: 1px solid var(--border);
   border-radius: .65rem;
@@ -74,11 +91,14 @@
 .weight[data-total="exceso"] { color: #991b1b; }
 .weight[data-total="exceso"] progress { accent-color: #b91c1c; }
 
-.sample { min-width: 0; border: 0; margin: 0; padding: 0; }
+.sample { min-width: 0; border: 0; margin: 0; padding: 0 .35rem .25rem 0; max-height: 40vh; overflow: auto; }
 .sample legend { font-weight: 600; }
 .sampleRow { display: flex; align-items: center; justify-content: space-between; gap: .75rem;
   border-bottom: 1px solid var(--border); padding: .4rem 0; }
 .sampleRow span { display: block; color: var(--muted); }
+.sampleActions { display: flex; align-items: center; gap: .5rem; margin-block: .3rem; }
+.removeSample { inline-size: 1.8rem; block-size: 1.8rem; padding: 0; }
+.addSample { min-height: 1.9rem; padding: .2rem .5rem; margin-top: .2rem; }
 .result { padding: .7rem; border-radius: .5rem; background: var(--surface); }
 .result dl { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; padding-top: .45rem; }
 .result dd { margin: 0; font-size: 1.2rem; font-weight: 700; }
@@ -118,7 +138,7 @@
   font: inherit; text-align: right;
 }
 .scaleTable input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.scaleEditor { padding: 1rem; border: 1px solid #dbe3ee; border-radius: .65rem; background: #f8fafc; }
+.scaleEditor { margin-top: .6rem; }
 .scaleEditor .scaleTable { table-layout: fixed; width: 100%; }
 .scaleEditor .scaleTable th:first-child { width: 48%; }
 .scaleEmpty { margin: 0; padding: .75rem; background: #f8fafc; border-radius: .5rem; }

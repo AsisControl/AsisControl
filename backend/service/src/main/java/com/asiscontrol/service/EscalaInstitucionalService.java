@@ -48,13 +48,16 @@ public class EscalaInstitucionalService {
             }
         }
         validar(rangos, false);
+        verificarConfiguracionVigente(escalas.findByRanura(Ranura.VIGENTE).orElse(null), rangos);
         var escala = escalas.findByRanura(Ranura.BORRADOR).orElseGet(() -> {
             var nueva = new EscalaInstitucional();
             nueva.setNumeroVersion(escalas.findFirstByOrderByNumeroVersionDesc()
                     .map(item -> item.getNumeroVersion() + 1).orElse(1));
             return nueva;
         });
+        if (escala.getId() != null && request.version() == null && escala.getRangos().equals(rangos)) return respuesta(escala);
         verificarVersion(escala, request.version());
+        if (escala.getId() != null && escala.getRangos().equals(rangos)) return respuesta(escala);
         String anterior = escala.getId() == null ? null : describir(escala);
         escala.getRangos().clear();
         escala.getRangos().putAll(rangos);
@@ -71,6 +74,7 @@ public class EscalaInstitucionalService {
         if (escala.getRanura() != Ranura.BORRADOR) throw invalida("Solo se puede activar un borrador.");
         validar(escala.getRangos(), true);
         var anterior = escalas.findByRanura(Ranura.VIGENTE).orElse(null);
+        verificarConfiguracionVigente(anterior, escala.getRangos());
         if (anterior != null) {
             anterior.setRanura(null);
             escalas.flush();
@@ -90,6 +94,13 @@ public class EscalaInstitucionalService {
         auditar("ACTIVAR_ESCALA_INSTITUCIONAL", escala, escala.getMotivoAplicacion(),
                 anterior == null ? null : describir(anterior));
         return respuesta(escala);
+    }
+
+    private void verificarConfiguracionVigente(EscalaInstitucional vigente, Map<NivelLogro, EscalaInstitucional.Rango> rangos) {
+        if (vigente != null && vigente.getRangos().equals(rangos)) {
+            throw new BusinessRuleException("ESCALA_CONFIGURACION_VIGENTE",
+                    "Esta configuración coincide con la escala vigente. No es necesario crear una nueva versión.");
+        }
     }
 
     EscalaInstitucional exigirVigente() {

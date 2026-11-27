@@ -18,6 +18,7 @@ import com.asiscontrol.dto.EvaluacionDto;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.Evaluacion;
+import com.asiscontrol.entity.ReglaCalificacion;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
@@ -31,6 +32,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
@@ -40,6 +42,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class EvaluacionService {
+    private final FlujoEntregaAcademica flujoEntrega;
 
     private final EvaluacionRepository evaluacionRepository;
     private final AsignacionCursoRepository asignacionCursoRepository;
@@ -68,8 +71,10 @@ public class EvaluacionService {
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria,
             AvisosAcademicos avisos,
-            com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository periodos
+            com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository periodos,
+            FlujoEntregaAcademica flujoEntrega
     ) {
+        this.flujoEntrega = flujoEntrega;
         this.calificacionRepository = calificacionRepository;
         this.correccionRepository = correccionRepository;
         this.matriculaRepository = matriculaRepository;
@@ -120,7 +125,8 @@ public class EvaluacionService {
             throw new BusinessRuleException("PERIODO_CURSO_INVALIDO", "El periodo no pertenece al año del curso");
         }
         var borradores = evaluacionRepository.borradoresParaPublicar(idAsignacionCurso,
-                periodo.getFechaInicio(), periodo.getFechaFin());
+                periodo.getFechaInicio(), periodo.getFechaFin()).stream()
+                .filter(e -> !e.isEntregaPorConfigurar() && flujoEntrega.tareaVinculada(e) == null).toList();
         validarPublicacion(borradores);
         for (var evaluacion : borradores) cambiarEstado(evaluacion.getId(), EstadoEvaluacion.PUBLICADA);
         return borradores.size();
@@ -172,16 +178,24 @@ public class EvaluacionService {
     /** US-18: alumnos matriculados en la seccion con sus niveles vigentes en esta evaluacion. */
     @Transactional(readOnly = true)
     public EvaluacionDto.PlanillaResponse planilla(Long id) {
+        return planilla(id, null);
+    }
+
+    @Transactional(readOnly = true)
+    public EvaluacionDto.PlanillaResponse planilla(Long id, Long idAlumno) {
         Evaluacion evaluacion = buscarActiva(id);
-        List<Calificacion> calificaciones = calificacionRepository.findAllByEvaluacionIdAndActivoTrue(id);
+        List<Calificacion> calificaciones = idAlumno == null ? calificacionRepository.findAllByEvaluacionIdAndActivoTrue(id)
+                : calificacionRepository.findAllByEvaluacionIdAndAlumnoIdAndActivoTrue(id, idAlumno);
         var escala = evaluacion.getEstado() == EstadoEvaluacion.BORRADOR
                 ? escalas.vigente().orElse(null) : evaluacion.getEscalaInstitucional();
         var regla = reglas.vigente(evaluacion.getAsignacionCurso()).orElse(null);
         var componente = regla == null || !evaluacion.isCuentaResultado() ? null : regla.getComponentes().get(evaluacion.getTipoEvaluacion());
+        boolean dinamica = regla != null && regla.getFormula() == ReglaCalificacion.Formula.CUALITATIVA_DINAMICA_V1;
+        var pesosDinamicos = dinamica ? reglas.pesosDinamicos(evaluacion, regla) : Map.<Long, BigDecimal>of();
         record Celda(Long alumno, Long competencia) {}
         var cantidades = new HashMap<Celda, Long>();
         var competenciasEvaluadas = evaluacion.getCompetencias().stream().map(Competencia::getId).collect(Collectors.toSet());
-        if (componente != null && !calificaciones.isEmpty()
+        if (!dinamica && componente != null && !calificaciones.isEmpty()
                 && (evaluacion.getEstado() == EstadoEvaluacion.PUBLICADA || evaluacion.getEstado() == EstadoEvaluacion.CERRADA)) {
             calificacionRepository.contarPorComponente(evaluacion.getAsignacionCurso().getId(), evaluacion.getTipoEvaluacion())
                     .forEach(fila -> cantidades.put(new Celda(fila.getAlumno(), fila.getCompetencia()), fila.getCantidad()));
@@ -201,7 +215,8 @@ public class EvaluacionService {
                             calificacion.getObservacion(),
                             calificacion.getVersion(),
                             corregidas.contains(calificacion.getId()),
-                            componente == null || calificacion.getNivelLogro() == null
+                            dinamica ? pesosDinamicos.get(calificacion.getCompetencia().getId())
+                                    : componente == null || calificacion.getNivelLogro() == null
                                     || !competenciasEvaluadas.contains(calificacion.getCompetencia().getId()) ? null
                                     : ReglaCalificacionService.pesoEfectivo(componente.getPeso(), cantidades.getOrDefault(
                                             new Celda(calificacion.getAlumno().getId(), calificacion.getCompetencia().getId()), 0L)),
@@ -210,6 +225,7 @@ public class EvaluacionService {
         List<EvaluacionDto.PlanillaAlumno> alumnos = matriculaRepository
                 .buscarAlumnosActivosDeSeccion(evaluacion.getAsignacionCurso().getSeccion().getId())
                 .stream()
+                .filter(alumno -> idAlumno == null || idAlumno.equals(alumno.getId()))
                 .map(alumno -> new EvaluacionDto.PlanillaAlumno(
                         alumno.getId(),
                         alumno.getCodigoAlumno(),
@@ -237,6 +253,8 @@ public class EvaluacionService {
 
     private EvaluacionDto.Response crear(EvaluacionDto.Request request, boolean cuentaResultado) {
         Evaluacion evaluacion = new Evaluacion();
+        evaluacion.setModeloCualitativo(true);
+        evaluacion.setEntregaPorConfigurar(Boolean.TRUE.equals(request.permitirEntrega()));
         evaluacion.setCuentaResultado(cuentaResultado);
         evaluacion.setPonderacionPorcentaje(java.math.BigDecimal.valueOf(100));
         aplicarDatosEditables(evaluacion, request);
@@ -249,8 +267,10 @@ public class EvaluacionService {
 
     @Transactional
     public EvaluacionDto.Response actualizar(Long id, EvaluacionDto.Request request) {
-        Evaluacion evaluacion = buscarActiva(id);
+        Evaluacion evaluacion = evaluacionRepository.buscarActivaParaEscritura(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EVALUACION_NO_ENCONTRADA", "No se encontró la evaluación."));
         accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        flujoEntrega.verificar(evaluacion, null);
         if (evaluacion.getEstado() != EstadoEvaluacion.BORRADOR) {
             throw new BusinessRuleException(
                     "EVALUACION_NO_EDITABLE",
@@ -267,9 +287,14 @@ public class EvaluacionService {
 
     @Transactional
     public EvaluacionDto.Response cambiarEstado(Long id, EstadoEvaluacion estadoDestino) {
+        return cambiarEstado(id, estadoDestino, null);
+    }
+
+    EvaluacionDto.Response cambiarEstado(Long id, EstadoEvaluacion estadoDestino, Long tarea) {
         Evaluacion evaluacion = evaluacionRepository.buscarActivaParaEscritura(id)
                 .orElseThrow(() -> new ResourceNotFoundException("EVALUACION_NO_ENCONTRADA", "No se encontró la evaluación."));
         accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        flujoEntrega.verificar(evaluacion, tarea);
         EstadoEvaluacion estadoActual = evaluacion.getEstado();
         if (estadoActual == estadoDestino) {
             return toResponse(evaluacion);
@@ -349,8 +374,10 @@ public class EvaluacionService {
 
     @Transactional
     public void eliminar(Long id) {
-        Evaluacion evaluacion = buscarActiva(id);
+        Evaluacion evaluacion = evaluacionRepository.buscarActivaParaEscritura(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EVALUACION_NO_ENCONTRADA", "No se encontró la evaluación."));
         accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        flujoEntrega.verificar(evaluacion, null);
         if (evaluacion.getEstado() != EstadoEvaluacion.BORRADOR
                 && evaluacion.getEstado() != EstadoEvaluacion.ANULADA) {
             throw new BusinessRuleException(
@@ -362,6 +389,22 @@ public class EvaluacionService {
         evaluacionRepository.save(evaluacion);
         auditoria.registrar("ELIMINAR_EVALUACION", ModuloAuditoria.ACADEMICO, "Evaluacion",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, describir(evaluacion), null);
+    }
+
+    @Transactional
+    public EvaluacionDto.Response cancelarEntrega(Long id) {
+        var evaluacion = evaluacionRepository.buscarActivaParaEscritura(id)
+                .orElseThrow(() -> new ResourceNotFoundException("EVALUACION_NO_ENCONTRADA", "No se encontró la evaluación."));
+        accessGuard.verificarAsignacionDocente(evaluacion.getAsignacionCurso());
+        if (!evaluacion.isEntregaPorConfigurar() || evaluacion.getEstado() != EstadoEvaluacion.BORRADOR
+                || flujoEntrega.tareaVinculada(evaluacion) != null
+                || !calificacionRepository.findAllByEvaluacionIdAndActivoTrue(id).isEmpty()) {
+            throw new BusinessRuleException("ENTREGA_NO_CANCELABLE", "Solo se puede cancelar una configuración pendiente y sin calificaciones.");
+        }
+        evaluacion.setEntregaPorConfigurar(false);
+        auditoria.registrar("CANCELAR_CONFIGURACION_ENTREGA", ModuloAuditoria.ACADEMICO, "Evaluacion",
+                id.toString(), ResultadoAuditoria.EXITOSO, null, null, null);
+        return toResponse(evaluacion);
     }
 
     private String accionEstado(EstadoEvaluacion destino) {
@@ -500,6 +543,7 @@ public class EvaluacionService {
                 ))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
+        var actividad = flujoEntrega.actividadVinculada(evaluacion);
         return new EvaluacionDto.Response(
                 evaluacion.getId(),
                 evaluacion.getAsignacionCurso().getId(),
@@ -522,7 +566,11 @@ public class EvaluacionService {
                 evaluacion.getAsignacionCurso().getSeccion().getAnioAcademico(),
                 regla != null,
                 componente == null ? null : componente.getNombre(),
-                componente == null ? null : componente.getPeso()
+                componente == null ? null : componente.getPeso(),
+                evaluacion.isModeloCualitativo(),
+                evaluacion.isEntregaPorConfigurar(),
+                actividad == null ? null : actividad.getId(),
+                actividad == null ? null : actividad.getEstadoPublicacion()
         );
     }
 

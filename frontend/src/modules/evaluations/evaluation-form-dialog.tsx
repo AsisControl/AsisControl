@@ -1,8 +1,8 @@
 "use client";
+import { CheckboxSelect } from "@/shared/ui/checkbox-select";
 import { useEffect, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
 import { Field, FormDialog, Loading } from "@/shared/ui";
-import { countLabel } from "@/shared/lib/formatters";
 import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import {
   actualizarEvaluacion,
@@ -60,7 +60,6 @@ export function EvaluationFormDialog({
   const [competencias, setCompetencias] = useState<number[]>(
     evaluation?.competencias.map((item) => item.id) ?? [],
   );
-  const [search, setSearch] = useState("");
   const [calendar, setCalendar] = useState<{ id: number; periods: ReportPeriod[] } | null>(null);
   const [descripcion, setDescripcion] = useState(evaluation?.descripcion ?? "");
   const [tipo, setTipo] = useState(evaluation?.tipoEvaluacion ?? "");
@@ -76,6 +75,7 @@ export function EvaluationFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [permitirEntrega, setPermitirEntrega] = useState(false);
   const assignment = assignments.find(
     (item) => String(item.cursoId) === cursoId && String(item.seccionId) === seccionId,
   );
@@ -127,9 +127,6 @@ export function EvaluationFormDialog({
   const catalogError = competencyError?.assignmentId === idAsignacionCurso ? competencyError?.text : "";
   const unavailable = (evaluation?.competencias ?? []).filter(item =>
     options && competencias.includes(item.id) && !options.some(option => option.competenciaId === item.id));
-  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es");
-  const query = normalize(search.trim());
-  const visibleOptions = options?.filter((item) => normalize(item.competenciaNombre).includes(query)) ?? [];
   const academicYear = assignment?.anioAcademico ?? evaluation?.anioAcademico;
   const currentCalendar = calendar?.id === idAsignacionCurso ? calendar : null;
   const dateError = validateDate(fecha, academicYear, currentCalendar?.periods ?? []);
@@ -137,7 +134,6 @@ export function EvaluationFormDialog({
     setCursoId(value);
     setSeccionId("");
     setCompetencias([]);
-    setSearch("");
     resetComponent();
   }
   function resetComponent() {
@@ -182,11 +178,12 @@ export function EvaluationFormDialog({
       periodoEvaluacion: periodo,
       fechaEvaluacion: fecha,
       idsCompetencia: competencias,
+      ...(!evaluation && permitirEntrega ? { permitirEntrega: true } : {}),
     };
     try {
       onSaved(
         await (evaluation ? actualizarEvaluacion(evaluation.id, input) : crearEvaluacion(input)),
-        grade,
+        grade || permitirEntrega,
       );
     } catch (e) {
       setError(message(e));
@@ -205,7 +202,7 @@ export function EvaluationFormDialog({
       error={error}
       onClose={onClose}
       onSubmit={submit}
-      submitLabel={evaluation ? "Guardar y calificar" : "Crear evaluación"}
+      submitLabel={permitirEntrega ? "Continuar a la tarea" : evaluation ? "Guardar y calificar" : "Crear evaluación"}
       noValidate
       notes={
         !evaluation && (
@@ -283,7 +280,6 @@ export function EvaluationFormDialog({
             setSeccionId(event.target.value);
             setCompetencias([]);
             setCompetencyError(null);
-            setSearch("");
             resetComponent();
           }}
         >
@@ -342,6 +338,10 @@ export function EvaluationFormDialog({
           hint="Definido por las reglas académicas."
         />
       </>}
+      {!evaluation && <label className="full-field">
+        <input type="checkbox" checked={permitirEntrega} onChange={event => setPermitirEntrega(event.target.checked)} />
+        {" "}Permitir entrega del estudiante
+      </label>}
       <fieldset className={`full-field ${styles.competencies}`}>
         <legend>
           Competencias a evaluar<span className="field-required"> *</span>
@@ -355,31 +355,9 @@ export function EvaluationFormDialog({
         ) : !options.length ? (
           <p className="hint">El plan de este curso aún no tiene competencias disponibles.</p>
         ) : (
-          <>
-            <Field label="Buscar competencias" type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
-            <div className={styles.competencyToolbar}>
-              <span aria-live="polite">{competencias.length} de {countLabel(options.length, "competencia seleccionada", "competencias seleccionadas")}</span>
-              <button type="button" className="secondary-action" onClick={() => setCompetencias(options.map((item) => item.competenciaId))}>
-                Seleccionar todas
-              </button>
-              <button type="button" className="secondary-action" disabled={!competencias.length} onClick={() => setCompetencias([])}>
-                Limpiar selección
-              </button>
-            </div>
-            <div className={styles.competencyList} role="group" aria-label="Lista de competencias">
-              {visibleOptions.map((item) => (
-                <label key={item.competenciaId}>
-                  <input
-                    type="checkbox"
-                    checked={competencias.includes(item.competenciaId)}
-                    onChange={() => toggle(item.competenciaId)}
-                  />
-                  {item.competenciaNombre}
-                </label>
-              ))}
-              {!visibleOptions.length && <p className="hint">No hay competencias que coincidan con la búsqueda.</p>}
-            </div>
-          </>
+          <CheckboxSelect singular="competencia" plural="competencias"
+            options={options.map(item => ({ id: item.competenciaId, label: item.competenciaNombre }))}
+            selected={competencias} onChange={setCompetencias} />
         )}
         {unavailable.map(item => <label key={item.id}>
           <input type="checkbox" checked onChange={() => toggle(item.id)} />

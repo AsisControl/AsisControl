@@ -38,57 +38,18 @@ test("Edita un borrador, conserva versión y precisión de fechas, y refresca el
   await waitFor(() => expect(calls.filter((call) => call.path === "/api/tareas")).toHaveLength(2));
 });
 
-test("Prepara una evaluación desde la tarea con componente vigente y competencia", async () => {
-  const calls = backend({
-    "GET /api/reglas-calificacion/vigente": { componentes: [
-      { tipoEvaluacion: "EXAMEN", nombre: "Exámenes", peso: 60 },
-      { tipoEvaluacion: "PROYECTO", nombre: "Proyectos", peso: 40 },
-    ] },
-    "GET /api/evaluaciones/competencias": [{ id: 7, codigo: "MAT", nombre: "Resuelve problemas" }],
-  });
+test("La tarea independiente conserva sus datos sin configurar una evaluación", async () => {
+  const calls = backend();
   const user = userEvent.setup();
   render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
-  await user.click(await screen.findByLabelText(/Incluir en el resultado académico/));
-  await user.selectOptions(screen.getByLabelText("Evaluación de la tarea"), "new");
-  await user.selectOptions(await screen.findByRole("combobox", { name: "Componente" }), await screen.findByRole("option", { name: "Proyectos" }));
-  const peso = screen.getByLabelText(/Peso del componente/);
-  expect(peso.value).toBe("40 %");
-  expect(peso.readOnly).toBe(true);
-  await user.type(screen.getByLabelText("Fecha de evaluación"), "2099-11-30");
-  await user.click(await screen.findByLabelText("Resuelve problemas"));
+  expect((await screen.findByLabelText("Tarea independiente")).checked).toBe(true);
+  expect(screen.queryByLabelText("Peso del componente")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-  await waitFor(() => expect(calls.find(call => call.method === "PUT")?.body.nuevaEvaluacion).toEqual({
-    tipoEvaluacion: "PROYECTO", fechaEvaluacion: "2099-11-30", idsCompetencia: [7],
-  }));
+  await waitFor(() => expect(calls.some(call => call.method === "PUT")).toBe(true));
+  const body = calls.find(call => call.method === "PUT").body;
+  expect(body).not.toHaveProperty("nuevaEvaluacion");
+  expect(body).not.toHaveProperty("competenciasSinPeso");
 });
-
-test("Configura una tarea sin peso con dos competencias y sin nota total", async () => {
-  const calls = backend({
-    "GET /api/evaluaciones/competencias": [
-      { id: 7, codigo: "MAT", nombre: "Resuelve problemas" },
-      { id: 9, codigo: "COM", nombre: "Comunica resultados" },
-    ],
-  });
-  const user = userEvent.setup();
-  render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
-  await user.click(await screen.findByLabelText("Calificar por competencias sin peso"));
-  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-  expect(screen.getByRole("alert").textContent).toMatch(/Selecciona las competencias/);
-  const first = await screen.findByLabelText("Resuelve problemas");
-  await user.click(first);
-  await user.click(first);
-  await user.click(first);
-  await user.click(screen.getByLabelText("Comunica resultados"));
-  expect(screen.getByLabelText("Peso en el resultado académico").value).toBe("Sin peso");
-  await user.type(screen.getByLabelText("Fecha de evaluación"), "2099-11-30");
-  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-  await waitFor(() => {
-    const body = calls.find(call => call.method === "PUT")?.body;
-    expect(body.competenciasSinPeso).toEqual({ fechaEvaluacion: "2099-11-30", idsCompetencia: [7, 9] });
-    expect(body).not.toHaveProperty("idEvaluacionAcademica");
-  });
-});
-
 test("Vincula únicamente evaluaciones elegibles y muestra el nombre de sus competencias", async () => {
   const candidate = { id: 1, idAsignacionCurso: 42, titulo: "Examen final", estado: "BORRADOR",
     pesoComponente: 80, componente: "Exámenes", competencias: [{ id: 7, nombre: "Resuelve problemas" }] };
@@ -99,7 +60,7 @@ test("Vincula únicamente evaluaciones elegibles y muestra el nombre de sus comp
   });
   const user = userEvent.setup();
   render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
-  await user.click(await screen.findByLabelText("Incluir en el resultado académico"));
+  await user.click(await screen.findByLabelText("Vincular a una evaluación"));
   await screen.findByRole("option", { name: /Examen final/ });
   const select = screen.getByLabelText("Evaluación académica");
   expect([...select.options].map(option => option.value)).toEqual(["", "1"]);
@@ -111,24 +72,16 @@ test("Vincula únicamente evaluaciones elegibles y muestra el nombre de sus comp
     .toMatchObject({ cuentaParaResultadoAcademico: true, idEvaluacionAcademica: 1 }));
 });
 
-test("Carga competencias aunque la asignación no tenga regla vigente", async () => {
-  const calls = backend({
-    "GET /api/reglas-calificacion/vigente": reply(204),
-    "GET /api/evaluaciones/competencias": [{ id: 7, codigo: "MAT", nombre: "Resuelve problemas" }],
-  });
+test("Remite a Nueva evaluación cuando no existe un borrador elegible", async () => {
+  const calls = backend({ "GET /api/evaluaciones": page([]) });
   const user = userEvent.setup();
   render(<TaskFormDialog taskId={1} canUpload onClose={vi.fn()} onSaved={vi.fn()} />);
-  await user.click(await screen.findByLabelText("Incluir en el resultado académico"));
-  await user.selectOptions(screen.getByLabelText("Evaluación de la tarea"), "new");
-  expect(await screen.findByText("Esta asignación no tiene una regla vigente.")).toBeTruthy();
-  expect(screen.getByRole("combobox", { name: /^Componente/ }).disabled).toBe(true);
-  await user.click(await screen.findByLabelText("Resuelve problemas"));
-  await user.type(screen.getByLabelText("Fecha de evaluación"), "2099-11-30");
+  await user.click(await screen.findByLabelText("Vincular a una evaluación"));
+  expect((await screen.findByRole("link", { name: "Nueva evaluación" })).getAttribute("href")).toBe("/evaluaciones?crear=1");
   await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-  expect(screen.getByText("Selecciona un componente vigente.")).toBeTruthy();
+  expect(screen.getByText("Selecciona una evaluación académica disponible.")).toBeTruthy();
   expect(calls.some(call => call.method === "PUT")).toBe(false);
 });
-
 const published = (overrides = {}) => task({ estado: "PUBLICADA", fechaPublicacion: "2026-10-01T08:00:00.123456", ...overrides });
 
 test("Publicada con entregas: conserva la publicación y exige motivo al cambiar la fecha límite", async () => {

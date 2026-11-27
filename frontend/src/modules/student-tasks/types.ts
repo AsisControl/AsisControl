@@ -2,10 +2,12 @@ export type TaskFile = { id: number; nombreOriginal: string; tipoMime: string; t
 export type TaskDelivery = {
   id: number; tareaId: number; alumnoId: number; fechaHoraEntrega: string;
   archivos: TaskFile[]; nota: number | null; comentario: string | null; respuesta?: string | null;
+  nivelLogro?: "AD" | "A" | "B" | "C" | null;
   estado: "PENDIENTE" | "ENTREGADO" | "ENTREGADO_TARDE" | "CALIFICADO" | "ANULADO";
   version: number;
 };
 export type StudentTask = {
+  nivelSinEntrega?: TaskDelivery["nivelLogro"];
   resultados?: { competencia: string; nivel: "AD" | "A" | "B" | "C"; pesoEfectivo: number | null }[];
   alumnoId: number; curso: string; docente: string; seccion: string;
   tarea: {
@@ -13,7 +15,8 @@ export type StudentTask = {
     fechaPublicacion: string | null; puntajeMaximo: number; maxArchivosEntrega: number;
     estado: "BORRADOR" | "PUBLICADA" | "CERRADA" | "ARCHIVADA";
     archivos: TaskFile[];
-    evaluacionAcademica?: { id: number; titulo: string; cuentaParaResultadoAcademico: boolean; componente: string | null; pesoComponente: number | null } | null;
+    modeloCualitativo?: boolean;
+    evaluacionAcademica?: { id: number; titulo: string; estado?: "BORRADOR" | "PUBLICADA" | "CERRADA" | "ANULADA"; cuentaParaResultadoAcademico: boolean; componente: string | null; pesoComponente: number | null } | null;
   };
   entrega: TaskDelivery | null;
 };
