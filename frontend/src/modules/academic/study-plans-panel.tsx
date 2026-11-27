@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { api, apiBlob, message } from "@/core/api/client";
+import { message } from "@/core/api/client";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { saveBlob } from "@/shared/lib/save-blob";
 import { countLabel } from "@/shared/lib/formatters";
@@ -9,26 +9,25 @@ import { Feedback, Loading, Pager, PanelHeading, StatusPill } from "@/shared/ui"
 import { BulkImportDialog } from "@/modules/bulk-import";
 import type { AcademicYear } from "@/modules/academic-config";
 import { PencilIcon } from "./components/pencil-icon";
-import { ExceededSections, type ExceededSection } from "./exceeded-sections";
+import { CURSOS_PATH } from "./courses/services/cursoService";
+import { ExceededSections } from "./exceeded-sections";
 import { PlanCourseCompetencies } from "./plan-course-competencies";
-import { PlanCourseList, type DraftCourse, type PlanCourse } from "./plan-course-list";
+import { PlanCourseList, type DraftCourse } from "./plan-course-list";
 import { PreviousPlanImport } from "./previous-plan-import";
+import {
+  ANIOS_ACADEMICOS_PATH,
+  PLANES_ESTUDIOS_IMPORT_PATH,
+  actualizarNombrePlan,
+  descargarPlanEstudios,
+  guardarPlanEstudios,
+  obtenerNombrePlan,
+  obtenerPlanEstudios,
+} from "./services/planEstudiosService";
 import styles from "./study-plans.module.css";
-
-type Plan = {
-  anio: number;
-  grado: number;
-  estadoAnio: "BORRADOR" | "ACTIVO" | "CERRADO";
-  definido: boolean;
-  editable: boolean;
-  version: number;
-  cursos: PlanCourse[];
-  /** OBS-01: secciones cuyo horario supera las horas del plan; se informan sin bloquear el guardado. */
-  seccionesExcedidas?: ExceededSection[];
-};
+import type { PlanCourse, StudyPlan, StudyPlanName } from "./types";
 
 export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
-  const years = usePaged<AcademicYear>("/api/configuracion-academica/anios");
+  const years = usePaged<AcademicYear>(ANIOS_ACADEMICOS_PATH);
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("");
   const [downloading, setDownloading] = useState(false);
@@ -41,7 +40,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
     setDownloading(true);
     setDownloadError("");
     try {
-      const pdf = await apiBlob(`/api/planes-estudios/${anio}/pdf`, { timeoutMs: 60000 });
+      const pdf = await descargarPlanEstudios(anio);
       saveBlob(pdf, `Plan_de_Estudios_AsisControl_${anio}.pdf`);
     } catch (cause) {
       setDownloadError(message(cause));
@@ -65,7 +64,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
       {importing && <BulkImportDialog
         title="Carga masiva del plan de estudios"
         description="Descarga la plantilla y completa una fila por curso, año y grado. Los cursos nuevos se registran en el catálogo."
-        path="/api/planes-estudios/importaciones"
+        path={PLANES_ESTUDIOS_IMPORT_PATH}
         templateName="plantilla_plan_estudios.xlsx"
         fileLabel="Archivo Excel del plan de estudios"
         onClose={() => setImporting(false)}
@@ -101,7 +100,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
       {year && <PlanName key={year.anio} year={year.anio} canWrite={canWrite} />}
       {year && selectedGrade && <PlanEditor
         key={`${year.anio}-${selectedGrade}-${imports}`}
-        path={`/api/planes-estudios/${year.anio}/${selectedGrade}`}
+        year={year.anio} grade={Number(selectedGrade)}
         canWrite={canWrite}
       />}
     </section>
@@ -109,20 +108,18 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
 }
 
 function PlanName({ year, canWrite }: { year: number; canWrite: boolean }) {
-  type Name = { nombre: string; version: number };
-  const path = `/api/planes-estudios/${year}/nombre`;
-  const [record, setRecord] = useState<Name | null>(null);
+  const [record, setRecord] = useState<StudyPlanName | null>(null);
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    api<Name>(path).then(item => {
+    obtenerNombrePlan(year).then(item => {
       if (active) { setRecord(item); setValue(item.nombre); }
     }).catch(cause => { if (active) setError(message(cause)); });
     return () => { active = false; };
-  }, [path]);
+  }, [year]);
 
   async function rename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,7 +128,7 @@ function PlanName({ year, canWrite }: { year: number; canWrite: boolean }) {
     setError("");
     setSaved(false);
     try {
-      const updated = await api<Name>(path, { method: "PUT", body: JSON.stringify({ version: record.version, nombre: value.trim() }) });
+      const updated = await actualizarNombrePlan(year, { version: record.version, nombre: value.trim() });
       setRecord(updated);
       setValue(updated.nombre);
       setSaved(true);
@@ -156,8 +153,8 @@ function PlanName({ year, canWrite }: { year: number; canWrite: boolean }) {
   </section>;
 }
 
-function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
-  const [plan, setPlan] = useState<Plan | null>(null);
+function PlanEditor({ year, grade, canWrite }: { year: number; grade: number; canWrite: boolean }) {
+  const [plan, setPlan] = useState<StudyPlan | null>(null);
   const [selection, setSelection] = useState<DraftCourse[]>([]);
   const [editing, setEditing] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -176,13 +173,13 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
   useEffect(() => { if (editing) catalogButton.current?.focus(); }, [editing]);
   useEffect(() => {
     let active = true;
-    api<Plan>(path).then(data => {
+    obtenerPlanEstudios(year, grade).then(data => {
       if (!active) return;
       setPlan(data);
       setSelection(data.cursos);
     }).catch(cause => { if (active) setError(message(cause)); });
     return () => { active = false; };
-  }, [path]);
+  }, [year, grade]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -191,15 +188,12 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
     setError("");
     setSuccess("");
     try {
-      const data = await api<Plan>(path, {
-        method: "PUT",
-        body: JSON.stringify({
-          version: plan.version,
-          cursos: selection.map(({ id, nombre, horasSemanales, competencias }) => ({
-            id, nombre: nombre.trim(), horasSemanales, competenciasIds: competencias?.map(item => item.id),
-          })),
-          ...(plan.definido ? { motivo: reason.trim() } : {}),
-        }),
+      const data = await guardarPlanEstudios(year, grade, {
+        version: plan.version,
+        cursos: selection.map(({ id, nombre, horasSemanales, competencias }) => ({
+          id, nombre: nombre.trim(), horasSemanales: Number(horasSemanales), competenciasIds: competencias?.map(item => item.id),
+        })),
+        ...(plan.definido ? { motivo: reason.trim() } : {}),
       });
       setPlan(data);
       setSelection(data.cursos);
@@ -302,7 +296,7 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
         {coursesLocked && permitted && <p className={styles.note}>Los cursos del plan del año en curso no se modifican, porque todos los alumnos del grado llevan los mismos cursos durante el año. Para agregar o quitar cursos, edita el plan del próximo año.</p>}
         <Feedback error={error} success={success} />
         <ExceededSections sections={plan.seccionesExcedidas ?? []} />
-        {showPrevious && editable && <PreviousPlanImport id={previousId} path={path} grade={plan.grado}
+        {showPrevious && editable && <PreviousPlanImport id={previousId} year={year} grade={grade}
           selected={selectedIds} onAdd={items => {
             addCourses(items);
             setShowPrevious(false);
@@ -370,7 +364,7 @@ function Catalog({ id, anio, grado, selected, onAdd, onClose }: {
   const filters = new URLSearchParams();
   if (search) filters.set("busqueda", search);
   if (scope === "grade") { filters.set("anio", String(anio)); filters.set("grado", String(grado)); }
-  const catalog = usePaged<PlanCourse>("/api/cursos", "", filters.toString(), 5);
+  const catalog = usePaged<PlanCourse>(CURSOS_PATH, "", filters.toString(), 5);
   const { setPage } = catalog;
   const searching = catalog.loading || filter.trim() !== search;
   useEffect(() => { searchBox.current?.focus(); }, []);

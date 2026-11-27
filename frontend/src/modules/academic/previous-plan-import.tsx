@@ -1,32 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, message } from "@/core/api/client";
+import { message } from "@/core/api/client";
 import { countLabel } from "@/shared/lib/formatters";
 import { Feedback, Loading } from "@/shared/ui";
-import { PlanCourseList, type PlanCourse } from "./plan-course-list";
+import { PlanCourseList } from "./plan-course-list";
+import { consultarPlanAnterior } from "./services/planEstudiosService";
 import styles from "./study-plans.module.css";
+import type { PlanCourse, PreviousStudyPlan } from "./types";
 
-type PreviousPlan = { anioOrigen: number; cursos: PlanCourse[] };
-
-export function PreviousPlanImport({ id, path, grade, selected, onAdd }: {
+export function PreviousPlanImport({ id, year, grade, selected, onAdd }: {
   id: string;
-  path: string;
+  year: number;
   grade: number;
   selected: Set<number>;
   onAdd: (courses: PlanCourse[]) => void;
 }) {
-  const [preview, setPreview] = useState<PreviousPlan | null>(null);
+  const [preview, setPreview] = useState<PreviousStudyPlan | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     let active = true;
-    api<PreviousPlan>(`${path}/anterior`)
+    consultarPlanAnterior(year, grade)
       .then(data => { if (active) setPreview(data); })
       .catch(cause => { if (active) setError(message(cause)); });
     return () => { active = false; };
-  }, [path, retry]);
+  }, [year, grade, retry]);
 
   const missing = preview?.cursos.filter(course => !selected.has(course.id)) ?? [];
   const hasArchived = missing.some(course => course.competencias?.some(item => !item.activa));

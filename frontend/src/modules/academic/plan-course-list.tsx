@@ -1,11 +1,7 @@
 import type { ReactNode } from "react";
-import type { Course } from "./types";
+import type { PlanCourse } from "./types";
 import styles from "./study-plans.module.css";
 
-export type PlanCompetency = { id: number; codigo: string; nombre: string; activa: boolean };
-export type PlanCourse = Pick<Course, "id" | "codigo" | "nombre" | "horasSemanales"> & {
-  competencias?: PlanCompetency[];
-};
 export type DraftCourse = Omit<PlanCourse, "horasSemanales"> & { horasSemanales: number | "" };
 
 export function PlanCourseList<T extends DraftCourse>({ courses, label, action, actionLabel = "Acción", onEdit }: {
