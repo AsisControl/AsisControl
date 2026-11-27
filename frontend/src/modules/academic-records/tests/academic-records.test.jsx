@@ -163,7 +163,8 @@ test("Parentescos muestra una fila por vínculo y avisa si falta el apoderado", 
   ]);
   const missing = screen.getByText("Mario Díaz").closest("tr");
   expect(within(missing).getByText("Sin apoderado registrado")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Vincular apoderado/ }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "+ Vincular apoderado" }).disabled).toBe(false);
+  expect(screen.queryByText("Próximamente")).toBeNull();
 });
 
 test("La carga masiva se abre desde apoderados y parentescos", async () => {
