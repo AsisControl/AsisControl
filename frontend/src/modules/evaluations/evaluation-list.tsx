@@ -5,15 +5,13 @@ import { api, ApiError, message } from "@/core/api/client";
 import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, StatusPill, Loading } from "@/shared/ui";
 import type { MenuOption } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
-import { usePaged } from "@/shared/hooks/use-paged";
+import { AcademicYearFilter } from "./academic-year-filter";
 import { EvaluationFormDialog } from "./evaluation-form-dialog";
+import { academicYears, localPage, ofAcademicYear } from "./lib/academic-year";
 import { courseOptions, evaluationDate, PERIODS, sectionOptions, STATE_TONES } from "./lib/labels";
-import {
-  cambiarEstadoEvaluacion,
-  eliminarEvaluacion,
-  evaluationsPath,
-} from "./services/evaluation-service";
+import { cambiarEstadoEvaluacion, eliminarEvaluacion } from "./services/evaluation-service";
 import type { Evaluation, EvaluationState, OwnAssignment } from "./types";
+import { useEvaluationList } from "./use-evaluation-list";
 import styles from "./evaluations.module.css";
 
 type Operation = "PUBLICADA" | "CERRADA" | "ANULADA" | "ELIMINAR";
@@ -65,15 +63,29 @@ export function EvaluationList({
   const [idSeccion, setIdSeccion] = useState("");
   const [estado, setEstado] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const list = usePaged<Evaluation>(
-    evaluationsPath({ periodo, idCurso, idSeccion, estado, busqueda: busqueda.trim() }),
+  const [chosenYear, setChosenYear] = useState("");
+  const list = useEvaluationList({ periodo, idCurso, idSeccion, estado, busqueda: busqueda.trim() });
+  const years = academicYears(
+    ...assignments.map((item) => item.anioAcademico),
+    ...list.years,
+    list.activeYear,
   );
+  // Por defecto el año vigente; si no hay ninguno, el más reciente disponible.
+  const year = list.ready ? chosenYear || String(list.activeYear ?? years[0] ?? "") : "";
+  const assignmentsForYear = assignments.filter((item) => String(item.anioAcademico) === year);
+  const pageKey = JSON.stringify([year, periodo, idCurso, idSeccion, estado, busqueda.trim()]);
+  const [page, setPage] = useState(0);
+  const [previousPageKey, setPreviousPageKey] = useState(pageKey);
+  if (previousPageKey !== pageKey) {
+    setPreviousPageKey(pageKey);
+    setPage(0);
+  }
+  const data = list.ready && list.items ? localPage(ofAcademicYear(list.items, year), page) : null;
   const [editing, setEditing] = useState<Evaluation | null>(null);
   const [pending, setPending] = useState<{ evaluation: Evaluation; operation: Operation } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const total = list.data?.totalElements ?? 0;
   // Con la asignación retirada solo se consulta: el backend rechaza cualquier cambio.
   const ownsAssignment = (item: Evaluation) =>
     assignments.some((assignment) => assignment.id === item.idAsignacionCurso);
@@ -147,6 +159,18 @@ export function EvaluationList({
   return (
     <>
       <div className={`panel ${styles.filters} ${styles.filtersFive}`}>
+        <AcademicYearFilter
+          value={year}
+          years={years}
+          activeYear={list.activeYear}
+          loading={!list.ready}
+          required
+          onChange={(value) => {
+            setChosenYear(value);
+            setIdCurso("");
+            setIdSeccion("");
+          }}
+        />
         <label className="field">
           Período
           <select value={periodo} onChange={(event) => setPeriodo(event.target.value)}>
@@ -168,7 +192,7 @@ export function EvaluationList({
             }}
           >
             <option value="">Todos los cursos</option>
-            {courseOptions(assignments).map(([id, label]) => (
+            {courseOptions(assignmentsForYear).map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
@@ -179,7 +203,7 @@ export function EvaluationList({
           Sección
           <select value={idSeccion} onChange={(event) => setIdSeccion(event.target.value)}>
             <option value="">Todas las secciones</option>
-            {sectionOptions(assignments, idCurso).map(([id, label]) => (
+            {sectionOptions(assignmentsForYear, idCurso).map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
@@ -210,12 +234,14 @@ export function EvaluationList({
       <div className="panel">
         <PanelHeading
           title="Mis evaluaciones"
-          summary={list.data ? countLabel(total, "evaluación", "evaluaciones") : "Evaluaciones de tus cursos"}
+          summary={
+            data ? countLabel(data.totalElements, "evaluación", "evaluaciones") : "Evaluaciones de tus cursos"
+          }
         />
-        <Feedback error={list.error} success={success} />
+        <Feedback error={list.error || list.activeYearError} success={success} />
         {list.loading ? (
           <Loading>Cargando evaluaciones…</Loading>
-        ) : list.data?.content.length ? (
+        ) : data?.content.length ? (
           <div className="user-table-wrap">
             <table className={`user-table ${styles.evaluationTable}`}>
               <thead>
@@ -231,7 +257,7 @@ export function EvaluationList({
                 </tr>
               </thead>
               <tbody>
-                {list.data.content.map((item) => {
+                {data.content.map((item) => {
                   const writable = canWrite && ownsAssignment(item);
                   const options = item.idTareaVinculada ? [{
                     label: "Ver planilla",
@@ -300,7 +326,7 @@ export function EvaluationList({
         ) : (
           !list.error && <p className="empty">No hay evaluaciones con estos filtros.</p>
         )}
-        <Pager data={list.data} loading={list.loading} setPage={list.setPage} />
+        <Pager data={data} loading={list.loading} setPage={setPage} />
       </div>
       {(creating || editing) && (
         <EvaluationFormDialog
