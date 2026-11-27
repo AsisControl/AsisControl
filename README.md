@@ -51,6 +51,20 @@ El perfil `local` usa H2 en memoria y reinicia los datos al detener el backend. 
 
 Para probar **correo real**, configura el SMTP autorizado. Para una base MySQL existente, ensaya el respaldo y la migración de autenticación antes del corte. [Configuración de correo](backend/LEEME_SEGURIDAD_APODERADO.md#4-configurar-el-correo-y-ejecutar-el-backend) · [Migración de autenticación](docs/AUTENTICACION_UNIFICADA.md#migración-y-puesta-en-servicio)
 
+## Cargar datos de demostración
+
+El perfil `demo` crea datos para mostrar horarios y asistencia: el año actual activo, dos secciones de 1.er grado (A y B) con 6 estudiantes matriculados cada una, los cursos Matemática y Comunicación, dos aulas, dos docentes con horario de lunes a viernes y sus sesiones de asistencia desde hoy. Se combina con el perfil de la base de datos:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "local,demo"
+$demoTemporal = Read-Host "Contraseña de los usuarios demo (mayúscula, minúscula y número; 8-64 caracteres)" -AsSecureString
+$env:DEMO_PASSWORD = [System.Net.NetworkCredential]::new("", $demoTemporal).Password
+```
+
+Luego inicia el backend como en la sección anterior. Los usuarios son `demo.docente1`, `demo.docente2`, `demo.alumno` y `demo.apoderado`, y todos usan esa contraseña. Los estudiantes, los docentes y el apoderado reciben códigos institucionales como en un alta real (por ejemplo `EST20260001`, `DOC20260001` y `APO20260001`), y las matrículas el formato `MAT-{año}-XXXXXXXX`. Sin `DEMO_PASSWORD` el backend no arranca. Si ya existe un año activo o el año actual, no se escribe nada, por lo que reiniciar no duplica los datos. La asistencia se toma solo el día de la sesión, y no hay clases los sábados ni domingos.
+
+No uses este perfil en producción.
+
 ## Recorrido mínimo de revisión
 
 1. Ingresar como administrador, cambiar la temporal y cerrar/iniciar sesión.
