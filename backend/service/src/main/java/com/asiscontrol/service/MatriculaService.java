@@ -55,6 +55,7 @@ public class MatriculaService {
     private final HistorialSeccionMatriculaRepository historialSecciones;
     private final AlumnoRepository alumnoRepository;
     private final AlumnoApoderadoRepository vinculosFamiliares;
+    private final InscripcionCursoService inscripciones;
 
     public MatriculaService(
             MatriculaRepository matriculaRepository,
@@ -66,7 +67,8 @@ public class MatriculaService {
             PlanPensionService planes,
             HistorialSeccionMatriculaRepository historialSecciones,
             AlumnoRepository alumnoRepository,
-            AlumnoApoderadoRepository vinculosFamiliares) {
+            AlumnoApoderadoRepository vinculosFamiliares,
+            InscripcionCursoService inscripciones) {
         this.matriculaRepository = matriculaRepository;
         this.solicitudRepository = solicitudRepository;
         this.seccionRepository = seccionRepository;
@@ -77,6 +79,7 @@ public class MatriculaService {
         this.historialSecciones = historialSecciones;
         this.alumnoRepository = alumnoRepository;
         this.vinculosFamiliares = vinculosFamiliares;
+        this.inscripciones = inscripciones;
     }
 
     // El bloqueo serializa la última vacante; READ_COMMITTED evita contar una instantánea anterior
@@ -222,6 +225,8 @@ public class MatriculaService {
         solicitudRepository.saveAndFlush(solicitud);
         matriculaRepository.saveAndFlush(matricula);
         planes.generar(matricula,request.firmaPlan());
+        // inscripcion cursos: en la misma transacción que las cuotas
+        inscripciones.inscribir(matricula);
         auditoria.registrar(
                 "FINALIZAR_SOLICITUD",
                 ModuloAuditoria.MATRICULA,
@@ -301,6 +306,10 @@ public class MatriculaService {
         seccionRepository.buscarActivaParaActualizar(matricula.getSeccion().getId()).orElseThrow();
         matricula.setEstado(request.estado());
         matriculaRepository.saveAndFlush(matricula);
+        // inscripcion cursos: retirada o anulada deja sus cursos inactivos; finalizada los conserva
+        if (request.estado() == EstadoMatricula.RETIRADA || request.estado() == EstadoMatricula.ANULADA) {
+            inscripciones.desactivar(matricula);
+        }
         auditoria.registrar(
                 "CAMBIAR_ESTADO_MATRICULA",
                 ModuloAuditoria.MATRICULA,

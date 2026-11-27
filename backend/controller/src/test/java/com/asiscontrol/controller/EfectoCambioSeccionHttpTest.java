@@ -20,6 +20,8 @@ import com.asiscontrol.entity.enums.TipoEvaluacion;
 import com.asiscontrol.repository.HorarioRepository;
 import com.asiscontrol.service.CalificacionService;
 import com.asiscontrol.service.MisCursosService;
+import com.asiscontrol.service.InscripcionCursoService;
+import com.asiscontrol.dto.asistencia.PeriodoCurso;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EfectoCambioSeccionHttpTest extends ApiIntegrationSupport {
     @Autowired HorarioRepository horarios;
     @Autowired MisCursosService misCursos;
+    @Autowired InscripcionCursoService inscripciones;
     @Autowired CalificacionService calificaciones;
 
     private Horario horarioAnterior;
@@ -70,6 +73,8 @@ class EfectoCambioSeccionHttpTest extends ApiIntegrationSupport {
         Long matricula = em.createQuery("select m.id from Matricula m where m.alumno = :alumno", Long.class)
                 .setParameter("alumno", student).getSingleResult();
         String path = "/api/matriculas/" + matricula;
+        // inscripcion cursos: la matrícula de prueba no pasa por MatriculaService
+        inscripciones.inscribir(em.find(com.asiscontrol.entity.Matricula.class, matricula));
         putOk(path + "/seccion", data("seccionId", destino.getId(),
                 "version", getOk(path).path("version").asLong(), "motivo", "Redistribución"));
     }
@@ -90,10 +95,10 @@ class EfectoCambioSeccionHttpTest extends ApiIntegrationSupport {
     void misCursosTomaSeccionHorarioYAulaNuevos() {
         iniciarSesion("ALUMNO", student.getPersona());
 
-        var respuesta = misCursos.listar();
+        var respuesta = misCursos.listar(PeriodoCurso.VIGENTES);
 
-        assertThat(respuesta.seccion()).isEqualTo("1° Grado B");
         assertThat(respuesta.cursos()).singleElement().satisfies(curso -> {
+            assertThat(curso.seccion()).isEqualTo("1° Grado B");
             assertThat(curso.aula()).isEqualTo("Aula B");
             assertThat(curso.horario()).startsWith("Mar");
         });

@@ -20,6 +20,7 @@ import com.asiscontrol.entity.planificacion.AnioAcademico;
 import com.asiscontrol.service.CicloCuentaService;
 import com.asiscontrol.service.CodigoInstitucionalService;
 import com.asiscontrol.service.CompromisoPagoService;
+import com.asiscontrol.service.InscripcionCursoService;
 import com.asiscontrol.service.PagoService;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
@@ -51,17 +52,19 @@ public class PagosDemoDataInitializer {
     private final CodigoInstitucionalService codigos;
     private final CompromisoPagoService compromisos;
     private final PagoService pagos;
+    private final InscripcionCursoService inscripciones;
     private final String password;
 
     public PagosDemoDataInitializer(EntityManager em, CicloCuentaService cuentas,
             CodigoInstitucionalService codigos,
-            CompromisoPagoService compromisos, PagoService pagos,
+            CompromisoPagoService compromisos, PagoService pagos, InscripcionCursoService inscripciones,
             @Value("${app.pagos.demo.password:}") String password) {
         this.em = em;
         this.cuentas = cuentas;
         this.codigos = codigos;
         this.compromisos = compromisos;
         this.pagos = pagos;
+        this.inscripciones = inscripciones;
         this.password = password;
     }
 
@@ -195,6 +198,8 @@ public class PagosDemoDataInitializer {
         matricula.setFechaMatricula(Instant.now());
         em.persist(matricula);
         em.flush();
+        // inscripcion cursos: la demo no pasa por MatriculaService, así que inscribe aquí
+        inscripciones.inscribir(matricula);
         for (int cuota = 1; cuota <= 3; cuota++) {
             long dias = cuota == 1 ? -45 : cuota == 2 ? -7 : 15;
             var compromiso = compromisos.emitir(new PagoDto.CompromisoRequest(matricula.getId(), null,

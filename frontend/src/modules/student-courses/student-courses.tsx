@@ -3,11 +3,21 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { message } from "@/core/api/client";
-import { countLabel } from "@/shared/lib/formatters";
-import { Feedback, Loading, PageHeader, Skeleton, StatusPill } from "@/shared/ui";
+import { Feedback, Loading, PageHeader, Skeleton, StatusPill, TabNav, type TabItem } from "@/shared/ui";
 import { listarMisCursos } from "./services/mis-cursos-service";
 import styles from "./student-courses.module.css";
-import type { CursoInscrito, MisCursos } from "./types";
+import type { CursoInscrito, PeriodoCurso } from "./types";
+
+const FILTROS: TabItem[] = [
+  { id: "VIGENTES", label: "Vigentes" },
+  { id: "PASADOS", label: "Pasados" },
+  { id: "TODOS", label: "Todos" },
+];
+const SIN_CURSOS: Record<PeriodoCurso, string> = {
+  VIGENTES: "Aún no tienes una matrícula activa. Cuando se finalice, aquí aparecerán tus cursos.",
+  PASADOS: "No tienes cursos de años anteriores.",
+  TODOS: "Todavía no tienes cursos.",
+};
 
 const icono = (ruta: ReactNode) => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -29,9 +39,20 @@ function CursoCard({ curso }: { curso: CursoInscrito }) {
     <article className={styles.card}>
       <div className={styles.cardTop}>
         <span className={styles.icon}>{LIBRO}</span>
-        {!curso.docente && <StatusPill state="PENDIENTE" label="Por asignar" tone="warning" />}
+        {curso.vigente && !curso.docente ? (
+          <StatusPill state="PENDIENTE" label="Por asignar" tone="warning" />
+        ) : (
+          <StatusPill
+            state={curso.vigente ? "ACTIVO" : "CERRADO"}
+            label={curso.vigente ? "Activo" : "Cerrado"}
+            tone={curso.vigente ? "success" : "neutral"}
+          />
+        )}
       </div>
       <h3>{curso.curso}</h3>
+      <p className={styles.seccion}>
+        {curso.seccion} · Año {curso.anioAcademico}
+      </p>
       <p className={curso.docente ? styles.docente : `${styles.docente} ${styles.pendiente}`}>
         {curso.docente ?? "Docente por asignar"}
       </p>
@@ -93,16 +114,17 @@ function CursosSkeleton() {
   );
 }
 
-/** Cursos en los que el estudiante queda inscrito al tener su matrícula activa. */
+/** Cursos en los que el estudiante quedó inscrito al matricularse, con filtro por año vigente o pasado. */
 export function StudentCourses() {
-  const [datos, setDatos] = useState<MisCursos | null>(null);
+  const [periodo, setPeriodo] = useState<PeriodoCurso>("VIGENTES");
+  const [resultado, setResultado] = useState<{ periodo: PeriodoCurso; cursos: CursoInscrito[] } | null>(null);
   const [error, setError] = useState("");
   const [intento, setIntento] = useState(0);
   useEffect(() => {
     let activo = true;
-    listarMisCursos()
+    listarMisCursos(periodo)
       .then((respuesta) => {
-        if (activo) setDatos(respuesta);
+        if (activo) setResultado({ periodo, cursos: respuesta.cursos });
       })
       .catch((e) => {
         if (activo) setError(message(e));
@@ -110,24 +132,23 @@ export function StudentCourses() {
     return () => {
       activo = false;
     };
-  }, [intento]);
+  }, [periodo, intento]);
+  const cursos = resultado?.periodo === periodo ? resultado.cursos : null;
+  const seleccionar = (id: string) => {
+    setError("");
+    setPeriodo(id as PeriodoCurso);
+  };
   const reintentar = () => {
     setError("");
-    setDatos(null);
     setIntento((valor) => valor + 1);
   };
   return (
     <section>
       <div className={styles.encabezado}>
-        <PageHeader title="Mis cursos" description="Cursos de tu matrícula de este año" />
-        {datos?.seccion && (
-          <div className={styles.resumen}>
-            <strong>{datos.seccion}</strong>
-            <span>
-              Año {datos.anioAcademico} · {countLabel(datos.cursos.length, "curso", "cursos")}
-            </span>
-          </div>
-        )}
+        <PageHeader title="Mis cursos" description="Cursos en los que estás inscrito" />
+        <div className={styles.filtro}>
+          <TabNav label="Filtrar cursos" tabs={FILTROS} current={periodo} onSelect={seleccionar} />
+        </div>
       </div>
       {error && (
         <div className={styles.aviso}>
@@ -137,19 +158,12 @@ export function StudentCourses() {
           </button>
         </div>
       )}
-      {!error && !datos && <Loading skeleton={<CursosSkeleton />}>Cargando tus cursos…</Loading>}
-      {datos && !datos.seccion && (
-        <p className={styles.vacio}>
-          Aún no tienes una matrícula activa. Cuando se finalice, aquí aparecerán tus cursos.
-        </p>
-      )}
-      {datos?.seccion && datos.cursos.length === 0 && (
-        <p className={styles.vacio}>Tu grado todavía no tiene cursos en su plan de estudios.</p>
-      )}
-      {datos && datos.cursos.length > 0 && (
+      {!error && !cursos && <Loading skeleton={<CursosSkeleton />}>Cargando tus cursos…</Loading>}
+      {!error && cursos?.length === 0 && <p className={styles.vacio}>{SIN_CURSOS[periodo]}</p>}
+      {!error && cursos && cursos.length > 0 && (
         <div className={styles.grilla}>
-          {datos.cursos.map((curso) => (
-            <CursoCard key={curso.cursoId} curso={curso} />
+          {cursos.map((curso) => (
+            <CursoCard key={`${curso.anioAcademico}-${curso.cursoId}`} curso={curso} />
           ))}
         </div>
       )}
