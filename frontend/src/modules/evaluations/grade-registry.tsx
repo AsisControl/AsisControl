@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { Feedback, Loading } from "@/shared/ui";
+import { AcademicYearFilter } from "./academic-year-filter";
 import { GradeSheet } from "./grade-sheet";
+import { academicYears } from "./lib/academic-year";
 import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import { listarEvaluaciones, obtenerAnioVigente, obtenerEvaluacion } from "./services/evaluation-service";
 import type { Evaluation, OwnAssignment } from "./types";
@@ -29,11 +31,11 @@ export function GradeRegistry({
   const [selectedId, setSelectedId] = useState<number | null>(evaluationId);
   const [evaluations, setEvaluations] = useState<{ key: string; items: Evaluation[] } | null>(null);
   const [error, setError] = useState("");
-  const yearOptions = [...new Set([
+  const yearOptions = academicYears(
     ...assignments.map((item) => item.anioAcademico),
-    ...(activeYear === null ? [] : [activeYear]),
-    ...(year ? [Number(year)] : []),
-  ])].sort((a, b) => b - a);
+    activeYear,
+    year ? Number(year) : null,
+  );
   const assignmentsForYear = assignments.filter((item) => String(item.anioAcademico) === year);
   const assignmentId = assignmentsForYear.find((item) =>
     String(item.cursoId) === cursoId && String(item.seccionId) === seccionId)?.id;
@@ -88,10 +90,13 @@ export function GradeRegistry({
   return (
     <>
       <div className={`panel ${styles.filters}`}>
-        <label className="field">
-          Año académico
-          <select value={year} disabled={loadingYear} onChange={(event) => {
-            setYear(event.target.value);
+        <AcademicYearFilter
+          value={year}
+          years={yearOptions}
+          activeYear={activeYear}
+          loading={loadingYear}
+          onChange={(value) => {
+            setYear(value);
             setPeriodo("");
             setCursoId("");
             setSeccionId("");
@@ -99,13 +104,8 @@ export function GradeRegistry({
             setSelectedId(null);
             setEvaluations(null);
             setError("");
-          }}>
-            <option value="">{loadingYear ? "Cargando años…" : "Selecciona un año"}</option>
-            {yearOptions.map((value) => <option key={value} value={value}>
-              {value}{value === activeYear ? " · Vigente" : ""}
-            </option>)}
-          </select>
-        </label>
+          }}
+        />
         <label className="field">
           Período
           <select value={periodo} disabled={!year} onChange={(event) => {
