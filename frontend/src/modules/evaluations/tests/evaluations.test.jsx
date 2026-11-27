@@ -700,3 +700,119 @@ test("El menú Evaluaciones del docente abre la pantalla y exige CALIFICACIONES_
   render(<SessionUserProvider value={user}><ModuleOutlet /></SessionUserProvider>);
   expect(await screen.findByText("Examen parcial")).toBeTruthy();
 });
+
+// cobertura: validaciones del formulario y errores de carga de competencias
+test("el formulario valida nombre, fecha, curso, sección y competencias antes de guardar", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  render(<EvaluationFormDialog assignments={[assignment]} onClose={vi.fn()} onSaved={vi.fn()} />);
+  expect(screen.getByText("Selecciona un curso y una sección para ver las competencias del plan.")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  expect(screen.getByText("Escribe el nombre de la evaluación.")).toBeTruthy();
+  expect(screen.getByText("Selecciona el curso.")).toBeTruthy();
+  expect(screen.getByText("Selecciona la sección.")).toBeTruthy();
+  expect(screen.getByText("Selecciona al menos una competencia.")).toBeTruthy();
+  const fecha = screen.getByLabelText(/Fecha de evaluación/);
+  fireEvent.change(fecha, { target: { value: "2026-12-15" } });
+  await user.selectOptions(screen.getByLabelText(/^Curso/), "100");
+  await user.selectOptions(screen.getByLabelText(/^Sección/), "8");
+  await screen.findByLabelText("Resuelve problemas");
+  await user.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  expect(await screen.findByText("La fecha debe estar dentro de un período académico activo de la asignación.")).toBeTruthy();
+  fireEvent.change(fecha, { target: { value: "2025-09-15" } });
+  await user.click(screen.getByRole("button", { name: "Guardar borrador" }));
+  expect(await screen.findByText("La fecha debe pertenecer al año académico 2026.")).toBeTruthy();
+  expect(calls.some(call => call.method === "POST")).toBe(false);
+});
+
+test("el formulario informa si fallan las competencias o si el plan no tiene competencias", async () => {
+  backend({ "GET /api/evaluaciones/competencias": reply(500, { message: "Competencias no disponibles" }) });
+  const user = userEvent.setup();
+  const { unmount } = render(<EvaluationFormDialog assignments={[assignment]} onClose={vi.fn()} onSaved={vi.fn()} />);
+  await user.selectOptions(screen.getByLabelText(/^Curso/), "100");
+  await user.selectOptions(screen.getByLabelText(/^Sección/), "8");
+  expect(await screen.findByText("Competencias no disponibles")).toBeTruthy();
+  unmount();
+  backend({ "GET /api/evaluaciones/competencias": [], "GET /api/evaluaciones/periodos-informe": reply(500, { message: "x" }) });
+  render(<EvaluationFormDialog assignments={[assignment]} onClose={vi.fn()} onSaved={vi.fn()} />);
+  await user.selectOptions(screen.getByLabelText(/^Curso/), "100");
+  await user.selectOptions(screen.getByLabelText(/^Sección/), "8");
+  expect(await screen.findByText("El plan de este curso aún no tiene competencias disponibles.")).toBeTruthy();
+});
+
+test("al editar muestra la competencia retirada del plan y permite quitarla; un error al guardar se informa", async () => {
+  backend({
+    "GET /api/evaluaciones/competencias": [competencies[0]],
+    "PUT /api/evaluaciones/10": reply(500, { message: "No se pudo guardar" }),
+  });
+  const user = userEvent.setup();
+  render(<EvaluationFormDialog evaluation={evaluation()} assignments={[assignment]} onClose={vi.fn()} onSaved={vi.fn()} />);
+  const retirada = await screen.findByLabelText("Razona en geometría · Retirada del plan");
+  await user.click(screen.getByRole("button", { name: "Guardar y calificar" }));
+  expect(await screen.findByText("Revisa las competencias disponibles para esta sección.")).toBeTruthy();
+  await user.click(retirada);
+  expect(screen.queryByLabelText("Razona en geometría · Retirada del plan")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Guardar y calificar" }));
+  expect(await screen.findByText("No se pudo guardar")).toBeTruthy();
+});
+
+// cobertura: entregas por configurar, actividades vinculadas y estados de la lista
+test("cancela la configuración de entrega pendiente y muestra el estado de las actividades vinculadas", async () => {
+  let fallar = true;
+  const calls = backend({
+    "GET /api/evaluaciones": page([
+      evaluation({ id: 11, titulo: "Por configurar", entregaPorConfigurar: true }),
+      evaluation({ id: 12, titulo: "Con tarea publicada", idTareaVinculada: 3, estadoActividadVinculada: "PUBLICADA" }),
+      evaluation({ id: 13, titulo: "Con tarea cerrada", idTareaVinculada: 4, estadoActividadVinculada: "CERRADA", estado: "PUBLICADA" }),
+      evaluation({ id: 14, titulo: "Con tarea archivada", idTareaVinculada: 5, estadoActividadVinculada: "ARCHIVADA", estado: "PUBLICADA" }),
+      evaluation({ id: 15, titulo: "Con tarea sin estado", idTareaVinculada: 6, estadoActividadVinculada: null, estado: "PUBLICADA" }),
+      evaluation({ id: 16, titulo: "Con peso", pesoComponente: 40, componente: "Exámenes" }),
+      evaluation({ id: 17, titulo: "Sin regla", reglaVigente: false }),
+    ]),
+    "POST /api/evaluaciones/11/cancelar-entrega": () => (fallar ? reply(500, { message: "No se pudo cancelar" }) : {}),
+  });
+  const user = userEvent.setup();
+  render(<Evaluations canWrite />);
+  expect(await screen.findByText("Entrega por configurar")).toBeTruthy();
+  expect(screen.getByText("Actividad publicada")).toBeTruthy();
+  expect(screen.getByText("Recepción cerrada")).toBeTruthy();
+  expect(screen.getByText("Actividad archivada")).toBeTruthy();
+  expect(screen.getByText("Tarea vinculada")).toBeTruthy();
+  expect(screen.getByText("Peso del componente: 40 %")).toBeTruthy();
+  expect(screen.getAllByText("Sin regla vigente").length).toBeGreaterThan(0);
+  expect(screen.getAllByRole("button", { name: "Revisar entregas" }).length).toBe(4);
+  expect(screen.getByRole("button", { name: "Configurar entrega" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Más acciones para Por configurar" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Cancelar configuración de entrega" }));
+  // El error de esta acción solo se muestra dentro del diálogo de confirmación (hallazgo pendiente).
+  fallar = false;
+  await user.click(screen.getByRole("button", { name: "Más acciones para Por configurar" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Cancelar configuración de entrega" }));
+  await waitFor(() => expect(calls.filter(c => c.path === "/api/evaluaciones/11/cancelar-entrega").length).toBe(2));
+  await user.click(screen.getByRole("button", { name: "Más acciones para Con tarea publicada" }));
+  expect(await screen.findByRole("menuitem", { name: "Ver planilla" })).toBeTruthy();
+});
+
+// cobertura: registro de calificaciones con varias evaluaciones, cambio de período y errores de carga
+test("el registro elige entre varias evaluaciones y reinicia la selección al cambiar de período", async () => {
+  const calls = backend({
+    "GET /api/evaluaciones": page([evaluation(), evaluation({ id: 11, titulo: "Práctica 2" })]),
+  });
+  const user = userEvent.setup();
+  openSheet();
+  const selector = await screen.findByRole("combobox", { name: "Evaluación" });
+  await user.selectOptions(selector, "11");
+  expect(selector.value).toBe("11");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Período" }), "ANUAL");
+  await waitFor(() => expect(calls.filter(c => c.path === "/api/evaluaciones").at(-1).query.periodo).toBe("ANUAL"));
+});
+
+test("el registro informa si falla el año vigente o las evaluaciones", async () => {
+  backend({ "GET /api/evaluaciones/anio-vigente": reply(500, { message: "Año no disponible" }) });
+  const { unmount } = openSheet();
+  expect(await screen.findByText("Año no disponible")).toBeTruthy();
+  unmount();
+  backend({ "GET /api/evaluaciones": reply(500, { message: "Evaluaciones no disponibles" }) });
+  openSheet();
+  expect(await screen.findByText("Evaluaciones no disponibles")).toBeTruthy();
+});

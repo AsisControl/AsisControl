@@ -760,3 +760,21 @@ test("Los requisitos de la contraseña nueva se marcan mientras se escribe", asy
   await user.type(screen.getByLabelText(/^Nueva contraseña/), "DEF 2026");
   expect(met()).toEqual(["true", "true", "true", "true", "false"]);
 });
+
+// cobertura: el alto del menú fijo se publica en --header-height y se limpia al salir
+test("publica el alto del menú superior para los elementos fijos y lo limpia al desmontar", async () => {
+  let notificar;
+  const observe = vi.fn(), disconnect = vi.fn();
+  vi.stubGlobal("ResizeObserver", class { constructor(callback) { notificar = callback; } observe = observe; disconnect = disconnect; });
+  backend();
+  sessionFor();
+  const { unmount } = renderApp();
+  await screen.findByRole("navigation", { name: "Navegación principal" });
+  await waitFor(() => expect(observe).toHaveBeenCalled());
+  act(() => notificar());
+  expect(document.documentElement.style.getPropertyValue("--header-height")).toMatch(/px$/);
+  unmount();
+  expect(disconnect).toHaveBeenCalled();
+  expect(document.documentElement.style.getPropertyValue("--header-height")).toBe("");
+  vi.unstubAllGlobals();
+});
