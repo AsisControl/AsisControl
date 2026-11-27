@@ -162,9 +162,27 @@ test("Hoy muestra las clases del día con su asistencia o Por registrar", async 
   expect(calls.find((call) => call.path === "/api/horarios/mio").query.anioAcademico).toBe("2026");
   const clases = within(hoy).getAllByRole("listitem");
   expect(clases.map((clase) => clase.textContent)).toEqual([
-    "Matemática07:30Tardanza",
-    "Comunicación09:00Por registrar",
+    "07:3009:00MatemáticaTardanza",
+    "09:0009:45ComunicaciónPor registrar",
   ]);
+});
+
+test("Hoy distingue dos sesiones del mismo curso con su horario, docente y aula", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 19, 10, 0));
+  fakeBackend({
+    [ASISTENCIAS]: page(FILAS),
+    [HORARIO]: [
+      bloque({ horaInicio: "02:30:00", horaFin: "03:15:00", docente: "Angela García", aula: "Aula 101" }),
+      bloque({ horaInicio: "06:00:00", horaFin: "06:45:00", docente: "Angela García", aula: "Laboratorio" }),
+    ],
+  });
+  render(<StudentAttendance fullName="Mateo Rojas" />);
+  const hoy = await screen.findByRole("region", { name: "Hoy · Jue, 19 Nov 2026" });
+  const [primera, segunda] = within(hoy).getAllByRole("listitem");
+  expect(within(primera).getByText("Sesión 1 de 2 · Angela García · Aula 101")).toBeTruthy();
+  expect(within(primera).getByText("03:15")).toBeTruthy();
+  expect(within(segunda).getByText("Sesión 2 de 2 · Angela García · Laboratorio")).toBeTruthy();
 });
 
 test("Hoy avisa cuando no hay clases y no bloquea la pantalla si falla el horario", async () => {
