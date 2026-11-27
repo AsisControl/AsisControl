@@ -170,6 +170,25 @@ public class EvaluacionService {
                         id -> reglas.vigente(evaluacion.getAsignacionCurso())).orElse(null)));
     }
 
+    public record EvaluacionAcademica(EvaluacionDto.Response evaluacion, long registradas, long esperadas) {}
+
+    @Transactional(readOnly = true)
+    public Page<EvaluacionAcademica> consultarAcademicas(int anio, Long periodo, int grado, Long seccion,
+            Long curso, Pageable pageable) {
+        var calendario = periodos.findById(periodo)
+                .filter(p -> p.getAnioAcademico().getAnio() == anio)
+                .orElseThrow(() -> new ResourceNotFoundException("PERIODO_NO_ENCONTRADO", "Período no encontrado para el año"));
+        var resultados = evaluacionRepository.consultarAvanceAcademico(anio, grado, seccion, curso,
+                calendario.getFechaInicio(), calendario.getFechaFin(), pageable);
+        if (resultados.isEmpty()) return new org.springframework.data.domain.PageImpl<>(List.of(), pageable, resultados.getTotalElements());
+        var alumnos = matriculaRepository.contarAlumnosEnPlanilla(seccion);
+        var regla = reglas.vigente(resultados.getContent().getFirst().getEvaluacion().getAsignacionCurso()).orElse(null);
+        return resultados.map(row -> {
+            var e = row.getEvaluacion();
+            return new EvaluacionAcademica(toResponse(e, regla), row.getRegistradas(), alumnos * e.getCompetencias().size());
+        });
+    }
+
     @Transactional(readOnly = true)
     public EvaluacionDto.Response obtener(Long id) {
         return toResponse(buscarActiva(id));

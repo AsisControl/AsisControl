@@ -312,14 +312,14 @@ test("Un error del listado se informa", async () => {
   );
 });
 
-test("Las pestañas navegan por URL y las pendientes lo indican", async () => {
+test("La pestaña Reportes abre las libretas y una ruta desconocida vuelve a Cursos", async () => {
   backend();
   const user = userEvent.setup();
-  const { rerender } = renderAcademic();
+  const { rerender } = render(<Academic canWrite canReadGrades />);
   await user.click(screen.getByRole("button", { name: "Reportes" }));
   expect(currentUrl()).toBe("/academico/reportes");
-  rerender(<Academic canWrite tab="reportes" />);
-  expect(screen.getByText("Esta sección todavía está pendiente de implementación.")).toBeTruthy();
+  rerender(<Academic canWrite canReadGrades tab="reportes" />);
+  expect(screen.getByText("Reportes académicos")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Reportes" }).getAttribute("aria-current")).toBe("page");
   rerender(<Academic canWrite tab="desconocida" />);
   expect(currentUrl()).toBe("/academico/cursos");

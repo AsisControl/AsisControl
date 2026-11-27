@@ -37,6 +37,16 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         assertThat(getOk(base + "borrador" + consulta).path("consolidado").get(0).path("estadoAvance").asText())
                 .isEqualTo("NO_EVALUADA");
 
+        String filtro = base + "academicos?anio=2090&grado=1&curso=" + course.getId()
+                + "&seccion=" + section.getId() + "&periodo=" + periodo.getId();
+        var libretas = getOk(filtro);
+        assertThat(libretas.size()).isEqualTo(1);
+        assertThat(libretas.get(0).path("noEvaluadas").asInt()).isEqualTo(1);
+        String detalle = base + "academicos/" + libretas.get(0).path("id").asLong();
+        assertThat(getOk(detalle).path("codigoAlumno").asText()).isEqualTo(student.getCodigoAlumno());
+        assertThat(getOk(filtro.replace("grado=1", "grado=2")).size()).isZero();
+        mvc.perform(get(detalle).with(como("ALUMNO", student.getPersona().getId()))).andExpect(status().isForbidden());
+
         evaluacionConNota(LocalDate.of(2090, 3, 15), false);
         em.flush();
         assertThat(request("POST", base + "generar", entrada, 200).path("informesProcesados").asInt())
@@ -48,7 +58,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         mvc.perform(get("/api/calificaciones/informes-disponibles")
                         .with(como("APODERADO", guardian.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-        request("POST", base + "publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
         mvc.perform(get("/api/calificaciones/avance" + params).with(como("APODERADO", guardian.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas.length()").value(0))
                 .andExpect(jsonPath("$.consolidado[0].estadoAvance").value("PENDIENTE"));
@@ -73,7 +83,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 .containsExactlyInAnyOrder("NO_EVALUADA", "PENDIENTE");
         assertThat(borrador.path("filas").get(0).path("resultado").asText()).isEqualTo("Sin registrar");
         revisarInforme(periodo.getId());
-        request("POST", base + "publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
         asociacion.setActivo(false);
         adicional.setActivo(false);
         em.flush();
@@ -109,7 +119,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.informesProcesados").value(1));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
                 .with(asAdmin()).contentType("application/json").content(body))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.informesProcesados").value(0));
+                .andExpect(status().isForbidden());
         var pdf = mvc.perform(get(url).with(asAdmin()))
                 .andExpect(status().isOk()).andExpect(content().contentType("application/pdf"))
                 .andExpect(header().string("Cache-Control", "no-store"))
@@ -151,7 +161,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         var entrada = data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId());
         request("POST", "/api/calificaciones/informes/generar", entrada, 200);
         revisarInforme(periodo.getId());
-        request("POST", "/api/calificaciones/informes/publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
 
         String url = "/api/calificaciones/reporte-avance?idAlumno=" + student.getId()
                 + "&idAsignacionCurso=" + assignment.getId() + "&idPeriodoAcademico=" + periodo.getId();
@@ -252,7 +262,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         var fuera = evaluacionConNota(LocalDate.of(2090,5,1),true); em.flush();
         String body = json.writeValueAsString(data("idAsignacionCurso",assignment.getId(),"idPeriodoAcademico",p.getId()));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
-                .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isUnprocessableEntity())
+                .with(como("DOCENTE",teacher.getPersona().getId())).contentType("application/json").content(body)).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("INFORME_BORRADOR_REQUERIDO"));
         assertThat(completa.getEstado()).isEqualTo(EstadoEvaluacion.BORRADOR);
         assertThat(incompleta.getEstado()).isEqualTo(EstadoEvaluacion.BORRADOR);
@@ -261,7 +271,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isOk());
         revisarInforme(p.getId());
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
-                .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isOk())
+                .with(como("DOCENTE",teacher.getPersona().getId())).contentType("application/json").content(body)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.informesProcesados").value(1));
         assertThat(incompleta.getEstado()).isEqualTo(EstadoEvaluacion.BORRADOR);
         assertThat(fuera.getEstado()).isEqualTo(EstadoEvaluacion.BORRADOR);
@@ -328,7 +338,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         }
         mvc.perform(get("/api/calificaciones/avance"+params).with(asAdmin())).andExpect(status().isNotFound());
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
-                .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isOk());
+                .with(como("DOCENTE",teacher.getPersona().getId())).contentType("application/json").content(body)).andExpect(status().isOk());
         var nota = em.createQuery("select c from Calificacion c where c.evaluacion = :e",Calificacion.class)
                 .setParameter("e",e).getSingleResult();
         nota.setNivelLogro(NivelLogro.AD); nota.setObservacion("Resultado corregido");
@@ -347,7 +357,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 .andExpect(jsonPath("$.publicable").value(false))
                 .andExpect(jsonPath("$.alumnos[0].borrador").value(true));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
-                .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isUnprocessableEntity())
+                .with(como("DOCENTE",teacher.getPersona().getId())).contentType("application/json").content(body)).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("INFORME_DESACTUALIZADO"));
         nota.setObservacion("Resultado corregido"); em.flush();
         mvc.perform(get("/api/calificaciones/informes/borrador"+params).with(asAdmin()))
@@ -356,7 +366,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("A"));
         revisarInforme(p.getId());
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/calificaciones/informes/publicar")
-                .with(asAdmin()).contentType("application/json").content(body)).andExpect(status().isOk());
+                .with(como("DOCENTE",teacher.getPersona().getId())).contentType("application/json").content(body)).andExpect(status().isOk());
         mvc.perform(get("/api/calificaciones/avance"+params).with(como("ALUMNO",student.getPersona().getId())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.filas[0].resultado").value("AD"))
                 .andExpect(jsonPath("$.filas[0].observacion").value("Resultado corregido"));
@@ -388,6 +398,27 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         mvc.perform(get(url).with(asAdmin())).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("ALUMNO_CURSO_INVALIDO"));
     }
+    @Test void administradorConsultaEvaluacionesDelPeriodoConAvanceReal() throws Exception {
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year); periodo.setNombre("Primer bimestre"); periodo.setOrden(1);
+        periodo.setFechaInicio(LocalDate.of(2090,3,1)); periodo.setFechaFin(LocalDate.of(2090,4,30)); em.persist(periodo);
+        evaluacionConNota(periodo.getFechaInicio(), false);
+        var calificada = evaluacionConNota(periodo.getFechaFin(), true);
+        evaluacionConNota(periodo.getFechaFin().plusDays(1), true);
+        em.flush();
+        String url = "/api/evaluaciones/academicas?anio=2090&grado=1&curso=" + course.getId()
+                + "&seccion=" + section.getId() + "&periodo=" + periodo.getId();
+        var res = getOk(url);
+        assertThat(res.path("totalElements").asInt()).isEqualTo(2);
+        var filas = res.path("content");
+        assertThat(filas.get(0).path("evaluacion").path("id").asLong()).isEqualTo(calificada.getId());
+        assertThat(filas.get(0).path("registradas").asInt()).isEqualTo(1);
+        assertThat(filas.get(0).path("esperadas").asInt()).isEqualTo(1);
+        assertThat(filas.get(1).path("registradas").asInt()).isZero();
+        assertThat(getOk(url.replace("grado=1", "grado=2")).path("totalElements").asInt()).isZero();
+        mvc.perform(get(url).with(como("DOCENTE", teacher.getPersona().getId()))).andExpect(status().isForbidden());
+    }
+
     private Evaluacion evaluacionConNota(LocalDate fecha, boolean completa) {
         var e = new Evaluacion(); e.setAsignacionCurso(assignment); e.setTitulo("Practica");
         e.setTipoEvaluacion(TipoEvaluacion.values()[0]); e.setPeriodoEvaluacion(PeriodoEvaluacion.BIMESTRAL);

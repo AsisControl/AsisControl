@@ -334,6 +334,9 @@
 .reportPanel > .reportNotice { margin-top: .8rem; }
 .reportNotice p { margin: 0; }
 .reportWarning { border-inline-start: .25rem solid #b45309; }
+.achievementDistribution { width: 100%; border-collapse: collapse; }
+.achievementDistribution :is(th, td) { text-align: center; padding: .4rem .2rem; }
+.achievementDistribution th { background: var(--surface); }
 .reportRoster, .reportResults table { width: 100%; border-collapse: collapse; }
 .reportRoster caption, .reportResults caption { text-align: left; font-weight: 700; padding: 0 0 .65rem; }
 .reportRoster th, .reportRoster td, .reportResults th, .reportResults td { border-bottom: 1px solid var(--border); padding: .65rem .45rem; text-align: left; overflow-wrap: anywhere; }

@@ -108,6 +108,12 @@ abstract class ApiIntegrationSupport {
         for (int i=0;i<entries.length;i+=2) result.put((String)entries[i], entries[i+1]);
         return result;
     }
+    protected JsonNode publicarLibretas(Object body, int expected) throws Exception {
+        var docente = jwt().jwt(j -> j.subject("docente").claim("personaId", teacher.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCENTE"), new SimpleGrantedAuthority("CALIFICACIONES_ESCRIBIR"));
+        return request(docente, "POST", "/api/calificaciones/informes/publicar", body, expected);
+    }
+
     protected JsonNode request(String method, String path, Object body, int expected) throws Exception {
         return request(asAdmin(), method, path, body, expected);
     }

@@ -6,6 +6,7 @@ import { AssociationsPanel } from "./associations/associations-panel";
 import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
 import { GradingRulesPanel } from "./grading-rules/grading-rules-panel";
+import { AcademicCoursePanel } from "./academic-course-panel";
 import { RiskPanel } from "./risk/risk-panel";
 import { StudyPlansPanel } from "./study-plans-panel";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
@@ -21,6 +22,8 @@ const tabs: TabItem[] = [
 ];
 /** Pestañas con pantalla; las demás muestran el aviso de pendiente. */
 const panels: Record<string, (canWrite: boolean) => ReactNode> = {
+  reportes: () => <AcademicCoursePanel key="reportes" tab="reportes" />,
+  evaluaciones: () => <AcademicCoursePanel key="evaluaciones" tab="evaluaciones" />,
   cursos: (canWrite) => <CoursesPanel canWrite={canWrite} />,
   "plan-estudios": (canWrite) => <StudyPlansPanel canWrite={canWrite} />,
   competencias: (canWrite) => <CompetenciesPanel canWrite={canWrite} />,
@@ -33,17 +36,19 @@ const DEFAULT_TAB = "cursos";
 export function Academic({
   tab = DEFAULT_TAB,
   canWrite,
+  canReadGrades = false,
   canReadRisk = false,
   canWriteRisk = false,
 }: {
   tab?: string;
   /** Permiso ACADEMICO_ESCRIBIR: sin él la pantalla es de solo consulta. */
   canWrite: boolean;
+  canReadGrades?: boolean;
   canReadRisk?: boolean;
   canWriteRisk?: boolean;
 }) {
   const router = useRouter();
-  const availableTabs = tabs.filter(({ id }) => id !== "estudiantes-en-riesgo" || canReadRisk);
+  const availableTabs = tabs.filter(({ id }) => (id !== "estudiantes-en-riesgo" || canReadRisk) && (!["reportes", "evaluaciones"].includes(id) || canReadGrades));
   const current = availableTabs.find((item) => item.id === tab);
   useEffect(() => {
     if (!current) router.replace(`${ACADEMIC_PATH}/${DEFAULT_TAB}`);

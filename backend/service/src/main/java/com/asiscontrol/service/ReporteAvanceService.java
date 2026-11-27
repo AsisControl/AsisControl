@@ -66,6 +66,51 @@ public class ReporteAvanceService {
     public record EstadoPeriodo(List<EstadoAlumno> alumnos, boolean publicable, boolean desactualizada,
                                 String impedimento) { }
 
+    public record LibretaAcademica(Long id, Long idAlumno, String alumno, String codigoAlumno,
+            EstadoInformeProgreso estado, int numeroVersion, boolean revisado,
+            Map<NivelLogro, Long> logros, int pendientes, int noEvaluadas) {}
+
+    @Transactional(readOnly = true)
+    public List<LibretaAcademica> listarLibretas(int anio, Long periodo, int grado, Long seccion, Long curso) {
+        var informes = em.createQuery("""
+                select i from InformeProgreso i join fetch i.alumno a join fetch a.persona p
+                join i.asignacionCurso ac join ac.seccion s
+                where i.activo = true and s.anioAcademico = :anio and s.grado = :grado
+                and s.id = :seccion and ac.curso.id = :curso and i.periodoAcademico.id = :periodo
+                and i.periodoAcademico.anioAcademico.anio = :anio
+                and not exists (select j.id from InformeProgreso j where j.activo = true
+                    and j.alumno = a and j.asignacionCurso = ac and j.periodoAcademico = i.periodoAcademico
+                    and (i.estado = com.asiscontrol.entity.enums.EstadoInformeProgreso.BORRADOR or j.estado = i.estado)
+                    and j.numeroVersion > i.numeroVersion)
+                order by p.apellidoPaterno, p.apellidoMaterno, p.nombres, a.id, i.numeroVersion desc
+                """, InformeProgreso.class).setParameter("anio", anio).setParameter("grado", grado)
+                .setParameter("seccion", seccion).setParameter("curso", curso).setParameter("periodo", periodo)
+                .getResultList();
+        return informes.stream().map(informe -> {
+            var alumno = informe.getAlumno();
+            var logros = new EnumMap<NivelLogro, Long>(NivelLogro.class);
+            int pendientes = 0;
+            int noEvaluadas = 0;
+            for (var competencia : consolidadoGuardado(informe)) {
+                if (competencia.nivelConsolidado() != null) logros.merge(competencia.nivelConsolidado(), 1L, Long::sum);
+                else if ("NO_EVALUADA".equals(competencia.estadoAvance())) noEvaluadas++;
+                else pendientes++;
+            }
+            return new LibretaAcademica(informe.getId(), alumno.getId(), nombre(alumno.getPersona()),
+                    alumno.getCodigoAlumno(), informe.getEstado(), informe.getNumeroVersion(), informe.isRevisado(),
+                    logros, pendientes, noEvaluadas);
+        }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ReporteAvanceDto detalleLibreta(Long id) {
+        var informe = em.find(InformeProgreso.class, id);
+        if (informe == null || !informe.isActivo()) {
+            throw new ResourceNotFoundException("INFORME_NO_ENCONTRADO", "Libreta no encontrada");
+        }
+        return contenidoInforme(informe, informe.getEstado() == EstadoInformeProgreso.BORRADOR);
+    }
+
     @Transactional(readOnly = true)
     public EstadoPeriodo estadoPeriodo(Long curso, Long periodoId) {
         var asignacion = asignacion(curso);
@@ -579,6 +624,14 @@ public class ReporteAvanceService {
         }
         var informe = ultimo(alumnoId, curso, periodoId, !borrador)
                 .orElseThrow(() -> new ResourceNotFoundException("INFORME_NO_ENCONTRADO", "No hay un informe disponible para este periodo"));
+        return contenidoInforme(informe, borrador);
+    }
+
+    private ReporteAvanceDto contenidoInforme(InformeProgreso informe, boolean borrador) {
+        var alumno = informe.getAlumno();
+        var asignacion = informe.getAsignacionCurso();
+        var seccion = asignacion.getSeccion();
+        var periodo = informe.getPeriodoAcademico();
         Set<Long> conSustento = asignacion.getDocente().isActivo()
                 ? evidencias.filasConSustento(informe.getId()) : Set.of();
         var filas = detalles(informe).stream()

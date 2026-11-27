@@ -58,6 +58,29 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
     java.util.List<Evaluacion> borradoresParaPublicar(@Param("asignacion") Long asignacion,
             @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin);
 
+    interface AvanceAcademico {
+        Evaluacion getEvaluacion();
+        long getRegistradas();
+    }
+
+    String CONTEXTO_ACADEMICO = """
+            from Evaluacion e join e.asignacionCurso a join a.seccion s
+            where e.activo = true and s.anioAcademico = :anio and s.grado = :grado
+            and s.id = :seccion and a.curso.id = :curso and e.fechaEvaluacion between :inicio and :fin
+            """;
+
+    @Query(value = """
+            select e as evaluacion, (select count(c.id) from Calificacion c where c.activo = true
+                and c.evaluacion = e and c.competencia member of e.competencias
+                and (c.nivelLogro is not null or c.notaNumerica is not null)
+                and exists (select m.id from Matricula m where m.alumno = c.alumno and m.seccion = s
+                    and m.activo = true and m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA)
+            ) as registradas
+            """ + CONTEXTO_ACADEMICO + " order by e.fechaEvaluacion desc, e.id desc",
+            countQuery = "select count(e.id) " + CONTEXTO_ACADEMICO)
+    Page<AvanceAcademico> consultarAvanceAcademico(int anio, int grado, Long seccion, Long curso,
+            java.time.LocalDate inicio, java.time.LocalDate fin, Pageable pageable);
+
     Optional<Evaluacion> findByIdAndActivoTrue(Long id);
 
     @Query("""

@@ -2,13 +2,14 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, StatusPill, Loading } from "@/shared/ui";
+import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, Loading } from "@/shared/ui";
 import type { MenuOption } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
+import { EvaluationCells, EvaluationHeaders, stateName } from "./evaluation-cells";
 import { AcademicYearFilter } from "./academic-year-filter";
 import { EvaluationFormDialog } from "./evaluation-form-dialog";
 import { academicYears, localPage, ofAcademicYear } from "./lib/academic-year";
-import { courseOptions, evaluationDate, PERIODS, sectionOptions, STATE_TONES } from "./lib/labels";
+import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
 import { cambiarEstadoEvaluacion, eliminarEvaluacion } from "./services/evaluation-service";
 import type { Evaluation, EvaluationState, OwnAssignment } from "./types";
 import { useEvaluationList } from "./use-evaluation-list";
@@ -41,7 +42,7 @@ const OPERATIONS: Record<Operation, { title: string; detail: string; done: strin
   },
 };
 const STATES: EvaluationState[] = ["BORRADOR", "PUBLICADA", "CERRADA", "ANULADA"];
-const stateName = (state: string) => state.charAt(0) + state.slice(1).toLowerCase();
+
 
 /** Pestaña Mis evaluaciones: listado con filtros y ciclo de vida de cada evaluación. */
 export function EvaluationList({
@@ -246,13 +247,7 @@ export function EvaluationList({
             <table className={`user-table ${styles.evaluationTable}`}>
               <thead>
                 <tr>
-                  <th>Evaluación</th>
-                  <th>Curso</th>
-                  <th>Sección</th>
-                  <th>Fecha</th>
-                  <th>Competencias</th>
-                  <th>Componente y peso</th>
-                  <th>Estado</th>
+                  <EvaluationHeaders />
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -265,36 +260,7 @@ export function EvaluationList({
                   }] : writable ? menu(item) : [];
                   return (
                     <tr key={item.id}>
-                      <td data-label="Evaluación">
-                        <strong>{item.titulo}</strong>
-                        <small>{PERIODS[item.periodoEvaluacion]}</small>
-                      </td>
-                      <td data-label="Curso">{item.curso}</td>
-                      <td data-label="Sección">
-                        <strong>{item.seccion}</strong>
-                      </td>
-                      <td data-label="Fecha" className={styles.evaluationDate}>{evaluationDate(item.fechaEvaluacion)}</td>
-                      <td data-label="Competencias">
-                        <span className={styles.count}>{item.competencias.length}</span>{" "}
-                        {item.competencias.length === 1 ? "competencia" : "competencias"}
-                      </td>
-                      <td data-label="Componente y peso">
-                        {item.pesoComponente != null
-                          ? <>{item.componente}<br /><small>Peso del componente: {item.pesoComponente} %</small></>
-                          : item.reglaVigente ? "Sin peso" : "Sin regla vigente"}
-                      </td>
-                      <td data-label="Estado">
-                        <StatusPill
-                          state={item.estado}
-                          label={item.idTareaVinculada && item.estado === "BORRADOR" ? "Calificaciones en borrador" : stateName(item.estado)}
-                          tone={STATE_TONES[item.estado]}
-                        />
-                        {item.idTareaVinculada && <small className={styles.evaluationStateDetail}>{item.estadoActividadVinculada === "BORRADOR"
-                          ? "Actividad en borrador" : item.estadoActividadVinculada === "PUBLICADA" ? "Actividad publicada"
-                            : item.estadoActividadVinculada === "CERRADA" ? "Recepción cerrada"
-                              : item.estadoActividadVinculada === "ARCHIVADA" ? "Actividad archivada" : "Tarea vinculada"}</small>}
-                        {item.entregaPorConfigurar && <small className={styles.evaluationStateDetail}>Entrega por configurar</small>}
-                      </td>
+                      <EvaluationCells item={item} />
                       <td data-label="Acciones">
                         <div className={styles.actions}>
                           {item.idTareaVinculada || (writable && item.entregaPorConfigurar) ? (

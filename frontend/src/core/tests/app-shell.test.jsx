@@ -52,6 +52,20 @@ beforeEach(() => {
   setUrl("/");
 });
 
+test("El administrador autorizado abre Reportes desde su URL y ve la pestaña seleccionada", async () => {
+  const permisos = ["ACADEMICO_LEER", "CALIFICACIONES_LEER"];
+  sessionFor({ permissions: permisos });
+  backend({
+    "GET /api/auth/me": summary({ permisos }),
+    "GET /api/configuracion-academica/anios": page([]),
+  });
+  setUrl("/academico/reportes");
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "Reportes académicos" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Reportes" }).getAttribute("aria-current")).toBe("page");
+  expect(currentUrl()).toBe("/academico/reportes");
+});
+
 test("Sin sesión muestra el login, informa credenciales inválidas y luego ingresa", async () => {
   const calls = backend({
     "POST /api/auth/login": ({ body }) =>

@@ -43,6 +43,14 @@ public class EvaluacionController {
         this.configuracionAcademica = configuracionAcademica;
     }
 
+    @GetMapping("/academicas")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_LEER') and hasAuthority('CALIFICACIONES_LEER')")
+    public Page<EvaluacionService.EvaluacionAcademica> academicas(@RequestParam int anio, @RequestParam Long periodo,
+            @RequestParam int grado, @RequestParam Long seccion, @RequestParam Long curso,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return evaluacionService.consultarAcademicas(anio, periodo, grado, seccion, curso, pageable);
+    }
+
     @GetMapping("/anio-vigente")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
     public EvaluacionDto.AnioVigente anioVigente() {

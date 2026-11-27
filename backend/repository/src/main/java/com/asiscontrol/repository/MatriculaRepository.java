@@ -27,6 +27,12 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
             """)
     java.util.List<com.asiscontrol.entity.Alumno> buscarAlumnosActivosDeSeccion(@Param("seccionId") Long seccionId);
 
+    @Query("""
+            select count(distinct m.alumno.id) from Matricula m where m.activo = true
+            and m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA and m.seccion.id = :seccionId
+            """)
+    long contarAlumnosEnPlanilla(Long seccionId);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Matricula m where m.id = :id and m.activo = true")
     Optional<Matricula> bloquearPorId(@Param("id") Long id);

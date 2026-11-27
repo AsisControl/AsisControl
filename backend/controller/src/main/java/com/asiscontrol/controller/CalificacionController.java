@@ -74,10 +74,23 @@ public class CalificacionController {
     }
 
     @PostMapping("/informes/publicar")
-    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR') and hasRole('DOCENTE')")
     public ReporteAvanceService.ResultadoPeriodo publicarInformes(
             @Valid @RequestBody com.asiscontrol.dto.EvaluacionDto.PublicarPeriodoRequest request) {
         return reporteAvanceService.publicarPeriodo(request.idAsignacionCurso(), request.idPeriodoAcademico());
+    }
+
+    @GetMapping("/informes/academicos")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_LEER') and hasAuthority('CALIFICACIONES_LEER')")
+    public List<ReporteAvanceService.LibretaAcademica> libretasAcademicas(@RequestParam int anio,
+            @RequestParam Long periodo, @RequestParam int grado, @RequestParam Long seccion, @RequestParam Long curso) {
+        return reporteAvanceService.listarLibretas(anio, periodo, grado, seccion, curso);
+    }
+
+    @GetMapping("/informes/academicos/{id}")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_LEER') and hasAuthority('CALIFICACIONES_LEER')")
+    public com.asiscontrol.dto.ReporteAvanceDto detalleLibreta(@PathVariable Long id) {
+        return reporteAvanceService.detalleLibreta(id);
     }
 
     @GetMapping("/informes/estado")

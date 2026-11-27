@@ -188,14 +188,14 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         assertThat(borrador.path("consolidado").get(0).path("nivelConsolidado").isNull()).isTrue();
         assertThat(borrador.path("filas").findValuesAsText("ponderacion")).containsExactly("40 %", "40 %");
         assertThat(borrador.path("consolidado").get(0).path("estadoAvance").asText()).isEqualTo("PENDIENTE");
-        request("POST", INFORMES + "publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
         mvc.perform(get("/api/calificaciones/avance" + reporte).with(como("APODERADO", guardian.getPersona())))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.consolidado[0].estadoAvance").value("PENDIENTE"))
                 .andExpect(jsonPath("$.consolidado[0].promedioPonderado").isEmpty());
         registrar(assignment, TipoEvaluacion.PROYECTO, NivelLogro.C);
         request("POST", INFORMES + "generar", entrada, 200);
         revisarInforme(periodo.getId());
-        request("POST", INFORMES + "publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
 
         var actual = getOk(consolidado + params).get(0);
         assertThat(actual.path("nivelConsolidado").asText()).isEqualTo("A");
@@ -223,7 +223,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         assertThat(historial.get(1).path("estado").asText()).isEqualTo("HISTORICA");
         request("POST", INFORMES + "generar", entrada, 200);
         activar(putOk(REGLAS + "/borrador", entrada(course, null, 70, 30)));
-        assertThat(request("POST", INFORMES + "publicar", entrada, 422).path("code").asText())
+        assertThat(publicarLibretas(entrada, 422).path("code").asText())
                 .isEqualTo("INFORME_REGLA_DESACTUALIZADA");
     }
 
@@ -245,7 +245,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         String params = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
                 + "&idPeriodoAcademico=" + periodo.getId();
         request("POST", INFORMES + "generar", entrada, 200);
-        request("POST", INFORMES + "publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
         assertThat(getOk("/api/calificaciones/avance" + params).path("conclusionesDescriptivas").isEmpty()).isTrue();
         var texto = "Practicar la explicación del procedimiento.";
         var historico = em.createQuery("from InformeProgreso i where i.alumno.id = :alumno",
@@ -297,7 +297,7 @@ class ReglaCalificacionHttpTest extends ApiIntegrationSupport {
         var entrada = data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId());
         request("POST", INFORMES + "generar", entrada, 200);
         revisarInforme(periodo.getId());
-        request("POST", INFORMES + "publicar", entrada, 200);
+        publicarLibretas(entrada, 200);
     }
 
     @Test void reparteElPesoEntreResultadosValidosDeCadaCompetencia() throws Exception {

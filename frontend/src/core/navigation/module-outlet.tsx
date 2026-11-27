@@ -94,6 +94,7 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
       <Academic
         tab={tab}
         canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+        canReadGrades={(user.permissions ?? []).includes("CALIFICACIONES_LEER")}
         canReadRisk={(user.permissions ?? []).includes("RIESGOS_LEER")}
         canWriteRisk={(user.permissions ?? []).includes("RIESGOS_ESCRIBIR")}
       />
