@@ -53,6 +53,14 @@ export function Evaluations({
     };
   }, []);
   const parsedId = Number(evaluationId);
+  const descriptions: Record<string, string> = {
+    [LIST_TAB]: canWrite
+      ? "Aquí puedes crear y gestionar las evaluaciones de tus cursos."
+      : "Aquí puedes consultar las evaluaciones de tus cursos.",
+    [REGISTRY_TAB]: canWrite
+      ? "Aquí puedes calificar a tus estudiantes en cada evaluación."
+      : "Aquí puedes consultar las calificaciones de tus estudiantes.",
+  };
   const openGrades = (evaluation: Evaluation) =>
     router.push(evaluation.idTareaVinculada
       ? `/tareas/${evaluation.idTareaVinculada}/entregas`
@@ -63,7 +71,7 @@ export function Evaluations({
     <section>
       <PageHeader
         title="Evaluaciones"
-        description="Gestiona evaluaciones y calificaciones de tus cursos asignados."
+        description={descriptions[current] ?? "Gestiona evaluaciones y calificaciones de tus cursos asignados."}
         actions={
           canWrite &&
           current === LIST_TAB && (
