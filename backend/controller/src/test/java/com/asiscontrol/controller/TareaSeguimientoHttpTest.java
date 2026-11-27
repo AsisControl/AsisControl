@@ -230,6 +230,10 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
         var pendientes = getOk(masiva).path("alumnos");
         assertThat(pendientes).hasSize(1);
         assertThat(pendientes.get(0).path("competencias").get(0).asLong()).isEqualTo(segunda.getId());
+        var seleccionAjena = data("alumnos", List.of(student.getId()),
+                "competencias", List.of(segunda.getId(), Long.MAX_VALUE), "nivelLogro", "C");
+        request("POST", masiva, seleccionAjena, 422);
+        assertThat(getOk(masiva).path("alumnos").get(0).path("competencias")).hasSize(1);
         var seleccion = data("alumnos", List.of(student.getId()), "competencias", List.of(competence.getId(), segunda.getId()),
                 "nivelLogro", "C", "observacion", "  Revisar estrategia  ");
         assertThat(request("POST", masiva, seleccion, 200).path("calificaciones").asInt()).isEqualTo(1);
@@ -293,8 +297,38 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
         assertThat(revisada.path("nivelLogro").asText()).isEqualTo("A");
         assertThat(revisada.path("observacion").asText()).isEqualTo("Observación individual");
         assertThat(revisada.path("devolucion").asText()).isEqualTo("Revisa la guía");
+        request("PUT", revision + "/devolucion", data("comentario", "Guía actualizada"), 204);
+        assertThat(getOk(revision).path("devolucion").asText()).isEqualTo("Guía actualizada");
+        request("PUT", revision + "/devolucion", data("comentario", "  "), 204);
+        var sinDevolucion = getOk(revision);
+        assertThat(sinDevolucion.path("devolucion").isNull()).isTrue();
+        assertThat(sinDevolucion.path("nivelLogro").asText()).isEqualTo("A");
         assertThat(em.createQuery("select count(e) from EntregaTarea e where e.tarea.id = :tarea and e.alumno.id = :alumno",
                 Long.class).setParameter("tarea", id).setParameter("alumno", student.getId()).getSingleResult()).isZero();
+    }
+
+    @Test void conservaElPuntajeHistoricoSinEntregaAlArchivarLaTarea() throws Exception {
+        long id = tareaPublicada().path("id").asLong();
+        var historica = em.find(com.asiscontrol.entity.Tarea.class, id);
+        historica.setModeloCualitativo(false);
+        historica.setEstadoPublicacion(com.asiscontrol.entity.enums.EstadoPublicacionTarea.CERRADA);
+        em.flush();
+
+        String tarea = TAREAS + "/" + id;
+        String revision = tarea + "/calificaciones-sin-entrega/" + student.getId();
+        assertThat(getOk(revision).path("nota").isNull()).isTrue();
+        request("PUT", revision, data("nivelLogro", "AD"), 422);
+        request("PUT", revision, data("observacion", "Sin puntaje"), 422);
+        request("PUT", revision, data("nota", 21), 422);
+        request("PUT", revision, data("nota", 0), 204);
+        assertThat(getOk(revision).path("nota").decimalValue()).isEqualByComparingTo("0");
+        request("PUT", revision, data("nota", 17.5, "observacion", "Revisión"), 204);
+        request("POST", tarea + "/archivar", null, 200);
+        request("PUT", revision, data("nota", 19), 422);
+        var archivada = getOk(revision);
+        assertThat(archivada.path("nota").decimalValue()).isEqualByComparingTo("17.5");
+        assertThat(archivada.path("observacion").asText()).isEqualTo("Revisión");
+        assertThat(archivada.path("nivelLogro").isNull()).isTrue();
     }
 
     private JsonNode tareaPublicada() throws Exception {
