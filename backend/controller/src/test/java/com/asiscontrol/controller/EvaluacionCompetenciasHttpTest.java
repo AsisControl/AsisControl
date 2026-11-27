@@ -37,6 +37,19 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
 
     @Autowired RegistroAuditoriaRepository auditorias;
 
+    @Test void cancelarUnaEntregaPendienteHabilitaElRegistroDirectoDeNotas() throws Exception {
+        var datos = datosEvaluacion("Examen sin entrega");
+        datos.put("permitirEntrega", true);
+        var evaluacion = postOk(EVALUACIONES, datos);
+        assertThat(evaluacion.path("entregaPorConfigurar").asBoolean()).isTrue();
+        long id = evaluacion.path("id").asLong();
+        String cancelar = EVALUACIONES + "/" + id + "/cancelar-entrega";
+        var actualizada = request("POST", cancelar, null, 200);
+        assertThat(actualizada.path("entregaPorConfigurar").booleanValue()).isFalse();
+        assertThat(registrarNivel(id, "A").path("nivelLogro").asText()).isEqualTo("A");
+        assertThat(request("POST", cancelar, null, 422).path("code").asText()).isEqualTo("ENTREGA_NO_CANCELABLE");
+    }
+
     @Test void unPlanConSeleccionVaciaBloqueaUnaCompetenciaGlobalSinBorrarLaEvaluacionAnterior() throws Exception {
         long id = nuevaEvaluacion();
         grade.setPlanDefinido(true);

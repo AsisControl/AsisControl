@@ -16,6 +16,7 @@ import com.asiscontrol.dto.EvaluacionDto;
 import com.asiscontrol.dto.tarea.TareaDtos.CompetenciasSinPeso;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.AuditableEntity;
+import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.EntregaTarea;
 import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.Tarea;
@@ -554,6 +555,12 @@ public class TareaService {
         }
         if (request.competencias().isEmpty()) {
             throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE", "Selecciona las competencias que deseas calificar.");
+        }
+        var competenciasEvaluadas = tarea.getEvaluacionAcademica().getCompetencias().stream()
+                .map(Competencia::getId).toList();
+        if (!competenciasEvaluadas.containsAll(request.competencias())) {
+            throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE",
+                    "Selecciona únicamente competencias de la evaluación vinculada.");
         }
         var notas = cerosPendientes(tarea).stream()
                 .filter(nota -> request.alumnos().contains(nota.idAlumno()) && request.competencias().contains(nota.idCompetencia()))
