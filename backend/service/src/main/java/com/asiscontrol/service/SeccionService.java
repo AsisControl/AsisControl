@@ -351,9 +351,9 @@ public class SeccionService {
                     "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
         if (request.grado() < 1 || request.grado() > 5)
             throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
-        if (request.cantidad() <= 0)
+        if (request.cantidad() <= 0 || request.cantidad() > GenerarPropuestasSeccionesRequest.MAX_PROPUESTAS)
             throw new BusinessRuleException(
-                    "CANTIDAD_SECCIONES_INVALIDA", "La cantidad de secciones debe ser positiva");
+                    "CANTIDAD_SECCIONES_INVALIDA", "Puedes generar de 1 a 20 propuestas de secciones.");
         if (request.capacidadMaxima() <= 0 || request.capacidadMaxima() > 100)
             throw new BusinessRuleException(
                     "CAPACIDAD_SECCION_INVALIDA",

@@ -194,6 +194,32 @@ public class EvaluacionService {
         return toResponse(buscarActiva(id));
     }
 
+    @Transactional(readOnly = true)
+    public EvaluacionDto.ResultadoPublicado resultadoPublicado(Long id, Long alumnoId) {
+        Evaluacion evaluacion = buscarActiva(id);
+        if (evaluacion.getEstado() != EstadoEvaluacion.PUBLICADA
+                && evaluacion.getEstado() != EstadoEvaluacion.CERRADA) {
+            throw resultadoNoDisponible();
+        }
+        var calificaciones = calificacionRepository.findAllByEvaluacionIdAndAlumnoIdAndActivoTrue(id, alumnoId);
+        if (calificaciones.isEmpty() || !calificaciones.getFirst().getAlumno().isActivo()
+                || !calificaciones.getFirst().getAlumno().getPersona().isActivo()) {
+            throw resultadoNoDisponible();
+        }
+        var escala = evaluacion.getEscalaInstitucional();
+        var notas = calificaciones.stream().map(nota -> new EvaluacionDto.NotaPublicada(
+                nota.getCompetencia().getId(), nota.getCompetencia().getNombre(),
+                escala == null || nota.getNotaNumerica() == null ? nota.getNivelLogro()
+                        : EscalaInstitucionalService.nivel(escala, nota.getNotaNumerica())))
+                .sorted(java.util.Comparator.comparing(EvaluacionDto.NotaPublicada::competencia)).toList();
+        return new EvaluacionDto.ResultadoPublicado(evaluacion.getTitulo(), evaluacion.getAsignacionCurso().nombreCurso(),
+                calificaciones.getFirst().getAlumno().getPersona().nombreCompleto(), evaluacion.getFechaEvaluacion(), notas);
+    }
+
+    private ResourceNotFoundException resultadoNoDisponible() {
+        return new ResourceNotFoundException("RESULTADO_NO_DISPONIBLE", "El resultado de esta evaluación ya no está disponible.");
+    }
+
     /** US-18: alumnos matriculados en la seccion con sus niveles vigentes en esta evaluacion. */
     @Transactional(readOnly = true)
     public EvaluacionDto.PlanillaResponse planilla(Long id) {
@@ -352,7 +378,7 @@ public class EvaluacionService {
         var notificados = new java.util.HashSet<Long>();
         for (Calificacion calificacion : calificacionRepository.findAllByEvaluacionIdAndActivoTrue(evaluacion.getId())) {
             if (notificados.add(calificacion.getAlumno().getId())) {
-                avisos.enviar(calificacion.getAlumno(), "Resultados publicados", evaluacion.getTitulo());
+                avisos.enviar(calificacion.getAlumno(), "Resultados publicados", evaluacion);
             }
             auditoria.registrar("PUBLICAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
                     calificacion.getId().toString(), ResultadoAuditoria.EXITOSO, null, null,

@@ -55,6 +55,31 @@ beforeEach(() => {
   setUrl(BASE);
 });
 
+test.each([
+  ["apoderados", carmen, "Carmen", "Flores"],
+  ["docentes", docente, "Rosa", "Pizarro"],
+])("edita la ficha de %s y conserva la nacionalidad registrada", async (view, profile, nombres, apellidoPaterno) => {
+  const root = `/api/${view}`;
+  let detail = { ...profile, persona: { ...profile.persona, nombres, apellidoPaterno,
+    fechaNacimiento: "1985-03-14", nacionalidadId: 9, sexo: "FEMENINO" } };
+  const calls = fakeBackend({
+    [`GET ${root}`]: () => page([detail]),
+    [`GET ${root}/:id`]: () => detail,
+    [`PUT ${root}/:id`]: ({ body }) => { detail = { ...detail, persona: { ...detail.persona, ...body.persona } }; return detail; },
+  });
+  setUrl(`${BASE}/${view}`);
+  render(<RecordsScreen />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: /Ver ficha de/ }));
+  await user.click(await screen.findByRole("button", { name: "Editar ficha" }));
+  const address = screen.getByLabelText("Dirección");
+  await user.type(address, "Av. Escuela 300");
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  await screen.findByText("Ficha actualizada.");
+  expect(calls.find(({ method }) => method === "PUT").body.persona)
+    .toMatchObject({ direccion: "Av. Escuela 300", nacionalidadId: 9, nombres });
+});
+
 test("Agrupa las vistas y cambia la URL al elegir una", async () => {
   fakeBackend({ "GET /api/alumnos": page([]) });
   const user = userEvent.setup();

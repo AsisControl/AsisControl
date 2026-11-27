@@ -8,6 +8,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class EscalaInstitucionalHttpTest extends ApiIntegrationSupport {
@@ -98,6 +99,19 @@ class EscalaInstitucionalHttpTest extends ApiIntegrationSupport {
         var nota = planilla.path("alumnos").get(0).path("notas").get(0);
         assertThat(nota.path("notaNumerica").decimalValue()).isEqualByComparingTo("17.49");
         assertThat(nota.path("nivelLogro").asText()).isEqualTo("AD");
+        String resultado = "/api/evaluaciones/" + evaluacion + "/resultado-publicado?alumnoId=" + student.getId();
+        var apoderado = jwt().jwt(token -> token.claim("personaId", guardian.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_APODERADO"),
+                        new SimpleGrantedAuthority("CALIFICACIONES_LEER"));
+        var alumno = jwt().jwt(token -> token.claim("personaId", student.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_ALUMNO"),
+                        new SimpleGrantedAuthority("CALIFICACIONES_LEER"));
+        for (var sesion : List.of(apoderado, alumno)) {
+            mvc.perform(get(resultado).with(sesion))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.notas[0].nivelLogro").value("AD"))
+                    .andExpect(jsonPath("$.notas[0].notaNumerica").doesNotHaveJsonPath());
+        }
         request("POST", "/api/calificaciones/correcciones", data("motivo", "Corrección de digitación", "correcciones",
                 List.of(data("idCalificacion", nota.path("idCalificacion").asLong(), "version", nota.path("version").asLong(),
                         "notaNumerica", "17.01"))), 200);

@@ -55,6 +55,7 @@ import com.asiscontrol.service.CicloCuentaService;
 import com.asiscontrol.service.CodigoInstitucionalService;
 import com.asiscontrol.service.CodigoInstitucionalService.Prefijo;
 import com.asiscontrol.service.CompromisoPagoService;
+import com.asiscontrol.service.InscripcionCursoService;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,10 +110,11 @@ public class RetroJpDemoDataInitializer {
     private final CompromisoPagoService compromisos;
     private final ConceptoCobroRepository conceptos;
     private final String password;
+    private final InscripcionCursoService inscripciones;
 
     public RetroJpDemoDataInitializer(EntityManager em, CicloCuentaService cuentas, CodigoInstitucionalService codigos,
             AvisosAcademicos avisos, CompromisoPagoService compromisos, ConceptoCobroRepository conceptos,
-            @Value("${app.pagos.demo.password:}") String password) {
+            InscripcionCursoService inscripciones, @Value("${app.pagos.demo.password:}") String password) {
         this.em = em;
         this.cuentas = cuentas;
         this.codigos = codigos;
@@ -120,6 +122,7 @@ public class RetroJpDemoDataInitializer {
         this.compromisos = compromisos;
         this.conceptos = conceptos;
         this.password = password;
+        this.inscripciones = inscripciones;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -172,7 +175,16 @@ public class RetroJpDemoDataInitializer {
         horarioYAsistencia(asignacion, alumnos, hoy);
         tareasYResultados(asignacion, lectura, periodo, alumnos, hoy);
         renovarYPrepararCobros(origen, destino, llena, carla, jorge, matriculaLucia, hoy);
+        inscribirMatriculas();
         LOGGER.info("Datos JP preparados para el año {} y el plan histórico {}.", numero, numero - 1);
+    }
+
+    /** inscripcion cursos: la demo crea matrículas sin MatriculaService y arma los planes después. */
+    private void inscribirMatriculas() {
+        em.flush();
+        em.createQuery("select m from Matricula m where m.activo=true and m.estado in :estados", Matricula.class)
+                .setParameter("estados", List.of(EstadoMatricula.ACTIVA, EstadoMatricula.FINALIZADA))
+                .getResultList().forEach(inscripciones::inscribir);
     }
 
     private Alumno estudianteDemo(String codigo) {
@@ -393,7 +405,7 @@ public class RetroJpDemoDataInitializer {
             calificacion.setFechaRegistro(Instant.now());
             em.persist(calificacion);
             publicarInforme(asignacion, periodo, calificacion);
-            avisos.enviar(alumno, "Resultados publicados", publicada.getTitulo());
+            avisos.enviar(alumno, "Resultados publicados", publicada);
         }
     }
 

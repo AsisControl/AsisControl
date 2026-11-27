@@ -2,7 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, Loading, StatusPill } from "@/shared/ui";
+import { Feedback, Loading, PageHeader, StatusPill } from "@/shared/ui";
 import { AttendanceRecord } from "./attendance-record";
 import { clasesDelDia, fechaConDia, fechaLocal, presentarEstado, sinJustificar } from "./lib";
 import { listarAsistencias, listarHorarioPropio } from "./services/asistencia-apoderado-service";
@@ -45,12 +45,7 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
   const hoy = asistencias && bloques ? clasesDelDia(bloques, asistencias) : null;
   return (
     <section className={styles.pagina}>
-      <div className={styles.encabezado}>
-        <div>
-          <h2>Mi asistencia</h2>
-          <p>{fullName} · Consulta de tu asistencia</p>
-        </div>
-      </div>
+      <PageHeader title="Mi asistencia" description={`${fullName} · Consulta de tu asistencia`} />
       <Feedback error={error} />
       {!error && !asistencias && <Loading>Cargando asistencia…</Loading>}
       {hoy && (
@@ -60,12 +55,19 @@ export function StudentAttendance({ fullName }: { fullName: string }) {
             <p className={styles.sinClases}>Hoy no tienes clases.</p>
           ) : (
             <ul>
-              {hoy.map(({ clave, curso, hora, registro }) => {
+              {hoy.map(({ clave, curso, hora, horaFin, docente, aula, sesion, registro }) => {
                 const estado = registro && presentarEstado(registro);
+                const detalle = [sesion, docente, aula].filter(Boolean).join(" · ");
                 return (
                   <li key={clave}>
-                    <span className={styles.hoyCurso}>{curso}</span>
-                    <span className={styles.hoyHora}>{hora}</span>
+                    <span className={styles.hoyHora}>
+                      <strong>{hora}</strong>
+                      {horaFin && <small>{horaFin}</small>}
+                    </span>
+                    <span className={styles.hoyClase}>
+                      <span className={styles.hoyCurso}>{curso}</span>
+                      {detalle && <small className={styles.hoyDetalle}>{detalle}</small>}
+                    </span>
                     {estado ? (
                       <StatusPill state={estado.valor} label={estado.etiqueta} tone={estado.tono} />
                     ) : (

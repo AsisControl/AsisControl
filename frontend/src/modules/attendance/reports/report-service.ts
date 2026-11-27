@@ -14,3 +14,15 @@ export type Options = { periodos: { id: number; nombre: string }[]; secciones: {
 export const REPORT_PATH = "/api/reportes/asistencia";
 export const reportOptions = () => api<Options>(`${REPORT_PATH}/filtros`);
 export const attendanceReport = (query: string) => api<Report>(`${REPORT_PATH}?${query}`);
+
+// correccion marcacion docente
+export type TeacherMarking = { id: number; fechaJornada: string; fechaHoraMarcada: string; estado: string; version: number };
+export type TeacherMarkingCorrection = {
+  id: number; horaAnterior: string; horaNueva: string; estadoAnterior: string; estadoNuevo: string;
+  motivo: string; actor: string; fechaHora: string;
+};
+export type TeacherMarkingHistory = { marcacion: TeacherMarking; correcciones: TeacherMarkingCorrection[] };
+const MARKINGS_PATH = "/api/asistencias/docentes";
+export const teacherMarkingHistory = (id: number) => api<TeacherMarkingHistory>(`${MARKINGS_PATH}/${id}/correcciones`);
+export const correctTeacherMarking = (id: number, body: { hora: string | null; estado: string | null; motivo: string; version: number }) =>
+  api<TeacherMarking>(`${MARKINGS_PATH}/${id}/correccion`, { method: "PUT", body: JSON.stringify(body) });

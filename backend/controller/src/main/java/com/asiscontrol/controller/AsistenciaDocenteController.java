@@ -3,6 +3,8 @@ package com.asiscontrol.controller;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.AsistenciaDocenteResponse;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.ClaseDiaDocenteResponse;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.CodigoQRResponse;
+import com.asiscontrol.dto.asistencia.AsistenciaDtos.HistorialMarcacionDocenteResponse;
+import com.asiscontrol.dto.asistencia.AsistenciaDtos.CorregirMarcacionDocenteRequest;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.EmitirCodigoQRRequest;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.EscanearCodigoQRRequest;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.RegistrarContingenciaRequest;
@@ -23,6 +25,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -101,10 +104,23 @@ public class AsistenciaDocenteController {
     }
 
     @PostMapping("/contingencia")
-    @PreAuthorize("hasAuthority('ASISTENCIA_ESCRIBIR')")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ASISTENCIA_ESCRIBIR')")
     public ResponseEntity<AsistenciaDocenteResponse> registrarContingencia(
             @Valid @RequestBody RegistrarContingenciaRequest request) {
         return ResponseEntity.status(201).body(asistenciaService.registrarContingencia(request));
+    }
+
+    // correccion marcacion docente: solo el administrador corrige una marcación existente, con motivo
+    @PutMapping("/{id}/correccion")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ASISTENCIA_ESCRIBIR')")
+    public AsistenciaDocenteResponse corregir(@PathVariable Long id, @Valid @RequestBody CorregirMarcacionDocenteRequest request) {
+        return asistenciaService.corregir(id, request);
+    }
+
+    @GetMapping("/{id}/correcciones")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public HistorialMarcacionDocenteResponse correcciones(@PathVariable Long id) {
+        return asistenciaService.correcciones(id);
     }
 
     @GetMapping

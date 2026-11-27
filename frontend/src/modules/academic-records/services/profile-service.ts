@@ -7,7 +7,16 @@ type ProfileInput = {
   persona: ReturnType<typeof personData>;
   fechaIngreso?: string;
   especialidad?: string;
+  codigoDocente?: string;
 };
+
+export function obtenerPerfil<T>(path: string) {
+  return api<T>(path);
+}
+
+export function actualizarPerfil<T>(path: string, input: ProfileInput) {
+  return api<T>(path, { method: "PUT", body: JSON.stringify(input) });
+}
 
 export function registrarPerfil(role: ProfileRole, input: ProfileInput) {
   const path = role === "docente" ? "/api/docentes" : "/api/apoderados";

@@ -7,6 +7,7 @@ import { attendanceReport, reportOptions, type Options, type Report, type Report
 import styles from "./attendance-reports.module.css";
 import { AdminSessionCorrection } from "./admin-session-correction";
 import { LastAttendanceCorrection } from "./last-attendance-correction";
+import { TeacherMarkingCorrection } from "./teacher-marking-correction";
 
 const LABELS: Record<string, string> = {
   PRESENTE: "Presente", TARDANZA: "Tardanza", INASISTENCIA: "Inasistencia", SIN_MARCACION: "Sin marcación",
@@ -105,6 +106,11 @@ function ReportResults({ query, type, canCorrect, onEditingChange }: {
       </dl>
       {type === "ESTUDIANTES" && selection.sesionId != null && <LastAttendanceCorrection
         key={`${selection.sesionId}:${selection.id}`} sessionId={selection.sesionId} attendanceId={selection.id} />}
+      {type === "DOCENTES" && selection.origen === "REGISTRO" && <TeacherMarkingCorrection key={selection.id}
+        markingId={selection.id} canCorrect={canCorrect} onSaved={() => {
+          setSelection(null); setPage(0); setRevision(n => n + 1);
+          setNotice("Corrección de la marcación guardada. El reporte se actualizó.");
+        }} />}
       {canCorrect && type === "ESTUDIANTES" && selection.sesionId != null && <div className="form-actions">
         <button className="primary-action" onClick={() => {
           if (selection.sesionId === null) return;

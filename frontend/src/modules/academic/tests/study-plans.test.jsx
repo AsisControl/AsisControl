@@ -57,7 +57,8 @@ test("busca por código y por grado en el mismo catálogo y guarda el plan inici
 });
 
 test("edita con motivo, conserva la versión y permite cancelar el borrador", async () => {
-  const saved = plan({ definido: true, version: 2, cursos: [course, art] });
+  // inscripcion cursos: agregar o quitar cursos solo se permite en el plan de un año en borrador
+  const saved = plan({ definido: true, version: 2, cursos: [course, art], estadoAnio: "BORRADOR" });
   const calls = fakeBackend({
     "GET /api/configuracion-academica/anios": page([year]),
     [`GET ${namePath}`]: name,
@@ -82,11 +83,28 @@ test("edita con motivo, conserva la versión y permite cancelar el borrador", as
   expect(calls.find(call => call.method === "PUT").body).toEqual({ version: 2, cursos: [annual(course)], motivo: "Se corrigió la lista" });
 });
 
+test("en el año activo con plan guardado no deja agregar ni quitar cursos", async () => {
+  fakeBackend({
+    "GET /api/configuracion-academica/anios": page([year]),
+    [`GET ${namePath}`]: name,
+    [`GET ${path}`]: plan({ definido: true, version: 2, cursos: [course, art] }),
+  });
+  render(<StudyPlansPanel canWrite />);
+  const user = userEvent.setup();
+  await selectPlan(user);
+  await user.click(await screen.findByRole("button", { name: "Editar plan" }));
+  expect(screen.getByText(/Los cursos del plan del año en curso no se modifican/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Agregar curso" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Importar plan del año anterior" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Quitar Arte y Cultura" })).toBeNull();
+  expect(screen.getByRole("button", { name: `Competencias de ${art.nombre}` })).toBeTruthy();
+});
+
 test("previsualiza el plan anterior y agrega faltantes conservando los cursos de destino", async () => {
   const current = { ...course, competencias: [estadistica] };
   const historical = { ...course, nombre: "Matemática 2026", horasSemanales: 5, competencias: [problema] };
   const updatedArt = { ...art, nombre: "Arte aplicado", horasSemanales: 3 };
-  const saved = plan({ definido: true, version: 2, cursos: [current] });
+  const saved = plan({ definido: true, version: 2, cursos: [current], estadoAnio: "BORRADOR" });
   const calls = fakeBackend({
     "GET /api/configuracion-academica/anios": page([year]),
     [`GET ${namePath}`]: name,
@@ -231,7 +249,8 @@ test("renombra el plan anual sin seleccionar grado ni guardar cursos", async () 
 });
 
 test("al guardar un plan con menos horas avisa las secciones que quedan excedidas sin bloquear", async () => {
-  const saved = plan({ definido: true, version: 2, cursos: [course, art] });
+  // inscripcion cursos: agregar o quitar cursos solo se permite en el plan de un año en borrador
+  const saved = plan({ definido: true, version: 2, cursos: [course, art], estadoAnio: "BORRADOR" });
   const excedida = { seccionId: 8, seccion: "1° A", cursoId: 3, curso: "Matemática", horasPlan: 3, minutosProgramados: 240 };
   fakeBackend({
     "GET /api/configuracion-academica/anios": page([year]),

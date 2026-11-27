@@ -1,5 +1,11 @@
 package com.asiscontrol.controller;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.asiscontrol.entity.AccesoUsuario;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AsistenciaAlumno;
@@ -10,22 +16,25 @@ import com.asiscontrol.entity.Notificacion;
 import com.asiscontrol.entity.Rol;
 import com.asiscontrol.entity.asistencia.EstadoSesionClase;
 import com.asiscontrol.entity.asistencia.SesionClase;
-import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.entity.enums.DiaSemana;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.TipoAula;
-import org.junit.jupiter.api.Test;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.fasterxml.jackson.databind.JsonNode;
+
+import org.junit.jupiter.api.Test;
+
 import java.time.*;
 import java.util.*;
-import static org.assertj.core.api.Assertions.*;
 
 @org.springframework.context.annotation.Import(AsistenciaFlujosHttpTest.RelojPrueba.class)
 class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
+    private static final String CONTINGENCIAS = "/api/asistencias/docentes/contingencias";
 
     @org.springframework.boot.test.context.TestConfiguration
     static class RelojPrueba {
-        @org.springframework.context.annotation.Bean @org.springframework.context.annotation.Primary
+        @org.springframework.context.annotation.Bean
+        @org.springframework.context.annotation.Primary
         Clock relojFijoMarcacion() {
             var zona = ZoneId.of("America/Lima");
             return Clock.fixed(LocalDate.now(zona).atTime(7, 30).atZone(zona).toInstant(), zona);
@@ -34,209 +43,584 @@ class AsistenciaFlujosHttpTest extends ApiIntegrationSupport {
 
     /** Los códigos QR vencen según el reloj de la institución, no la zona horaria del servidor. */
     @org.springframework.beans.factory.annotation.Autowired java.time.Clock reloj;
+
     private Rol rol(String nombre) {
-        return em.createQuery("from Rol r where r.nombre=:n",Rol.class).setParameter("n",nombre).getSingleResult();
+        return em.createQuery("from Rol r where r.nombre=:n", Rol.class)
+                .setParameter("n", nombre)
+                .getSingleResult();
     }
 
     /** Asistencia de una sesión TOMADA; el registro se hace por sesión, no por fila de alumno. */
     private long asistenciaTomada(LocalDate fecha, EstadoAsistencia estado) {
-        var aula=new Aula(); aula.setCodigo("AU"+key()); aula.setNombre("Aula"); aula.setTipoAula(TipoAula.AULA_REGULAR);
-        aula.setCapacidad(30); aula.setUbicacion("Pabellon A"); em.persist(aula);
-        var horario=new Horario(); horario.setAsignacionCurso(assignment); horario.setAula(aula);
-        horario.setDiaSemana(DiaSemana.LUNES); horario.setHoraInicio(LocalTime.of(8,0)); horario.setHoraFin(LocalTime.of(9,30));
+        var aula = new Aula();
+        aula.setCodigo("AU" + key());
+        aula.setNombre("Aula");
+        aula.setTipoAula(TipoAula.AULA_REGULAR);
+        aula.setCapacidad(30);
+        aula.setUbicacion("Pabellon A");
+        em.persist(aula);
+        var horario = new Horario();
+        horario.setAsignacionCurso(assignment);
+        horario.setAula(aula);
+        horario.setDiaSemana(DiaSemana.LUNES);
+        horario.setHoraInicio(LocalTime.of(8, 0));
+        horario.setHoraFin(LocalTime.of(9, 30));
         em.persist(horario);
-        var sesion=new SesionClase(); sesion.setAsignacionCurso(assignment); sesion.setHorario(horario); sesion.setFecha(fecha);
-        sesion.setHoraInicio(horario.getHoraInicio()); sesion.setHoraFin(horario.getHoraFin());
-        sesion.setEstado(EstadoSesionClase.TOMADA); sesion.setDocenteRegistrador(teacher);
-        sesion.setFechaHoraFinalizacion(fecha.atTime(9,30)); em.persist(sesion);
-        var asistencia=new AsistenciaAlumno(); asistencia.setAlumno(student); asistencia.setAsignacionCurso(assignment);
-        asistencia.setSesionClase(sesion); asistencia.setDocenteRegistrador(teacher); asistencia.setFechaRegistro(fecha);
-        asistencia.setHoraRegistro(LocalTime.of(8,0)); asistencia.setEstadoAsistencia(estado); em.persist(asistencia);
+        var sesion = new SesionClase();
+        sesion.setAsignacionCurso(assignment);
+        sesion.setHorario(horario);
+        sesion.setFecha(fecha);
+        sesion.setHoraInicio(horario.getHoraInicio());
+        sesion.setHoraFin(horario.getHoraFin());
+        sesion.setEstado(EstadoSesionClase.TOMADA);
+        sesion.setDocenteRegistrador(teacher);
+        sesion.setFechaHoraFinalizacion(fecha.atTime(9, 30));
+        em.persist(sesion);
+        var asistencia = new AsistenciaAlumno();
+        asistencia.setAlumno(student);
+        asistencia.setAsignacionCurso(assignment);
+        asistencia.setSesionClase(sesion);
+        asistencia.setDocenteRegistrador(teacher);
+        asistencia.setFechaRegistro(fecha);
+        asistencia.setHoraRegistro(LocalTime.of(8, 0));
+        asistencia.setEstadoAsistencia(estado);
+        em.persist(asistencia);
         em.flush();
         return asistencia.getId();
     }
 
-    @Test void consultaAsistenciasRegistradasPorSesion() throws Exception {
-        long id=asistenciaTomada(LocalDate.now(),EstadoAsistencia.PRESENTE);
-        assertThat(getOk("/api/asistencias/alumnos/"+id).path("estado").asText()).isEqualTo("PRESENTE");
-        assertThat(getOk("/api/asistencias/alumnos?alumnoId="+student.getId()).path("content")).hasSize(1);
-        request("GET","/api/asistencias/alumnos/"+Long.MAX_VALUE,null,404);
+    @Test
+    void consultaAsistenciasRegistradasPorSesion() throws Exception {
+        long id = asistenciaTomada(LocalDate.now(), EstadoAsistencia.PRESENTE);
+        assertThat(getOk("/api/asistencias/alumnos/" + id).path("estado").asText())
+                .isEqualTo("PRESENTE");
+        assertThat(getOk("/api/asistencias/alumnos?alumnoId=" + student.getId()).path("content"))
+                .hasSize(1);
+        request("GET", "/api/asistencias/alumnos/" + Long.MAX_VALUE, null, 404);
     }
 
-    @Test void justificaAusenciaObservaSubsanaYApruebaConTrazabilidad() throws Exception {
-        long a=asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA);
-        var j=apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",a,"motivo","Cita medica","archivoIds",Set.of()),201);
-        String p="/api/justificaciones-asistencia/"+j.path("id").asLong();
-        getOk("/api/justificaciones-asistencia"); getOk(p);
-        request("POST",p+"/iniciar-revision",data("version",version(p)),200);
-        request("POST",p+"/observar",data("version",version(p),"observacion","Adjuntar sustento"),200);
-        apoderado("POST",p+"/subsanar",data("motivo","Sustento entregado","archivoIds",Set.of(),"version",version(p)),200);
-        request("POST",p+"/iniciar-revision",data("version",version(p)),200);
-        request("POST",p+"/aprobar",data("version",version(p),"observacion","Conforme"),200);
-        assertThat(getOk("/api/asistencias/alumnos/"+a).path("estado").asText())
+    @Test
+    void justificaAusenciaObservaSubsanaYApruebaConTrazabilidad() throws Exception {
+        long a = asistenciaTomada(LocalDate.now(), EstadoAsistencia.INASISTENCIA);
+        var j =
+                apoderado(
+                        "POST",
+                        "/api/justificaciones-asistencia",
+                        data(
+                                "asistenciaAlumnoId",
+                                a,
+                                "motivo",
+                                "Cita medica",
+                                "archivoIds",
+                                Set.of()),
+                        201);
+        String p = "/api/justificaciones-asistencia/" + j.path("id").asLong();
+        getOk("/api/justificaciones-asistencia");
+        getOk(p);
+        request("POST", p + "/iniciar-revision", data("version", version(p)), 200);
+        request(
+                "POST",
+                p + "/observar",
+                data("version", version(p), "observacion", "Adjuntar sustento"),
+                200);
+        apoderado(
+                "POST",
+                p + "/subsanar",
+                data("motivo", "Sustento entregado", "archivoIds", Set.of(), "version", version(p)),
+                200);
+        request("POST", p + "/iniciar-revision", data("version", version(p)), 200);
+        request(
+                "POST",
+                p + "/aprobar",
+                data("version", version(p), "observacion", "Conforme"),
+                200);
+        assertThat(getOk("/api/asistencias/alumnos/" + a).path("estado").asText())
                 .isEqualTo("INASISTENCIA_JUSTIFICADA");
-        apoderado("POST",p+"/cancelar",null,422);
+        apoderado("POST", p + "/cancelar", null, 422);
     }
 
-    private JsonNode apoderado(String method,String path,Object body,int expected) throws Exception {
-        return comoRol("APODERADO",guardian.getPersona(),method,path,body,expected);
+    private JsonNode apoderado(String method, String path, Object body, int expected)
+            throws Exception {
+        return comoRol("APODERADO", guardian.getPersona(), method, path, body, expected);
     }
-    private long version(String ruta) throws Exception { return getOk(ruta).path("version").asLong(); }
+
+    private long version(String ruta) throws Exception {
+        return getOk(ruta).path("version").asLong();
+    }
+
     private String justificar(long asistencia) throws Exception {
-        return "/api/justificaciones-asistencia/"+apoderado("POST","/api/justificaciones-asistencia",
-                data("asistenciaAlumnoId",asistencia,"motivo","Cita medica","archivoIds",Set.of()),201).path("id").asLong();
+        return "/api/justificaciones-asistencia/"
+                + apoderado(
+                                "POST",
+                                "/api/justificaciones-asistencia",
+                                data(
+                                        "asistenciaAlumnoId",
+                                        asistencia,
+                                        "motivo",
+                                        "Cita medica",
+                                        "archivoIds",
+                                        Set.of()),
+                                201)
+                        .path("id")
+                        .asLong();
     }
 
-    @Test void elAlumnoConsultaSoloSuHistorialConHoraAnioYPeriodo() throws Exception {
-        var periodo=new PeriodoAcademico(); periodo.setAnioAcademico(year); periodo.setNombre("Bimestre IV"); periodo.setOrden(4);
-        periodo.setFechaInicio(LocalDate.now().minusDays(30)); periodo.setFechaFin(LocalDate.now().plusDays(30)); em.persist(periodo);
-        asistenciaTomada(LocalDate.now(),EstadoAsistencia.PRESENTE);
-        var propia=comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos",null,200).path("content").get(0);
+    @Test
+    void elAlumnoConsultaSoloSuHistorialConHoraAnioYPeriodo() throws Exception {
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year);
+        periodo.setNombre("Bimestre IV");
+        periodo.setOrden(4);
+        periodo.setFechaInicio(LocalDate.now().minusDays(30));
+        periodo.setFechaFin(LocalDate.now().plusDays(30));
+        em.persist(periodo);
+        asistenciaTomada(LocalDate.now(), EstadoAsistencia.PRESENTE);
+        var propia =
+                comoRol(
+                                "ALUMNO",
+                                student.getPersona(),
+                                "GET",
+                                "/api/asistencias/alumnos",
+                                null,
+                                200)
+                        .path("content")
+                        .get(0);
         assertThat(propia.path("horaSesion").asText()).startsWith("08:00");
         assertThat(propia.path("anioAcademico").asInt()).isEqualTo(year.getAnio());
         assertThat(propia.path("periodo").asText()).isEqualTo("Bimestre IV");
-        comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200);
+        comoRol(
+                "ALUMNO",
+                student.getPersona(),
+                "GET",
+                "/api/asistencias/alumnos?alumnoId=" + student.getId(),
+                null,
+                200);
 
-        var otro=new Alumno(); otro.setPersona(person()); otro.setCodigoAlumno("O"+key()); em.persist(otro); em.flush();
-        comoRol("ALUMNO",student.getPersona(),"GET","/api/asistencias/alumnos?alumnoId="+otro.getId(),null,403);
-        apoderado("GET","/api/asistencias/alumnos?alumnoId="+otro.getId(),null,403);
-        apoderado("GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200);
+        var otro = new Alumno();
+        otro.setPersona(person());
+        otro.setCodigoAlumno("O" + key());
+        em.persist(otro);
+        em.flush();
+        comoRol(
+                "ALUMNO",
+                student.getPersona(),
+                "GET",
+                "/api/asistencias/alumnos?alumnoId=" + otro.getId(),
+                null,
+                403);
+        apoderado("GET", "/api/asistencias/alumnos?alumnoId=" + otro.getId(), null, 403);
+        apoderado("GET", "/api/asistencias/alumnos?alumnoId=" + student.getId(), null, 200);
     }
 
-    @Test void soloElApoderadoJustificaYSoloInasistencias() throws Exception {
-        long a=asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA);
-        var pedido=data("asistenciaAlumnoId",a,"motivo","Cita medica","archivoIds",Set.of());
-        comoRol("ALUMNO",student.getPersona(),"POST","/api/justificaciones-asistencia",pedido,403);
-        request("POST","/api/justificaciones-asistencia",pedido,403);
-        long tardanza=asistenciaTomada(LocalDate.now().minusDays(1),EstadoAsistencia.TARDANZA);
-        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",tardanza,"motivo","Trafico","archivoIds",Set.of()),422);
-        long sinMarcar=asistenciaTomada(LocalDate.now().minusDays(2),EstadoAsistencia.SIN_MARCACION);
-        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",sinMarcar,"motivo","No asistio","archivoIds",Set.of()),422);
+    @Test
+    void soloElApoderadoJustificaYSoloInasistencias() throws Exception {
+        long a = asistenciaTomada(LocalDate.now(), EstadoAsistencia.INASISTENCIA);
+        var pedido = data("asistenciaAlumnoId", a, "motivo", "Cita medica", "archivoIds", Set.of());
+        comoRol(
+                "ALUMNO",
+                student.getPersona(),
+                "POST",
+                "/api/justificaciones-asistencia",
+                pedido,
+                403);
+        request("POST", "/api/justificaciones-asistencia", pedido, 403);
+        long tardanza = asistenciaTomada(LocalDate.now().minusDays(1), EstadoAsistencia.TARDANZA);
+        apoderado(
+                "POST",
+                "/api/justificaciones-asistencia",
+                data("asistenciaAlumnoId", tardanza, "motivo", "Trafico", "archivoIds", Set.of()),
+                422);
+        long sinMarcar =
+                asistenciaTomada(LocalDate.now().minusDays(2), EstadoAsistencia.SIN_MARCACION);
+        apoderado(
+                "POST",
+                "/api/justificaciones-asistencia",
+                data(
+                        "asistenciaAlumnoId",
+                        sinMarcar,
+                        "motivo",
+                        "No asistio",
+                        "archivoIds",
+                        Set.of()),
+                422);
     }
 
-    @Test void elDocenteResuelveSinIniciarRevisionYConDatosVigentes() throws Exception {
-        String p=justificar(asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA));
-        var detalle=getOk(p);
+    @Test
+    void elDocenteResuelveSinIniciarRevisionYConDatosVigentes() throws Exception {
+        String p = justificar(asistenciaTomada(LocalDate.now(), EstadoAsistencia.INASISTENCIA));
+        var detalle = getOk(p);
         assertThat(detalle.path("estudiante").asText()).contains(", ");
         assertThat(detalle.path("curso").asText()).isEqualTo(assignment.getCurso().getNombre());
         assertThat(detalle.path("seccion").asText()).contains("Grado");
         assertThat(detalle.path("horaSesion").asText()).startsWith("08:00");
         assertThat(detalle.path("estadoAsistencia").asText()).isEqualTo("INASISTENCIA");
-        long vieja=detalle.path("version").asLong()+1;
-        request("POST",p+"/aprobar",data("version",vieja),409);
-        request("POST",p+"/rechazar",data("version",version(p)),422);
-        var aprobada=request("POST",p+"/aprobar",data("version",version(p)),200);
+        long vieja = detalle.path("version").asLong() + 1;
+        request("POST", p + "/aprobar", data("version", vieja), 409);
+        request("POST", p + "/rechazar", data("version", version(p)), 422);
+        var aprobada = request("POST", p + "/aprobar", data("version", version(p)), 200);
         assertThat(aprobada.path("estado").asText()).isEqualTo("APROBADA");
         assertThat(aprobada.path("docenteRevisorId").asLong()).isEqualTo(teacher.getId());
     }
 
-    @Test void avisaAlApoderadoDelResultado() throws Exception {
-        var acceso=new AccesoUsuario(); acceso.setPersona(guardian.getPersona());
-        acceso.setUsername("apo"+key()); acceso.setCodigo(acceso.getUsername()); acceso.setCorreo("apo"+key()+"@example.test");
-        acceso.setContrasenaHash("x"); em.persist(acceso);
+    @Test
+    void avisaAlApoderadoDelResultado() throws Exception {
+        var acceso = new AccesoUsuario();
+        acceso.setPersona(guardian.getPersona());
+        acceso.setUsername("apo" + key());
+        acceso.setCodigo(acceso.getUsername());
+        acceso.setCorreo("apo" + key() + "@example.test");
+        acceso.setContrasenaHash("x");
+        em.persist(acceso);
         asignarRol(acceso, rol("APODERADO"));
         em.flush();
-        String p=justificar(asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA));
-        request("POST",p+"/rechazar",data("version",version(p),"observacion","Sin sustento"),200);
-        var aviso=em.createQuery("from Notificacion n where n.destinatario.id=:id",Notificacion.class)
-                .setParameter("id",acceso.getId()).getSingleResult();
+        String p = justificar(asistenciaTomada(LocalDate.now(), EstadoAsistencia.INASISTENCIA));
+        request(
+                "POST",
+                p + "/rechazar",
+                data("version", version(p), "observacion", "Sin sustento"),
+                200);
+        var aviso =
+                em.createQuery(
+                                "from Notificacion n where n.destinatario.id=:id",
+                                Notificacion.class)
+                        .setParameter("id", acceso.getId())
+                        .getSingleResult();
         assertThat(aviso.getTitulo()).isEqualTo("Justificación rechazada");
         assertThat(aviso.getMensaje()).contains("Sin sustento");
     }
 
-    @Test void laTablaDelApoderadoTraeCursoYJustificacionYUnaCanceladaSeReenvia() throws Exception {
-        long a=asistenciaTomada(LocalDate.now(),EstadoAsistencia.INASISTENCIA);
-        String p=justificar(a);
-        var fila=apoderado("GET","/api/asistencias/alumnos?alumnoId="+student.getId(),null,200).path("content").get(0);
+    @Test
+    void laTablaDelApoderadoTraeCursoYJustificacionYUnaCanceladaSeReenvia() throws Exception {
+        long a = asistenciaTomada(LocalDate.now(), EstadoAsistencia.INASISTENCIA);
+        String p = justificar(a);
+        var fila =
+                apoderado("GET", "/api/asistencias/alumnos?alumnoId=" + student.getId(), null, 200)
+                        .path("content")
+                        .get(0);
         assertThat(fila.path("curso").asText()).isEqualTo(assignment.getCurso().getNombre());
         assertThat(fila.path("estadoJustificacion").asText()).isEqualTo("ENVIADA");
         assertThat(fila.path("motivoJustificacion").asText()).isEqualTo("Cita medica");
-        apoderado("POST",p+"/cancelar",null,200);
+        apoderado("POST", p + "/cancelar", null, 200);
         assertThat(justificar(a)).isEqualTo(p);
-        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",a,"motivo","Otra","archivoIds",Set.of()),409);
+        apoderado(
+                "POST",
+                "/api/justificaciones-asistencia",
+                data("asistenciaAlumnoId", a, "motivo", "Otra", "archivoIds", Set.of()),
+                409);
     }
 
-    @Test void permiteRechazarOCancelarYNoJustificaPresencia() throws Exception {
-        for(int i=0;i<2;i++) {
-            long a=asistenciaTomada(LocalDate.now().minusDays(i),EstadoAsistencia.INASISTENCIA);
-            String p=justificar(a);
-            if(i==0) apoderado("POST",p+"/cancelar",null,200);
+    @Test
+    void permiteRechazarOCancelarYNoJustificaPresencia() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            long a = asistenciaTomada(LocalDate.now().minusDays(i), EstadoAsistencia.INASISTENCIA);
+            String p = justificar(a);
+            if (i == 0) apoderado("POST", p + "/cancelar", null, 200);
             else {
-                request("POST",p+"/iniciar-revision",data("version",version(p)),200);
-                request("POST",p+"/rechazar",data("version",version(p),"observacion","Sin sustento"),200);
+                request("POST", p + "/iniciar-revision", data("version", version(p)), 200);
+                request(
+                        "POST",
+                        p + "/rechazar",
+                        data("version", version(p), "observacion", "Sin sustento"),
+                        200);
             }
         }
-        long present=asistenciaTomada(LocalDate.now().minusDays(3),EstadoAsistencia.PRESENTE);
-        apoderado("POST","/api/justificaciones-asistencia",data("asistenciaAlumnoId",present,"motivo","No corresponde","archivoIds",Set.of()),422);
+        long present = asistenciaTomada(LocalDate.now().minusDays(3), EstadoAsistencia.PRESENTE);
+        apoderado(
+                "POST",
+                "/api/justificaciones-asistencia",
+                data(
+                        "asistenciaAlumnoId",
+                        present,
+                        "motivo",
+                        "No corresponde",
+                        "archivoIds",
+                        Set.of()),
+                422);
     }
 
-    /** Sesión del docente indicado, con los permisos que le da el rol DOCENTE para marcar su asistencia. */
+    /**
+     * Sesión del docente indicado, con los permisos que le da el rol DOCENTE para marcar su
+     * asistencia.
+     */
     private JsonNode marcaComoDocente(String token, int esperado) throws Exception {
-        var sesion = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
-                .jwt().jwt(j -> j.subject("docente" + teacher.getId()).claim("personaId", teacher.getPersona().getId()))
-                .authorities(java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"),
-                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ASISTENCIA_LEER"),
-                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ASISTENCIA_ESCRIBIR")));
-        var respuesta = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .post("/api/asistencias/docentes/marcar").with(sesion)
-                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsBytes(data("token", token))))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is(esperado))
-                .andReturn().getResponse();
+        var sesion =
+                org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(
+                                j ->
+                                        j.subject("docente" + teacher.getId())
+                                                .claim("personaId", teacher.getPersona().getId()))
+                        .authorities(
+                                java.util.List.of(
+                                        new org.springframework.security.core.authority
+                                                .SimpleGrantedAuthority("ROLE_DOCENTE"),
+                                        new org.springframework.security.core.authority
+                                                .SimpleGrantedAuthority("ASISTENCIA_LEER"),
+                                        new org.springframework.security.core.authority
+                                                .SimpleGrantedAuthority("ASISTENCIA_ESCRIBIR")));
+        var respuesta =
+                mvc.perform(
+                                org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                        .post("/api/asistencias/docentes/marcar")
+                                        .with(sesion)
+                                        .contentType(
+                                                org.springframework.http.MediaType.APPLICATION_JSON)
+                                        .content(json.writeValueAsBytes(data("token", token))))
+                        .andExpect(
+                                org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                                        .status()
+                                        .is(esperado))
+                        .andReturn()
+                        .getResponse();
         return json.readTree(respuesta.getContentAsByteArray());
     }
 
-    @Test void elPuntoDeMarcacionEsDeLaInstitucionYElDocenteSeIdentificaPorSuSesion() throws Exception {
+    @Test
+    void elPuntoDeMarcacionEsDeLaInstitucionYElDocenteSeIdentificaPorSuSesion() throws Exception {
         asistenciaTomada(LocalDate.now(reloj), EstadoAsistencia.PRESENTE);
-        var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
+        var qr = postOk("/api/asistencias/docentes/qr", data("vigenciaSegundos", 120));
         assertThat(qr.has("docenteId")).isFalse();
-        String ruta="/api/asistencias/docentes/qr/"+qr.path("id").asLong();
+        String ruta = "/api/asistencias/docentes/qr/" + qr.path("id").asLong();
         assertThat(getOk(ruta).path("token").isNull()).isTrue();
-        var siguiente=request("POST",ruta+"/renovar",null,200);
+        var siguiente = request("POST", ruta + "/renovar", null, 200);
 
-        var marcada=marcaComoDocente(qr.path("token").asText(),200);
+        var marcada = marcaComoDocente(qr.path("token").asText(), 200);
         assertThat(marcada.path("estado").asText()).isEqualTo("PRESENTE");
         assertThat(marcada.path("docenteId").asLong()).isEqualTo(teacher.getId());
-        marcaComoDocente(siguiente.path("token").asText(),409);
-        request("POST","/api/asistencias/docentes/marcar",data("token",siguiente.path("token").asText()),422);
+        marcaComoDocente(siguiente.path("token").asText(), 409);
+        request(
+                "POST",
+                "/api/asistencias/docentes/marcar",
+                data("token", siguiente.path("token").asText()),
+                422);
         assertThat(getOk(ruta).path("estado").asText()).isEqualTo("VIGENTE");
-        request("POST",ruta+"/cancelar",null,204);
-        marcaComoDocente(qr.path("token").asText(),422);
+        request("POST", ruta + "/cancelar", null, 204);
+        marcaComoDocente(qr.path("token").asText(), 422);
     }
 
-    @Test void reemplazarElPuntoInvalidaElCodigoAnteriorYElResumenCuentaLasMarcaciones() throws Exception {
+    @Test
+    void reemplazarElPuntoInvalidaElCodigoAnteriorYElResumenCuentaLasMarcaciones()
+            throws Exception {
         asistenciaTomada(LocalDate.now(reloj), EstadoAsistencia.PRESENTE);
-        var primero=postOk("/api/asistencias/docentes/qr",null);
-        var segundo=postOk("/api/asistencias/docentes/qr",null);
-        marcaComoDocente(primero.path("token").asText(),422);
-        marcaComoDocente(segundo.path("token").asText(),200);
-        var resumen=getOk("/api/asistencias/docentes/resumen");
+        var primero = postOk("/api/asistencias/docentes/qr", null);
+        var segundo = postOk("/api/asistencias/docentes/qr", null);
+        marcaComoDocente(primero.path("token").asText(), 422);
+        marcaComoDocente(segundo.path("token").asText(), 200);
+        var resumen = getOk("/api/asistencias/docentes/resumen");
         assertThat(resumen.path("marcaron").asLong()).isEqualTo(1);
         assertThat(resumen.path("totalDocentes").asLong()).isGreaterThanOrEqualTo(1);
-        assertThat(resumen.path("sinMarcar").asLong()).isEqualTo(resumen.path("totalDocentes").asLong()-1);
-        assertThat(getOk("/api/asistencias/docentes?fecha="+resumen.path("fecha").asText()).path("content")).hasSize(1);
+        assertThat(resumen.path("sinMarcar").asLong())
+                .isEqualTo(resumen.path("totalDocentes").asLong() - 1);
+        assertThat(
+                        getOk("/api/asistencias/docentes?fecha=" + resumen.path("fecha").asText())
+                                .path("content"))
+                .hasSize(1);
         assertThat(getOk("/api/asistencias/docentes?fecha=2000-01-01").path("content")).isEmpty();
-        assertThat(getOk("/api/asistencias/docentes/"+teacher.getId()+"/clases").isArray()).isTrue();
+        assertThat(getOk("/api/asistencias/docentes/" + teacher.getId() + "/clases").isArray())
+                .isTrue();
     }
 
-    @Test void abrirElPuntoVariasVecesSeguidasDejaUnSoloCodigoVigente() throws Exception {
-        var primero=postOk("/api/asistencias/docentes/qr",null);
-        var segundo=postOk("/api/asistencias/docentes/qr",null);
-        var tercero=postOk("/api/asistencias/docentes/qr",null);
-        assertThat(getOk("/api/asistencias/docentes/qr/"+primero.path("id").asLong()).path("estado").asText()).isEqualTo("INVALIDADO");
-        assertThat(getOk("/api/asistencias/docentes/qr/"+segundo.path("id").asLong()).path("estado").asText()).isEqualTo("INVALIDADO");
-        assertThat(getOk("/api/asistencias/docentes/qr/"+tercero.path("id").asLong()).path("estado").asText()).isEqualTo("VIGENTE");
+    @Test
+    void abrirElPuntoVariasVecesSeguidasDejaUnSoloCodigoVigente() throws Exception {
+        var primero = postOk("/api/asistencias/docentes/qr", null);
+        var segundo = postOk("/api/asistencias/docentes/qr", null);
+        var tercero = postOk("/api/asistencias/docentes/qr", null);
+        assertThat(
+                        getOk("/api/asistencias/docentes/qr/" + primero.path("id").asLong())
+                                .path("estado")
+                                .asText())
+                .isEqualTo("INVALIDADO");
+        assertThat(
+                        getOk("/api/asistencias/docentes/qr/" + segundo.path("id").asLong())
+                                .path("estado")
+                                .asText())
+                .isEqualTo("INVALIDADO");
+        assertThat(
+                        getOk("/api/asistencias/docentes/qr/" + tercero.path("id").asLong())
+                                .path("estado")
+                                .asText())
+                .isEqualTo("VIGENTE");
     }
 
-    @Test void admiteContingenciaYRecuperaQrExpirado() throws Exception {
-        var qr=postOk("/api/asistencias/docentes/qr",data("vigenciaSegundos",120));
-        long id=qr.path("id").asLong();
-        em.find(CodigoQRAsistencia.class,id).setFechaHoraExpiracion(LocalDateTime.now(reloj).minusSeconds(1)); em.flush();
-        assertThat(getOk("/api/asistencias/docentes/qr/"+id).path("estado").asText()).isEqualTo("EXPIRADO");
-        var renewed=request("POST","/api/asistencias/docentes/qr/"+id+"/renovar",null,200);
-        request("POST","/api/asistencias/docentes/qr/"+renewed.path("id").asLong()+"/cancelar",null,204);
-        var contingent=postOk("/api/asistencias/docentes/contingencia",data("docenteId",teacher.getId(),"fechaJornada",LocalDate.now(),"estado","TARDANZA","motivo","Problema con el lector QR"));
-        assertThat(contingent.path("contingencia").asBoolean()).isTrue();
-        request("POST","/api/asistencias/docentes/contingencia",data("docenteId",teacher.getId(),"fechaJornada",LocalDate.now().plusDays(1),"estado","PRESENTE","motivo","Prueba"),422);
+    @Test
+    void admiteContingenciaYRecuperaQrExpirado() throws Exception {
+        String rutaQr = "/api/asistencias/docentes/qr";
+        String rutaContingencia = "/api/asistencias/docentes/contingencia";
+        JsonNode qr = postOk(rutaQr, data("vigenciaSegundos", 120));
+        long id = qr.path("id").asLong();
+        em.find(CodigoQRAsistencia.class, id)
+                .setFechaHoraExpiracion(LocalDateTime.now(reloj).minusSeconds(1));
+        em.flush();
+
+        assertThat(getOk(rutaQr + "/" + id).path("estado").asText()).isEqualTo("EXPIRADO");
+        JsonNode renovado = request("POST", rutaQr + "/" + id + "/renovar", null, 200);
+        request("POST", rutaQr + "/" + renovado.path("id").asLong() + "/cancelar", null, 204);
+
+        JsonNode contingencia =
+                postOk(
+                        rutaContingencia,
+                        data(
+                                "docenteId",
+                                teacher.getId(),
+                                "fechaJornada",
+                                LocalDate.now(reloj),
+                                "estado",
+                                "TARDANZA",
+                                "motivo",
+                                "Problema con el lector QR"));
+        assertThat(contingencia.path("contingencia").asBoolean()).isTrue();
+        request(
+                "POST",
+                rutaContingencia,
+                data(
+                        "docenteId",
+                        teacher.getId(),
+                        "fechaJornada",
+                        LocalDate.now(reloj).plusDays(1),
+                        "estado",
+                        "PRESENTE",
+                        "motivo",
+                        "Prueba"),
+                422);
+    }
+
+    @Test
+    void solicitaYResuelveLaMarcacionInstitucionalSinModificarLasClases() throws Exception {
+        var hoy = LocalDate.now(reloj);
+        long registroClase = asistenciaTomada(hoy, EstadoAsistencia.PRESENTE);
+        var datos =
+                data("fechaJornada", hoy, "horaReportada", "07:10", "motivo", "Falló el lector QR");
+        var pendiente = reportar(CONTINGENCIAS, datos, 201);
+        assertThat(pendiente.path("estado").asText()).isEqualTo("PENDIENTE");
+        reportar(CONTINGENCIAS, datos, 409);
+        String ruta = rutaResolucion(pendiente);
+        reportar(ruta, data("decision", "APROBAR", "estadoSinVentana", "PRESENTE"), 403);
+        reportar(
+                "/api/asistencias/docentes/contingencia",
+                data(
+                        "docenteId",
+                        teacher.getId(),
+                        "fechaJornada",
+                        hoy,
+                        "estado",
+                        "PRESENTE",
+                        "motivo",
+                        "Intento de registro directo"),
+                403);
+        var aprobada =
+                request(
+                        "POST",
+                        ruta,
+                        data("decision", "APROBAR", "estadoSinVentana", "TARDANZA"),
+                        200);
+        assertThat(aprobada.path("estado").asText()).isEqualTo("APROBADA");
+        assertThat(aprobada.path("fechaResolucion").isTextual()).isTrue();
+        assertThat(aprobada.path("horaReportada").asText()).startsWith("07:10");
+        assertThat(aprobada.path("estadoRegistrado").asText()).isEqualTo("PRESENTE");
+        var marcacion = getOk("/api/asistencias/docentes?fecha=" + hoy).path("content").get(0);
+        assertThat(marcacion.path("contingencia").asBoolean()).isTrue();
+        assertThat(getOk("/api/asistencias/alumnos/" + registroClase).path("estado").asText())
+                .isEqualTo("PRESENTE");
+        reportar(CONTINGENCIAS, datos, 409);
+        request("POST", ruta, data("decision", "RECHAZAR", "motivo", "Ya resuelta"), 409);
+    }
+
+    @Test
+    void rechazaConMotivoYPermiteUnNuevoReporteDespuesDelRechazo() throws Exception {
+        var hoy = LocalDate.now(reloj);
+        reportar(
+                CONTINGENCIAS,
+                data("fechaJornada", hoy, "horaReportada", "07:10", "motivo", " "),
+                400);
+        reportar(
+                CONTINGENCIAS,
+                data("fechaJornada", hoy, "horaReportada", "23:00", "motivo", "Reporte futuro"),
+                422);
+        var datos = data("fechaJornada", hoy, "horaReportada", "07:05", "motivo", "No pude marcar");
+        var solicitud = reportar(CONTINGENCIAS, datos, 201);
+        String ruta = rutaResolucion(solicitud);
+        request("POST", ruta, data("motivo", "Falta la decisión"), 400);
+        request("POST", ruta, data("decision", "RECHAZAR", "motivo", " "), 400);
+        var rechazada =
+                request(
+                        "POST",
+                        ruta,
+                        data("decision", "RECHAZAR", "motivo", "Hora incongruente"),
+                        200);
+        assertThat(rechazada.path("estado").asText()).isEqualTo("RECHAZADA");
+        assertThat(rechazada.path("motivoRechazo").asText()).isEqualTo("Hora incongruente");
+        assertThat(getOk("/api/asistencias/docentes?fecha=" + hoy).path("content")).isEmpty();
+        assertThat(reportar(CONTINGENCIAS, datos, 201).path("estado").asText())
+                .isEqualTo("PENDIENTE");
+        mvc.perform(get(CONTINGENCIAS).with(sesionContingencia())).andExpect(status().isOk());
+    }
+
+    @Test
+    void unaMarcacionQrPosteriorImpideAprobarLaSolicitud() throws Exception {
+        var hoy = LocalDate.now(reloj);
+        asistenciaTomada(hoy, EstadoAsistencia.PRESENTE);
+        var datos = data("fechaJornada", hoy, "horaReportada", "07:00", "motivo", "No pude marcar");
+        var solicitud = reportar(CONTINGENCIAS, datos, 201);
+        var qr = postOk("/api/asistencias/docentes/qr", null);
+        marcaComoDocente(qr.path("token").asText(), 200);
+        request(
+                "POST",
+                rutaResolucion(solicitud),
+                data("decision", "APROBAR", "estadoSinVentana", "PRESENTE"),
+                409);
+    }
+
+    @Test
+    void sinHorarioDePuntualidadLaAdministracionIndicaElEstado() throws Exception {
+        var datos =
+                data(
+                        "fechaJornada",
+                        LocalDate.now(reloj).minusDays(1),
+                        "horaReportada",
+                        "08:20",
+                        "motivo",
+                        "Reporte de la jornada anterior");
+        var solicitud = reportar(CONTINGENCIAS, datos, 201);
+        String ruta = rutaResolucion(solicitud);
+        request("POST", ruta, data("decision", "APROBAR"), 422);
+        var aprobada =
+                request(
+                        "POST",
+                        ruta,
+                        data("decision", "APROBAR", "estadoSinVentana", "TARDANZA"),
+                        200);
+        assertThat(aprobada.path("estadoRegistrado").asText()).isEqualTo("TARDANZA");
+    }
+
+    private String rutaResolucion(JsonNode solicitud) {
+        return CONTINGENCIAS + "/" + solicitud.path("id").asLong() + "/resoluciones";
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor sesionContingencia() {
+        return jwt().jwt(
+                        token ->
+                                token.subject("docente-" + teacher.getId())
+                                        .claim("personaId", teacher.getPersona().getId())
+                                        .claim("rol", "DOCENTE"))
+                .authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "ROLE_DOCENTE"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "ASISTENCIA_LEER"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "ASISTENCIA_ESCRIBIR"));
+    }
+
+    private JsonNode reportar(String ruta, Object datos, int esperado) throws Exception {
+        var resultado =
+                mvc.perform(
+                                post(ruta)
+                                        .with(sesionContingencia())
+                                        .contentType(
+                                                org.springframework.http.MediaType.APPLICATION_JSON)
+                                        .content(json.writeValueAsBytes(datos)))
+                        .andExpect(status().is(esperado))
+                        .andReturn();
+        return json.readTree(resultado.getResponse().getContentAsByteArray());
     }
 }

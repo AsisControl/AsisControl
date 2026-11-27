@@ -78,6 +78,34 @@ Docker guarda la autenticacion en /root/.docker/config.json al usar sudo; restri
 
 ## 6. Revisar la base y arrancar
 
+### Primer administrador en una instalacion limpia
+
+Configurar una sola vez en el `.env` privado de EC2, antes del arranque:
+
+```dotenv
+BOOTSTRAP_ENABLED=true
+BOOTSTRAP_ADMIN_DOCUMENT=REEMPLAZAR_POR_DNI_DE_8_DIGITOS
+BOOTSTRAP_ADMIN_EMAIL=REEMPLAZAR_POR_CORREO
+BOOTSTRAP_ADMIN_PASSWORD='REEMPLAZAR_POR_CLAVE_TEMPORAL'
+```
+
+La clave debe cumplir la politica del backend: de 8 a 64 caracteres, mayuscula,
+minuscula y numero, sin espacios, y no coincidir con el codigo de usuario.
+Usar al menos 12 caracteres para la demostracion. Flyway crea primero el esquema
+y el backend inicializa permisos, roles, nacionalidad y el administrador. Los logs
+indican el codigo y usuario de la cuenta inicial; debe cambiar la clave al ingresar.
+Si la cuenta de esa persona ya existe, se conserva su contraseña. El bootstrap
+tambien inicializa roles y permisos: no es una carga de todos los datos de la demo.
+
+No hacen falta un YAML temporal ni credenciales en `compose.yaml`. Si se agregaron
+antes, retirarlas y usar estas variables. No subir el `.env` al repositorio.
+Despues del alta normal, dejar `BOOTSTRAP_ENABLED=false` y vaciar la clave inicial
+del `.env`; ejecutar nuevamente el despliegue para retirar esos valores del contenedor.
+Para el ensayo de instalacion limpia, preparar previamente un esquema nuevo vacio
+y activar la configuracion antes de la presentacion. No borrar una base compartida.
+Usar `sudo bash deploy.sh` con imagenes y configuracion preparadas; el tiempo de
+arranque y migraciones debe medirse en el ensayo, no se garantiza menos de 5 minutos.
+
 El RDS revisado tiene baseline V1 y V2/V3 exitosas. Antes de iniciar comparar migraciones del commit elegido, coordinar el uso compartido y disponer de un respaldo recuperable (snapshot RDS o respaldo aprobado). El backend puede aplicar migraciones pendientes al arrancar. No borrar datos ni editar flyway_schema_history. Se desactiva crear baselines automaticamente: un esquema sin historial requerira revision explicita.
 
 Despues del respaldo y la revision:
@@ -90,7 +118,7 @@ curl --fail --retry 20 --retry-delay 5 --retry-all-errors https://IP_PUBLICA_EC2
 curl --fail --head https://IP_PUBLICA_EC2
 ```
 
-Puede tardar el arranque y la emision del certificado. No usar curl -k: ocultaria errores de certificado. Esperar salud UP y probar desde un navegador login, cierre de sesion, permisos y las funciones que use la demostracion. No se crea administrador automaticamente: usar un acceso existente acordado con el equipo. Correo SMTP esta desactivado; si se necesitan correos reales falta configurar el modulo. No requiere instalar Java ni Node directamente en EC2.
+Puede tardar el arranque y la emision del certificado. No usar curl -k: ocultaria errores de certificado. Esperar salud UP y probar desde un navegador login, cierre de sesion, permisos y las funciones que use la demostracion. El administrador inicial solo se crea si se activa y configura el bootstrap descrito arriba; de lo contrario usar una cuenta existente. Correo SMTP esta desactivado; si se necesitan correos reales falta configurar el modulo. No requiere instalar Java ni Node directamente en EC2.
 
 ## 7. Operacion y vuelta a una version anterior
 

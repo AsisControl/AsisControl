@@ -176,6 +176,11 @@ public class PlanEstudiosService {
                         .equals(idsCompetencias(competenciasSeleccionadas.get(id))))) {
             return mapear(grado);
         }
+        // inscripcion cursos: un grado lleva los mismos cursos todo el año; competencias y horas siguen editables
+        if (estado == EstadoAnioAcademico.ACTIVO && grado.isPlanDefinido() && !anterior.keySet().equals(ids)) {
+            throw new ConflictException("PLAN_ANIO_ACTIVO_BLOQUEADO",
+                    "Los cursos del plan del año en curso no se modifican; aplica el cambio en el plan del próximo año.");
+        }
 
         String motivo = request.motivo() == null ? null : request.motivo().strip();
         if (grado.isPlanDefinido() && (motivo == null || motivo.isBlank())) {
@@ -313,7 +318,7 @@ public class PlanEstudiosService {
         comprobarPertenencia(curso, seccion);
     }
 
-    // inscripcion cursos: cursos vigentes del plan de un año y grado (los de "Mis cursos")
+    // inscripcion cursos: cursos vigentes del plan de un año y grado (los que se inscriben al matricular)
     public List<CursoPlan> cursosDelPlan(int anio, int numero) {
         return cursosVigentes(buscarGrado(anio, numero));
     }

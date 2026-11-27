@@ -1402,6 +1402,7 @@ a.forgot {
 .dialog {
   animation: dialog-in 160ms ease-out;
   background: #fff;
+  color: var(--ink);
   border-radius: 16px;
   box-shadow: 0 24px 48px -12px #0f172a40;
   display: flex;

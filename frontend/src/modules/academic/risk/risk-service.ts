@@ -10,7 +10,7 @@ export const outcomes = {
 };
 export type RiskState = keyof typeof states;
 type Operator = keyof typeof signs;
-const signs = { MENOR_QUE: "<", MENOR_IGUAL: "≤", MAYOR_QUE: ">", MAYOR_IGUAL: "≥", IGUAL: "=" };
+export const signs = { MENOR_QUE: "<", MENOR_IGUAL: "≤", MAYOR_QUE: ">", MAYOR_IGUAL: "≥", IGUAL: "=" };
 export const comparison = (operator: Operator | null, threshold: number | null) =>
   operator && threshold !== null ? `${signs[operator]} ${threshold}` : "—";
 
@@ -35,7 +35,13 @@ type Rule = {
   motivo: string;
   evidencias: string[];
 };
-export type RiskEvaluation = { resultado: keyof typeof outcomes; reglas: Rule[] };
+type EvaluatedRule = Rule & {
+  indicador: keyof typeof indicators;
+  umbral: number;
+  operador: Operator;
+  valor: number | null;
+};
+export type RiskEvaluation = { resultado: keyof typeof outcomes; reglas: EvaluatedRule[] };
 type HistoryItem = { id: number; fecha: string; evaluacion: Rule };
 
 export async function readAlert(id: number) {
@@ -55,4 +61,37 @@ export function evaluateRisk(idAlumno: number, idPeriodo: number) {
     method: "POST",
     body: JSON.stringify({ idAlumno, idPeriodo }),
   });
+}
+
+export const CRITERIA_PATH = "/api/criterios-riesgo";
+export const indicators = {
+  PROMEDIO_ACADEMICO: "Promedio académico",
+  COMPETENCIAS_EN_INICIO: "Competencias en Inicio",
+  INASISTENCIAS: "Inasistencias",
+  TARDANZAS: "Tardanzas",
+  TAREAS_NO_ENTREGADAS: "Tareas no entregadas",
+};
+type CriterionInput = {
+  nombre: string;
+  descripcion: string | null;
+  indicador: string;
+  operador: string;
+  umbral: number;
+  nivelRiesgo: string;
+  minimoDatos: number;
+};
+export type Criterion = CriterionInput & {
+  id: number;
+  indicador: keyof typeof indicators;
+  operador: Operator;
+  nivelRiesgo: keyof typeof levels;
+};
+export function saveCriterion(criterion: CriterionInput, id?: number) {
+  return api<Criterion>(id ? `${CRITERIA_PATH}/${id}` : CRITERIA_PATH, {
+    method: id ? "PUT" : "POST",
+    body: JSON.stringify(criterion),
+  });
+}
+export function disableCriterion(id: number) {
+  return api<void>(`${CRITERIA_PATH}/${id}`, { method: "DELETE" });
 }

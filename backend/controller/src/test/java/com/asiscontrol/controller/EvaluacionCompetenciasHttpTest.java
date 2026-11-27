@@ -5,9 +5,11 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.AlumnoApoderado;
 import com.asiscontrol.entity.Notificacion;
 import com.asiscontrol.entity.Persona;
 import com.asiscontrol.entity.Rol;
@@ -55,17 +57,36 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
         var ajena = cuentaAcademica(person(), "APODERADO");
         long evaluacion = nuevaEvaluacion();
         var nota = registrarNivel(evaluacion, "B");
+        String resultado = EVALUACIONES + "/" + evaluacion + "/resultado-publicado?alumnoId=" + student.getId();
+        var sesionFamilia = como("APODERADO", guardian.getPersona().getId(), "CALIFICACIONES_LEER");
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isNotFound());
         assertThat(avisos(cuentaAlumno)).isEmpty();
         request("PUT", EVALUACIONES + "/" + evaluacion + "/estado", data("estado", "PUBLICADA"), 200);
         request("PUT", EVALUACIONES + "/" + evaluacion + "/estado", data("estado", "PUBLICADA"), 200);
         assertThat(avisos(cuentaAlumno)).extracting(Notificacion::getTitulo).containsExactly("Resultados publicados");
         assertThat(avisos(cuentaFamilia)).extracting(Notificacion::getTitulo).containsExactly("Resultados publicados");
+        assertThat(avisos(cuentaFamilia).getFirst().getUrlDestino())
+                .isEqualTo("/progreso/evaluaciones/" + evaluacion + "/" + student.getId());
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.notas[0].nivelLogro").value("B"));
         nota = getOk(CALIFICACIONES + "/" + nota.path("id").asLong());
         request("POST", CALIFICACIONES + "/correcciones", correccion(nota, "A", "Corrección para probar los avisos."), 200);
         assertThat(avisos(cuentaAlumno)).extracting(Notificacion::getTitulo)
                 .containsExactly("Resultados publicados", "Resultado actualizado");
         assertThat(avisos(cuentaFamilia)).hasSize(2);
         assertThat(avisos(ajena)).isEmpty();
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.notas[0].nivelLogro").value("A"));
+        mvc.perform(get(resultado).with(como("ALUMNO", student.getPersona().getId(), "CALIFICACIONES_LEER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.notas[0].nivelLogro").value("A"));
+        mvc.perform(get(resultado).with(como("APODERADO", ajena.getPersona().getId(), "CALIFICACIONES_LEER")))
+                .andExpect(status().isForbidden());
+        em.createQuery("from AlumnoApoderado v where v.alumno.id = :alumno and v.apoderado.id = :apoderado",
+                        AlumnoApoderado.class)
+                .setParameter("alumno", student.getId()).setParameter("apoderado", guardian.getId())
+                .getSingleResult().setActivo(false);
+        em.flush();
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isForbidden());
     }
 
     private AccesoUsuario cuentaAcademica(Persona persona, String rol) {
