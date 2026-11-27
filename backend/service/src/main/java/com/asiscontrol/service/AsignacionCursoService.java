@@ -317,7 +317,14 @@ public class AsignacionCursoService {
                 asignacion.getVersion(), asignacion.getSeccion().getGrado(),
                 asignacion.getId() == null
                         ? 0
-                        : horarioRepository.countByAsignacionCursoIdAndActivoTrue(asignacion.getId()));
+                        : horarioRepository.countByAsignacionCursoIdAndActivoTrue(asignacion.getId()),
+                horasPlan(asignacion));
+    }
+
+    /** OBS-01: el formulario del bloque muestra las horas del plan, programadas y disponibles. */
+    private Integer horasPlan(AsignacionCurso asignacion) {
+        var horas = planes.horasDelPlan(asignacion.getCurso(), asignacion.getSeccion());
+        return horas.isPresent() ? horas.getAsInt() : null;
     }
 
     private void exigirVersion(long actual, Long recibida) {

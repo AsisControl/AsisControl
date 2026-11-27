@@ -210,7 +210,9 @@ public final class AcademicoDtos {
             long version,
             int grado,
             /** Bloques de horario activos; mientras haya alguno no se puede retirar (PLA-06). */
-            long horariosActivos) {}
+            long horariosActivos,
+            /** OBS-01: horas semanales del curso en el plan del año y grado; null si el plan no lo incluye. */
+            Integer horasPlan) {}
 
     /** US-58: el retiro siempre registra el motivo. */
     public record RetirarAsignacionCursoRequest(

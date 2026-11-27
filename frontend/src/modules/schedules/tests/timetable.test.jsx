@@ -683,3 +683,111 @@ describe("Perspectivas de la matriz (US-24)", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("Error de aulas");
   });
 });
+
+describe("Horas semanales del plan (OBS-01)", () => {
+  const withPlan = (horasPlan) =>
+    assignments.map((item) => (item.id === 10 ? { ...item, horasPlan } : item));
+  // El bloque de Comunicación lleva su propio curso: solo se suman los bloques de Matemática.
+  const planBlocks = [
+    block(1),
+    block(2, { diaSemana: "MIERCOLES", horaInicio: "10:00:00", horaFin: "11:00:00" }),
+    block(3, { asignacionCursoId: 11, cursoId: 1100, curso: "Comunicación", docenteId: 7, docente: "Luis Quispe", aulaId: 2, aula: "Lab. 01", diaSemana: "MARTES" }),
+  ];
+
+  test("Muestra las horas del plan, programadas y disponibles y no envía un bloque que las excede", async () => {
+    const calls = backend({
+      blocks: planBlocks,
+      "GET /api/asignaciones-cursos": page(withPlan(3)),
+      "POST /api/horarios": ({ body }) => reply(201, block(9, { ...body, horaInicio: `${body.horaInicio}:00`, horaFin: `${body.horaFin}:00` })),
+    });
+    const user = userEvent.setup();
+    renderTimetable();
+    const dialog = await openNewBlock(user);
+    await user.selectOptions(within(dialog).getByLabelText(/^Asignación docente/), "10");
+    expect(
+      within(dialog).getByText("Horas de Matemática en 3° A: plan 3 h · programadas 2 h 30 min · disponibles 30 min"),
+    ).toBeTruthy();
+
+    await fillBlock(user, dialog, { from: "08:00", to: "09:00" });
+    expect(
+      within(dialog).getByText(
+        "Este bloque suma 1 h y solo hay 30 min disponibles (plan 3 h, programadas 2 h 30 min).",
+      ),
+    ).toBeTruthy();
+    await user.click(within(dialog).getByText("Confirmar bloque"));
+    expect(within(dialog).getByText("Resuelve los conflictos antes de confirmar el bloque.")).toBeTruthy();
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+
+    fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "08:30" } });
+    await within(dialog).findByText("Sin conflictos de docente, aula, sección ni aforo.");
+    await user.click(within(dialog).getByText("Confirmar bloque"));
+    await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(1));
+    expect(calls.find((c) => c.method === "POST").body).toMatchObject({ horaInicio: "08:00", horaFin: "08:30" });
+  });
+
+  test("Al editar no cuenta el propio bloque y en una sección excedida solo deja mantener o bajar horas", async () => {
+    backend({ blocks: planBlocks, "GET /api/asignaciones-cursos": page(withPlan(2)) });
+    const user = userEvent.setup();
+    renderTimetable();
+    await grid();
+    await chooseBlockAction(user, "Matemática Lunes 08:00", "Editar");
+    const dialog = screen.getByRole("dialog", { name: "Editar bloque" });
+    expect(
+      within(dialog).getByText("Horas de Matemática en 3° A: plan 2 h · programadas en otros bloques 1 h · disponibles 1 h"),
+    ).toBeTruthy();
+    const excess =
+      "Matemática en 3° A tiene 2 h 30 min programadas y el plan permite 2 h (sobra 30 min). Puedes mantener o reducir horas, pero no aumentarlas.";
+    expect(within(dialog).getByText(excess)).toBeTruthy();
+
+    await user.selectOptions(within(dialog).getByLabelText(/^Aula/), "2");
+    expect(within(dialog).queryByText(/^Este bloque suma/)).toBeNull();
+
+    fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "10:00" } });
+    expect(
+      within(dialog).getByText("Este bloque suma 2 h y solo hay 1 h disponibles (plan 2 h, programadas 1 h)."),
+    ).toBeTruthy();
+    expect(within(dialog).queryByText(excess)).toBeNull();
+
+    fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "09:00" } });
+    expect(within(dialog).queryByText(/^Este bloque suma/)).toBeNull();
+    expect(within(dialog).getByText("Con este cambio la sección queda en 2 h, dentro del plan.")).toBeTruthy();
+  });
+
+  test("Avisa sobre la matriz y marca los bloques del curso que excede el plan sin cambiar su tono", async () => {
+    backend({ blocks: planBlocks, "GET /api/asignaciones-cursos": page(withPlan(2)) });
+    renderTimetable();
+    const table = await grid();
+    const notice = await screen.findByRole("status", { name: "Cursos que exceden el plan" });
+    expect(notice.textContent).toContain("⚠ Matemática tiene 2 h 30 min programadas y el plan permite 2 h (sobra 30 min).");
+    expect(within(table).getAllByText("⚠ Excede plan")).toHaveLength(2);
+    expect(within(table).getByLabelText("Ver detalle de Matemática, Lunes 08:00, excede las horas del plan")).toBeTruthy();
+    expect(within(table).getByLabelText("Ver detalle de Comunicación, Martes 08:00")).toBeTruthy();
+  });
+
+  test("Sin cursos sobre el plan no muestra el aviso ni marca bloques", async () => {
+    backend({ blocks: planBlocks, "GET /api/asignaciones-cursos": page(withPlan(3)) });
+    renderTimetable();
+    const table = await grid();
+    expect(screen.queryByRole("status", { name: "Cursos que exceden el plan" })).toBeNull();
+    expect(within(table).queryByText("⚠ Excede plan")).toBeNull();
+  });
+
+  test("Sin horas del plan no muestra el resumen y explica el rechazo del servidor", async () => {
+    backend({
+      "POST /api/horarios": reply(422, {
+        code: "HORARIO_EXCEDE_PLAN",
+        message: "Matemática tiene 3 h semanales en el plan de 3° A; hay 3 h programadas y este bloque suma 1 h 30 min. Disponibles: 0 h.",
+      }),
+    });
+    const user = userEvent.setup();
+    renderTimetable();
+    const dialog = await openNewBlock(user);
+    await fillBlock(user, dialog);
+    expect(within(dialog).queryByText(/^Horas de Matemática/)).toBeNull();
+    await within(dialog).findByText("Sin conflictos de docente, aula, sección ni aforo.");
+    await user.click(within(dialog).getByText("Confirmar bloque"));
+    const rejected = await within(dialog).findByRole("alert", { name: "El servidor rechazó el bloque" });
+    expect(rejected.textContent).toContain("Horas del plan:");
+    expect(rejected.textContent).toContain("Disponibles: 0 h.");
+  });
+});

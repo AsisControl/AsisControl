@@ -216,6 +216,23 @@
   background: #fffbeb;
   border-color: #fde68a;
 }
+
+/* OBS-01: el curso supera las horas del plan. No es un tono de curso: borde punteado y etiqueta. */
+.block[data-exceeded] {
+  border: 2px dashed #ea580c;
+}
+.block .exceededTag {
+  color: #9a3412;
+  font-weight: 600;
+}
+.availabilityNotice p {
+  margin: 0;
+}
+.planFixed {
+  display: block;
+  margin-top: 4px;
+}
+
 .block:focus-within {
   z-index: 7;
 }

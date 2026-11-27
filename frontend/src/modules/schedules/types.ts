@@ -53,7 +53,11 @@ export type TeacherAssignment = {
   version: number;
   /** Bloques de horario activos; mientras haya alguno no se puede retirar (PLA-06). */
   horariosActivos: number;
+  /** OBS-01: horas semanales del curso en el plan de su año y grado; null si el plan no lo incluye. */
+  horasPlan?: number | null;
 };
+
+
 /** Datos de alta o edición; la versión se agrega al actualizar. */
 export type TeacherAssignmentInput = {
   cursoId: number;

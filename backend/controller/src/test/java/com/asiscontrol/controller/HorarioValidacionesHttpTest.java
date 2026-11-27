@@ -107,7 +107,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
     @Test
     void aceptaTurnosDeMananaYTardeEnIntervalosDeMediaHora() throws Exception {
         crear(assignment, aulaPrincipal, "LUNES", "07:00", "08:30");
-        crear(assignment, aulaPrincipal, "MARTES", "13:00", "15:30");
+        crear(assignment, aulaPrincipal, "MARTES", "13:00", "15:00");
         crear(assignment, aulaPrincipal, "MIERCOLES", "19:30", "20:00");
         assertThat(cantidadHorarios()).isEqualTo(3);
     }

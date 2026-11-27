@@ -270,3 +270,22 @@
     width: auto;
   }
 }
+
+/* OBS-01: aviso (no error) de secciones con más horas programadas que el plan. */
+.exceededNotice {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 12px 0;
+  padding: 10px 14px;
+}
+.exceededNotice ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.exceededNotice p {
+  margin: 0;
+}
