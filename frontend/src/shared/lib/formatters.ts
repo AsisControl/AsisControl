@@ -58,3 +58,11 @@ export const SPECIALTY_LABELS: Record<string, string> = {
 };
 export const specialtyLabel = (specialty: string) =>
   SPECIALTY_LABELS[specialty] ?? specialty.replaceAll("_", " ");
+
+/** OBS-01: minutos de horario en horas legibles, como el backend: "4 h 30 min", "30 min", "4 h". */
+export function hoursLabel(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!rest) return `${hours} h`;
+  return hours ? `${hours} h ${rest} min` : `${rest} min`;
+} 

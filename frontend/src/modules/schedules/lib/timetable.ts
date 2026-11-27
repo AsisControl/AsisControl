@@ -112,7 +112,9 @@ export type ConflictKind =
   | "seccion"
   | "version"
   | "inhabilitado"
+  | "horas"
   | "otro";
+
 export type Conflict = { kind: ConflictKind; title: string; detail: string };
 const titles: Record<ConflictKind, string> = {
   rango: "Horario inválido",
@@ -122,6 +124,7 @@ const titles: Record<ConflictKind, string> = {
   seccion: "Cruce de sección",
   version: "Bloque modificado por otro usuario",
   inhabilitado: "Recurso no disponible",
+  horas: "Horas del plan",
   otro: "No se pudo guardar el bloque",
 };
 const conflict = (kind: ConflictKind, detail: string): Conflict => ({
@@ -200,7 +203,10 @@ const serverKinds: Record<string, ConflictKind> = {
   AULA_NO_ENCONTRADA: "inhabilitado",
   ASIGNACION_CURSO_NO_ENCONTRADA: "inhabilitado",
   HORARIO_NO_ENCONTRADO: "inhabilitado",
+  HORARIO_EXCEDE_PLAN: "horas",
 };
+/** OBS-01: el bloque pasaría las horas semanales del plan. */
+export const planHoursConflict = (detail: string) => conflict("horas", detail);
 /** Conflicto que devolvió el servidor al confirmar; null si el error no es de negocio. */
 export function serverConflict(error: unknown): Conflict | null {
   if (!(error instanceof ApiError) || error.status === 403 || error.status === 401)

@@ -2,8 +2,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
+import { hoursLabel } from "@/shared/lib/formatters";
 import { FormDialog } from "@/shared/ui";
 import { hour, weekDayLabels } from "../lib/labels";
+import { exceedDetail, planHours } from "../lib/plan-hours";
 import {
   isSchoolEndSlot,
   isSchoolStartSlot,
@@ -13,6 +15,7 @@ import {
   WEEK_DAYS,
   detectConflicts,
   needsReload,
+  planHoursConflict,
   serverConflict,
   validateBlock,
   type BlockErrors,
@@ -26,6 +29,7 @@ import type {
   ScheduleSection,
   WeekDay,
 } from "../types";
+import styles from "../schedules.module.css";
 import { ConflictList } from "./conflict-list";
 import {
   actualizarHorario,
@@ -153,7 +157,12 @@ export function BlockFormDialog({
           [...sectionBlocks, ...(check.state === "done" ? check.blocks : [])],
         )
       : [];
-  const blocking = [...unavailable, ...conflicts];
+  // OBS-01: horas del plan, programadas y disponibles del curso en la sección.
+  const hours = assignment
+    ? planHours(assignment, sectionBlocks, block?.id, values.horaInicio, values.horaFin)
+    : null;
+  const hoursConflicts = hours?.exceeds ? [planHoursConflict(exceedDetail(hours))] : [];
+  const blocking = [...unavailable, ...conflicts, ...hoursConflicts];
   const set = (key: keyof BlockFormValues, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
@@ -213,6 +222,26 @@ export function BlockFormDialog({
       noValidate
       notes={
         <>
+          {hours && assignment && (
+            <p className="hint" role="status">
+              Horas de {assignment.curso} en {section.grado}° {section.nombre}: plan{" "}
+              {hoursLabel(hours.plan)} · {block ? "programadas en otros bloques" : "programadas"}{" "}
+              {hoursLabel(hours.programmed)} · disponibles {hoursLabel(hours.available)}
+            </p>
+          )}
+          {hours && assignment && hours.overPlan && !hours.exceeds && (
+            <p className={styles.availabilityNotice} role="status">
+              {assignment.curso} en {section.grado}° {section.nombre} tiene {hoursLabel(hours.current)}{" "}
+              programadas y el plan permite {hoursLabel(hours.plan)} (sobra{" "}
+              {hoursLabel(hours.current - hours.plan)}). Puedes mantener o reducir horas, pero no
+              aumentarlas.
+              {hours.fixes && (
+                <strong className={styles.planFixed}>
+                  Con este cambio la sección queda en {hoursLabel(hours.total)}, dentro del plan.
+                </strong>
+              )}
+            </p>
+          )}
           <ConflictList heading="El servidor rechazó el bloque" conflicts={rejected ? [rejected] : []} />
           <ConflictList heading="Conflictos detectados" conflicts={blocking} />
           {check.state === "checking" && (

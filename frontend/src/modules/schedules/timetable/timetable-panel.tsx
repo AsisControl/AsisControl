@@ -2,9 +2,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
 import { Feedback, FormDialog, PanelHeading, Loading, ReasonField } from "@/shared/ui";
-import { countLabel, timeLabel } from "@/shared/lib/formatters";
+import { countLabel, hoursLabel, timeLabel } from "@/shared/lib/formatters";
 import { BulkImportDialog } from "@/modules/bulk-import";
 import { scheduleSlotLabel } from "../lib/labels";
+import { exceededCourses } from "../lib/plan-hours";
 import {
   PERSPECTIVES,
   perspectiveOptions,
@@ -196,6 +197,14 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
     (a) => a.seccionId === selectedId,
   );
   const rows = filterValue === null ? [] : (blocks ?? []);
+    // OBS-01: cursos de la sección que superan el plan; se avisan arriba y se marcan en la matriz.
+  const exceeded =
+    perspective === "seccion" && section && catalogs
+      ? exceededCourses(
+          catalogs.assignments.filter((item) => item.seccionId === section.id),
+          rows,
+        )
+      : [];
   const writable = canWrite && catalogs !== null;
   // Los bloques se editan por sección: el formulario valida los cruces de una sola.
   const editable = writable && perspective === "seccion";
@@ -336,6 +345,17 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
           <Feedback error={loadError} success={success} />
+          {exceeded.length > 0 && !loading && (
+            <section className={styles.availabilityNotice} role="status" aria-label="Cursos que exceden el plan">
+              {exceeded.map((item) => (
+                <p key={item.cursoId}>
+                  ⚠ {item.curso} tiene {hoursLabel(item.current)} programadas y el plan permite{" "}
+                  {hoursLabel(item.plan)} (sobra {hoursLabel(item.current - item.plan)}).
+                </p>
+              ))}
+              <p>Retira o acorta sus bloques; mientras tanto no se pueden agregar horas de estos cursos.</p>
+            </section>
+          )}
           {loading || (filterValue !== null && !blocks && !loadError) ? (
             <Loading skeleton="timetable">Cargando horario…</Loading>
           ) : perspective !== "seccion" && !viewCatalogs ? (
@@ -365,6 +385,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
                 onOpen={setDetail}
                 onEdit={editable ? (block) => open({ kind: "edit", block }) : undefined}
                 onDelete={editable ? (block) => open({ kind: "delete", block }) : undefined}
+                exceededCourseIds={new Set(exceeded.map((item) => item.cursoId))}
               />
             )
           )}

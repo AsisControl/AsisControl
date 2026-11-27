@@ -11,12 +11,14 @@ import com.asiscontrol.dto.academico.PlanEstudiosDtos.RenombrarPlan;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanAnual;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanAnterior;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanEstudios;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.SeccionExcedida;
 import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.Competencia;
 import com.asiscontrol.entity.CompetenciaEnPlan;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.CursoEnPlan;
 import com.asiscontrol.entity.GradoAcademico;
+import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.Seccion;
 import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
@@ -28,6 +30,7 @@ import com.asiscontrol.repository.CursoRepository;
 import com.asiscontrol.repository.CompetenciaRepository;
 import com.asiscontrol.repository.CursoCompetenciaRepository;
 import com.asiscontrol.repository.GradoAcademicoRepository;
+import com.asiscontrol.repository.HorarioRepository;
 import com.asiscontrol.repository.planificacion.AnioAcademicoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +40,10 @@ import java.util.Comparator;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -53,10 +58,12 @@ public class PlanEstudiosService {
     private final AsignacionCursoRepository asignaciones;
     private final AnioAcademicoRepository anios;
     private final AuditoriaService auditoria;
+    private final HorarioRepository horarios;
 
     public PlanEstudiosService(GradoAcademicoRepository grados, CursoRepository cursos,
             CursoCompetenciaRepository asociaciones, CompetenciaRepository competencias,
-            AsignacionCursoRepository asignaciones, AnioAcademicoRepository anios, AuditoriaService auditoria) {
+                               AsignacionCursoRepository asignaciones, AnioAcademicoRepository anios, AuditoriaService auditoria,
+                               HorarioRepository horarios) {
         this.grados = grados;
         this.cursos = cursos;
         this.asociaciones = asociaciones;
@@ -64,6 +71,7 @@ public class PlanEstudiosService {
         this.asignaciones = asignaciones;
         this.anios = anios;
         this.auditoria = auditoria;
+        this.horarios = horarios;
     }
 
     public PlanEstudios consultar(int anio, int numero) {
@@ -353,8 +361,55 @@ public class PlanEstudiosService {
 
     private PlanEstudios mapear(GradoAcademico grado) {
         var anio = grado.getAnioAcademico();
+        var cursosPlan = cursosVigentes(grado);
         return new PlanEstudios(anio.getAnio(), grado.getNumero(), anio.getEstado(), esEditable(grado),
-                esInicializacion(grado), grado.isPlanDefinido(), grado.getVersion(), cursosVigentes(grado));
+                esInicializacion(grado), grado.isPlanDefinido(), grado.getVersion(), cursosPlan,
+                seccionesExcedidas(anio.getAnio(), grado.getNumero(), cursosPlan));
+    }
+
+    /**
+     * OBS-01: horas semanales que el plan vigente del año y grado de la sección asigna al curso. Sigue la
+     * misma regla que {@link #cursosVigentes}: en un borrador sin plan definido manda el catálogo del grado.
+     */
+    public OptionalInt horasDelPlan(Curso curso, Seccion seccion) {
+        var encontrado = grados.findByAnioAcademicoAnioAndNumero(seccion.getAnioAcademico(), seccion.getGrado())
+                .filter(GradoAcademico::isActivo);
+        if (encontrado.isEmpty() || !curso.isActivo()) {
+            return OptionalInt.empty();
+        }
+        var grado = encontrado.get();
+        if (!grado.isPlanDefinido() && esBorrador(grado)) {
+            var contexto = curso.getGradoAcademico();
+            return contexto != null && contexto.getId().equals(grado.getId())
+                    ? OptionalInt.of(curso.getHorasSemanales()) : OptionalInt.empty();
+        }
+        return grado.getCursosPlan().entrySet().stream()
+                .filter(item -> item.getKey().getId().equals(curso.getId()))
+                .mapToInt(item -> item.getValue().horasSemanales())
+                .findFirst();
+    }
+
+    /**
+     * OBS-01: secciones del grado cuyo horario de un curso supera las horas del plan. Reducir el plan no
+     * borra bloques: se guarda y se informa qué secciones ajustar.
+     */
+    private List<SeccionExcedida> seccionesExcedidas(int anio, int numero, List<CursoPlan> cursosPlan) {
+        Map<Long, CursoPlan> porCurso = cursosPlan.stream().collect(Collectors.toMap(CursoPlan::id, curso -> curso));
+        Map<List<Long>, List<Horario>> grupos = horarios.findActivosDeGrado(anio, numero).stream()
+                .filter(bloque -> porCurso.containsKey(bloque.getAsignacionCurso().getCurso().getId()))
+                .collect(Collectors.groupingBy(bloque -> List.of(
+                                bloque.getAsignacionCurso().getSeccion().getId(),
+                                bloque.getAsignacionCurso().getCurso().getId()),
+                        LinkedHashMap::new, Collectors.toList()));
+        return grupos.values().stream().map(bloques -> {
+                    var asignacion = bloques.getFirst().getAsignacionCurso();
+                    var curso = porCurso.get(asignacion.getCurso().getId());
+                    long programados = bloques.stream().mapToLong(HorarioService::minutos).sum();
+                    return new SeccionExcedida(asignacion.getSeccion().getId(),
+                            AsignacionCursoService.etiquetaSeccion(asignacion.getSeccion()), curso.id(), curso.nombre(),
+                            curso.horasSemanales(), programados);
+                }).filter(item -> item.minutosProgramados() > (long) item.horasPlan() * HorarioService.MINUTOS_POR_HORA)
+                .toList();
     }
 
     private boolean esEditable(GradoAcademico grado) {

@@ -28,8 +28,14 @@ public final class PlanEstudiosDtos {
                             List<CompetenciaPlan> competencias) {}
     public record PlanAnterior(int anioOrigen, List<CursoPlan> cursos) {}
 
+    /** OBS-01: secciones cuyo horario supera las horas del plan; se informan sin bloquear el guardado. */
     public record PlanEstudios(int anio, int grado, EstadoAnioAcademico estadoAnio, boolean editable,
-                              boolean inicializacion, boolean definido, long version, List<CursoPlan> cursos) {}
+                               boolean inicializacion, boolean definido, long version, List<CursoPlan> cursos,
+                               List<SeccionExcedida> seccionesExcedidas) {}
+
+    /** OBS-01: un curso de una sección con más minutos programados que las horas del plan (1 h = 60 min). */
+    public record SeccionExcedida(Long seccionId, String seccion, Long cursoId, String curso,
+                                  int horasPlan, long minutosProgramados) {}
 
     public record PlanAnual(int anio, EstadoAnioAcademico estado, LocalDate inicio, LocalDate fin,
                            List<GradoDelPlan> grados, String nombre) {

@@ -229,3 +229,26 @@ test("renombra el plan anual sin seleccionar grado ni guardar cursos", async () 
   expect(calls.filter(call => call.method === "PUT").map(call => [call.path, call.body]))
     .toEqual([[namePath, { nombre: "Plan histórico de secundaria", version: 0 }]]);
 });
+
+test("al guardar un plan con menos horas avisa las secciones que quedan excedidas sin bloquear", async () => {
+  const saved = plan({ definido: true, version: 2, cursos: [course, art] });
+  const excedida = { seccionId: 8, seccion: "1° A", cursoId: 3, curso: "Matemática", horasPlan: 3, minutosProgramados: 240 };
+  fakeBackend({
+    "GET /api/configuracion-academica/anios": page([year]),
+    [`GET ${namePath}`]: name,
+    [`GET ${path}`]: { ...saved, seccionesExcedidas: [] },
+    [`PUT ${path}`]: { ...saved, version: 3, cursos: [course], seccionesExcedidas: [excedida] },
+  });
+  render(<StudyPlansPanel canWrite />);
+  const user = userEvent.setup();
+  await selectPlan(user);
+  await user.click(await screen.findByRole("button", { name: "Editar plan" }));
+  expect(screen.queryByRole("status", { name: "Secciones que exceden el plan" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Quitar Arte y Cultura" }));
+  await user.type(screen.getByLabelText("Motivo de la modificación"), "Ajuste de horas");
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  await screen.findByText("Se guardaron los cambios del plan.");
+  const notice = screen.getByRole("status", { name: "Secciones que exceden el plan" });
+  expect(notice.textContent).toContain("1° A · Matemática · 4 h programadas, el plan permite 3 h (sobra 1 h)");
+  expect(within(notice).getByRole("link", { name: "Horarios › Horario" }).getAttribute("href")).toBe("/horarios/horario");
+});

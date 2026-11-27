@@ -21,6 +21,7 @@ export function TimetableGrid({
   onOpen,
   onEdit,
   onDelete,
+  exceededCourseIds,
 }: {
   blocks: ScheduleBlock[];
   label: string;
@@ -30,6 +31,8 @@ export function TimetableGrid({
   onOpen: (block: ScheduleBlock) => void;
   onEdit?: (block: ScheduleBlock) => void;
   onDelete?: (block: ScheduleBlock) => void;
+  /** OBS-01: cursos que superan las horas del plan; sus bloques se marcan sin cambiar el tono del curso. */
+  exceededCourseIds?: ReadonlySet<number>;
 }) {
   const days = visibleDays(blocks);
   const rows = timeRows(blocks);
@@ -60,6 +63,7 @@ export function TimetableGrid({
                     const duration = minutesOf(block.horaFin) - start;
                     const compact = duration < 60;
                     const name = `${block.curso} ${weekDayLabels[day]} ${hour(block.horaInicio)}`;
+                    const exceeded = exceededCourseIds?.has(block.cursoId) ?? false;
                     return (
                       <article
                         key={block.id}
@@ -67,6 +71,7 @@ export function TimetableGrid({
                         onClick={() => onOpen(block)}
                         data-tone={block.cursoId % 4}
                         data-compact={compact || undefined}
+                        data-exceeded={exceeded || undefined}
                         title={`${block.curso} · ${hour(block.horaInicio)}–${hour(block.horaFin)} · ${block.docente} · ${block.aula}`}
                         style={{
                           top: (start - minutesOf(row.inicio)) / 30 * SLOT_HEIGHT + 3,
@@ -78,10 +83,11 @@ export function TimetableGrid({
                         <button
                           type="button"
                           className={styles.blockOpen}
-                          aria-label={`Ver detalle de ${block.curso}, ${weekDayLabels[day]} ${hour(block.horaInicio)}`}
+                          aria-label={`Ver detalle de ${block.curso}, ${weekDayLabels[day]} ${hour(block.horaInicio)}${exceeded ? ", excede las horas del plan" : ""}`}
                         >
                           <span className={styles.blockTime}>{hour(block.horaInicio)} – {hour(block.horaFin)}</span>
                           <strong>{block.curso}</strong>
+                          {exceeded && <small className={styles.exceededTag}>⚠ Excede plan</small>}
                           {sectionOf && <small>{sectionOf(block)}</small>}
                           {!compact && showTeacher && <small>{block.docente}</small>}
                           {!compact && <small>{block.aula}</small>}

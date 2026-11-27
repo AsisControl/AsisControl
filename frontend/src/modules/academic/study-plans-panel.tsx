@@ -9,6 +9,7 @@ import { Feedback, Loading, Pager, PanelHeading, StatusPill } from "@/shared/ui"
 import { BulkImportDialog } from "@/modules/bulk-import";
 import type { AcademicYear } from "@/modules/academic-config";
 import { PencilIcon } from "./components/pencil-icon";
+import { ExceededSections, type ExceededSection } from "./exceeded-sections";
 import { PlanCourseCompetencies } from "./plan-course-competencies";
 import { PlanCourseList, type DraftCourse, type PlanCourse } from "./plan-course-list";
 import { PreviousPlanImport } from "./previous-plan-import";
@@ -22,6 +23,8 @@ type Plan = {
   editable: boolean;
   version: number;
   cursos: PlanCourse[];
+  /** OBS-01: secciones cuyo horario supera las horas del plan; se informan sin bloquear el guardado. */
+  seccionesExcedidas?: ExceededSection[];
 };
 
 export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
@@ -295,6 +298,7 @@ function PlanEditor({ path, canWrite }: { path: string; canWrite: boolean }) {
         </div>
         {plan.estadoAnio === "CERRADO" && <p className={styles.note}>El contenido de este plan histórico es de solo lectura.</p>}
         <Feedback error={error} success={success} />
+        <ExceededSections sections={plan.seccionesExcedidas ?? []} />
         {showPrevious && editable && <PreviousPlanImport id={previousId} path={path} grade={plan.grado}
           selected={selectedIds} onAdd={items => {
             addCourses(items);

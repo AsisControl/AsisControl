@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalTime;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
@@ -33,6 +34,8 @@ import java.util.Set;
 public class HorarioService {
     private static final LocalTime INICIO_JORNADA = LocalTime.of(7, 0);
     private static final LocalTime FIN_JORNADA = LocalTime.of(20, 0);
+    /** OBS-01: 1 hora semanal del plan equivale a 60 minutos de horario (acordado con el equipo). */
+    static final int MINUTOS_POR_HORA = 60;
 
     private final HorarioRepository horarioRepository;
     private final AsignacionCursoRepository asignacionRepository;
@@ -266,6 +269,50 @@ public class HorarioService {
                     "HORARIO_SECCION_OCUPADA", "La sección ya tiene una clase: " + describirConflicto(conflicto),
                     detalles);
         }
+        validarHorasDelPlan(asignacion, inicio, fin, idExcluido);
+    }
+
+    /**
+     * OBS-01: las horas del curso en la sección no pueden pasar las del plan. Se cuenta por curso y sección
+     * (no por docente), solo bloques vigentes, y al editar se excluye el propio bloque. Corre después de
+     * {@link #bloquearPlanificacion}, así dos guardados simultáneos no pueden pasar juntos el tope.
+     */
+    private void validarHorasDelPlan(AsignacionCurso asignacion, LocalTime inicio, LocalTime fin, Long idExcluido) {
+        var horasPlan = planes.horasDelPlan(asignacion.getCurso(), asignacion.getSeccion());
+        if (horasPlan.isEmpty()) {
+            return;
+        }
+        long tope = (long) horasPlan.getAsInt() * MINUTOS_POR_HORA;
+        List<Horario> vigentes = horarioRepository.findActivosDelCursoEnSeccion(
+                asignacion.getCurso().getId(), asignacion.getSeccion().getId());
+        long actual = vigentes.stream().mapToLong(HorarioService::minutos).sum();
+        long otros = vigentes.stream().filter(bloque -> !bloque.getId().equals(idExcluido))
+                .mapToLong(HorarioService::minutos).sum();
+        long nuevo = Duration.between(inicio, fin).toMinutes();
+        long total = otros + nuevo;
+        // Si el plan se redujo y la sección ya lo excede, se puede mantener o bajar sus horas, nunca subirlas.
+        if (total > tope && total > actual) {
+            throw new BusinessRuleException("HORARIO_EXCEDE_PLAN", String.format(
+                    "%s tiene %s semanales en el plan de %s; hay %s programadas y este bloque suma %s. "
+                            + "Disponibles: %s.",
+                    asignacion.nombreCurso(), formatoHoras(tope),
+                    AsignacionCursoService.etiquetaSeccion(asignacion.getSeccion()), formatoHoras(otros),
+                    formatoHoras(nuevo), formatoHoras(Math.max(0, tope - otros))));
+        }
+    }
+
+    static long minutos(Horario horario) {
+        return Duration.between(horario.getHoraInicio(), horario.getHoraFin()).toMinutes();
+    }
+
+    /** 270 minutos se leen "4 h 30 min"; 30 minutos, "30 min". */
+    static String formatoHoras(long minutos) {
+        long horas = minutos / MINUTOS_POR_HORA;
+        long resto = minutos % MINUTOS_POR_HORA;
+        if (resto == 0) {
+            return horas + " h";
+        }
+        return horas == 0 ? resto + " min" : horas + " h " + resto + " min";
     }
 
     private boolean esLimiteMediaHora(LocalTime hora) {

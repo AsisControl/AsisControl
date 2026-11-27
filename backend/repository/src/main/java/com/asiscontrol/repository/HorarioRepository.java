@@ -73,6 +73,31 @@ public interface HorarioRepository extends JpaRepository<Horario, Long> {
 
     boolean existsByAulaId(Long aulaId);
 
+    /** OBS-01: bloques vigentes de un curso en una sección, para sumar sus horas frente al plan. */
+    @Query("""
+            SELECT h FROM Horario h
+            WHERE h.activo = true
+              AND h.asignacionCurso.activo = true
+              AND h.asignacionCurso.curso.id = :cursoId
+              AND h.asignacionCurso.seccion.id = :seccionId
+            """)
+    List<Horario> findActivosDelCursoEnSeccion(
+            @Param("cursoId") Long cursoId, @Param("seccionId") Long seccionId);
+
+    /** OBS-01: bloques vigentes de las secciones de un año y grado, para compararlos con su plan. */
+    @Query("""
+            SELECT h FROM Horario h
+            JOIN FETCH h.asignacionCurso a
+            JOIN FETCH a.seccion s
+            JOIN FETCH a.curso
+            WHERE h.activo = true AND a.activo = true
+              AND s.anioAcademico = :anio AND s.grado = :grado
+            ORDER BY s.nombre, s.id, h.id
+            """)
+    List<Horario> findActivosDeGrado(@Param("anio") int anio, @Param("grado") int grado);
+
+
+
     long countByAsignacionCursoIdAndActivoTrue(Long asignacionCursoId);
 
     /**
