@@ -1,14 +1,15 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- SVG assets are served from public/. */
 import { useState, type FormEvent } from "react";
-import { passwordError, passwordRules } from "./password-policy";
+import { passwordError } from "./password-policy";
+import { PasswordRulesList } from "./password-rules-list";
+import { PasswordSuccessIcon } from "./password-success";
 import { api, message } from "@/core/api/client";
 import { Feedback, PasswordField } from "@/shared/ui";
 import { AccessArrow } from "@/core/layout/access-brand";
 import access from "@/core/layout/access.module.css";
 import { AccessLayout } from "@/core/layout/access-layout";
 import layout from "@/core/layout/login-screen.module.css";
-import styles from "./change-password.module.css";
+import styles from "./password-screens.module.css";
 export function ChangePassword({
   onLogout,
   mandatory = true,
@@ -52,9 +53,7 @@ export function ChangePassword({
   if (done)
     return (
       <AccessLayout titleId="password-title">
-        <span className={styles.successIcon} aria-hidden="true">
-          <img src="/icons/check.svg" alt="" width={26} height={26} />
-        </span>
+        <PasswordSuccessIcon />
         <header className={layout.formHeader}>
           <h1 id="password-title">Contraseña actualizada</h1>
           <p>Inicia sesión nuevamente con tu contraseña nueva.</p>
@@ -99,17 +98,7 @@ export function ChangePassword({
             aria-describedby="password-rules"
             onChange={(event) => setNewPassword(event.currentTarget.value)}
           />
-          <ul id="password-rules" className={styles.rules} aria-label="Requisitos de la nueva contraseña">
-            {passwordRules.map(({ label, isMet }) => {
-              const met = isMet(newPassword);
-              return (
-                <li key={label} data-met={met}>
-                  {label}
-                  <span className={styles.ruleState}>{met ? ": cumplido" : ": pendiente"}</span>
-                </li>
-              );
-            })}
-          </ul>
+          <PasswordRulesList id="password-rules" password={newPassword} />
           <PasswordField
             label="Confirmar nueva contraseña"
             name="confirm"
