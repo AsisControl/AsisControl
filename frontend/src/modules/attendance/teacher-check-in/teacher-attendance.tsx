@@ -2,12 +2,13 @@
 import Link from "next/link";
 import { JustificationInbox } from "../justification-inbox";
 import { TeacherCheckIn } from "./teacher-check-in";
+import { TeacherContingencies } from "./teacher-contingencies";
 import styles from "./teacher-attendance.module.css";
 
-/** Pestañas de Asistencia del docente: /asistencia y /asistencia/mi-marcacion. */
 const TABS = [
   { slug: "", label: "Justificaciones" },
   { slug: "mi-marcacion", label: "Mi marcación" },
+  { slug: "contingencias", label: "Contingencias de marcación" },
 ] as const;
 
 /**
@@ -15,7 +16,7 @@ const TABS = [
  * /asistencia y la marcación con QR (US-15) está en /asistencia/mi-marcacion.
  */
 export function TeacherAttendance({ tab, canCheckIn }: { tab?: string; canCheckIn: boolean }) {
-  const current = tab === "mi-marcacion" ? "mi-marcacion" : "";
+  const current = TABS.find((item) => item.slug === tab)?.slug ?? "";
   return (
     <div className={styles.shell}>
       <nav aria-label="Secciones de asistencia" className={styles.tabs}>
@@ -30,7 +31,9 @@ export function TeacherAttendance({ tab, canCheckIn }: { tab?: string; canCheckI
           </Link>
         ))}
       </nav>
-      {current === "mi-marcacion" ? <TeacherCheckIn canWrite={canCheckIn} /> : <JustificationInbox />}
+      {current === "mi-marcacion" && <TeacherCheckIn canWrite={canCheckIn} />}
+      {current === "contingencias" && <TeacherContingencies canWrite={canCheckIn} />}
+      {!current && <JustificationInbox />}
     </div>
   );
 }
