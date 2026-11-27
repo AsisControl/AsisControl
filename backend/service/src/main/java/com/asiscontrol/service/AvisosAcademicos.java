@@ -1,6 +1,7 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.entity.Alumno;
+import com.asiscontrol.entity.Evaluacion;
 import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.enums.TipoNotificacion;
 import com.asiscontrol.repository.AccesoUsuarioRepository;
@@ -26,20 +27,23 @@ public class AvisosAcademicos {
         this.eventos = eventos;
     }
 
-    public void enviar(Alumno alumno, String titulo, String evaluacion) {
-        avisar(alumno.getPersona().getId(), "ALUMNO", titulo, "Consulta tu resultado de «" + evaluacion + "» en Progreso.");
+    public void enviar(Alumno alumno, String titulo, Evaluacion evaluacion) {
+        String destino = "/progreso/evaluaciones/" + evaluacion.getId() + "/" + alumno.getId();
+        avisar(alumno.getPersona().getId(), "ALUMNO", titulo,
+                "Consulta tu resultado de «" + evaluacion.getTitulo() + "».", destino);
         vinculos.findAllByAlumnoIdAndActivoTrue(alumno.getId()).stream()
                 .filter(vinculo -> vinculo.getApoderado().isActivo() && vinculo.getApoderado().getPersona().isActivo())
                 .map(vinculo -> vinculo.getApoderado().getPersona().getId()).distinct()
                 .forEach(persona -> avisar(persona, "APODERADO", titulo,
-                        "Hay una actualización en «" + evaluacion + "» para " + alumno.getPersona().nombreCompleto() + "."));
+                        "Hay una actualización en «" + evaluacion.getTitulo() + "» para "
+                                + alumno.getPersona().nombreCompleto() + ".", destino));
     }
 
-    private void avisar(Long persona, String rol, String titulo, String mensaje) {
+    private void avisar(Long persona, String rol, String titulo, String mensaje, String destino) {
         for (var cuenta : cuentas.findAllByPersonaIdAndActivoTrue(persona)) {
             if (cuenta.getEstado() != EstadoAcceso.ACTIVO
                     || !roles.existsByUsuarioIdAndRolNombreAndActivoTrue(cuenta.getId(), rol)) continue;
-            notificaciones.create(cuenta.getId(), titulo, mensaje, TipoNotificacion.ACADEMICA, "/progreso", rol);
+            notificaciones.create(cuenta.getId(), titulo, mensaje, TipoNotificacion.ACADEMICA, destino, rol);
             if (cuenta.isCorreoVerificado() && cuenta.getCorreo() != null && !cuenta.getCorreo().isBlank()) {
                 eventos.publishEvent(new CorreoAcademico(cuenta.getCorreo(), titulo));
             }

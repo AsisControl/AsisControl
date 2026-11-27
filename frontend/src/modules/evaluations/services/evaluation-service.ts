@@ -17,6 +17,21 @@ import type {
 export const EVALUACIONES_PATH = "/api/evaluaciones";
 const CALIFICACIONES_PATH = "/api/calificaciones";
 
+export type PublishedResult = {
+  titulo: string;
+  curso: string;
+  estudiante: string;
+  fechaEvaluacion: string;
+  notas: { idCompetencia: number; competencia: string; nivelLogro: AchievementLevel | null }[];
+};
+
+export function obtenerResultadoPublicado(evaluacionId: string, alumnoId: string) {
+  const query = new URLSearchParams({ alumnoId });
+  return api<PublishedResult>(
+    `${EVALUACIONES_PATH}/${encodeURIComponent(evaluacionId)}/resultado-publicado?${query}`,
+  );
+}
+
 export type EvaluationFilters = {
   periodo?: string;
   idCurso?: string;

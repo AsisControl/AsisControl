@@ -18,6 +18,7 @@ import {
 } from "@/core/navigation/navigation";
 import { NavIcon } from "@/core/navigation/nav-icons";
 import { Loading } from "@/shared/ui";
+import { NotificationBell } from "@/modules/notifications";
 import { AsisControlLogo } from "./brand";
 import { LoginScreen } from "./login-screen";
 import { SessionUserProvider } from "./session-user";
@@ -161,6 +162,10 @@ function Dashboard({
           ))}
         </nav>
         <div className="account">
+          <NotificationBell key={`${user.id}:${user.role}`} onOpen={() => {
+            setIsAccountMenuOpen(false);
+            setIsMobileMenuOpen(false);
+          }} />
           <button
             className="account-trigger"
             aria-expanded={isAccountMenuOpen}
