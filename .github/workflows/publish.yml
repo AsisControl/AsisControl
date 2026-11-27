@@ -30,11 +30,12 @@ jobs:
           from urllib.parse import urlsplit
           url = os.environ['PUBLIC_APP_URL']
           parsed = urlsplit(url)
-          if (parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username
-              or parsed.password or parsed.path or parsed.query or parsed.fragment):
-              raise SystemExit('Configura PUBLIC_APP_URL como http://IP o https://dominio, sin barra final.')
-          if parsed.scheme == 'http':
-              ipaddress.IPv4Address(parsed.hostname)
+          if (parsed.scheme != 'https' or not parsed.hostname or parsed.username
+              or parsed.password or parsed.path or parsed.query or parsed.fragment
+              or parsed.port is not None):
+              raise SystemExit('Configura PUBLIC_APP_URL como https://IP_PUBLICA, sin puerto ni barra final.')
+          if not ipaddress.IPv4Address(parsed.hostname).is_global:
+              raise SystemExit('PUBLIC_APP_URL debe utilizar la IPv4 publica de EC2.')
           PY
 
   checks:
