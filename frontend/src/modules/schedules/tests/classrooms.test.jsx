@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeBackend, page, reply, signIn } from "../../../../tests/support/backend.js";
 import { currentUrl, setUrl } from "../../../../tests/support/navigation.js";
@@ -335,6 +335,140 @@ test("Eliminar muestra el rechazo de un aula usada y elimina una sin horarios", 
   await user.click(within(dialog).getByText("Eliminar aula", { selector: "button" }));
   expect(await screen.findByText("Aula Lab. 01 eliminada.")).toBeTruthy();
   expect(calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual(["/api/aulas/1", "/api/aulas/2"]);
+});
+
+test("La tabla y el detalle muestran el equipamiento registrado", async () => {
+  const equipamiento = ["Proyector", "Pizarra digital"].join(String.fromCharCode(10));
+  backend({
+    "GET /api/aulas": page([classroom({ equipamiento }), lab]),
+    "GET /api/aulas/:id/horarios": [],
+  });
+  const user = userEvent.setup();
+  renderSchedules();
+  const row = await rowOf("Aula 201");
+  const cell = row.querySelector('td[data-label="Equipamiento"] span');
+  expect(cell.textContent).toBe(equipamiento);
+  expect(cell.getAttribute("title")).toBe(equipamiento);
+  expect(within(await rowOf("Lab. 01")).getByText("Sin equipamiento")).toBeTruthy();
+  await user.click(within(row).getByText("Ver detalle"));
+  const dialog = screen.getByRole("dialog", { name: "Aula 201" });
+  const term = within(dialog).getByText("Equipamiento", { selector: "dt" });
+  expect(term.nextElementSibling.textContent).toBe(equipamiento);
+  expect(within(dialog).queryByText(/Próximamente/)).toBeNull();
+});
+
+test("El detalle de un aula sin equipamiento lo indica", async () => {
+  backend({ "GET /api/aulas/:id/horarios": [] });
+  const user = userEvent.setup();
+  renderSchedules();
+  await user.click(within(await rowOf("Aula 201")).getByText("Ver detalle"));
+  const dialog = screen.getByRole("dialog", { name: "Aula 201" });
+  expect(within(dialog).getByText("Sin equipamiento", { selector: "dd" })).toBeTruthy();
+});
+
+test("El equipamiento cuenta caracteres, admite 500 recortados y no envía 501", async () => {
+  const calls = backend({ "POST /api/aulas": ({ body }) => reply(201, classroom({ id: 9, ...body })) });
+  const user = userEvent.setup();
+  renderSchedules();
+  await rowOf("Aula 201");
+  await user.click(screen.getByText("+ Nueva aula"));
+  const dialog = screen.getByRole("dialog", { name: "Nueva aula" });
+  const equipment = within(dialog).getByLabelText(/^Equipamiento/);
+  expect(within(dialog).getByText("0/500 caracteres")).toBeTruthy();
+  await user.type(within(dialog).getByLabelText(/^Código/), "AULA-500");
+  await user.type(within(dialog).getByLabelText(/^Nombre del aula/), "Aula 500");
+  await user.type(within(dialog).getByLabelText(/^Capacidad/), "20");
+  fireEvent.change(equipment, { target: { value: "a".repeat(501) } });
+  expect(within(dialog).getByText("501/500 caracteres").parentElement.className).toContain("counterOver");
+  await user.click(within(dialog).getByText("Guardar aula"));
+  expect(within(dialog).getByText("El equipamiento no puede superar 500 caracteres.")).toBeTruthy();
+  expect(equipment.getAttribute("aria-invalid")).toBe("true");
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+  fireEvent.change(equipment, { target: { value: `  ${"a".repeat(500)}  ` } });
+  expect(within(dialog).queryByText("El equipamiento no puede superar 500 caracteres.")).toBeNull();
+  expect(within(dialog).getByText("500/500 caracteres").parentElement.className).not.toContain("counterOver");
+  await user.click(within(dialog).getByText("Guardar aula"));
+  expect(await screen.findByText("Aula Aula 500 registrada.")).toBeTruthy();
+  expect(calls.find((c) => c.method === "POST").body.equipamiento).toBe("a".repeat(500));
+});
+
+test("Al editar otros datos se reenvía el equipamiento actual y vaciarlo lo borra", async () => {
+  const calls = backend({
+    "GET /api/aulas": page([classroom({ equipamiento: "Proyector" })]),
+    "PUT /api/aulas/:id": ({ body }) => classroom({ ...body, version: 5 }),
+  });
+  const user = userEvent.setup();
+  renderSchedules();
+  await chooseAction(user, "Aula 201", "Editar");
+  let dialog = screen.getByRole("dialog", { name: "Editar aula" });
+  expect(within(dialog).getByLabelText(/^Equipamiento/).value).toBe("Proyector");
+  const capacity = within(dialog).getByLabelText(/^Capacidad/);
+  await user.clear(capacity);
+  await user.type(capacity, "40");
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  expect(await screen.findByText("Aula Aula 201 actualizada.")).toBeTruthy();
+  expect(calls.filter((c) => c.method === "PUT").at(-1).body.equipamiento).toBe("Proyector");
+  await chooseAction(user, "Aula 201", "Editar");
+  dialog = screen.getByRole("dialog", { name: "Editar aula" });
+  await user.clear(within(dialog).getByLabelText(/^Equipamiento/));
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  await waitFor(() => expect(calls.filter((c) => c.method === "PUT")).toHaveLength(2));
+  expect(calls.filter((c) => c.method === "PUT").at(-1).body.equipamiento).toBe("");
+});
+
+test("El error de equipamiento del servidor se muestra junto al campo", async () => {
+  const rejection = "El equipamiento no puede superar 500 caracteres.";
+  backend({
+    "PUT /api/aulas/:id": reply(422, {
+      message: rejection,
+      fieldErrors: [{ field: "equipamiento", message: rejection }],
+    }),
+  });
+  const user = userEvent.setup();
+  renderSchedules();
+  await chooseAction(user, "Aula 201", "Editar");
+  const dialog = screen.getByRole("dialog", { name: "Editar aula" });
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  await waitFor(() =>
+    expect(within(dialog).getByLabelText(/^Equipamiento/).getAttribute("aria-invalid")).toBe("true"),
+  );
+  expect(within(dialog).getByText(rejection, { selector: ".field-error" })).toBeTruthy();
+});
+
+test("La ubicación editada se envía junto con el equipamiento", async () => {
+  const calls = backend({ "PUT /api/aulas/:id": ({ body }) => classroom({ ...body, version: 5 }) });
+  const user = userEvent.setup();
+  renderSchedules();
+  await chooseAction(user, "Aula 201", "Editar");
+  const dialog = screen.getByRole("dialog", { name: "Editar aula" });
+  const location = within(dialog).getByLabelText(/^Ubicación/);
+  await user.clear(location);
+  await user.type(location, "Pabellón C");
+  await user.type(within(dialog).getByLabelText(/^Equipamiento/), "Televisor");
+  await user.click(within(dialog).getByText("Guardar cambios"));
+  expect(await screen.findByText("Aula Aula 201 actualizada.")).toBeTruthy();
+  expect(calls.find((c) => c.method === "PUT").body).toMatchObject({
+    ubicacion: "Pabellón C",
+    equipamiento: "Televisor",
+  });
+});
+
+test.each([
+  ["respondan", () => []],
+  ["fallen", () => reply(500, { message: "No disponible" })],
+])("Cerrar el detalle antes de que los horarios %s no deja avisos", async (_, answer) => {
+  let release;
+  const waiting = new Promise((resolve) => (release = resolve));
+  backend({ "GET /api/aulas/:id/horarios": () => waiting.then(answer) });
+  const user = userEvent.setup();
+  renderSchedules();
+  await user.click(within(await rowOf("Aula 201")).getByText("Ver detalle"));
+  const dialog = screen.getByRole("dialog", { name: "Aula 201" });
+  await user.click(within(dialog).getByText("Cerrar", { selector: ".form-actions button" }));
+  release();
+  await waiting;
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("No disponible")).toBeNull();
 });
 
 test("Las pestañas navegan por URL y una inexistente vuelve al horario", async () => {
