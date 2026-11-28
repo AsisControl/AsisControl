@@ -49,9 +49,12 @@ export function EvidenceList({
   const [dialogError, setDialogError] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const competencyName = (id: number) => {
-    const found = competencies.find((item) => item.competenciaId === id);
-    return found ? competencyLabel(found) : `Competencia ${id}`;
+  const competencyName = (evidence: Evidence) => {
+    if (evidence.competenciaNombre) return competencyLabel({
+      competenciaNombre: evidence.competenciaNombre, competenciaCodigo: evidence.competenciaCodigo,
+    });
+    const found = competencies.find(item => item.competenciaId === evidence.competenciaId);
+    return found ? competencyLabel(found) : `Competencia ${evidence.competenciaId}`;
   };
   const periodName = (id: number) => periods.find((item) => item.id === id)?.nombre ?? `Período ${id}`;
   async function download(file: NonNullable<Evidence["archivo"]>) {
@@ -105,7 +108,7 @@ export function EvidenceList({
               {list.data.content.map((item) => (
                 <tr key={item.id}>
                   <td data-label="Fecha">{evidenceDate(item.fechaCreacion)}</td>
-                  <td data-label="Competencia">{competencyName(item.competenciaId)}</td>
+                  <td data-label="Competencia">{competencyName(item)}</td>
                   <td data-label="Período">{periodName(item.periodoId)}</td>
                   <td data-label="Descripción">
                     <span className={styles.description}>{item.descripcion || "Sin descripción"}</span>
@@ -164,7 +167,10 @@ export function EvidenceList({
           competencies={competencies}
           periods={periods}
           evidence={editing}
-          onClose={() => setEditing(null)}
+          onClose={(refresh) => {
+            setEditing(null);
+            if (refresh) list.refresh();
+          }}
           onSaved={() => {
             setEditing(null);
             setSuccess("Evidencia actualizada.");

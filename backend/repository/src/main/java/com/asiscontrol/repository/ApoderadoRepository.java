@@ -27,6 +27,11 @@ public interface ApoderadoRepository extends JpaRepository<Apoderado, Long> {
                    or lower(p.apellidoPaterno) like lower(concat('%', :search, '%'))
                    or lower(p.apellidoMaterno) like lower(concat('%', :search, '%'))
                    or lower(p.numeroDocumento) like lower(concat('%', :search, '%')))
+              and (:conEstudiantes is null or :conEstudiantes = case when exists (
+                    select v.id from AlumnoApoderado v where v.apoderado = a and v.activo = true
+                      and v.alumno.activo = true and v.alumno.persona.activo = true)
+                    then true else false end)
             """)
-    Page<Apoderado> searchActive(@Param("search") String search, Pageable pageable);
+    Page<Apoderado> searchActive(@Param("search") String search,
+            @Param("conEstudiantes") Boolean conEstudiantes, Pageable pageable);
 }

@@ -27,6 +27,7 @@ function backend(routes = {}) {
   return fakeBackend({
     "GET /api/tareas": page([task()]),
     "GET /api/asignaciones-cursos/42": assignment(),
+    "GET /api/asignaciones-cursos/mias": page([assignment()]),
     ...routes,
   });
 }
@@ -42,12 +43,13 @@ test("Lista los cuatro estados reales y resuelve solo las asignaciones de la pá
   expect(screen.getByRole("status").textContent).toBe("Cargando tareas…");
   await screen.findAllByText("Matemática · 2° B · 2026");
   for (const label of ["Borrador", "Publicada", "Cerrada", "Archivada"])
-    expect(screen.getByText(label)).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByText(label)).toBeTruthy();
   const row = screen.getByText("Tarea 0").closest("tr");
-  expect(within(row).getByText("02/11/2026 18:30").getAttribute("datetime")).toBe("2026-11-02T18:30:00");
-  expect(within(row).getByText("20")).toBeTruthy();
-  expect(calls.filter((call) => call.path.startsWith("/api/asignaciones-cursos"))).toHaveLength(1);
-  expect(calls[0].query).toEqual({ page: "0", size: "20" });
+  expect(within(row).getByText("02/11/2026").getAttribute("datetime")).toBe("2026-11-02T18:30:00");
+  expect(within(row).getByText("18:30")).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name: "Puntaje máximo" })).toBeNull();
+  expect(calls.filter((call) => call.path.startsWith("/api/asignaciones-cursos/") && !call.path.endsWith("/mias"))).toHaveLength(1);
+  expect(calls.find(call => call.path === "/api/tareas").query).toEqual({ page: "0", size: "20", orden: "recientes" });
   expect(calls.every((call) => call.method === "GET")).toBe(true);
   expect(screen.queryByText(/Crear|Editar|Ver detalle/)).toBeNull();
 });
@@ -71,7 +73,7 @@ test("Plazo vencido es secundario solo en PUBLICADA y desaparece al cerrar", asy
     expect(screen.getAllByText("Plazo vencido")).toHaveLength(1);
     state = "CERRADA";
     await userEvent.setup().click(screen.getByText("Actualizar"));
-    await screen.findByText("Cerrada");
+    await within(screen.getByRole("table")).findByText("Cerrada");
     expect(screen.queryByText("Plazo vencido")).toBeNull();
     expect(screen.getByRole("button", { name: "Archivar Práctica de álgebra" })).toBeTruthy();
   } finally { vi.useRealTimers(); }
@@ -110,7 +112,7 @@ test("Actualiza la indicación temporal al volver a enfocar la ventana", async (
     vi.setSystemTime(new Date(2026, 9, 30, 12, 0, 1));
     await act(async () => window.dispatchEvent(new Event("focus")));
     expect(screen.getByText("Plazo vencido")).toBeTruthy();
-    expect(screen.getByText("Publicada")).toBeTruthy();
+    expect(within(screen.getByRole("table")).getByText("Publicada")).toBeTruthy();
   } finally { vi.useRealTimers(); }
 });
 
@@ -125,11 +127,11 @@ test("Pagina y consulta únicamente el contexto de las tareas de cada página", 
   const user = userEvent.setup();
   render(<Tasks />);
   await screen.findByText("Matemática · 2° B · 2026");
-  expect(screen.getByText("Anterior").disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Anterior" })).toBeNull();
   await user.click(screen.getByText("Siguiente"));
   expect(await screen.findByText("Comunicación · 2° B · 2026")).toBeTruthy();
   expect(screen.queryByText("Práctica de álgebra")).toBeNull();
-  expect(screen.getByText("Siguiente").disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
   expect(screen.getByText("21 registros · Página 2 de 2")).toBeTruthy();
   expect(calls.filter((call) => call.path === "/api/tareas").map((call) => call.query.page)).toEqual(["0", "1"]);
 });
@@ -149,11 +151,27 @@ test("Un fallo de contexto no impide leer las tareas y Actualizar permite recupe
   expect(calls.filter((call) => call.path === "/api/tareas")).toHaveLength(2);
 });
 
-test("Sin tareas muestra vacío sin consultar asignaciones", async () => {
+test("Sin tareas no consulta el contexto individual de ninguna asignación", async () => {
   const calls = backend({ "GET /api/tareas": page([]) });
   render(<Tasks />);
   expect(await screen.findByText("Aún no tienes tareas registradas.")).toBeTruthy();
-  expect(calls).toHaveLength(1);
+  expect(calls.map(call => call.path).sort()).toEqual(["/api/asignaciones-cursos/mias", "/api/tareas"]);
+});
+
+test("Combina búsqueda, estado, curso y orden en el servidor y limpia los filtros", async () => {
+  const calls = backend();
+  const user = userEvent.setup();
+  render(<Tasks />);
+  await user.type(screen.getByRole("searchbox", { name: "Buscar" }), "álgebra");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Estado" }), "BORRADOR");
+  await screen.findByRole("option", { name: "Matemática" });
+  await user.selectOptions(screen.getByRole("combobox", { name: "Curso" }), "5");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Ordenar por" }), "titulo");
+  await waitFor(() => expect(calls.filter(call => call.path === "/api/tareas").at(-1).query)
+    .toEqual({ page: "0", size: "20", search: "álgebra", estado: "BORRADOR", cursoId: "5", orden: "titulo" }));
+  await user.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+  await waitFor(() => expect(calls.filter(call => call.path === "/api/tareas").at(-1).query)
+    .toEqual({ page: "0", size: "20", orden: "recientes" }));
 });
 
 test("Un error técnico de la API se presenta sin códigos ni identificadores", async () => {

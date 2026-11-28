@@ -2,10 +2,12 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Crear;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Editar;
+import com.asiscontrol.dto.EvidenciaPedagogicaDto.Estudiante;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Respuesta;
 import com.asiscontrol.dto.PageResponse;
 import com.asiscontrol.service.EvidenciaPedagogicaService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -43,6 +45,11 @@ public class EvidenciaPedagogicaController {
     @GetMapping("/{id}")
     public Respuesta obtener(@PathVariable Long id) {
         return servicio.obtener(id);
+    }
+
+    @GetMapping("/asignaciones/{asignacionId}/estudiantes")
+    public List<Estudiante> listarEstudiantes(@PathVariable Long asignacionId) {
+        return servicio.listarEstudiantes(asignacionId);
     }
 
     @PutMapping("/{id}")

@@ -22,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
 class CalificacionServiceTest {
+    @Mock
+    private FlujoEntregaAcademica flujoEntrega;
 
     @Mock
     private CalificacionRepository calificacionRepository;

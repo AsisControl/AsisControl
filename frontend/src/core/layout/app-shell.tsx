@@ -18,6 +18,7 @@ import {
 } from "@/core/navigation/navigation";
 import { NavIcon } from "@/core/navigation/nav-icons";
 import { Loading } from "@/shared/ui";
+import { NotificationBell } from "@/modules/notifications";
 import { AsisControlLogo } from "./brand";
 import { LoginScreen } from "./login-screen";
 import { SessionUserProvider } from "./session-user";
@@ -81,6 +82,21 @@ function Dashboard({
       window.removeEventListener("resize", onResize);
     };
   }, [isMobileMenuOpen]);
+
+  // El alto del menú cambia con el ancho de pantalla: otros elementos fijos se colocan debajo.
+  useEffect(() => {
+    const element = header.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() =>
+      root.style.setProperty("--header-height", `${element.offsetHeight}px`),
+    );
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--header-height");
+    };
+  }, [pathname]);
 
   if (pathname === CHANGE_PASSWORD_PATH)
     return <ChangePassword onLogout={onLogout} mandatory={false} />;
@@ -146,6 +162,10 @@ function Dashboard({
           ))}
         </nav>
         <div className="account">
+          <NotificationBell key={`${user.id}:${user.role}`} onOpen={() => {
+            setIsAccountMenuOpen(false);
+            setIsMobileMenuOpen(false);
+          }} />
           <button
             className="account-trigger"
             aria-expanded={isAccountMenuOpen}

@@ -44,10 +44,16 @@ public class PlanPensionService {
         this.anios=anios;
     }
     public PlanResponse previewSolicitud(Long id){var s=solicitudes.findByIdAndActivoTrue(id).orElseThrow(()->no("solicitud"));
-        if(s.getSeccion()==null)throw regla("SECCION_REQUERIDA","Selecciona la sección para consultar la tarifa del grado.");
-        return preview(null,s.getId(),s.getAlumno(),s.getAnioAcademico(),s.getSeccion().getGrado(),false);}
+        return preview(null,s.getId(),s.getAlumno(),s.getAnioAcademico(),s.getGrado(),false);}
     public PlanResponse previewMatricula(Long id){var m=matriculas.findByIdAndActivoTrue(id).orElseThrow(()->no("matrícula"));
         return preview(m.getId(),m.getSolicitudMatricula().getId(),m.getAlumno(),m.getAnioAcademico(),m.getSeccion().getGrado(),false);}
+
+    /** Plan que se asignaría a un estudiante en un año y grado, antes de que exista el trámite. */
+    public PlanResponse previewAlumno(Long idAlumno, int anio, int grado) {
+        var alumno = em.find(Alumno.class, idAlumno);
+        if (alumno == null || !alumno.isActivo()) throw no("estudiante");
+        return preview(null, null, alumno, anio, grado, false);
+    }
 
     public PlanResponse previewRenovacion(Alumno alumno, int anio, int grado) {
         return preview(null, null, alumno, anio, grado, false);

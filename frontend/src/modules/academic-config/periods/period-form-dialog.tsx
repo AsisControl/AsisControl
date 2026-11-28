@@ -1,31 +1,48 @@
 "use client";
 import { useRef, useState, type FormEvent } from "react";
-import { api, message } from "@/core/api/client";
+import { ApiError, api, message } from "@/core/api/client";
 import { Dialog, Feedback } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import {
   PERIOD_NAME_MAX,
+  SECTION_REASON_MAX,
   hasErrors,
   nextPeriodOrder,
   validatePeriod,
+  validateSectionReason,
   type PeriodErrors,
 } from "../lib/validation";
 import styles from "../academic-config.module.css";
-import type { AcademicYear } from "../types";
+import type { AcademicYear, Period } from "../types";
 type Props = {
   year: AcademicYear;
+  /** Si se indica, se editan su nombre y sus fechas (el orden no cambia). */
+  period?: Period;
   onClose: () => void;
   /** Recibe el año actualizado que devuelve el backend. */
-  onCreated: (year: AcademicYear) => void;
+  onSaved: (year: AcademicYear) => void;
+  /** Se llama si el período editado cambió en el servidor (versión vieja). */
+  onStale?: (reason: string) => void;
 };
-/** US-05: modal "Nuevo período". El backend siempre lo crea PLANIFICADO. */
-export function PeriodFormDialog({ year, onClose, onCreated }: Props) {
+/**
+ * US-05: modal "Nuevo período" (el backend siempre lo crea PLANIFICADO) y
+ * edición. Al editar, el formulario solo revisa los campos y el rango de fechas;
+ * solapes, nombres repetidos y demás reglas las responde el servidor.
+ */
+export function PeriodFormDialog({
+  year,
+  period,
+  onClose,
+  onSaved,
+  onStale,
+}: Props) {
   const [values, setValues] = useState({
-    nombre: "",
-    fechaInicio: "",
-    fechaFin: "",
+    nombre: period?.nombre ?? "",
+    fechaInicio: period?.fechaInicio ?? "",
+    fechaFin: period?.fechaFin ?? "",
+    motivo: "",
   });
-  const [errors, setErrors] = useState<PeriodErrors>({});
+  const [errors, setErrors] = useState<PeriodErrors & { motivo?: string }>({});
   const [serverError, setServerError] = useState("");
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
@@ -36,34 +53,64 @@ export function PeriodFormDialog({ year, onClose, onCreated }: Props) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending.current) return;
-    const found = validatePeriod(values, year, year.periodos);
+    const found: PeriodErrors & { motivo?: string } = validatePeriod(
+      values,
+      year,
+      period ? [] : year.periodos,
+    );
+    if (period) {
+      const reason = validateSectionReason(values.motivo, true);
+      if (reason) found.motivo = reason;
+    }
     setErrors(found);
     if (hasErrors(found)) return;
     sending.current = true;
     setBusy(true);
     setServerError("");
+    const data = {
+      nombre: values.nombre.trim(),
+      fechaInicio: values.fechaInicio,
+      fechaFin: values.fechaFin,
+    };
     try {
       const updated = await api<AcademicYear>(
-        `/api/configuracion-academica/anios/${year.anio}/periodos`,
+        period
+          ? `/api/configuracion-academica/periodos/${period.id}`
+          : `/api/configuracion-academica/anios/${year.anio}/periodos`,
         {
-          method: "POST",
-          body: JSON.stringify({
-            nombre: values.nombre.trim(),
-            orden: nextPeriodOrder(year.periodos),
-            fechaInicio: values.fechaInicio,
-            fechaFin: values.fechaFin,
-          }),
+          method: period ? "PUT" : "POST",
+          body: JSON.stringify(
+            period
+              ? {
+                  ...data,
+                  version: period.version,
+                  motivo: values.motivo.trim(),
+                }
+              : { ...data, orden: nextPeriodOrder(year.periodos) },
+          ),
         },
       );
-      onCreated(updated);
+      onSaved(updated);
     } catch (error) {
+      if (
+        onStale &&
+        error instanceof ApiError &&
+        error.code === "VERSION_DESACTUALIZADA"
+      ) {
+        onStale(message(error));
+        return;
+      }
       setServerError(message(error));
       sending.current = false;
       setBusy(false);
     }
   }
   return (
-    <Dialog title="Nuevo período" onClose={onClose} busy={busy}>
+    <Dialog
+      title={period ? "Editar período" : "Nuevo período"}
+      onClose={onClose}
+      busy={busy}
+    >
       <form className={styles.dialogForm} onSubmit={submit} noValidate>
         <Feedback error={serverError} />
         <label className={styles.label}>
@@ -121,12 +168,32 @@ export function PeriodFormDialog({ year, onClose, onCreated }: Props) {
             )}
           </label>
         </div>
-        <label className={styles.label}>
-          Estado inicial <span className={styles.required}>*</span>
-          <select className={styles.input} value="PLANIFICADO" disabled>
-            <option value="PLANIFICADO">{stateLabel("PLANIFICADO")}</option>
-          </select>
-        </label>
+        {period ? (
+          <label className={styles.label}>
+            Motivo del cambio <span className={styles.required}>*</span>
+            <textarea
+              className={styles.input}
+              rows={3}
+              value={values.motivo}
+              maxLength={SECTION_REASON_MAX + 20}
+              disabled={busy}
+              aria-invalid={!!errors.motivo}
+              onChange={(e) => set("motivo")(e.target.value)}
+            />
+            {errors.motivo && (
+              <span className={styles.fieldError} role="alert">
+                {errors.motivo}
+              </span>
+            )}
+          </label>
+        ) : (
+          <label className={styles.label}>
+            Estado inicial <span className={styles.required}>*</span>
+            <select className={styles.input} value="PLANIFICADO" disabled>
+              <option value="PLANIFICADO">{stateLabel("PLANIFICADO")}</option>
+            </select>
+          </label>
+        )}
         <div className={styles.dialogActions}>
           <button
             type="button"
@@ -137,7 +204,13 @@ export function PeriodFormDialog({ year, onClose, onCreated }: Props) {
             Cancelar
           </button>
           <button className={styles.submitButton} disabled={busy}>
-            {busy ? "Creando…" : "Crear período"}
+            {period
+              ? busy
+                ? "Guardando…"
+                : "Guardar cambios"
+              : busy
+                ? "Creando…"
+                : "Crear período"}
           </button>
         </div>
       </form>

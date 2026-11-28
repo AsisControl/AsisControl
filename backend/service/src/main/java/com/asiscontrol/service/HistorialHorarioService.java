@@ -217,7 +217,7 @@ public class HistorialHorarioService {
         for (Map<String, String> valores : antiguos) {
             Optional.ofNullable(asignaciones.get(Long.valueOf(valores.get(CAMPO_ASIGNACION_ID))))
                     .ifPresent(asignacion -> {
-                        valores.put(CAMPO_CURSO, asignacion.getCurso().getNombre());
+                        valores.put(CAMPO_CURSO, asignacion.nombreCurso());
                         valores.put(
                                 CAMPO_SECCION,
                                 AsignacionCursoService.etiquetaSeccion(asignacion.getSeccion()));

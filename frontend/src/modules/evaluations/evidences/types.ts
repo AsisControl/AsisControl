@@ -1,7 +1,6 @@
 import type { CourseCompetency } from "../types";
 
-/** CursoCompetenciaResponse trae el código de la competencia (p. ej. "MAT-C1"). */
-export type EvidenceCompetency = CourseCompetency & { competenciaCodigo?: string };
+export type EvidenceCompetency = CourseCompetency;
 /** Contratos de EvidenciaPedagogicaDto. */
 export type EvidenceFile = {
   id: number;
@@ -15,12 +14,15 @@ export type Evidence = {
   alumnoId: number;
   cursoId: number;
   competenciaId: number;
+  competenciaCodigo?: string;
+  competenciaNombre?: string;
   periodoId: number;
   autorId: number;
   descripcion: string | null;
   archivo: EvidenceFile | null;
   fechaCreacion: string;
   fechaActualizacion: string;
+  evaluaciones: { id: number; titulo: string }[];
 };
 export type EvidenceInput = {
   asignacionId: number;
@@ -32,5 +34,5 @@ export type EvidenceInput = {
 };
 /** La edición reemplaza descripción y adjunto; el contexto no cambia. */
 export type EvidenceEdit = { descripcion: string | null; archivoId: number | null };
-export type EvidencePeriod = { id: number; nombre: string };
+export type EvidencePeriod = { id: number; nombre: string; fechaInicio: string; fechaFin: string };
 export type EvidenceStudent = { id: number; nombre: string };

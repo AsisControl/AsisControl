@@ -7,6 +7,7 @@ import com.asiscontrol.dto.academico.AcademicoDtos.GenerarPropuestasSeccionesReq
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionPropuestaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.SeccionResponse;
+import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.GradoAcademico;
 import com.asiscontrol.entity.Seccion;
@@ -52,6 +53,8 @@ public class SeccionService {
     private final AuditoriaService auditoria;
     private final com.asiscontrol.repository.SolicitudMatriculaRepository solicitudes;
     private final com.asiscontrol.repository.AsignacionCursoRepository asignaciones;
+    private final com.asiscontrol.repository.HistorialSeccionMatriculaRepository historialSecciones;
+    private final AulaService aulas;
 
     public SeccionService(
             SeccionRepository seccionRepository,
@@ -61,7 +64,9 @@ public class SeccionService {
             ConfiguracionAcademicaService configuracion,
             AuditoriaService auditoria,
             com.asiscontrol.repository.SolicitudMatriculaRepository solicitudes,
-            com.asiscontrol.repository.AsignacionCursoRepository asignaciones) {
+            com.asiscontrol.repository.AsignacionCursoRepository asignaciones,
+            com.asiscontrol.repository.HistorialSeccionMatriculaRepository historialSecciones,
+            AulaService aulas) {
         this.seccionRepository = seccionRepository;
         this.docenteRepository = docenteRepository;
         this.gradoAcademicoRepository = gradoAcademicoRepository;
@@ -70,6 +75,8 @@ public class SeccionService {
         this.auditoria = auditoria;
         this.solicitudes = solicitudes;
         this.asignaciones = asignaciones;
+        this.historialSecciones = historialSecciones;
+        this.aulas = aulas;
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
@@ -93,6 +100,7 @@ public class SeccionService {
                 request.docenteTutorId());
         seccion.setGradoAcademico(gradoAcademico);
         seccion.setActivo(true);
+        seccion.setAula(aulaPara(request.aulaId(), request.capacidadMaxima()));
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
                 "CREAR_SECCION",
@@ -102,20 +110,25 @@ public class SeccionService {
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
                 request.motivo(),
                 null,
-                "grado=" + seccion.getGrado() + ",capacidad=" + seccion.getCapacidadMaxima());
+                describir(seccion));
         return mapear(seccion);
     }
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public SeccionResponse actualizar(Long id, ActualizarSeccionRequest request) {
+        boolean quitarAula = Boolean.TRUE.equals(request.quitarAula());
+        if (quitarAula && request.aulaId() != null)
+            throw new BusinessRuleException(
+                    "AULA_SECCION_CONTRADICTORIA",
+                    "Indica un aula o pide quitarla, no ambas cosas.",
+                    "aulaId");
         Seccion vista = obtenerEntidad(id);
         configuracion.bloquear(vista.getAnioAcademico());
         configuracion.exigirOferta(vista.getAnioAcademico(), vista.getGrado(), false);
         GradoAcademico gradoAcademico =
                 obtenerGradoActivo(request.anioAcademico(), request.grado());
         Seccion seccion = seccionRepository.buscarActivaParaActualizar(id).orElseThrow();
-        String anterior =
-                "grado=" + seccion.getGrado() + ",capacidad=" + seccion.getCapacidadMaxima();
+        String anterior = describir(seccion);
         if (request.anioAcademico() != seccion.getAnioAcademico()
                 || request.grado() != seccion.getGrado())
             throw new BusinessRuleException(
@@ -135,6 +148,10 @@ public class SeccionService {
                     "SECCION_CAPACIDAD_INFERIOR_A_MATRICULADOS",
                     "La capacidad no puede ser menor que los alumnos matriculados");
         }
+        // Omitir el aula en el PUT la conserva; la regla se comprueba con la capacidad nueva.
+        Long aulaActual = seccion.getAula() == null ? null : seccion.getAula().getId();
+        Long aulaId = quitarAula ? null : request.aulaId() != null ? request.aulaId() : aulaActual;
+        Aula aula = aulaPara(aulaId, request.capacidadMaxima());
         aplicar(
                 seccion,
                 request.nombre(),
@@ -143,6 +160,7 @@ public class SeccionService {
                 request.capacidadMaxima(),
                 request.docenteTutorId());
         seccion.setGradoAcademico(gradoAcademico);
+        seccion.setAula(aula);
         seccionRepository.saveAndFlush(seccion);
         auditoria.registrar(
                 "ACTUALIZAR_SECCION",
@@ -152,7 +170,7 @@ public class SeccionService {
                 com.asiscontrol.entity.enums.ResultadoAuditoria.EXITOSO,
                 request.motivo(),
                 anterior,
-                "grado=" + seccion.getGrado() + ",capacidad=" + seccion.getCapacidadMaxima());
+                describir(seccion));
         return mapear(seccion);
     }
 
@@ -268,6 +286,8 @@ public class SeccionService {
         if (request.motivo() == null || request.motivo().isBlank())
             throw new BusinessRuleException(
                     "MOTIVO_REQUERIDO", "Indique el motivo del cambio de estado");
+        if (request.activo() && seccion.getAula() != null)
+            aulas.exigirParaSeccion(seccion.getAula().getId(), seccion.getCapacidadMaxima());
         boolean anterior = seccion.isActivo();
         seccion.setActivo(request.activo());
         seccionRepository.saveAndFlush(seccion);
@@ -348,9 +368,9 @@ public class SeccionService {
                     "ANIO_ACADEMICO_INVALIDO", "El año académico debe estar entre 2000 y 2100");
         if (request.grado() < 1 || request.grado() > 5)
             throw new BusinessRuleException("GRADO_INVALIDO", "El grado debe estar entre 1 y 5");
-        if (request.cantidad() <= 0)
+        if (request.cantidad() <= 0 || request.cantidad() > GenerarPropuestasSeccionesRequest.MAX_PROPUESTAS)
             throw new BusinessRuleException(
-                    "CANTIDAD_SECCIONES_INVALIDA", "La cantidad de secciones debe ser positiva");
+                    "CANTIDAD_SECCIONES_INVALIDA", "Puedes generar de 1 a 20 propuestas de secciones.");
         if (request.capacidadMaxima() <= 0 || request.capacidadMaxima() > 100)
             throw new BusinessRuleException(
                     "CAPACIDAD_SECCION_INVALIDA",
@@ -430,7 +450,8 @@ public class SeccionService {
     private boolean utilizada(Long id) {
         return matriculaRepository.existsBySeccionId(id)
                 || solicitudes.existsBySeccionId(id)
-                || asignaciones.existsBySeccionId(id);
+                || asignaciones.existsBySeccionId(id)
+                || historialSecciones.existsBySeccionAnteriorId(id);
     }
 
     public Seccion obtenerEntidad(Long id) {
@@ -496,6 +517,17 @@ public class SeccionService {
         seccion.setDocenteTutor(docenteTutorId == null ? null : buscarDocente(docenteTutorId));
     }
 
+    /** null deja la sección sin aula; en otro caso se exige habilitada y con capacidad. */
+    private Aula aulaPara(Long aulaId, int capacidadMaxima) {
+        return aulaId == null ? null : aulas.exigirParaSeccion(aulaId, capacidadMaxima);
+    }
+
+    private String describir(Seccion seccion) {
+        return "grado=" + seccion.getGrado()
+                + ",capacidad=" + seccion.getCapacidadMaxima()
+                + ",aula=" + (seccion.getAula() == null ? "ninguna" : seccion.getAula().getCodigo());
+    }
+
     private Docente buscarDocente(Long id) {
         return docenteRepository
                 .findByIdAndActivoTrue(id)
@@ -517,7 +549,8 @@ public class SeccionService {
                 tutor == null ? null : tutor.getId(),
                 tutor == null ? null : tutor.getPersona().nombreCompleto(),
                 seccion.isActivo(),
-                seccion.getVersion());
+                seccion.getVersion(),
+                AulaService.asignada(seccion.getAula()));
     }
 
     private void exigirVersion(long actual, Long recibida) {

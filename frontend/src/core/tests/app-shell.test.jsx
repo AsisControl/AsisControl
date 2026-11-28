@@ -52,6 +52,20 @@ beforeEach(() => {
   setUrl("/");
 });
 
+test("El administrador autorizado abre Reportes desde su URL y ve la pestaña seleccionada", async () => {
+  const permisos = ["ACADEMICO_LEER", "CALIFICACIONES_LEER"];
+  sessionFor({ permissions: permisos });
+  backend({
+    "GET /api/auth/me": summary({ permisos }),
+    "GET /api/configuracion-academica/anios": page([]),
+  });
+  setUrl("/academico/reportes");
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "Reportes académicos" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Reportes" }).getAttribute("aria-current")).toBe("page");
+  expect(currentUrl()).toBe("/academico/reportes");
+});
+
 test("Sin sesión muestra el login, informa credenciales inválidas y luego ingresa", async () => {
   const calls = backend({
     "POST /api/auth/login": ({ body }) =>
@@ -730,4 +744,37 @@ test("Con Web Locks las pestañas renuevan por turnos", async () => {
   } finally {
     delete navigator.locks;
   }
+});
+
+test("Los requisitos de la contraseña nueva se marcan mientras se escribe", async () => {
+  backend({ "GET /api/auth/me": summary({ requiereCambioContrasena: true }) });
+  sessionFor({ requiresPasswordChange: true });
+  const user = userEvent.setup();
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "Crea tu contraseña", level: 1 })).toBeTruthy();
+  const rules = screen.getByRole("list", { name: "Requisitos de la nueva contraseña" });
+  const met = () => [...rules.children].map((rule) => rule.dataset.met);
+  expect(met()).toEqual(["false", "false", "false", "false", "false"]);
+  await user.type(screen.getByLabelText(/^Nueva contraseña/), "abc");
+  expect(met()).toEqual(["false", "false", "true", "false", "true"]);
+  await user.type(screen.getByLabelText(/^Nueva contraseña/), "DEF 2026");
+  expect(met()).toEqual(["true", "true", "true", "true", "false"]);
+});
+
+// cobertura: el alto del menú fijo se publica en --header-height y se limpia al salir
+test("publica el alto del menú superior para los elementos fijos y lo limpia al desmontar", async () => {
+  let notificar;
+  const observe = vi.fn(), disconnect = vi.fn();
+  vi.stubGlobal("ResizeObserver", class { constructor(callback) { notificar = callback; } observe = observe; disconnect = disconnect; });
+  backend();
+  sessionFor();
+  const { unmount } = renderApp();
+  await screen.findByRole("navigation", { name: "Navegación principal" });
+  await waitFor(() => expect(observe).toHaveBeenCalled());
+  act(() => notificar());
+  expect(document.documentElement.style.getPropertyValue("--header-height")).toMatch(/px$/);
+  unmount();
+  expect(disconnect).toHaveBeenCalled();
+  expect(document.documentElement.style.getPropertyValue("--header-height")).toBe("");
+  vi.unstubAllGlobals();
 });

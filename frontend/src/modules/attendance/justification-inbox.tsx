@@ -92,7 +92,7 @@ export function JustificationInbox() {
       )}
       {datos && datos.content.length > 0 && (
         <div className={styles.card}>
-          <table className={styles.tabla}>
+          <table className={styles.table}>
             <thead>
               <tr>
                 <th scope="col">Estudiante</th>

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { PersonCell, StatusPill } from "@/shared/ui";
-import { specialtyLabel } from "@/shared/lib/formatters";
+import { FilterSelect, PersonCell, StatusPill } from "@/shared/ui";
+import { SPECIALTY_LABELS, specialtyLabel } from "@/shared/lib/formatters";
 import { RecordsPanel } from "./records-panel";
 import { RegisterProfile } from "./register-profile";
 import { TeacherImportDialog } from "./teacher-import-dialog";
@@ -26,11 +26,22 @@ function TeacherImportAction({ onImported }: { onImported: () => void }) {
 
 export function TeachersPanel() {
   const [openId, setOpenId] = useState<number | null>(null);
+  const [specialty, setSpecialty] = useState("");
   return (
     <>
       <RecordsPanel<Teacher>
         title="Docentes"
         path="/api/docentes"
+        filterQuery={specialty && `especialidad=${specialty}`}
+        filters={
+          <FilterSelect
+            label="Especialidad"
+            allLabel="Todas"
+            value={specialty}
+            onChange={setSpecialty}
+            options={Object.entries(SPECIALTY_LABELS)}
+          />
+        }
         noun={["docente", "docentes"]}
         searchLabel="Buscar por nombre, código o documento"
         columns={[
@@ -83,10 +94,9 @@ export function TeachersPanel() {
             </tr>
           ))
         }
+        detail={(refresh) => openId !== null &&
+          <TeacherDetail id={openId} onClose={() => setOpenId(null)} onSaved={refresh} />}
       />
-      {openId !== null && (
-        <TeacherDetail id={openId} onClose={() => setOpenId(null)} />
-      )}
     </>
   );
 }

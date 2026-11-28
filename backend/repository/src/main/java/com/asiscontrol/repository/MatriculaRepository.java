@@ -27,6 +27,23 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
             """)
     java.util.List<com.asiscontrol.entity.Alumno> buscarAlumnosActivosDeSeccion(@Param("seccionId") Long seccionId);
 
+    @Query("""
+            select distinct a from Matricula m join m.alumno a join fetch a.persona p
+            where m.activo = true and m.seccion.id = :seccion and m.estado in :estados
+            and (:anio is null or m.anioAcademico = :anio)
+            and (:soloFichasActivas = false or (a.activo = true and p.activo = true))
+            order by p.apellidoPaterno, p.apellidoMaterno, p.nombres, a.id
+            """)
+    List<com.asiscontrol.entity.Alumno> listarPadronDeSeccion(@Param("seccion") Long seccion,
+            @Param("estados") Collection<EstadoMatricula> estados, @Param("anio") Integer anio,
+            @Param("soloFichasActivas") boolean soloFichasActivas);
+
+    @Query("""
+            select count(distinct m.alumno.id) from Matricula m where m.activo = true
+            and m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA and m.seccion.id = :seccionId
+            """)
+    long contarAlumnosEnPlanilla(Long seccionId);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Matricula m where m.id = :id and m.activo = true")
     Optional<Matricula> bloquearPorId(@Param("id") Long id);
@@ -123,11 +140,41 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
                       AND v.alumno.id = m.alumno.id
                       AND v.apoderado.persona.id = :personaApoderadoId
                   ))
+              AND (:alumnoId IS NULL OR m.alumno.id = :alumnoId)
+              AND (:anioAcademico IS NULL OR m.anioAcademico = :anioAcademico)
+              AND (:grado IS NULL OR m.seccion.grado = :grado)
+              AND (:seccionId IS NULL OR m.seccion.id = :seccionId)
+              AND (:vigentes IS NULL OR :vigentes = false OR m.estado IN (
+                    com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
+                    com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA))
+              AND (:busqueda IS NULL
+                   OR LOWER(m.codigoMatricula) LIKE :busqueda
+                   OR LOWER(m.alumno.codigoAlumno) LIKE :busqueda
+                   OR LOWER(m.alumno.persona.numeroDocumento) LIKE :busqueda
+                   OR LOWER(CONCAT(m.alumno.persona.nombres, ' ', m.alumno.persona.apellidoPaterno, ' ',
+                                   COALESCE(m.alumno.persona.apellidoMaterno, ''))) LIKE :busqueda)
             """)
     Page<Matricula> buscarVisibles(
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,
+            @Param("alumnoId") Long alumnoId,
+            @Param("anioAcademico") Integer anioAcademico,
+            @Param("grado") Integer grado,
+            @Param("seccionId") Long seccionId,
+            @Param("vigentes") Boolean vigentes,
+            @Param("busqueda") String busqueda,
             Pageable pageable);
+
+    /** El estudiante cursa o cursó en la sección con una matrícula activa o finalizada. */
+    @Query("""
+            SELECT COUNT(m) > 0 FROM Matricula m
+            WHERE m.activo = true AND m.alumno.id = :alumnoId
+              AND m.estado IN (com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
+                               com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA)
+              AND (m.seccion.id = :seccionId OR EXISTS (SELECT h.id FROM HistorialSeccionMatricula h
+                    WHERE h.activo = true AND h.matricula = m AND h.seccionAnterior.id = :seccionId))
+            """)
+    boolean estuvoEnSeccion(@Param("alumnoId") Long alumnoId, @Param("seccionId") Long seccionId);
 
     long countBySeccionIdAndEstadoAndActivoTrue(Long seccionId, EstadoMatricula estado);
 }

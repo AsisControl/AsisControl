@@ -1,18 +1,18 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { ApiError, message } from "@/core/api/client";
-import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, StatusPill, Loading } from "@/shared/ui";
+import { useRouter } from "next/navigation";
+import { api, ApiError, message } from "@/core/api/client";
+import { Feedback, FormDialog, Pager, PanelHeading, RowMenu, Loading } from "@/shared/ui";
 import type { MenuOption } from "@/shared/ui";
 import { countLabel } from "@/shared/lib/formatters";
-import { usePaged } from "@/shared/hooks/use-paged";
+import { EvaluationCells, EvaluationHeaders, stateName } from "./evaluation-cells";
+import { AcademicYearFilter } from "./academic-year-filter";
 import { EvaluationFormDialog } from "./evaluation-form-dialog";
-import { courseOptions, evaluationDate, PERIODS, sectionOptions, STATE_TONES } from "./lib/labels";
-import {
-  cambiarEstadoEvaluacion,
-  eliminarEvaluacion,
-  evaluationsPath,
-} from "./services/evaluation-service";
+import { academicYears, localPage, ofAcademicYear } from "./lib/academic-year";
+import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
+import { cambiarEstadoEvaluacion, eliminarEvaluacion } from "./services/evaluation-service";
 import type { Evaluation, EvaluationState, OwnAssignment } from "./types";
+import { useEvaluationList } from "./use-evaluation-list";
 import styles from "./evaluations.module.css";
 
 type Operation = "PUBLICADA" | "CERRADA" | "ANULADA" | "ELIMINAR";
@@ -20,7 +20,7 @@ const OPERATIONS: Record<Operation, { title: string; detail: string; done: strin
   PUBLICADA: {
     title: "Publicar evaluación",
     detail:
-      "Los niveles quedarán disponibles para la consolidación. Después solo podrán cambiarse con una corrección y su motivo.",
+      "Los resultados quedarán disponibles para la consolidación. Después solo podrán cambiarse con una corrección y su motivo.",
     done: "Evaluación publicada.",
   },
   CERRADA: {
@@ -42,7 +42,7 @@ const OPERATIONS: Record<Operation, { title: string; detail: string; done: strin
   },
 };
 const STATES: EvaluationState[] = ["BORRADOR", "PUBLICADA", "CERRADA", "ANULADA"];
-const stateName = (state: string) => state.charAt(0) + state.slice(1).toLowerCase();
+
 
 /** Pestaña Mis evaluaciones: listado con filtros y ciclo de vida de cada evaluación. */
 export function EvaluationList({
@@ -58,20 +58,35 @@ export function EvaluationList({
   onCloseCreate: () => void;
   onGrade: (evaluation: Evaluation) => void;
 }) {
+  const router = useRouter();
   const [periodo, setPeriodo] = useState("");
   const [idCurso, setIdCurso] = useState("");
   const [idSeccion, setIdSeccion] = useState("");
   const [estado, setEstado] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const list = usePaged<Evaluation>(
-    evaluationsPath({ periodo, idCurso, idSeccion, estado, busqueda: busqueda.trim() }),
+  const [chosenYear, setChosenYear] = useState("");
+  const list = useEvaluationList({ periodo, idCurso, idSeccion, estado, busqueda: busqueda.trim() });
+  const years = academicYears(
+    ...assignments.map((item) => item.anioAcademico),
+    ...list.years,
+    list.activeYear,
   );
+  // Por defecto el año vigente; si no hay ninguno, el más reciente disponible.
+  const year = list.ready ? chosenYear || String(list.activeYear ?? years[0] ?? "") : "";
+  const assignmentsForYear = assignments.filter((item) => String(item.anioAcademico) === year);
+  const pageKey = JSON.stringify([year, periodo, idCurso, idSeccion, estado, busqueda.trim()]);
+  const [page, setPage] = useState(0);
+  const [previousPageKey, setPreviousPageKey] = useState(pageKey);
+  if (previousPageKey !== pageKey) {
+    setPreviousPageKey(pageKey);
+    setPage(0);
+  }
+  const data = list.ready && list.items ? localPage(ofAcademicYear(list.items, year), page) : null;
   const [editing, setEditing] = useState<Evaluation | null>(null);
   const [pending, setPending] = useState<{ evaluation: Evaluation; operation: Operation } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const total = list.data?.totalElements ?? 0;
   // Con la asignación retirada solo se consulta: el backend rechaza cualquier cambio.
   const ownsAssignment = (item: Evaluation) =>
     assignments.some((assignment) => assignment.id === item.idAsignacionCurso);
@@ -94,7 +109,7 @@ export function EvaluationList({
     } catch (e) {
       setError(
         e instanceof ApiError && e.code === "EVALUACION_INCOMPLETA"
-          ? `${e.message}. Completa la planilla con Calificar.`
+          ? `${e.message.replace(/^(Faltan \d+) niveles.*$/i, "$1 notas por registrar")}. Completa la planilla con Calificar.`
           : message(e),
       );
     } finally {
@@ -102,6 +117,17 @@ export function EvaluationList({
     }
   }
   function menu(item: Evaluation): MenuOption[] {
+    if (item.entregaPorConfigurar) return [{
+      label: "Cancelar configuración de entrega",
+      onSelect: async () => {
+        try {
+          await api(`/api/evaluaciones/${item.id}/cancelar-entrega`, { method: "POST" });
+          list.refresh();
+        } catch (e) {
+          setError(message(e));
+        }
+      },
+    }];
     const options: MenuOption[] = [];
     if (item.estado === "BORRADOR") {
       options.push({ label: "Calificar", onSelect: () => onGrade(item) });
@@ -134,6 +160,18 @@ export function EvaluationList({
   return (
     <>
       <div className={`panel ${styles.filters} ${styles.filtersFive}`}>
+        <AcademicYearFilter
+          value={year}
+          years={years}
+          activeYear={list.activeYear}
+          loading={!list.ready}
+          required
+          onChange={(value) => {
+            setChosenYear(value);
+            setIdCurso("");
+            setIdSeccion("");
+          }}
+        />
         <label className="field">
           Período
           <select value={periodo} onChange={(event) => setPeriodo(event.target.value)}>
@@ -155,7 +193,7 @@ export function EvaluationList({
             }}
           >
             <option value="">Todos los cursos</option>
-            {courseOptions(assignments).map(([id, label]) => (
+            {courseOptions(assignmentsForYear).map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
@@ -166,7 +204,7 @@ export function EvaluationList({
           Sección
           <select value={idSeccion} onChange={(event) => setIdSeccion(event.target.value)}>
             <option value="">Todas las secciones</option>
-            {sectionOptions(assignments, idCurso).map(([id, label]) => (
+            {sectionOptions(assignmentsForYear, idCurso).map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
@@ -197,54 +235,39 @@ export function EvaluationList({
       <div className="panel">
         <PanelHeading
           title="Mis evaluaciones"
-          summary={list.data ? countLabel(total, "evaluación", "evaluaciones") : "Evaluaciones de tus cursos"}
+          summary={
+            data ? countLabel(data.totalElements, "evaluación", "evaluaciones") : "Evaluaciones de tus cursos"
+          }
         />
-        <Feedback error={list.error} success={success} />
+        <Feedback error={list.error || list.activeYearError} success={success} />
         {list.loading ? (
           <Loading>Cargando evaluaciones…</Loading>
-        ) : list.data?.content.length ? (
+        ) : data?.content.length ? (
           <div className="user-table-wrap">
-            <table className="user-table">
+            <table className={`user-table ${styles.evaluationTable}`}>
               <thead>
                 <tr>
-                  <th>Evaluación</th>
-                  <th>Curso</th>
-                  <th>Sección</th>
-                  <th>Fecha</th>
-                  <th>Competencias</th>
-                  <th>Estado</th>
+                  <EvaluationHeaders />
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {list.data.content.map((item) => {
+                {data.content.map((item) => {
                   const writable = canWrite && ownsAssignment(item);
-                  const options = writable ? menu(item) : [];
+                  const options = item.idTareaVinculada ? [{
+                    label: "Ver planilla",
+                    onSelect: () => router.push(`/evaluaciones/registro-de-calificaciones/${item.id}`),
+                  }] : writable ? menu(item) : [];
                   return (
                     <tr key={item.id}>
-                      <td data-label="Evaluación">
-                        <strong>{item.titulo}</strong>
-                        <small>{PERIODS[item.periodoEvaluacion]}</small>
-                      </td>
-                      <td data-label="Curso">{item.curso}</td>
-                      <td data-label="Sección">
-                        <strong>{item.seccion}</strong>
-                      </td>
-                      <td data-label="Fecha">{evaluationDate(item.fechaEvaluacion)}</td>
-                      <td data-label="Competencias">
-                        <span className={styles.count}>{item.competencias.length}</span>{" "}
-                        {item.competencias.length === 1 ? "competencia" : "competencias"}
-                      </td>
-                      <td data-label="Estado">
-                        <StatusPill
-                          state={item.estado}
-                          label={stateName(item.estado)}
-                          tone={STATE_TONES[item.estado]}
-                        />
-                      </td>
+                      <EvaluationCells item={item} />
                       <td data-label="Acciones">
                         <div className={styles.actions}>
-                          {writable && item.estado === "BORRADOR" ? (
+                          {item.idTareaVinculada || (writable && item.entregaPorConfigurar) ? (
+                            <button type="button" className={styles.deliveryRowAction} onClick={() => onGrade(item)}>
+                              {item.idTareaVinculada ? "Revisar entregas" : "Configurar entrega"}
+                            </button>
+                          ) : writable && item.estado === "BORRADOR" ? (
                             <button type="button" onClick={() => ask(item, "PUBLICADA")}>
                               Publicar
                             </button>
@@ -269,7 +292,7 @@ export function EvaluationList({
         ) : (
           !list.error && <p className="empty">No hay evaluaciones con estos filtros.</p>
         )}
-        <Pager data={list.data} loading={list.loading} setPage={list.setPage} />
+        <Pager data={data} loading={list.loading} setPage={setPage} />
       </div>
       {(creating || editing) && (
         <EvaluationFormDialog

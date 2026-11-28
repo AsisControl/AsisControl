@@ -13,6 +13,7 @@ import {
   Evaluations,
   ProgressPreview,
   ProgressReports,
+  PublishedEvaluation,
 } from "@/modules/evaluations";
 import { Finance } from "@/modules/finance";
 import { GuardianAttendance, StudentAttendance } from "@/modules/guardian-attendance";
@@ -34,6 +35,12 @@ import {
 /** Segmentos de la URL después de la opción del menú: /administracion/usuarios → ["usuarios"]. */
 type ScreenContext = { user: AuthenticatedUser; subpath: string[] };
 type Screen = (context: ScreenContext) => ReactNode;
+function progressScreen({ user, subpath }: ScreenContext) {
+  const [view, evaluation, student, notice] = subpath;
+  return view === "evaluaciones"
+    ? <PublishedEvaluation key={`${user.id}:${subpath.join("/")}`} evaluation={evaluation} student={student} notice={notice} />
+    : <ProgressReports key={user.id} guardian={user.role === "APODERADO"} />;
+}
 /**
  * Pantalla de cada opción del menú, por rol. Una opción sin pantalla muestra
  * el aviso de módulo pendiente. El backend sigue siendo quien autoriza.
@@ -41,7 +48,7 @@ type Screen = (context: ScreenContext) => ReactNode;
 const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
   ESTUDIANTE: {
     Inicio: ({ user }) => <StudentHome fullName={user.fullName} />,
-    Progreso: ({ user }) => <ProgressReports key={user.id} />,
+    Progreso: progressScreen,
     Tareas: () => <StudentTasks />,
     Horario: () => <StudentSchedule />,
     Asistencia: ({ user }) => <StudentAttendance fullName={user.fullName} />,
@@ -94,6 +101,9 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
       <Academic
         tab={tab}
         canWrite={(user.permissions ?? []).includes("ACADEMICO_ESCRIBIR")}
+        canReadGrades={(user.permissions ?? []).includes("CALIFICACIONES_LEER")}
+        canReadRisk={(user.permissions ?? []).includes("RIESGOS_LEER")}
+        canWriteRisk={(user.permissions ?? []).includes("RIESGOS_ESCRIBIR")}
       />
     ),
     Horarios: ({ user, subpath: [tab] }) => (
@@ -108,9 +118,11 @@ const screens: Partial<Record<UserRole, Record<string, Screen>>> = {
     ),
   },
   APODERADO: {
-    Inicio: () => <GuardianHome />,
+    Inicio: ({ user }) => (
+      <GuardianHome key={user.id} user={user} quickActions={<HomeQuickActions user={user} />} />
+    ),
     Pagos: () => <GuardianPayments />,
-    Progreso: ({ user }) => <ProgressReports key={user.id} guardian />,
+    Progreso: progressScreen,
     Matrícula: ({ user, subpath: [tab] }) => (
       <GuardianEnrollmentPortal
         tab={tab}

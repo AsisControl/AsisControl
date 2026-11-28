@@ -42,7 +42,8 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # La medición de cobertura alarga las pruebas unos minutos.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -56,7 +57,15 @@ jobs:
       - run: npm ci
       - name: Auditar dependencias de producción
         run: npm audit --omit=dev --audit-level=moderate
-      - run: npm test
+      - name: Pruebas y umbral de cobertura
+        run: npm run test:coverage
+      - name: Informe de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-cobertura
+          path: frontend/coverage/
+          retention-days: 7
       - run: npm run lint
       - run: npm run build
         env:

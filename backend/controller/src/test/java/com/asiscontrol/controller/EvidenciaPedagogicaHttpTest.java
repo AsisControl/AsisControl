@@ -46,6 +46,12 @@ class EvidenciaPedagogicaHttpTest extends ApiIntegrationSupport {
 
     @Test
     void registraConsultaFiltraEditaEInactivaSinCopiarLaDescripcionALaAuditoria() throws Exception {
+        String padron = URL + "/asignaciones/" + assignment.getId() + "/estudiantes";
+        mvc.perform(get(padron).with(titular)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(student.getId()));
+        mvc.perform(get(padron).with(docente(person()))).andExpect(status().isForbidden());
+        mvc.perform(get(padron).with(asAdmin())).andExpect(status().isForbidden());
         JsonNode creada = crear(cuerpo("Trabajo privado de estudiante", null), 201);
         long id = creada.path("id").asLong();
         assertThat(creada.path("autorId").asLong()).isEqualTo(teacher.getPersona().getId());

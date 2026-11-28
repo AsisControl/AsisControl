@@ -32,8 +32,12 @@ const toWords = (code: string) =>
     .join(" ");
 const capitalize = (text: string) =>
   text.charAt(0).toUpperCase() + text.slice(1);
+const ACTION_NAMES: Record<string, string> = {
+  ACTUALIZAR_PLAN_ESTUDIOS: "Actualizar plan de estudios",
+  RENOMBRAR_PLAN_ESTUDIOS: "Renombrar plan de estudios",
+};
 /** CREAR_USUARIO → "Crear usuario", CAMBIAR_CONTRASENA → "Cambiar contraseña". */
-export const actionLabel = (action: string) => capitalize(toWords(action));
+export const actionLabel = (action: string) => ACTION_NAMES[action] ?? capitalize(toWords(action));
 export const moduleLabel = (module: string) => capitalize(toWords(module));
 /**
  * Rechazos que registra el manejador global: la acción se arma con el método

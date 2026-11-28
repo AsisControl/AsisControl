@@ -190,11 +190,14 @@ public class RenovacionMatriculaService {
             return rechazar(tramite, "DEUDA_VENCIDA",
                     "El estudiante tiene obligaciones vencidas con importe pendiente.");
         }
-        Seccion destino = secciones.buscarActivaParaActualizar(tramite.getSeccion().getId()).orElse(null);
-        if (destino == null || destino.getAnioAcademico() != tramite.getAnioDestino()
-                || destino.getGrado() != tramite.getGradoDestino() || vacantes(destino) <= 0) {
+        Seccion destino = bloquearSeccionDestino(tramite, request.idSeccion());
+        if (destino == null || vacantes(destino) <= 0) {
+            if (hayVacanteEnElGrado(tramite)) {
+                throw new BusinessRuleException("SECCION_SIN_VACANTES",
+                        "La sección no tiene vacantes. Elige otra sección del mismo grado.");
+            }
             return rechazar(tramite, "SECCION_SIN_VACANTES",
-                    "No hay una vacante disponible en la sección de destino.");
+                    "No hay una vacante disponible en las secciones del grado de destino.");
         }
         configuracion.exigirOferta(tramite.getAnioDestino(), tramite.getGradoDestino(), true);
         verificarDuplicados(tramite.getAlumno().getId(), tramite.getAnioDestino());
@@ -203,14 +206,46 @@ public class RenovacionMatriculaService {
                     "Revisa el plan de pensiones antes de aprobar.");
         }
 
+        String detalleAprobacion = asignarSeccion(tramite, destino);
         SolicitudMatricula soporte = generarSolicitudDeSoporte(tramite, destino);
         var matriculaAprobada = gestionMatricula.crearDesdeRenovacion(
                 new CrearMatriculaRequest(soporte.getId(), soporte.getVersion(), request.firmaPlan()));
         tramite.aprobar(matriculas.getReferenceById(matriculaAprobada.id()), Instant.now());
         renovaciones.saveAndFlush(tramite);
         registrar(tramite, "APROBAR_RENOVACION", ResultadoAuditoria.EXITOSO,
-                EstadoRenovacion.EN_REVISION.name(), "Matrícula generada tras verificar promoción, deuda y vacante.");
+                EstadoRenovacion.EN_REVISION.name(), detalleAprobacion);
         return mapear(tramite);
+    }
+
+    /** Devuelve null si la sección pedida ya no está disponible; una elegida por administración debe ser válida. */
+    private Seccion bloquearSeccionDestino(RenovacionMatricula tramite, Long idSeccionElegida) {
+        Long idSeccion = idSeccionElegida == null ? tramite.getSeccion().getId() : idSeccionElegida;
+        Seccion seccion = secciones.buscarActivaParaActualizar(idSeccion)
+                .filter(candidata -> candidata.getAnioAcademico() == tramite.getAnioDestino()
+                        && candidata.getGrado() == tramite.getGradoDestino())
+                .orElse(null);
+        if (seccion == null && idSeccionElegida != null) {
+            throw new BusinessRuleException("DESTINO_RENOVACION_INVALIDO",
+                    "Selecciona una sección activa del mismo grado y año de la renovación.");
+        }
+        return seccion;
+    }
+
+    private boolean hayVacanteEnElGrado(RenovacionMatricula tramite) {
+        return secciones.findByAnioAcademicoOrderByGradoAscNombreAsc(tramite.getAnioDestino()).stream()
+                .anyMatch(seccion -> seccion.isActivo() && seccion.getGrado() == tramite.getGradoDestino()
+                        && vacantes(seccion) > 0);
+    }
+
+    /** Asigna la sección final y devuelve el detalle que queda en la auditoría. */
+    private String asignarSeccion(RenovacionMatricula tramite, Seccion destino) {
+        String detalle = "Matrícula generada tras verificar promoción, deuda y vacante.";
+        Seccion solicitada = tramite.getSeccion();
+        if (solicitada.getId().equals(destino.getId())) {
+            return detalle;
+        }
+        tramite.setSeccion(destino);
+        return detalle + " Sección solicitada: " + solicitada.getNombre() + "; asignada: " + destino.getNombre() + ".";
     }
 
     private SolicitudMatricula generarSolicitudDeSoporte(RenovacionMatricula tramite, Seccion destino) {

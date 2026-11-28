@@ -13,6 +13,7 @@ const valid = {
   tipoAula: "AULA_REGULAR",
   capacidad: "30",
   ubicacion: "",
+  equipamiento: "",
 };
 test("El código se normaliza como en el servidor", () => {
   assert.equal(v.normalizeClassroomCode("  lab   01 "), "LAB 01");
@@ -48,6 +49,14 @@ test("Ubicación opcional de hasta 180 caracteres", () => {
   assert.equal(v.validateClassroomLocation(""), "");
   assert.equal(v.validateClassroomLocation("a".repeat(180)), "");
   assert.notEqual(v.validateClassroomLocation("a".repeat(181)), "");
+});
+test("Equipamiento opcional de hasta 500 caracteres, sin contar los extremos", () => {
+  assert.equal(v.validateClassroomEquipment(""), "");
+  assert.equal(v.validateClassroomEquipment(`  ${"a".repeat(500)}  `), "");
+  assert.equal(
+    v.validateClassroomEquipment("a".repeat(501)),
+    "El equipamiento no puede superar 500 caracteres.",
+  );
 });
 test("validateClassroom solo devuelve los campos con error", () => {
   assert.deepEqual(v.validateClassroom(valid, { classrooms }), {});

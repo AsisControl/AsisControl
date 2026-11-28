@@ -9,6 +9,10 @@ import {
   RecordSection,
 } from "@/shared/ui";
 import { dateLabel, stateLabel } from "@/shared/lib/formatters";
+import { SectionChangeDialog, type SectionEnrollment } from "@/modules/section-change";
+import { DirectEnrollmentDialog } from "@/modules/direct-enrollment";
+import { StudentEnrollment } from "./student-enrollment";
+import type { DestinationSection } from "./destination-section";
 import { canPerform, changeStudentState } from "./services/student-service";
 import { studentErrorMessage } from "./student-errors";
 import { reasonError, studentName } from "./student-rules";
@@ -26,15 +30,39 @@ export function StudentDetail({
   onClose,
   onEdit,
   onChanged,
+  destination,
 }: {
   student: Student;
   onClose: () => void;
-  onEdit: () => void;
-  onChanged: (student: Student | null) => void;
+  /** Sin onEdit ni onChanged la ficha es solo de consulta. */
+  onEdit?: () => void;
+  onChanged?: (student: Student | null) => void;
+  /** Sección a la que se quiere agregar al estudiante. */
+  destination?: DestinationSection | null;
 }) {
   const [action, setAction] = useState<StudentAction | null>(null);
+  const [moving, setMoving] = useState<SectionEnrollment | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  if (enrolling)
+    return (
+      <DirectEnrollmentDialog
+        student={{ id: student.id, nombre: studentName(student), codigo: student.codigoAlumno }}
+        destination={destination}
+        onClose={() => setEnrolling(false)}
+        onEnrolled={() => setEnrolling(false)}
+      />
+    );
+  if (moving)
+    return (
+      <SectionChangeDialog
+        enrollment={moving}
+        targetSectionId={destination?.id}
+        onClose={() => setMoving(null)}
+        onChanged={() => setMoving(null)}
+      />
+    );
   // La confirmación reemplaza a la ficha mientras está abierta: nunca hay dos ventanas apiladas.
-  if (action)
+  if (action && onChanged)
     return (
       <StateDialog
         key={action}
@@ -65,6 +93,12 @@ export function StudentDetail({
         </RecordItem>
       </dl>
       <PersonSections persona={student.persona} />
+      <StudentEnrollment
+        studentId={student.id}
+        destination={destination}
+        onChangeSection={setMoving}
+        onEnroll={student.activo ? () => setEnrolling(true) : undefined}
+      />
       <RecordSection title="Apoderados" />
       {student.apoderados?.length ? (
         <div className="user-table-wrap">
@@ -102,7 +136,7 @@ export function StudentDetail({
           Cerrar
         </button>
         {(["inactivar", "reactivar", "eliminar"] as const)
-          .filter((item) => canPerform(student, item))
+          .filter((item) => onChanged && canPerform(student, item))
           .map((item) => (
             <button
               key={item}
@@ -113,7 +147,7 @@ export function StudentDetail({
               {STUDENT_ACTION_LABELS[item]}
             </button>
           ))}
-        {student.activo && student.accionesPermitidas?.editar !== false && (
+        {onEdit && student.activo && student.accionesPermitidas?.editar !== false && (
           <button type="button" className="primary-action" onClick={onEdit}>
             Editar ficha
           </button>

@@ -2,4 +2,11 @@
 export { Evaluations } from "./evaluations";
 export { ProgressPreview } from "./progress-preview";
 export { ProgressReports } from "./progress-reports";
+export { PublishedEvaluation } from "./published-evaluation";
 export type { AvailableReport } from "./report-types";
+export type { Evaluation, EvaluationGradingRule } from "./types";
+export { listarEvaluaciones, listarCompetenciasDeAsignacion, obtenerReglaVigente } from "./services/evaluation-service";
+export { evaluationDate, PERIODS } from "./lib/labels";
+export { ReportRoster } from "./academic-report-roster";
+export { ReadPanel } from "./progress-read-panel";
+export { AcademicEvaluationList } from "./academic-evaluation-list";

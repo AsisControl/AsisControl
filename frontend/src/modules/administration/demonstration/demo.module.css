@@ -1,0 +1,29 @@
+.description { color: var(--muted); line-height: 1.6; margin: 0 0 20px; }
+.hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 16px 0 0; }
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.toolbar span { color: var(--muted); font-size: 13px; }
+.hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.files { margin-bottom: 24px; }
+.files summary { cursor: pointer; color: var(--blue); font-size: 14px; font-weight: 600; padding: 8px 0; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
+.file { border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+.file > strong { display: block; font-size: 13px; margin-bottom: 12px; }
+.steps { list-style: none; padding: 0; margin: 20px 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.steps li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 16px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.steps li:last-child { border-bottom: 0; }
+.steps small { color: var(--muted); }
+.steps li[data-state="running"] { background: #eff6ff; }
+.steps li[data-state="running"] small { color: var(--blue); font-weight: 600; }
+.steps li[data-state="done"] small { color: #047857; }
+.steps li[data-state="error"] { background: #fff7f7; }
+.steps li[data-state="error"] small { color: #b91c1c; }
+.stepError { grid-column: 1 / -1; color: #b91c1c; margin: 4px 0 0; white-space: pre-line; line-height: 1.5; overflow-wrap: anywhere; }
+.next { padding: 18px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; margin-top: 20px; }
+.next h4 { margin: 0 0 12px; font-size: 14px; }
+.next ul { padding-left: 20px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.next li + li { margin-top: 8px; }
+@media (max-width: 640px) { .grid { grid-template-columns: minmax(0, 1fr); } .toolbar { align-items: stretch; flex-direction: column; } }
+.sqlPicker { display: grid; gap: .5rem; margin-top: .6rem; }
+.sqlPicker input { max-width: 100%; font: inherit; }
+.sqlPicker small { color: var(--text-muted, #64748b); overflow-wrap: anywhere; }
+.sqlPicker input[aria-invalid="true"] + small { color: #b91c1c; }

@@ -4,10 +4,12 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
 import { Dialog, Feedback, StatusPill } from "@/shared/ui";
 import { dateLabel } from "@/shared/lib/formatters";
-import { EnrollmentPaymentPlanAmounts } from "../enrollment-payment-preview";
+import { EnrollmentPaymentPlanAmounts } from "@/modules/direct-enrollment";
+import type { Section } from "@/modules/academic-config";
 import type { EnrollmentPaymentPlan } from "../types";
-import { approveRenewal, getRenewal, getRenewalPlan, rejectRenewal, type RenewalRecord } from "../services/renewal-service";
+import { approveRenewal, getRenewal, getRenewalPlan, getRenewalSections, rejectRenewal, type RenewalRecord } from "../services/renewal-service";
 import { renewalLabels } from "./renewal-labels";
+import { RenewalSectionField } from "./renewal-section-field";
 
 type Action = "aprobar" | "rechazar" | null;
 
@@ -24,6 +26,8 @@ export function RenewalReviewDialog({ initial, canDecide, onClose, onChanged }: 
   const [success, setSuccess] = useState("");
   const [action, setAction] = useState<Action>(null);
   const [plan, setPlan] = useState<EnrollmentPaymentPlan | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [sectionId, setSectionId] = useState("");
   const [planError, setPlanError] = useState("");
   const [planLoading, setPlanLoading] = useState(false);
   const [reason, setReason] = useState("");
@@ -43,7 +47,11 @@ export function RenewalReviewDialog({ initial, canDecide, onClose, onChanged }: 
     setPlanError("");
     setPlanLoading(true);
     try {
-      setPlan(await getRenewalPlan(record.id));
+      const [nextPlan, nextSections] = await Promise.all([getRenewalPlan(record.id), getRenewalSections(record)]);
+      const requested = nextSections.find((section) => section.id === record.idSeccion && section.vacantes > 0);
+      setSections(nextSections);
+      setSectionId(requested ? String(requested.id) : "");
+      setPlan(nextPlan);
     } catch (error) {
       setPlanError(message(error));
     } finally {
@@ -84,7 +92,7 @@ export function RenewalReviewDialog({ initial, canDecide, onClose, onChanged }: 
     setActionError("");
     try {
       const updated = action === "aprobar"
-        ? await approveRenewal(record, plan?.firmaPlan || undefined)
+        ? await approveRenewal(record, plan?.firmaPlan || undefined, Number(sectionId) || undefined)
         : await rejectRenewal(record, reason.trim());
       setRecord(updated);
       setAction(null);
@@ -98,6 +106,8 @@ export function RenewalReviewDialog({ initial, canDecide, onClose, onChanged }: 
         await refreshDetail();
         onChanged();
         if (action === "aprobar") await loadPlan();
+      } else if (error instanceof ApiError && error.code === "SECCION_SIN_VACANTES") {
+        await loadPlan();
       }
     } finally {
       setBusy(false);
@@ -178,6 +188,15 @@ export function RenewalReviewDialog({ initial, canDecide, onClose, onChanged }: 
                 <p className="dialog-note">
                   {plan.mensaje || "La tarifa del nuevo año aún no está disponible. Puedes verificar las condiciones del trámite. Para aprobarlo, configura primero la tarifa del grado."}
                 </p>
+              )}
+              {plan && (
+                <RenewalSectionField
+                  sections={sections}
+                  requestedId={record.idSeccion}
+                  value={sectionId}
+                  onChange={setSectionId}
+                  disabled={busy}
+                />
               )}
               {plan && <EnrollmentPaymentPlanAmounts plan={plan} />}
               <p>

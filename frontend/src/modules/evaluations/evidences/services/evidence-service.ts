@@ -1,6 +1,4 @@
 import { api } from "@/core/api/client";
-import { listProgressEvaluations } from "../../services/progress-service";
-import { obtenerPlanilla } from "../../services/evaluation-service";
 import type {
   Evidence,
   EvidenceEdit,
@@ -17,6 +15,9 @@ export function crearEvidencia(input: EvidenceInput) {
 export function editarEvidencia(id: number, input: EvidenceEdit) {
   return api<Evidence>(`${EVIDENCIAS_PATH}/${id}`, { method: "PUT", body: JSON.stringify(input) });
 }
+export function vincularEvidencia(id: number, evaluacionId: number) {
+  return api<null>(`${EVIDENCIAS_PATH}/${id}/evaluaciones/${evaluacionId}`, { method: "PUT" });
+}
 export function inactivarEvidencia(id: number) {
   return api<null>(`${EVIDENCIAS_PATH}/${id}`, { method: "DELETE" });
 }
@@ -24,16 +25,8 @@ export function inactivarEvidencia(id: number) {
 export function listarPeriodos(asignacionId: number) {
   return api<EvidencePeriod[]>(`/api/evaluaciones/periodos-informe?idAsignacionCurso=${asignacionId}`);
 }
-/**
- * El backend no tiene un endpoint de estudiantes por asignación. La única fuente propia del
- * docente es la planilla de una evaluación de esa asignación (solo matrículas activas).
- * Devuelve `null` cuando aún no hay ninguna evaluación de la cual obtenerlos.
- */
-export async function listarEstudiantes(asignacionId: number): Promise<EvidenceStudent[] | null> {
-  const [evaluation] = await listProgressEvaluations(asignacionId);
-  if (!evaluation) return null;
-  const sheet = await obtenerPlanilla(evaluation.id);
-  return sheet.alumnos.map((item) => ({ id: item.idAlumno, nombre: item.nombreCompleto }));
+export function listarEstudiantes(asignacionId: number) {
+  return api<EvidenceStudent[]>(`${EVIDENCIAS_PATH}/asignaciones/${asignacionId}/estudiantes`);
 }
 /** Filtros del listado; usePaged los agrega tras page y size. */
 export function evidenceFilters(filters: {

@@ -5,12 +5,16 @@ import com.asiscontrol.service.ModuloAccessGuard;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.AsistenciaDocenteResponse;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.ClaseDiaDocenteResponse;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.CodigoQRResponse;
+import com.asiscontrol.dto.asistencia.AsistenciaDtos.CorreccionMarcacionDocenteResponse;
+import com.asiscontrol.dto.asistencia.AsistenciaDtos.CorregirMarcacionDocenteRequest;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.EmitirCodigoQRRequest;
+import com.asiscontrol.dto.asistencia.AsistenciaDtos.HistorialMarcacionDocenteResponse;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.RegistrarContingenciaRequest;
 import com.asiscontrol.dto.asistencia.AsistenciaDtos.ResumenMarcacionResponse;
 import com.asiscontrol.entity.AsistenciaDocente;
 import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.CodigoQRAsistencia;
+import com.asiscontrol.entity.CorreccionAsistenciaDocente;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.enums.EstadoAsistencia;
 import com.asiscontrol.entity.enums.EstadoCodigoQR;
@@ -23,14 +27,17 @@ import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AsistenciaDocenteRepository;
 import com.asiscontrol.repository.CodigoQRAsistenciaRepository;
+import com.asiscontrol.repository.CorreccionAsistenciaDocenteRepository;
 import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.asistencia.SesionClaseRepository;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -43,6 +50,7 @@ import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Base64;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -56,6 +64,7 @@ public class AsistenciaDocenteService {
     private final EntityManager entityManager;
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
+    private final CorreccionAsistenciaDocenteRepository correcciones;
     private final SecureRandom secureRandom = new SecureRandom();
     private final int vigenciaPredeterminadaSegundos;
 
@@ -68,6 +77,7 @@ public class AsistenciaDocenteService {
             EntityManager entityManager,
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria,
+            CorreccionAsistenciaDocenteRepository correcciones,
             @Value("${app.asistencia.qr-vigencia-segundos:120}") int vigenciaPredeterminadaSegundos) {
         this.asistenciaRepository = asistenciaRepository;
         this.codigoRepository = codigoRepository;
@@ -77,6 +87,7 @@ public class AsistenciaDocenteService {
         this.entityManager = entityManager;
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
+        this.correcciones = correcciones;
         this.vigenciaPredeterminadaSegundos = vigenciaPredeterminadaSegundos;
     }
 
@@ -127,7 +138,7 @@ public class AsistenciaDocenteService {
      * El docente que escanea el código es quien marca: se identifica por su sesión y no por el
      * código, que es el mismo para todos mientras esté vigente.
      */
-    @Transactional(noRollbackFor = BusinessRuleException.class)
+    @Transactional(noRollbackFor = BusinessRuleException.class, isolation = Isolation.READ_COMMITTED)
     public AsistenciaDocenteResponse marcarConToken(String token) {
         CodigoQRAsistencia codigo = codigoRepository.findLockedByTokenHashAndActivoTrue(hashToken(token))
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -143,16 +154,9 @@ public class AsistenciaDocenteService {
 
         LocalDateTime ahora = LocalDateTime.now(reloj);
         LocalDate jornada = ahora.toLocalDate();
-        if (asistenciaRepository.existsByDocenteIdAndFechaJornadaAndActivoTrue(docente.getId(), jornada)) {
-            throw new ConflictException(
-                    "ASISTENCIA_DOCENTE_DUPLICADA", "El docente ya registró asistencia para la jornada actual");
-        }
-
-        var sesiones = sesionRepository
-                .findAllByAsignacionCursoDocenteIdAndFechaAndActivoTrueOrderByHoraInicioAsc(docente.getId(), jornada);
-        var ventana = asistenciaRepository.buscarJornada(docente.getId(), jornada)
-                .map(j -> new VentanaMarcacionDocente(j.getApertura(), j.getLimitePuntualidad(), j.getCierre()))
-                .orElseGet(() -> VentanaMarcacionDocente.de(sesiones));
+        bloquearMarcacionDisponible(docente, jornada);
+        var ventana = ventanaMarcacion(docente.getId(), jornada)
+                .orElseGet(() -> VentanaMarcacionDocente.de(List.of()));
         EstadoAsistencia estado = ventana.clasificar(ahora);
         AsistenciaDocente asistencia = new AsistenciaDocente();
         asistencia.setDocente(docente);
@@ -174,9 +178,9 @@ public class AsistenciaDocenteService {
         return response;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public AsistenciaDocenteResponse registrarContingencia(RegistrarContingenciaRequest request) {
-        if (request.fechaJornada().isAfter(LocalDate.now())) {
+        if (request.fechaJornada().isAfter(LocalDate.now(reloj))) {
             throw new BusinessRuleException(
                     "ASISTENCIA_FECHA_FUTURA", "No se puede registrar una contingencia en una fecha futura");
         }
@@ -186,23 +190,20 @@ public class AsistenciaDocenteService {
         }
         if (request.fechaHoraMarcada() != null
                 && (!request.fechaHoraMarcada().toLocalDate().equals(request.fechaJornada())
-                || request.fechaHoraMarcada().isAfter(LocalDateTime.now()))) {
+                || request.fechaHoraMarcada().isAfter(LocalDateTime.now(reloj)))) {
             throw new BusinessRuleException(
                     "CONTINGENCIA_FECHA_HORA_INVALIDA",
                     "La fecha y hora de marcación debe pertenecer a la jornada y no estar en el futuro");
         }
         Docente docente = buscarActivo(Docente.class, request.docenteId(), "DOCENTE_NO_ENCONTRADO", "docente");
         accessGuard.verificarDocentePropietario(docente);
-        if (asistenciaRepository.existsByDocenteIdAndFechaJornadaAndActivoTrue(docente.getId(), request.fechaJornada())) {
-            throw new ConflictException(
-                    "ASISTENCIA_DOCENTE_DUPLICADA", "El docente ya tiene asistencia para la jornada indicada");
-        }
+        bloquearMarcacionDisponible(docente, request.fechaJornada());
 
         AsistenciaDocente asistencia = new AsistenciaDocente();
         asistencia.setDocente(docente);
         asistencia.setFechaJornada(request.fechaJornada());
         asistencia.setFechaHoraMarcada(request.fechaHoraMarcada() == null
-                ? LocalDateTime.now()
+                ? LocalDateTime.now(reloj)
                 : request.fechaHoraMarcada());
         asistencia.setEstado(request.estado());
         asistencia.setContingencia(true);
@@ -213,6 +214,116 @@ public class AsistenciaDocenteService {
                 response.id().toString(), ResultadoAuditoria.EXITOSO, null, null,
                 "docente=" + docente.getId() + ",estado=" + request.estado() + ",motivo=" + request.motivo().trim());
         return response;
+    }
+
+    /**
+     * correccion marcacion docente (US-32): el administrador corrige la hora o el estado de una marcación
+     * existente con motivo. Se guarda el valor anterior; el reporte lee la marcación, así que se actualiza solo.
+     * Si solo cambia la hora, el estado se recalcula con la ventana de puntualidad guardada.
+     */
+    @Transactional
+    public AsistenciaDocenteResponse corregir(Long asistenciaId, CorregirMarcacionDocenteRequest request) {
+        AsistenciaDocente asistencia = buscarActivo(
+                AsistenciaDocente.class, asistenciaId, "ASISTENCIA_DOCENTE_NO_ENCONTRADA", "marcación docente");
+        if (asistencia.getVersion() != request.version()) {
+            throw new ConflictException(
+                    "VERSION_DESACTUALIZADA", "La marcación fue modificada en otra pantalla; vuelva a cargarla");
+        }
+        if (request.hora() == null && request.estado() == null) {
+            throw new BusinessRuleException("CORRECCION_SIN_CAMBIO", "Indique la nueva hora o el nuevo estado");
+        }
+        if (request.estado() != null && request.estado() != EstadoAsistencia.PRESENTE
+                && request.estado() != EstadoAsistencia.TARDANZA && request.estado() != EstadoAsistencia.INASISTENCIA) {
+            throw new BusinessRuleException("CORRECCION_ESTADO_INVALIDO",
+                    "La marcación solo puede corregirse a Presente, Tardanza o Inasistencia", "estado");
+        }
+        LocalDateTime horaAnterior = asistencia.getFechaHoraMarcada();
+        EstadoAsistencia estadoAnterior = asistencia.getEstado();
+        LocalDateTime horaNueva = request.hora() == null
+                ? horaAnterior
+                : asistencia.getFechaJornada().atTime(request.hora().withNano(0));
+        if (horaNueva.isAfter(LocalDateTime.now(reloj))) {
+            throw new BusinessRuleException(
+                    "CORRECCION_HORA_FUTURA", "La hora corregida no puede estar en el futuro", "hora");
+        }
+        EstadoAsistencia estadoNuevo = request.estado() != null ? request.estado()
+                : horaNueva.equals(horaAnterior) ? estadoAnterior
+                : horaNueva.isAfter(limitePuntualidad(asistencia)) ? EstadoAsistencia.TARDANZA
+                : EstadoAsistencia.PRESENTE;
+        if (horaNueva.equals(horaAnterior) && estadoNuevo == estadoAnterior) {
+            throw new BusinessRuleException(
+                    "CORRECCION_SIN_CAMBIO", "Los valores coinciden con la marcación vigente; no hay nada que corregir");
+        }
+        String motivo = request.motivo().trim();
+        asistencia.setFechaHoraMarcada(horaNueva);
+        asistencia.setEstado(estadoNuevo);
+        cruzarConSesion(asistencia);
+        asistenciaRepository.saveAndFlush(asistencia);
+
+        var correccion = new CorreccionAsistenciaDocente();
+        correccion.setAsistenciaDocente(asistencia);
+        correccion.setHoraAnterior(horaAnterior);
+        correccion.setHoraNueva(horaNueva);
+        correccion.setEstadoAnterior(estadoAnterior);
+        correccion.setEstadoNuevo(estadoNuevo);
+        correccion.setMotivo(motivo);
+        correccion.setActorIdentificador(accessGuard.identificadorActual());
+        correccion.setActorNombre(accessGuard.nombrePersonaActual());
+        correccion.setFechaHora(LocalDateTime.now(reloj));
+        correcciones.save(correccion);
+        auditoria.registrar("CORREGIR_ASISTENCIA_DOCENTE", ModuloAuditoria.ASISTENCIA, "AsistenciaDocente",
+                asistenciaId.toString(), ResultadoAuditoria.EXITOSO, motivo,
+                "hora=" + horaAnterior + ",estado=" + estadoAnterior, "hora=" + horaNueva + ",estado=" + estadoNuevo);
+        return mapResponse(asistencia);
+    }
+
+    /**
+     * Límite de puntualidad para recalcular el estado: el guardado en la marcación; si no lo tiene
+     * (contingencias y marcaciones anteriores), el de la jornada o el de las clases programadas ese día.
+     */
+    private LocalDateTime limitePuntualidad(AsistenciaDocente asistencia) {
+        if (asistencia.getLimitePuntualidad() != null) return asistencia.getLimitePuntualidad();
+        return ventanaMarcacion(asistencia.getDocente().getId(), asistencia.getFechaJornada())
+                .map(VentanaMarcacionDocente::limitePuntualidad)
+                .orElseThrow(() -> new BusinessRuleException("CORRECCION_ESTADO_REQUERIDO",
+                        "El docente no tenía clases programadas ese día; elige el estado de la marcación", "estado"));
+    }
+
+    /** La marcación vigente y sus correcciones, de la más reciente a la más antigua. */
+    public HistorialMarcacionDocenteResponse correcciones(Long asistenciaId) {
+        var asistencia = buscarActivo(
+                AsistenciaDocente.class, asistenciaId, "ASISTENCIA_DOCENTE_NO_ENCONTRADA", "marcación docente");
+        return new HistorialMarcacionDocenteResponse(mapResponse(asistencia),
+                correcciones.findAllByAsistenciaDocenteIdOrderByFechaHoraDescIdDesc(asistenciaId).stream()
+                .map(c -> new CorreccionMarcacionDocenteResponse(c.getId(), c.getHoraAnterior(), c.getHoraNueva(),
+                        c.getEstadoAnterior(), c.getEstadoNuevo(), c.getMotivo(),
+                        c.getActorNombre() == null ? c.getActorIdentificador() : c.getActorNombre(), c.getFechaHora()))
+                .toList());
+    }
+
+    void bloquearMarcacionDisponible(Docente docente, LocalDate jornada) {
+        entityManager.refresh(docente, LockModeType.PESSIMISTIC_WRITE);
+        if (!docente.isActivo() || !docente.getPersona().isActivo()) {
+            throw new BusinessRuleException("DOCENTE_INACTIVO", "La ficha del docente ya no está activa.");
+        }
+        if (asistenciaRepository.existsByDocenteIdAndFechaJornadaAndActivoTrue(docente.getId(), jornada)) {
+            throw new ConflictException("ASISTENCIA_DOCENTE_DUPLICADA", "El docente ya tiene asistencia para la jornada indicada");
+        }
+    }
+
+    EstadoAsistencia sugerirEstadoContingencia(Long docenteId, LocalDateTime hora) {
+        return ventanaMarcacion(docenteId, hora.toLocalDate())
+                .map(ventana -> ventana.clasificarPuntualidad(hora)).orElse(null);
+    }
+
+    private Optional<VentanaMarcacionDocente> ventanaMarcacion(Long docenteId, LocalDate jornada) {
+        return asistenciaRepository.buscarJornada(docenteId, jornada)
+                .map(j -> new VentanaMarcacionDocente(j.getApertura(), j.getLimitePuntualidad(), j.getCierre()))
+                .or(() -> {
+                    var sesiones = sesionRepository.findAllByAsignacionCursoDocenteIdAndFechaAndActivoTrueOrderByHoraInicioAsc(
+                            docenteId, jornada);
+                    return sesiones.isEmpty() ? Optional.empty() : Optional.of(VentanaMarcacionDocente.de(sesiones));
+                });
     }
 
     public Page<AsistenciaDocenteResponse> listar(
@@ -258,7 +369,7 @@ public class AsistenciaDocenteService {
                 .stream()
                 .map(sesion -> new ClaseDiaDocenteResponse(
                         sesion.getId(),
-                        sesion.getAsignacionCurso().getCurso().getNombre(),
+                        sesion.getAsignacionCurso().nombreCurso(),
                         sesion.getAsignacionCurso().getSeccion().getGrado() + "° "
                                 + sesion.getAsignacionCurso().getSeccion().getNombre(),
                         sesion.getHoraInicio(),
@@ -267,7 +378,7 @@ public class AsistenciaDocenteService {
                 .toList();
     }
 
-    private Docente docenteDeLaSesion() {
+    Docente docenteDeLaSesion() {
         Long personaId = accessGuard.restriccionDocentePersonaId();
         if (personaId == null) {
             throw new BusinessRuleException(

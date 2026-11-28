@@ -13,9 +13,23 @@
 .taskHeader h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.4; color: var(--ink); }
 .taskHeader p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
 .taskHeader small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
-.grade { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 18px 0; font-size: 14px; }
-.grade strong { color: var(--blue); }
-.teacherComment { margin: 0 0 20px; font-size: 14px; line-height: 1.6; }
+.grade, .teacherComment, .deliveredWork { border: 1px solid var(--border); border-radius: .65rem; padding: .8rem 1rem; margin: .75rem 0; font-size: .875rem; }
+.grade { border-inline-start: .2rem solid var(--blue); }
+.gradeHeading { display: flex; align-items: center; gap: .7rem; }
+.gradeHeading h4, .grade > p, .deliveredWork h3 { margin: 0; }
+.grade > p { margin-top: .35rem; color: var(--muted); }
+.gradeLevel, .taskGradeSummary { display: inline-flex; width: fit-content; align-items: center; padding: .2rem .5rem; border-radius: .4rem; background: #eff6ff; color: var(--blue); font-weight: 600; }
+.gradeResults { list-style: none; margin: .55rem 0 0; padding: 0; }
+.gradeResults li { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem .6rem; padding: .35rem 0; }
+.gradeResults li + li { border-top: 1px solid var(--border); }
+.gradeResults small { color: var(--muted); }
+.teacherComment { background: var(--surface-alt, #f8fafc); line-height: 1.6; }
+.deliveredWork .deliveryMeta { margin-top: .35rem; }
+.deliveredFiles { margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--border); }
+.deliveredFiles h4 { margin: 0; }
+.taskStatusStack { display: grid; justify-items: start; gap: .35rem; }
+.taskGradeList { display: flex; flex-wrap: wrap; gap: .25rem; list-style: none; margin: 0; padding: 0; }
+.taskGradeSummary { font-size: .75rem; line-height: 1.3; }
 .teacherComment h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
 .teacherComment p { margin: 0; }
 .deliveryMeta { color: var(--muted); font-size: 13px; }
@@ -218,3 +232,27 @@
     width: auto;
   }
 }
+.taskInstructions { margin-block: .85rem; padding: .65rem .85rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
+.taskInstructions :is(h4, p) { margin: 0; }
+.taskInstructions h4 { margin-bottom: .3rem; }
+.filePicker input { max-inline-size: 100%; min-inline-size: 0; }
+.taskMaterial {
+  border: 1px solid var(--border);
+  border-radius: .75rem;
+  padding: .75rem;
+  overflow-wrap: anywhere;
+}
+
+.taskMaterial h3 { margin: 0 0 .5rem; font-size: .9rem; }
+.taskMaterial { margin-block-end: .85rem; }
+.taskMaterial + .editForm { padding-top: .35rem; }
+.fileDescription { display: flex; align-items: flex-start; gap: .6rem; }
+.fileDescription > span:last-child { min-width: 0; }
+.fileDescription strong, .fileDescription small { display: block; overflow-wrap: anywhere; }
+.fileIcon { flex: none; color: var(--blue); font-size: 1.125rem; }
+.selectedFile { padding: .65rem .75rem; border: 1px solid var(--border); border-radius: .5rem; }
+.filePicker { position: relative; gap: .5rem; padding: .85rem; }
+.filePicker input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; }
+.filePicker label { padding: .45rem .65rem; border: 1px solid var(--border); border-radius: .45rem; background: var(--surface, white); cursor: pointer; }
+.filePicker input:focus-visible + label { outline: 2px solid var(--blue); outline-offset: 2px; }
+.filePicker input:disabled + label { opacity: .6; cursor: default; }

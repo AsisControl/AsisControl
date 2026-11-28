@@ -5,7 +5,7 @@ import type { ScheduleHistoryEntry, ScheduleHistoryField, WeekDay } from "../typ
 const ACTIONS: Record<string, { label: string; tone: StatusTone }> = {
   CREAR_HORARIO: { label: "Bloque creado", tone: "success" },
   ACTUALIZAR_HORARIO: { label: "Bloque editado", tone: "info" },
-  ELIMINAR_HORARIO: { label: "Bloque eliminado", tone: "danger" },
+  ELIMINAR_HORARIO: { label: "Bloque retirado", tone: "danger" },
   CREAR_ASIGNACION_CURSO: { label: "Docente asignado", tone: "success" },
   REACTIVAR_ASIGNACION_CURSO: { label: "Asignación reactivada", tone: "success" },
   ACTUALIZAR_ASIGNACION_CURSO: { label: "Asignación editada", tone: "info" },

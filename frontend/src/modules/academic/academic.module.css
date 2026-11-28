@@ -111,3 +111,46 @@
   justify-content: center;
   width: 28px;
 }
+.importTemplate {
+  margin-bottom: 16px;
+}
+.importTemplate button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.importResult {
+  margin-top: 12px;
+}
+.importResult p {
+  margin: 0;
+}
+.courseFilters {
+  margin-bottom: 16px;
+}
+.courseFilterFields {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto;
+}
+.courseFilterFields label {
+  margin: 0;
+}
+.courseFilterFields button {
+  min-height: 40px;
+}
+.courseFilters p {
+  margin: 6px 0 0;
+}
+@media (max-width: 700px) {
+  .courseFilterFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .courseFilterFields label:first-child {
+    grid-column: 1 / -1;
+  }
+  .courseFilterFields button {
+    justify-self: start;
+  }
+}

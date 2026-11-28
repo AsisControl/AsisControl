@@ -30,12 +30,22 @@ const promotion = {
   anioAnterior: 2026, gradoAnterior: 1, promocion: null, motivo: null, version: 5,
 };
 
+const destinationYear = (vacancies = {}) => ({
+  id: 8, anio: 2027,
+  secciones: [
+    { id: 30, nombre: "B", grado: 2, activo: true, vacantes: vacancies[30] ?? 4 },
+    { id: 31, nombre: "C", grado: 2, activo: true, vacantes: vacancies[31] ?? 0 },
+    { id: 32, nombre: "D", grado: 3, activo: true, vacantes: 9 },
+  ],
+});
+
 function backend(routes = {}) {
   return fakeBackend({
     "GET /api/renovaciones": page([record()]),
     "GET /api/renovaciones/opciones": [option],
     "GET /api/renovaciones/19": record(),
     "GET /api/renovaciones/19/plan": paymentPlan(),
+    "GET /api/configuracion-academica/anios/:anio": destinationYear(),
     "GET /api/renovaciones/promociones": page([promotion]),
     "GET /api/familia/estudiantes": [],
     "GET /api/familia/oferta": [],
@@ -149,7 +159,7 @@ test("El administrador revisa las pensiones y aprueba con la firma del plan", as
   expect(await within(detail).findByText(/Renovación aprobada/)).toBeTruthy();
   expect(within(detail).getByText("Aprobada")).toBeTruthy();
   expect(calls.find((call) => call.method === "POST")).toMatchObject({
-    path: "/api/renovaciones/19/aprobar", body: { version: 3, firmaPlan: "plan-v2" },
+    path: "/api/renovaciones/19/aprobar", body: { version: 3, firmaPlan: "plan-v2", idSeccion: 30 },
   });
 });
 
@@ -174,6 +184,44 @@ test.each([
   expect(await within(detail).findByText(motivo)).toBeTruthy();
   expect(within(detail).getByText("Rechazada")).toBeTruthy();
   expect(within(detail).queryByRole("button", { name: "Revisar y aprobar" })).toBeNull();
+});
+
+test("Si la sección solicitada se llenó, el administrador aprueba en otra del mismo grado", async () => {
+  const calls = backend({
+    "GET /api/configuracion-academica/anios/:anio": destinationYear({ 30: 0, 31: 2 }),
+    "POST /api/renovaciones/19/aprobar": record({ estado: "APROBADA", idSeccion: 31, seccion: "C", idMatricula: 140 }),
+  });
+  const user = userEvent.setup();
+  render(<AdminScreen />);
+  await user.click(await screen.findByRole("button", { name: "Revisar trámite" }));
+  const detail = screen.getByRole("dialog");
+  await user.click(await within(detail).findByRole("button", { name: "Revisar y aprobar" }));
+  expect(await within(detail).findByText(/ya no tiene vacantes. Elige otra/)).toBeTruthy();
+  const section = within(detail).getByLabelText(/Sección asignada/);
+  expect(section.value).toBe("");
+  expect([...section.options].map((option) => option.disabled)).toEqual([true, true, false]);
+  await user.click(within(detail).getByRole("button", { name: "Confirmar revisión" }));
+  expect(calls.some((call) => call.method === "POST")).toBe(false);
+  await user.selectOptions(section, "31");
+  await user.click(within(detail).getByRole("button", { name: "Confirmar revisión" }));
+  await within(detail).findByText(/Renovación aprobada/);
+  expect(calls.find((call) => call.method === "POST").body.idSeccion).toBe(31);
+});
+
+test("Sin vacantes en el grado avisa que la renovación se rechazará", async () => {
+  const calls = backend({
+    "GET /api/configuracion-academica/anios/:anio": destinationYear({ 30: 0 }),
+    "POST /api/renovaciones/19/aprobar": record({ estado: "RECHAZADA", codigoMotivo: "SECCION_SIN_VACANTES", motivo: "Sin cupo." }),
+  });
+  const user = userEvent.setup();
+  render(<AdminScreen />);
+  await user.click(await screen.findByRole("button", { name: "Revisar trámite" }));
+  const detail = screen.getByRole("dialog");
+  await user.click(await within(detail).findByRole("button", { name: "Revisar y aprobar" }));
+  expect(await within(detail).findByText(/Al confirmar, la renovación se rechazará/)).toBeTruthy();
+  await user.click(within(detail).getByRole("button", { name: "Confirmar revisión" }));
+  expect(await within(detail).findByText("Sin cupo.")).toBeTruthy();
+  expect(calls.find((call) => call.method === "POST").body.idSeccion).toBeUndefined();
 });
 
 test("Al cambiar la tarifa exige una segunda revisión antes de volver a aprobar", async () => {
@@ -295,5 +343,5 @@ test("Administración recupera el trámite y conserva la revisión si todavía f
   await user.click(within(dialog).getByRole("button", { name: "Confirmar revisión" }));
   expect(await within(dialog).findByRole("alert")).toHaveProperty("textContent", "Revisa el plan de pensiones antes de aprobar.");
   expect(within(dialog).getByText("En revisión")).toBeTruthy();
-  expect(calls.find((call) => call.method === "POST").body).toEqual({ version: 3 });
+  expect(calls.find((call) => call.method === "POST").body).toEqual({ version: 3, idSeccion: 30 });
 });

@@ -30,6 +30,7 @@ class ReporteAsistenciaHttpTest extends ApiIntegrationSupport {
         a.setFechaRegistro(s.getFecha()); a.setHoraRegistro(LocalTime.of(9, 1)); a.setEstadoAsistencia(estado); em.persist(a); return a;
     }
     @Test void losTotalesUsanTodoElFiltroYElDetalleRespetaEstadoYPaginacion() throws Exception {
+        grade.getCursosPlan().put(course, new CursoEnPlan("Matemática y razonamiento", 4));
         asistencia(0, EstadoAsistencia.PRESENTE, EstadoSesionClase.TOMADA);
         asistencia(1, EstadoAsistencia.TARDANZA_JUSTIFICADA, EstadoSesionClase.TOMADA);
         asistencia(2, EstadoAsistencia.INASISTENCIA, EstadoSesionClase.TOMADA);
@@ -38,6 +39,7 @@ class ReporteAsistenciaHttpTest extends ApiIntegrationSupport {
         var r = getOk(REPORT+"ESTUDIANTES&tamano=1&seccionId="+section.getId());
         assertThat(r.path("total").asLong()).isEqualTo(3);
         assertThat(r.path("registros")).hasSize(1);
+        assertThat(r.path("registros").get(0).path("curso").asText()).isEqualTo("Matemática y razonamiento");
         assertThat(r.path("indicadores").get(1).path("porcentaje").asDouble()).isEqualTo(33.33);
         var detalle = getOk(REPORT+"ESTUDIANTES&estado=TARDANZA");
         assertThat(detalle.path("total").asLong()).isEqualTo(3);

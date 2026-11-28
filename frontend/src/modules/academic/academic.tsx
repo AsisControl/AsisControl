@@ -5,13 +5,16 @@ import { PageHeader, TabNav, type TabItem } from "@/shared/ui";
 import { AssociationsPanel } from "./associations/associations-panel";
 import { CompetenciesPanel } from "./competencies/competencies-panel";
 import { CoursesPanel } from "./courses/courses-panel";
+import { GradingRulesPanel } from "./grading-rules/grading-rules-panel";
+import { AcademicCoursePanel } from "./academic-course-panel";
+import { RiskPanel } from "./risk/risk-panel";
 import { StudyPlansPanel } from "./study-plans-panel";
 /** Pestañas de Gestión Curricular en el orden del prototipo; la URL es /academico/{id}. */
 const tabs: TabItem[] = [
   { id: "cursos", label: "Cursos" },
   { id: "plan-estudios", label: "Plan de estudios" },
   { id: "competencias", label: "Competencias" },
-  { id: "asociaciones", label: "Asociaciones" },
+  { id: "asociaciones", label: "Competencias base" },
   { id: "reglas-academicas", label: "Reglas académicas" },
   { id: "estudiantes-en-riesgo", label: "Estudiantes en riesgo" },
   { id: "evaluaciones", label: "Evaluaciones" },
@@ -19,10 +22,13 @@ const tabs: TabItem[] = [
 ];
 /** Pestañas con pantalla; las demás muestran el aviso de pendiente. */
 const panels: Record<string, (canWrite: boolean) => ReactNode> = {
+  reportes: () => <AcademicCoursePanel key="reportes" tab="reportes" />,
+  evaluaciones: () => <AcademicCoursePanel key="evaluaciones" tab="evaluaciones" />,
   cursos: (canWrite) => <CoursesPanel canWrite={canWrite} />,
   "plan-estudios": (canWrite) => <StudyPlansPanel canWrite={canWrite} />,
   competencias: (canWrite) => <CompetenciesPanel canWrite={canWrite} />,
   asociaciones: (canWrite) => <AssociationsPanel canWrite={canWrite} />,
+  "reglas-academicas": (canWrite) => <GradingRulesPanel canWrite={canWrite} />,
 };
 export const ACADEMIC_PATH = "/academico";
 const DEFAULT_TAB = "cursos";
@@ -30,13 +36,20 @@ const DEFAULT_TAB = "cursos";
 export function Academic({
   tab = DEFAULT_TAB,
   canWrite,
+  canReadGrades = false,
+  canReadRisk = false,
+  canWriteRisk = false,
 }: {
   tab?: string;
   /** Permiso ACADEMICO_ESCRIBIR: sin él la pantalla es de solo consulta. */
   canWrite: boolean;
+  canReadGrades?: boolean;
+  canReadRisk?: boolean;
+  canWriteRisk?: boolean;
 }) {
   const router = useRouter();
-  const current = tabs.find((item) => item.id === tab);
+  const availableTabs = tabs.filter(({ id }) => (id !== "estudiantes-en-riesgo" || canReadRisk) && (!["reportes", "evaluaciones"].includes(id) || canReadGrades));
+  const current = availableTabs.find((item) => item.id === tab);
   useEffect(() => {
     if (!current) router.replace(`${ACADEMIC_PATH}/${DEFAULT_TAB}`);
   }, [current, router]);
@@ -45,15 +58,17 @@ export function Academic({
     <section>
       <PageHeader
         title="Gestión Curricular"
-        description="Cursos, competencias, asociaciones y reglas académicas"
+        description="Cursos, planes de estudios, competencias y reglas académicas"
       />
       <TabNav
         label="Secciones de gestión curricular"
-        tabs={tabs}
+        tabs={availableTabs}
         current={current.id}
         onSelect={(id) => router.push(`${ACADEMIC_PATH}/${id}`)}
       />
-      {panels[current.id] ? (
+      {current.id === "estudiantes-en-riesgo" ? (
+        <RiskPanel canWrite={canWriteRisk} />
+      ) : panels[current.id] ? (
         panels[current.id](canWrite)
       ) : (
         <article className="role-message">

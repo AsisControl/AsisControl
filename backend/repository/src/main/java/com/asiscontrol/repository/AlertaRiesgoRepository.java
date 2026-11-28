@@ -5,6 +5,7 @@ import com.asiscontrol.entity.enums.EstadoAlerta;
 import com.asiscontrol.entity.enums.NivelRiesgo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,6 +28,7 @@ public interface AlertaRiesgoRepository extends JpaRepository<AlertaRiesgo, Long
             Collection<EstadoAlerta> estados
     );
 
+    @EntityGraph(attributePaths = {"alumno.persona", "criterio"})
     @Query("""
             SELECT a FROM AlertaRiesgo a
             WHERE a.activo = true

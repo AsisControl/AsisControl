@@ -1,7 +1,9 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.CursoCompetencia;
+import com.asiscontrol.entity.GradoAcademico;
 import com.asiscontrol.entity.Tarea;
+import com.asiscontrol.entity.planificacion.AnioAcademico;
 import org.junit.jupiter.api.Test;
 import java.time.*;
 import java.util.*;
@@ -30,13 +32,40 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         request("GET",cp,null,404);
     }
 
+    @Test void buscaUnCursoPorSuOrigenOSusPlanesSinMezclarAnioYGrado() throws Exception {
+        var siguiente = new AnioAcademico();
+        siguiente.setAnio(2091);
+        siguiente.setFechaInicio(LocalDate.of(2091, 3, 1));
+        siguiente.setFechaFin(LocalDate.of(2091, 12, 31));
+        em.persist(siguiente);
+        var destino = new GradoAcademico();
+        destino.setAnioAcademico(siguiente);
+        destino.setNumero(2);
+        destino.setCapacidadDefault(30);
+        destino.setPlanDefinido(true);
+        destino.incluirCurso(course);
+        em.persist(destino);
+        em.flush();
+
+        var anios = getOk("/api/cursos/anios");
+        assertThat(anios.get(0).asInt()).isEqualTo(2091);
+        assertThat(anios.get(1).asInt()).isEqualTo(2090);
+        String listado = "/api/cursos?busqueda=" + course.getCodigo();
+        assertThat(getOk(listado + "&anio=2090&grado=1&incluirPlanes=true").path("content").findValues("id")).hasSize(1);
+        assertThat(getOk(listado + "&anio=2091&grado=2&incluirPlanes=true").path("content").get(0)
+                .path("id").asLong()).isEqualTo(course.getId());
+        assertThat(getOk(listado + "&anio=2091&grado=2").path("content")).isEmpty();
+        assertThat(getOk(listado + "&anio=2091&grado=1&incluirPlanes=true").path("content")).isEmpty();
+        assertThat(getOk(listado + "&grado=2&incluirPlanes=true").path("content").findValues("id")).hasSize(1);
+    }
+
     @Test void asignaDocenteYAulaValidaCapacidadYEvitaCrucesDeHorario() throws Exception {
         var aula = postOk("/api/aulas",data("codigo","A-101","nombre","Aula 101","tipoAula","AULA_REGULAR","capacidad",35,"ubicacion","Pabellon A"));
         String ap = "/api/aulas/"+aula.path("id").asLong();
         getOk("/api/aulas"); getOk(ap);
         putOk(ap,data("codigo","A-101","nombre","Aula ampliada","tipoAula","AULA_REGULAR","capacidad",40,"ubicacion","Pabellon A","version",0));
         var newCourse = postOk("/api/cursos",data("codigo","ING-1","nombre","Ingles","horasSemanales",4,"gradoAcademicoId",grade.getId()));
-        grade.getCursosPlan().add(em.getReference(com.asiscontrol.entity.Curso.class, newCourse.path("id").asLong()));
+        grade.incluirCurso(em.getReference(com.asiscontrol.entity.Curso.class, newCourse.path("id").asLong()));
         grade.setPlanDefinido(true);
         var as = postOk("/api/asignaciones-cursos",data("cursoId",newCourse.path("id").asLong(),"seccionId",section.getId(),"docenteId",teacher.getId()));
         String asp="/api/asignaciones-cursos/"+as.path("id").asLong();
@@ -46,8 +75,8 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         String hp="/api/horarios/"+h.path("id").asLong();
         getOk("/api/horarios"); getOk(hp);
         request("POST","/api/horarios",data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","LUNES","horaInicio","08:30:00","horaFin","09:30:00"),409);
-        putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0));
-        deleteOk(hp);
+        putOk(hp,data("asignacionCursoId",as.path("id").asLong(),"aulaId",aula.path("id").asLong(),"diaSemana","MARTES","horaInicio","08:00:00","horaFin","09:00:00","version",0,"motivo","Cambio de dia"));
+        request("DELETE",hp,data("motivo","Fin de prueba"),204);
         // US-58: el retiro exige motivo y version, y solo procede sin bloques de horario activos.
         long versionAsignacion = getOk(asp).path("version").asLong();
         request("PATCH", asp + "/retirar", data("motivo", "Fin de prueba", "version", versionAsignacion), 200);
@@ -68,12 +97,20 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         getOk(tp+"/entregas"); getOk(dp);
         putOk(dp,data("archivoIds",Set.of(),"comentario","Entrega final","version",0));
         long v=getOk(dp).path("version").asLong();
-        var graded=request("POST",dp+"/calificar",data("nota",18,"comentario","Buen trabajo","version",v),200);
+        var graded=request("POST",dp+"/calificar",data("nivelLogro","AD","comentario","Buen trabajo","version",v),200);
         assertThat(graded.path("estado").asText()).isEqualTo("CALIFICADO");
+        assertThat(graded.path("nivelLogro").asText()).isEqualTo("AD");
         var entity=em.find(Tarea.class,tid); entity.setFechaLimite(LocalDateTime.now().minusSeconds(1)); em.flush();
         request("POST",tp+"/cerrar",null,200); request("POST",tp+"/archivar",null,200);
         // US-22: con entregas, eliminar exige motivo.
         request("DELETE",tp,null,422); request("DELETE",tp,data("motivo","Fin del bimestre"),204);
+    }
+
+    @Test void consultaElAnioVigenteParaRegistroDeNotas() throws Exception {
+        assertThat(getOk("/api/evaluaciones/anio-vigente").path("anioActivo").asInt()).isEqualTo(year.getAnio());
+        year.setEstado(com.asiscontrol.entity.enums.EstadoAnioAcademico.CERRADO);
+        em.flush();
+        assertThat(getOk("/api/evaluaciones/anio-vigente").path("anioActivo").isNull()).isTrue();
     }
 
     @Test void registraNivelesAdABCPorCompetenciaYConsolida() throws Exception {
@@ -93,7 +130,7 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
         putOk(ep+"/estado",data("estado","PUBLICADA"));
         var consolidated=getOk("/api/calificaciones/consolidados?idAlumno="+student.getId());
         assertThat(consolidated).hasSize(1);
-        assertThat(consolidated.get(0).path("nivelConsolidado").asText()).isEqualTo("AD");
+        assertThat(consolidated.get(0).path("nivelConsolidado").isNull()).isTrue();
         request("DELETE","/api/calificaciones/"+id,null,422);
         request("POST","/api/calificaciones",nota(evaluation.path("id").asLong(),"C"),422);
         putOk(ep+"/estado",data("estado","CERRADA"));
@@ -120,7 +157,7 @@ class AcademicoFlujosHttpTest extends ApiIntegrationSupport {
 
     private Map<String,Object> evaluacion(String title) {
         return data("idAsignacionCurso",assignment.getId(),"titulo",title,"descripcion","Prueba por competencias",
-                "tipoEvaluacion","EXAMEN","periodoEvaluacion","BIMESTRAL","fechaEvaluacion",LocalDate.now(),
+                "tipoEvaluacion","EXAMEN","periodoEvaluacion","BIMESTRAL","fechaEvaluacion",LocalDate.of(section.getAnioAcademico(), 4, 1),
                 "ponderacionPorcentaje",100,"idsCompetencia",Set.of(competence.getId()));
     }
     private Map<String,Object> nota(long evaluation,String level) {

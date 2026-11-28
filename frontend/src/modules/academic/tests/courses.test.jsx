@@ -53,6 +53,7 @@ function backend(routes = {}) {
   return fakeBackend({
     "GET /api/cursos": page([course(), english]),
     "GET /api/configuracion-academica/anios": YEARS,
+    "GET /api/cursos/anios": [2028, 2027, 2026],
     "GET /api/cursos-competencias": page([
       link(2, 1, "Resuelve problemas de cantidad", 2),
       link(1, 1, "Resuelve problemas de forma", 1),
@@ -79,8 +80,34 @@ test("Lista los cursos con horas, estado y competencias activas", async () => {
   expect(within(math).getByText("Activo").className).toContain("status-active");
   expect(await within(math).findByText("2 competencias")).toBeTruthy();
   expect(within(await rowOf("Inglés")).getByText("0 competencias")).toBeTruthy();
-  expect(screen.getByText(/2 cursos en el sistema · Última actualización: \d{2}:\d{2}/)).toBeTruthy();
+  expect(screen.getByText("2 cursos en el sistema").parentElement.textContent)
+    .toMatch(/Última actualización: \d{2}:\d{2}/);
   expect(calls.find((c) => c.path === "/api/cursos-competencias").query.size).toBe("1000");
+});
+
+test("Combina búsqueda de servidor, año histórico y grado, y permite limpiar", async () => {
+  const calls = backend({
+    "GET /api/cursos": ({ query }) => page(query.busqueda || query.anio || query.grado ? [] : [course(), english]),
+  });
+  const user = userEvent.setup();
+  renderAcademic({ canWrite: false });
+  await rowOf("Inglés");
+  const filters = within(screen.getByRole("search", { name: "Filtrar cursos" }));
+  const yearFilter = filters.getByRole("combobox", { name: "Año académico" });
+  await filters.findByRole("option", { name: "2026" });
+  await user.selectOptions(yearFilter, "2026");
+  await user.selectOptions(filters.getByRole("combobox", { name: "Grado" }), "2");
+  await user.type(filters.getByRole("searchbox"), " MAT ");
+  await waitFor(() => {
+    const query = calls.filter(call => call.path === "/api/cursos").at(-1)?.query;
+    expect(query).toMatchObject({ page: "0", busqueda: "MAT", anio: "2026", grado: "2", incluirPlanes: "true" });
+  });
+  await screen.findByText("No hay cursos que coincidan con estos filtros.");
+  expect(screen.queryByRole("button", { name: "Anterior" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
+  await user.click(filters.getByRole("button", { name: "Limpiar filtros" }));
+  await rowOf("Inglés");
+  expect(calls.filter(call => call.path === "/api/cursos").at(-1).query).toEqual({ page: "0", size: "20" });
 });
 
 test("El detalle muestra las competencias en orden y lleva a la edición", async () => {
@@ -285,15 +312,15 @@ test("Un error del listado se informa", async () => {
   );
 });
 
-test("Las pestañas navegan por URL y las pendientes lo indican", async () => {
+test("La pestaña Reportes abre las libretas y una ruta desconocida vuelve a Cursos", async () => {
   backend();
   const user = userEvent.setup();
-  const { rerender } = renderAcademic();
-  await user.click(screen.getByRole("button", { name: "Reglas académicas" }));
-  expect(currentUrl()).toBe("/academico/reglas-academicas");
-  rerender(<Academic canWrite tab="reglas-academicas" />);
-  expect(screen.getByText("Esta sección todavía está pendiente de implementación.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Reglas académicas" }).getAttribute("aria-current")).toBe("page");
+  const { rerender } = render(<Academic canWrite canReadGrades />);
+  await user.click(screen.getByRole("button", { name: "Reportes" }));
+  expect(currentUrl()).toBe("/academico/reportes");
+  rerender(<Academic canWrite canReadGrades tab="reportes" />);
+  expect(screen.getByText("Reportes académicos")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Reportes" }).getAttribute("aria-current")).toBe("page");
   rerender(<Academic canWrite tab="desconocida" />);
   expect(currentUrl()).toBe("/academico/cursos");
 });

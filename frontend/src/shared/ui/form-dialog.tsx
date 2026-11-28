@@ -14,8 +14,10 @@ export function FormDialog({
   children,
   notes,
   submitLabel = "Confirmar",
+  submitDisabled = false,
   danger = false,
   noValidate = false,
+  active = true,
 }: {
   title: string;
   description?: ReactNode;
@@ -30,10 +32,12 @@ export function FormDialog({
   notes?: ReactNode;
   /** Texto del botón principal: describe la acción ("Guardar curso"). */
   submitLabel?: string;
+  submitDisabled?: boolean;
   /** Acciones que dejan un registro inactivo usan el botón en rojo. */
   danger?: boolean;
   /** El formulario valida por su cuenta y muestra los errores en cada campo. */
   noValidate?: boolean;
+  active?: boolean;
 }) {
   return (
     <Dialog
@@ -42,6 +46,7 @@ export function FormDialog({
       size={size}
       onClose={onClose}
       busy={busy}
+      active={active}
     >
       <form onSubmit={onSubmit} noValidate={noValidate}>
         <Feedback error={error} />
@@ -56,7 +61,7 @@ export function FormDialog({
           </button>
           <button
             className={danger ? "primary-action danger" : "primary-action"}
-            disabled={busy}
+            disabled={busy || submitDisabled}
           >
             {busy ? "Guardando…" : submitLabel}
           </button>

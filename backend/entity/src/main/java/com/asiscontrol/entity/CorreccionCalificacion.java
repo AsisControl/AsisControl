@@ -52,6 +52,12 @@ public class CorreccionCalificacion {
     @Column(name = "nivel_nuevo", nullable = false, length = 2)
     private NivelLogro nivelNuevo;
 
+    @Column(name = "nota_anterior", precision = 12, scale = 10)
+    private java.math.BigDecimal notaAnterior;
+
+    @Column(name = "nota_nueva", precision = 12, scale = 10)
+    private java.math.BigDecimal notaNueva;
+
     @Column(name = "motivo", nullable = false, length = 500)
     private String motivo;
 

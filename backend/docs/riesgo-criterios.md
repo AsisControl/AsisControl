@@ -42,8 +42,8 @@ deben pertenecer a su seccion y a las fechas inclusivas del periodo.
 
 | Indicador | Definicion | Cantidad de datos |
 | --- | --- | --- |
-| PROMEDIO_ACADEMICO | Escala existente C=1, B=2, A=3, AD=4. Consolidado ponderado por curso y competencia, redondeado a 2 decimales como el consolidado existente; media de esos consolidados a 4 decimales. | Calificaciones publicadas/cerradas activas |
-| COMPETENCIAS_EN_INICIO | Cantidad de pares curso/competencia cuyo consolidado corresponde a C con `NivelLogro.desdePromedio`. | Calificaciones publicadas/cerradas activas |
+| PROMEDIO_ACADEMICO | Media de los niveles consolidados por curso y competencia, con C=1, B=2, A=3 y AD=4 y redondeo a cuatro decimales. | Calificaciones que contribuyeron a los consolidados válidos |
+| COMPETENCIAS_EN_INICIO | Cantidad de pares curso/competencia con nivel consolidado C. Los resultados pendientes pueden dejar el indicador indeterminado si pueden cambiar el cumplimiento del umbral. | Pares con un nivel consolidado |
 | INASISTENCIAS | Registros INASISTENCIA, excluyendo las justificadas. | Registros definidos en sesiones TOMADA |
 | TARDANZAS | Registros TARDANZA, excluyendo las justificadas. | Registros definidos en sesiones TOMADA |
 | TAREAS_NO_ENTREGADAS | Tareas PUBLICADA/CERRADA vencidas en el periodo, sin entrega activa ENTREGADO, ENTREGADO_TARDE o CALIFICADO. | Tareas vencidas aplicables |
@@ -51,6 +51,26 @@ deben pertenecer a su seccion y a las fechas inclusivas del periodo.
 No se usan notas en borrador/anuladas, sesiones sin finalizar, SIN_MARCACION,
 tareas en borrador/archivadas o aun no vencidas. Cero incidentes con registros
 disponibles es distinto de no tener registros.
+
+### Promedio académico y transición numérica
+
+La consolidación académica aplica los pesos de los componentes y la escala
+institucional a las notas originales de 0 a 20. Para el indicador de riesgo
+se convierte únicamente el nivel final. Cada par de curso y competencia
+aporta una vez al promedio, con independencia de cuántas evaluaciones tenga.
+El mínimo configurable sigue expresado en calificaciones. Una competencia
+con evaluaciones publicadas o cerradas y consolidado pendiente deja el promedio
+indeterminado. El detalle identifica los faltantes y conserva las alertas abiertas.
+
+Para un período cerrado con una libreta publicada que fija regla y escala, el
+indicador utiliza esas versiones y las calificaciones válidas del período.
+Si esas referencias no existen, utiliza la configuración académica vigente.
+Los períodos íntegramente cualitativos conservan el cálculo previo: ponderación
+histórica por curso y competencia, redondeo a dos decimales y media de esos
+resultados a cuatro decimales. El indicador interno queda fuera de las libretas
+y PDF. Los umbrales configurados de 1 a 4 se conservan. Conviene revisar su
+calibración institucional, porque convertir los niveles consolidados puede
+cambiar qué estudiantes quedan por encima o por debajo del mismo umbral.
 
 Estas definiciones explicitan como se agregan los datos existentes; deben revisarse
 si el colegio usa otra politica (por ejemplo, incluir faltas justificadas o ponderar

@@ -73,7 +73,7 @@ abstract class ApiIntegrationSupport {
         section.setCapacidadMaxima(30); section.setDocenteTutor(teacher); em.persist(section);
         course = new Curso(); course.setCodigo("MAT" + key()); course.setNombre("Matematica");
         course.setHorasSemanales(4); course.setGradoAcademico(grade); em.persist(course);
-        grade.getCursosPlan().add(course);
+        grade.incluirCurso(course);
         competence = new Competencia(); competence.setCodigo("COMP" + key()); competence.setNombre("Resuelve problemas"); em.persist(competence);
         var courseCompetence = new CursoCompetencia();
         courseCompetence.setCurso(course); courseCompetence.setCompetencia(competence);
@@ -108,6 +108,12 @@ abstract class ApiIntegrationSupport {
         for (int i=0;i<entries.length;i+=2) result.put((String)entries[i], entries[i+1]);
         return result;
     }
+    protected JsonNode publicarLibretas(Object body, int expected) throws Exception {
+        var docente = jwt().jwt(j -> j.subject("docente").claim("personaId", teacher.getPersona().getId()))
+                .authorities(new SimpleGrantedAuthority("ROLE_DOCENTE"), new SimpleGrantedAuthority("CALIFICACIONES_ESCRIBIR"));
+        return request(docente, "POST", "/api/calificaciones/informes/publicar", body, expected);
+    }
+
     protected JsonNode request(String method, String path, Object body, int expected) throws Exception {
         return request(asAdmin(), method, path, body, expected);
     }
@@ -128,6 +134,14 @@ abstract class ApiIntegrationSupport {
         var response = mvc.perform(builder).andExpect(status().is(expected)).andReturn().getResponse();
         return response.getContentAsByteArray().length==0 ? json.nullNode() : json.readTree(response.getContentAsByteArray());
     }
+    protected void revisarInforme(Long periodoId) throws Exception {
+        String base = "/api/calificaciones/informes/borrador";
+        String params = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
+                + "&idPeriodoAcademico=" + periodoId;
+        var borrador = getOk(base + params);
+        putOk(base + "/revision" + params, data("version", borrador.path("versionBorrador").asLong()));
+    }
+
     protected JsonNode postOk(String path,Object body) throws Exception { return request("POST",path,body,201); }
     protected JsonNode getOk(String path) throws Exception { return request("GET",path,null,200); }
     protected JsonNode putOk(String path,Object body) throws Exception { return request("PUT",path,body,200); }

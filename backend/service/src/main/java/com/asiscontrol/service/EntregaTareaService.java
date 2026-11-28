@@ -15,6 +15,7 @@ import com.asiscontrol.entity.AuditableEntity;
 import com.asiscontrol.entity.EntregaTarea;
 import com.asiscontrol.entity.Tarea;
 import com.asiscontrol.entity.enums.EstadoPublicacionTarea;
+import com.asiscontrol.entity.enums.EstadoEvaluacion;
 import com.asiscontrol.entity.enums.EstadoMatricula;
 import com.asiscontrol.entity.enums.EstadoTarea;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
@@ -67,6 +68,7 @@ public class EntregaTareaService {
     @Transactional
     public EntregaTareaResponse registrar(Long tareaId, RegistrarEntregaRequest request) {
         Tarea tarea = tareaService.obtenerEntidad(tareaId);
+        verificarResultadosAntesDeRecibir(tarea);
         validarRecepcion(tarea);
         Alumno alumno = buscarActivo(Alumno.class, request.alumnoId(), "ALUMNO_NO_ENCONTRADO", "alumno");
         accessGuard.verificarEntregaAlumno(alumno);
@@ -75,7 +77,8 @@ public class EntregaTareaService {
             throw new ConflictException(
                     "ENTREGA_DUPLICADA", "El alumno ya posee una entrega activa para esta tarea");
         }
-        validarCantidadArchivos(tarea, request.archivoIds().size());
+        String respuesta = normalizar(request.respuesta() == null ? request.comentario() : request.respuesta());
+        validarContenido(tarea, request.archivoIds().size(), respuesta);
 
         LocalDateTime ahora = LocalDateTime.now();
         EntregaTarea entrega = new EntregaTarea();
@@ -83,7 +86,7 @@ public class EntregaTareaService {
         entrega.setAlumno(alumno);
         entrega.setFechaHoraEntrega(ahora);
         entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
-        entrega.setComentario(normalizar(request.comentario()));
+        entrega.setRespuesta(respuesta);
         entrega.setEstado(ahora.isAfter(tarea.getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
@@ -99,18 +102,20 @@ public class EntregaTareaService {
         EntregaTarea entrega = obtenerEntidad(id);
         accessGuard.verificarEntregaAlumno(entrega.getAlumno());
         exigirVersion(entrega.getVersion(), request.version());
+        verificarResultadosAntesDeRecibir(entrega.getTarea());
         validarRecepcion(entrega.getTarea());
         validarMatriculaActiva(entrega.getAlumno().getId(), entrega.getTarea().getAsignacionCurso().getSeccion().getId());
         if (entrega.getEstado() == EstadoTarea.CALIFICADO) {
             throw new BusinessRuleException("ENTREGA_YA_CALIFICADA", "No se puede reemplazar una entrega calificada");
         }
-        validarCantidadArchivos(entrega.getTarea(), request.archivoIds().size());
+        String texto = request.respuesta() == null ? request.comentario() : request.respuesta();
+        String respuesta = texto == null ? entrega.getRespuesta() : normalizar(texto);
+        validarContenido(entrega.getTarea(), request.archivoIds().size(), respuesta);
         String anterior = describir(entrega);
         LocalDateTime ahora = LocalDateTime.now();
         entrega.setFechaHoraEntrega(ahora);
         entrega.setArchivos(archivosDeEntrega(request.archivoIds()));
-        // Los clientes que solo editan archivos no deben borrar comentarios existentes.
-        if (request.comentario() != null) entrega.setComentario(normalizar(request.comentario()));
+        entrega.setRespuesta(respuesta);
         entrega.setEstado(ahora.isAfter(entrega.getTarea().getFechaLimite())
                 ? EstadoTarea.ENTREGADO_TARDE
                 : EstadoTarea.ENTREGADO);
@@ -120,12 +125,28 @@ public class EntregaTareaService {
         return mapResponse(saved);
     }
 
+    private void verificarResultadosAntesDeRecibir(Tarea tarea) {
+        if (tarea.getEvaluacionAcademica() == null) {
+            return;
+        }
+        entityManager.refresh(tarea, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        var evaluacion = tarea.getEvaluacionAcademica();
+        if (evaluacion != null && (evaluacion.getEstado() == EstadoEvaluacion.PUBLICADA
+                || evaluacion.getEstado() == EstadoEvaluacion.CERRADA)) {
+            throw new BusinessRuleException(
+                    "RESULTADOS_YA_PUBLICADOS", "La tarea ya tiene resultados académicos publicados");
+        }
+    }
+
     @Transactional
     public EntregaTareaResponse calificar(Long id, CalificarEntregaRequest request) {
         EntregaTarea entrega = obtenerEntidad(id);
         // Antes de cualquier otra validacion, para no revelar datos de entregas ajenas.
         accessGuard.verificarAsignacionDocente(entrega.getTarea().getAsignacionCurso());
         exigirVersion(entrega.getVersion(), request.version());
+        if (entrega.getTarea().getEvaluacionAcademica() != null) {
+            throw new BusinessRuleException("TAREA_CALIFICAR_EN_PLANILLA", "Registra los resultados en la evaluación vinculada.");
+        }
         EstadoPublicacionTarea estadoTarea = entrega.getTarea().getEstadoPublicacion();
         if (estadoTarea != EstadoPublicacionTarea.PUBLICADA
                 && estadoTarea != EstadoPublicacionTarea.CERRADA) {
@@ -136,23 +157,48 @@ public class EntregaTareaService {
         if (entrega.getEstado() == EstadoTarea.ANULADO) {
             throw new BusinessRuleException("ENTREGA_ANULADA", "No se puede calificar una entrega anulada");
         }
-        if (request.nota() > entrega.getTarea().getPuntajeMaximo()) {
+        boolean cualitativa = entrega.getTarea().isModeloCualitativo();
+        if (cualitativa ? request.nivelLogro() == null || request.nota() != null
+                : request.nota() == null || request.nivelLogro() != null) {
+            throw new BusinessRuleException("TAREA_CALIFICACION_INCOMPATIBLE",
+                    cualitativa ? "Selecciona un nivel AD, A, B o C." : "Registra el puntaje histórico de la tarea.");
+        }
+        if (request.nota() != null && request.nota().compareTo(java.math.BigDecimal.valueOf(entrega.getTarea().getPuntajeMaximo())) > 0) {
             throw new BusinessRuleException(
                     "NOTA_FUERA_DE_RANGO", "La nota no puede superar el puntaje máximo de la tarea");
         }
         String anterior = "estado=" + entrega.getEstado() + ",nota=" + entrega.getNota();
         entrega.setNota(request.nota());
+        entrega.setNivelLogro(request.nivelLogro());
         entrega.setComentario(normalizar(request.comentario()));
         entrega.setEstado(EstadoTarea.CALIFICADO);
         EntregaTarea saved = entregaRepository.saveAndFlush(entrega);
         auditoria.registrar("CALIFICAR_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior,
-                "estado=" + saved.getEstado() + ",nota=" + saved.getNota());
+                "estado=" + saved.getEstado() + ",nota=" + saved.getNota() + ",nivel=" + saved.getNivelLogro());
         return mapResponse(saved);
     }
 
     public EntregaTareaResponse obtener(Long id) {
         return mapResponse(obtenerEntidad(id));
+    }
+
+    @Transactional
+    public EntregaTareaResponse devolver(Long id, com.asiscontrol.dto.tarea.TareaDtos.DevolucionRequest request) {
+        var entrega = obtenerEntidad(id);
+        accessGuard.verificarAsignacionDocente(entrega.getTarea().getAsignacionCurso());
+        exigirVersion(entrega.getVersion(), request.version());
+        var estado = entrega.getTarea().getEstadoPublicacion();
+        if ((estado != EstadoPublicacionTarea.PUBLICADA && estado != EstadoPublicacionTarea.CERRADA)
+                || entrega.getEstado() == EstadoTarea.ANULADO) {
+            throw new BusinessRuleException("TAREA_NO_CALIFICABLE", "La entrega no admite devolución docente.");
+        }
+        String anterior = entrega.getComentario();
+        entrega.setComentario(normalizar(request.comentario()));
+        var guardada = entregaRepository.saveAndFlush(entrega);
+        auditoria.registrar("DEVOLUCION_ENTREGA_TAREA", ModuloAuditoria.TAREAS, "EntregaTarea", id.toString(),
+                ResultadoAuditoria.EXITOSO, null, anterior, guardada.getComentario());
+        return mapResponse(guardada);
     }
 
     public Page<EntregaTareaResponse> listarPorTarea(
@@ -193,15 +239,36 @@ public class EntregaTareaService {
                 .setParameter("seccionId", tarea.getAsignacionCurso().getSeccion().getId())
                 .getResultList();
 
+        Map<Long, com.asiscontrol.entity.NotaTareaSinEntrega> notasSinEntrega = new HashMap<>();
+        if (tarea.getEvaluacionAcademica() == null) {
+            entityManager.createQuery("select n from NotaTareaSinEntrega n where n.tarea.id = :tarea",
+                    com.asiscontrol.entity.NotaTareaSinEntrega.class).setParameter("tarea", tareaId).getResultList()
+                    .forEach(nota -> notasSinEntrega.put(nota.getAlumno().getId(), nota));
+        }
+        var vinculada = tarea.getEvaluacionAcademica();
+        int totalCompetencias = vinculada == null ? 0 : vinculada.getCompetencias().size();
+        Map<Long, Long> conteoNotas = new HashMap<>();
+        if (vinculada != null && vinculada.isActivo() && totalCompetencias > 0) {
+            entityManager.createQuery("""
+                    select c.alumno.id, count(distinct c.competencia.id) from Calificacion c
+                    where c.activo = true and c.evaluacion.id = :evaluacion
+                    and c.nivelLogro is not null and c.competencia.id in :competencias
+                    group by c.alumno.id
+                    """, Object[].class).setParameter("evaluacion", vinculada.getId())
+                    .setParameter("competencias", vinculada.getCompetencias().stream().map(c -> c.getId()).toList())
+                    .getResultList().forEach(fila -> conteoNotas.put((Long) fila[0], (Long) fila[1]));
+        }
         List<SeguimientoAlumno> filas = new ArrayList<>();
         Set<Long> enPadron = new HashSet<>();
         for (Alumno alumno : matriculados) {
             enPadron.add(alumno.getId());
-            filas.add(filaSeguimiento(alumno, true, entregas.get(alumno.getId())));
+            filas.add(filaSeguimiento(alumno, true, entregas.get(alumno.getId()), notasSinEntrega.get(alumno.getId()),
+                    conteoNotas.getOrDefault(alumno.getId(), 0L).intValue(), totalCompetencias));
         }
         for (EntregaTarea entrega : entregas.values()) {
             if (!enPadron.contains(entrega.getAlumno().getId())) {
-                filas.add(filaSeguimiento(entrega.getAlumno(), false, entrega));
+                filas.add(filaSeguimiento(entrega.getAlumno(), false, entrega, null,
+                        conteoNotas.getOrDefault(entrega.getAlumno().getId(), 0L).intValue(), totalCompetencias));
             }
         }
         filas.sort(Comparator.comparing(SeguimientoAlumno::nombreCompleto, String.CASE_INSENSITIVE_ORDER));
@@ -212,7 +279,8 @@ public class EntregaTareaService {
             if (!fila.matriculaActiva()) {
                 continue;
             }
-            if (fila.estado() == EstadoTarea.CALIFICADO) {
+            if (vinculada == null ? (fila.estado() == EstadoTarea.CALIFICADO || fila.nota() != null || fila.nivelLogro() != null)
+                    : totalCompetencias > 0 && fila.competenciasCalificadas() == totalCompetencias) {
                 calificados++;
             }
             if (fila.estado() == EstadoTarea.ENTREGADO
@@ -225,7 +293,9 @@ public class EntregaTareaService {
         return new SeguimientoTareaResponse(tareaId, total, entregados, calificados, total - entregados, filas);
     }
 
-    private SeguimientoAlumno filaSeguimiento(Alumno alumno, boolean matriculaActiva, EntregaTarea entrega) {
+    private SeguimientoAlumno filaSeguimiento(Alumno alumno, boolean matriculaActiva, EntregaTarea entrega,
+                                               com.asiscontrol.entity.NotaTareaSinEntrega notaSinEntrega,
+                                               int competenciasCalificadas, int totalCompetencias) {
         return new SeguimientoAlumno(
                 alumno.getId(),
                 alumno.getCodigoAlumno(),
@@ -234,7 +304,11 @@ public class EntregaTareaService {
                 entrega == null ? null : entrega.getId(),
                 entrega == null ? EstadoTarea.PENDIENTE : entrega.getEstado(),
                 entrega == null ? null : entrega.getFechaHoraEntrega(),
-                entrega == null ? null : entrega.getNota());
+                entrega == null ? notaSinEntrega == null ? null : notaSinEntrega.getNota() : entrega.getNota(),
+                entrega == null ? notaSinEntrega == null ? null : notaSinEntrega.getNivelLogro() : entrega.getNivelLogro(),
+                entrega != null && entrega.getRespuesta() != null && !entrega.getRespuesta().isBlank(),
+                entrega == null ? 0 : entrega.getArchivos().size(),
+                competenciasCalificadas, totalCompetencias);
     }
 
     private EntregaTarea obtenerEntidad(Long id) {
@@ -266,7 +340,10 @@ public class EntregaTareaService {
         return archivos;
     }
 
-    private void validarCantidadArchivos(Tarea tarea, int cantidad) {
+    private void validarContenido(Tarea tarea, int cantidad, String respuesta) {
+        if (cantidad == 0 && respuesta == null) {
+            throw new BusinessRuleException("ENTREGA_VACIA", "Escribe una respuesta o adjunta un archivo para entregar la tarea.");
+        }
         if (cantidad > tarea.getMaxArchivosEntrega()) {
             throw new BusinessRuleException(
                     "ENTREGA_EXCEDE_ARCHIVOS", "La entrega excede el máximo de archivos permitido");
@@ -300,7 +377,9 @@ public class EntregaTareaService {
                 entrega.getFechaHoraEntrega(),
                 entrega.getArchivos().stream().map(archivoService::mapResponse).toList(),
                 entrega.getNota(),
+                entrega.getNivelLogro(),
                 entrega.getComentario(),
+                entrega.getRespuesta(),
                 entrega.getEstado(),
                 entrega.getVersion());
     }

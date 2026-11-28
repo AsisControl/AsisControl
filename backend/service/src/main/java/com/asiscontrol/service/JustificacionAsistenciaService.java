@@ -310,7 +310,7 @@ public class JustificacionAsistenciaService {
     private void avisarApoderados(JustificacionAsistencia justificacion, String titulo, String resultado) {
         AsistenciaAlumno asistencia = justificacion.getAsistenciaAlumno();
         String mensaje = "La justificación de " + asistencia.getAlumno().getPersona().nombreCompleto()
-                + " para " + asistencia.getAsignacionCurso().getCurso().getNombre()
+                + " para " + asistencia.getAsignacionCurso().nombreCurso()
                 + " del " + asistencia.getFechaRegistro().format(FECHA) + " " + resultado;
         vinculoRepository.findAllByAlumnoIdAndActivoTrue(asistencia.getAlumno().getId()).stream()
                 .flatMap(vinculo -> accesoRepository
@@ -336,7 +336,7 @@ public class JustificacionAsistenciaService {
                 justificacion.getArchivos().stream().map(archivoService::mapResponse).toList(),
                 justificacion.getVersion(),
                 asistencia.getAlumno().getPersona().nombreLista(),
-                asignacion.getCurso().getNombre(),
+                asignacion.nombreCurso(),
                 asignacion.getSeccion().getGrado() + "° Grado " + asignacion.getSeccion().getNombre(),
                 asistencia.getFechaRegistro(),
                 asistencia.getSesionClase() == null ? null : asistencia.getSesionClase().getHoraInicio(),

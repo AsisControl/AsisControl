@@ -40,10 +40,11 @@ const withNotes = (estado) =>
 function backend(routes = {}) {
   return fakeBackend({
     "GET /api/asignaciones-cursos/mias": page([assignment]),
+    "GET /api/evaluaciones/anio-vigente": { anioActivo: assignment.anioAcademico },
     "GET /api/evaluaciones": page([evaluation()]),
     "GET /api/evaluaciones/:id": evaluation(),
     "GET /api/evaluaciones/:id/planilla": sheet(),
-    "GET /api/cursos-competencias": page([]),
+    "GET /api/evaluaciones/competencias": [],
     "GET /api/calificaciones/consolidados": [],
     ...routes,
   });
@@ -82,7 +83,7 @@ const puts = (calls, path) => calls.filter((c) => c.method === "PUT" && c.path =
 
 // --- Niveles en borrador (valor válido AD/A/B/C, se guarda en borrador) ---
 
-test("1. Cada celda ofrece solo AD, A, B y C, sin entrada libre", async () => {
+test("1. Cada celda ofrece AD, A, B y C y un campo separado de observación", async () => {
   backend();
   openSheet();
   const table = await screen.findByRole("table", { name: "Planilla de Examen parcial" });
@@ -90,8 +91,9 @@ test("1. Cada celda ofrece solo AD, A, B y C, sin entrada libre", async () => {
     for (const competency of ["Resuelve problemas", "Razona en geometría"]) {
       const buttons = within(cell(name, competency)).getAllByRole("button");
       expect(buttons.map((button) => button.textContent)).toEqual(["AD", "A", "B", "C"]);
+      const observation = within(table).getByRole("textbox", { name: `Observación: ${name}, ${competency}` });
+      expect(observation.closest("td")).toBe(buttons[0].closest("td"));
     }
-  expect(within(table).queryByRole("textbox")).toBeNull();
   expect(within(table).queryByRole("combobox")).toBeNull();
 });
 
@@ -105,7 +107,7 @@ test("2. Si falla el guardado del lote se ve el error y se conservan los niveles
   await user.click(button);
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
   expect(await screen.findByText("El alumno no está matriculado en la sección")).toBeTruthy();
-  expect(screen.queryByText(/Niveles guardados/)).toBeNull();
+  expect(screen.queryByText(/Calificaciones guardadas/)).toBeNull();
   expect(button.getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByRole("button", { name: "Guardar evaluación" }).disabled).toBe(false);
 });
@@ -118,7 +120,7 @@ test("3. Tras guardar en borrador recarga la planilla y avisa que se publica des
   expect(calls.filter((c) => c.path === "/api/evaluaciones/10/planilla")).toHaveLength(1);
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
   expect(
-    await screen.findByText("Niveles guardados. Publica la evaluación desde Mis evaluaciones cuando esté completa."),
+    await screen.findByText("Calificaciones guardadas. Publica la evaluación desde Mis evaluaciones cuando esté lista."),
   ).toBeTruthy();
   await waitFor(() => expect(calls.filter((c) => c.path === "/api/evaluaciones/10/planilla")).toHaveLength(2));
 });
@@ -129,7 +131,7 @@ test("4. En borrador el guardado usa el lote y nunca la corrección", async () =
   openSheet();
   await user.click(await screen.findByRole("button", { name: level("B", ANA, "Razona en geometría") }));
   await user.click(screen.getByRole("button", { name: "Guardar evaluación" }));
-  await screen.findByText(/Niveles guardados/);
+  await screen.findByText(/Calificaciones guardadas/);
   expect(puts(calls, "/api/calificaciones/lote")).toHaveLength(1);
   expect(calls.some((c) => c.path === "/api/calificaciones/correcciones")).toBe(false);
 });
@@ -176,7 +178,7 @@ test("7. Con la planilla incompleta la publicación se bloquea: el diálogo sigu
   await user.click(within(row).getByRole("button", { name: "Publicar" }));
   const dialog = screen.getByRole("dialog", { name: "Publicar evaluación" });
   await user.click(within(dialog).getByRole("button", { name: "Publicar evaluación" }));
-  expect(await within(dialog).findByText(/Faltan 3 niveles por registrar antes de publicar la evaluacion\. Completa la planilla con Calificar\./)).toBeTruthy();
+  expect(await within(dialog).findByText(/Faltan 3 notas por registrar\. Completa la planilla con Calificar\./)).toBeTruthy();
   expect(screen.queryByText("Evaluación publicada.")).toBeNull();
   expect(screen.getByRole("dialog", { name: "Publicar evaluación" })).toBeTruthy();
   expect(calls.filter((c) => c.path === "/api/evaluaciones" && c.method === "GET")).toHaveLength(1);

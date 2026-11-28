@@ -5,6 +5,7 @@ import { CheckInPoint } from "./check-in-point";
 import { todayInLima } from "./format";
 import { resumenMarcaciones } from "./services/asistencia-docente-service";
 import { TeacherCheckInReview } from "./teacher-check-in-review";
+import { TeacherContingencies } from "./teacher-contingencies";
 import type { ResumenMarcacion } from "./types";
 import styles from "./teacher-check-in.module.css";
 import { TabNav } from "@/shared/ui";
@@ -19,9 +20,13 @@ export function AttendanceAdmin({ canWrite }: { canWrite: boolean }) {
   return <>
     <div className="page-title"><div><h1>Asistencia</h1><p>Marcación docente e informes institucionales</p></div></div>
     <TabNav label="Secciones de asistencia" current={tab} onSelect={setTab} tabs={[
-      { id: "marcacion", label: "Marcación docente" }, { id: "reportes", label: "Reportes de asistencia" },
+      { id: "marcacion", label: "Marcación docente" },
+      { id: "contingencias", label: "Solicitudes de contingencia" },
+      { id: "reportes", label: "Reportes de asistencia" },
     ]} />
-    {tab === "reportes" ? <AttendanceReports canCorrect={canWrite} /> : <TeacherMarkingAdmin canWrite={canWrite} />}
+    {tab === "reportes" && <AttendanceReports canCorrect={canWrite} />}
+    {tab === "contingencias" && <TeacherContingencies administration canWrite={canWrite} />}
+    {tab === "marcacion" && <TeacherMarkingAdmin canWrite={canWrite} />}
   </>;
 }
 

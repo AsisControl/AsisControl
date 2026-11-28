@@ -74,27 +74,29 @@
 .filters select {
   flex: 0 1 190px;
 }
-.pendingBadge {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  color: #475569;
-  cursor: help;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: normal;
-  margin-left: 6px;
-  padding: 2px 8px;
-  text-transform: none;
-  white-space: nowrap;
-}
-.srOnly {
-  clip: rect(0 0 0 0);
-  height: 1px;
+/* Equipamiento del aula: en la tabla se recorta a dos líneas (texto completo en el detalle). */
+.table td .equipment {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-width: 260px;
   overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
+  overflow-wrap: anywhere;
+}
+.detailWide {
+  grid-column: 1 / -1;
+}
+.equipmentDetail {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.counter {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.counterOver {
+  color: #b91c1c;
 }
 .scheduleList {
   display: grid;
@@ -216,6 +218,23 @@
   background: #fffbeb;
   border-color: #fde68a;
 }
+
+/* OBS-01: el curso supera las horas del plan. No es un tono de curso: borde punteado y etiqueta. */
+.block[data-exceeded] {
+  border: 2px dashed #ea580c;
+}
+.block .exceededTag {
+  color: #9a3412;
+  font-weight: 600;
+}
+.availabilityNotice p {
+  margin: 0;
+}
+.planFixed {
+  display: block;
+  margin-top: 4px;
+}
+
 .block:focus-within {
   z-index: 7;
 }

@@ -3,6 +3,8 @@ package com.asiscontrol.controller;
 import com.asiscontrol.dto.matricula.MatriculaDtos.ActualizarMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CambiarSeccionMatriculaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.CrearMatriculaRequest;
+import com.asiscontrol.dto.matricula.MatriculaDtos.FiltroMatriculas;
+import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaDirectaRequest;
 import com.asiscontrol.dto.matricula.MatriculaDtos.MatriculaResponse;
 import com.asiscontrol.service.MatriculaService;
 import com.asiscontrol.service.ModuloAccessGuard;
@@ -47,6 +49,13 @@ public class MatriculaController {
         return matriculaService.crear(request);
     }
 
+    @PostMapping("/directas")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('MATRICULA_ESCRIBIR')")
+    public MatriculaResponse matricularDirectamente(@Valid @RequestBody MatriculaDirectaRequest request) {
+        return matriculaService.matricularDirectamente(request);
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('MATRICULA_ESCRIBIR')")
     public MatriculaResponse actualizar(
@@ -79,10 +88,12 @@ public class MatriculaController {
 
     @GetMapping
     public Page<MatriculaResponse> listar(
+            FiltroMatriculas filtro,
             @PageableDefault(size = 20, sort = "fechaMatricula") Pageable pageable) {
         return matriculaService.listar(
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
+                filtro,
                 pageable);
     }
 

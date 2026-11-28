@@ -7,6 +7,7 @@ import type {
   CorrectionEntry,
   CourseCompetency,
   Evaluation,
+  EvaluationGradingRule,
   EvaluationInput,
   EvaluationState,
   GradeSheetData,
@@ -14,14 +15,33 @@ import type {
 } from "../types";
 
 export const EVALUACIONES_PATH = "/api/evaluaciones";
+export const EVALUACIONES_ACADEMICAS_PATH = `${EVALUACIONES_PATH}/academicas`;
 const CALIFICACIONES_PATH = "/api/calificaciones";
+
+export type PublishedResult = {
+  titulo: string;
+  curso: string;
+  estudiante: string;
+  fechaEvaluacion: string;
+  notas: { idCompetencia: number; competencia: string; nivelLogro: AchievementLevel | null }[];
+};
+
+export function obtenerResultadoPublicado(evaluacionId: string, alumnoId: string) {
+  const query = new URLSearchParams({ alumnoId });
+  return api<PublishedResult>(
+    `${EVALUACIONES_PATH}/${encodeURIComponent(evaluacionId)}/resultado-publicado?${query}`,
+  );
+}
 
 export type EvaluationFilters = {
   periodo?: string;
   idCurso?: string;
+  idAsignacionCurso?: string;
   idSeccion?: string;
   estado?: string;
   busqueda?: string;
+  vinculables?: string;
+  tareaActual?: string;
 };
 /** Ruta del listado con los filtros que tienen valor; usePaged agrega la paginación. */
 export function evaluationsPath(filters: EvaluationFilters) {
@@ -30,15 +50,27 @@ export function evaluationsPath(filters: EvaluationFilters) {
   return query ? `${EVALUACIONES_PATH}?${query}` : EVALUACIONES_PATH;
 }
 export async function listarEvaluaciones(filters: EvaluationFilters) {
-  const separator = evaluationsPath(filters).includes("?") ? "&" : "?";
-  const page = await api<Page<Evaluation>>(`${evaluationsPath(filters)}${separator}size=100`);
-  return normalizePage(page).content;
+  const path = evaluationsPath(filters);
+  const separator = path.includes("?") ? "&" : "?";
+  const items: Evaluation[] = [];
+  for (let number = 0; ; number++) {
+    const page = normalizePage(await api<Page<Evaluation>>(`${path}${separator}size=100&page=${number}`));
+    items.push(...page.content);
+    if (page.last) return items;
+  }
+}
+export async function obtenerAnioVigente() {
+  const context = await api<{ anioActivo: number | null }>(`${EVALUACIONES_PATH}/anio-vigente`);
+  return context.anioActivo ?? null;
 }
 export function obtenerEvaluacion(id: number) {
   return api<Evaluation>(`${EVALUACIONES_PATH}/${id}`);
 }
 export function crearEvaluacion(input: EvaluationInput) {
   return api<Evaluation>(EVALUACIONES_PATH, { method: "POST", body: JSON.stringify(input) });
+}
+export function obtenerReglaVigente(idAsignacionCurso: number) {
+  return api<EvaluationGradingRule | null>(`/api/reglas-calificacion/vigente?idAsignacionCurso=${idAsignacionCurso}`);
 }
 export function actualizarEvaluacion(id: number, input: EvaluationInput) {
   return api<Evaluation>(`${EVALUACIONES_PATH}/${id}`, { method: "PUT", body: JSON.stringify(input) });
@@ -59,20 +91,21 @@ export type DraftGrade = {
   idEvaluacion: number;
   idAlumno: number;
   idCompetencia: number;
-  nivelLogro: AchievementLevel;
+  nivelLogro?: AchievementLevel;
+  notaNumerica?: string;
+  observacion: string | null;
 };
-/** Guarda los niveles de una evaluación en borrador. */
+/** Guarda los niveles y las observaciones de una evaluación en borrador. */
 export function guardarNiveles(grades: DraftGrade[]) {
   return api<unknown[]>(`${CALIFICACIONES_PATH}/lote`, {
     method: "PUT",
-    body: JSON.stringify({
-      calificaciones: grades.map((grade) => ({ ...grade, observacion: null })),
-    }),
+    body: JSON.stringify({ calificaciones: grades }),
   });
 }
 export type GradeCorrection = {
   idCalificacion: number;
-  nivelLogro: AchievementLevel;
+  nivelLogro?: AchievementLevel;
+  notaNumerica?: string;
   version: number;
 };
 /** US-50: corrige niveles publicados con un motivo común. */
@@ -85,9 +118,12 @@ export function corregirNiveles(motivo: string, correcciones: GradeCorrection[])
 export function obtenerCorrecciones(idCalificacion: number) {
   return api<CorrectionEntry[]>(`${CALIFICACIONES_PATH}/${idCalificacion}/correcciones`);
 }
-export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number) {
+export function eliminarCalificacion(idCalificacion: number) {
+  return api<void>(`${CALIFICACIONES_PATH}/${idCalificacion}`, { method: "DELETE" });
+}
+export function obtenerConsolidado(idAlumno: number, idAsignacionCurso: number, idPeriodoAcademico?: number) {
   return api<ConsolidatedLevel[]>(
-    `${CALIFICACIONES_PATH}/consolidados?idAlumno=${idAlumno}&idAsignacionCurso=${idAsignacionCurso}`,
+    `${CALIFICACIONES_PATH}/consolidados?idAlumno=${idAlumno}&idAsignacionCurso=${idAsignacionCurso}${idPeriodoAcademico ? `&idPeriodoAcademico=${idPeriodoAcademico}` : ""}`,
   );
 }
 export async function listarAsignacionesPropias() {
@@ -100,10 +136,9 @@ export async function listarAsignacionesPropias() {
     if (page.last) return items;
   }
 }
-/** El backend no filtra las asociaciones por curso: se filtran aquí. */
-export async function listarCompetenciasDelCurso(cursoId: number) {
-  const page = await api<Page<CourseCompetency>>("/api/cursos-competencias?size=1000");
-  return normalizePage(page)
-    .content.filter((item) => item.cursoId === cursoId && item.activo)
-    .sort((a, b) => a.orden - b.orden);
+export async function listarCompetenciasDeAsignacion(idAsignacionCurso: number): Promise<CourseCompetency[]> {
+  const items = await api<{ id: number; codigo: string; nombre: string }[]>(
+    `${EVALUACIONES_PATH}/competencias?idAsignacionCurso=${idAsignacionCurso}`,
+  );
+  return items.map(item => ({ competenciaId: item.id, competenciaCodigo: item.codigo, competenciaNombre: item.nombre }));
 }

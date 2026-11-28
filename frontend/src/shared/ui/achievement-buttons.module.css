@@ -1,0 +1,38 @@
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+}
+
+.button {
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: .4rem;
+  background: var(--surface, white);
+  color: var(--ink);
+  font-size: .8rem;
+  font-weight: 650;
+}
+
+.button[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: white;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.button:disabled { opacity: .6; }
+
+.button[aria-pressed="true"][data-correction="true"] {
+  border-color: var(--warning, #a44708);
+  background: var(--warning, #a44708);
+  color: white;
+}

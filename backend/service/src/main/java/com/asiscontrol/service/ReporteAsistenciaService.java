@@ -96,7 +96,7 @@ public class ReporteAsistenciaService {
     private static final String NOMBRE = "concat(p.nombres, ' ', p.apellido_paterno, ' ', coalesce(p.apellido_materno, ''))";
     private static final String ESTUDIANTES = """
             select a.id_asistencia_alumno id, p.id_persona persona_id, %s persona,
-              a.fecha_registro fecha, a.hora_registro hora, c.nombre curso,
+              a.fecha_registro fecha, a.hora_registro hora, coalesce(plan.nombre_plan, c.nombre) curso,
               concat(s.grado, '° ', s.nombre) seccion, s.id_seccion seccion_id, ac.id_docente docente_id,
               a.estado_asistencia estado,
               case a.estado_asistencia when 'TARDANZA_JUSTIFICADA' then 'TARDANZA'
@@ -107,6 +107,9 @@ public class ReporteAsistenciaService {
             join SesionClase sc on sc.id_sesion_clase = a.id_sesion_clase
             join AsignacionCurso ac on ac.id_asignacion_curso = a.id_asignacion_curso
             join Curso c on c.id_curso = ac.id_curso join Seccion s on s.id_seccion = ac.id_seccion
+            left join AnioAcademico anio on anio.anio = s.anio_academico
+            left join GradoAcademico grado on grado.id_anio = anio.id_anio_academico and grado.numero = s.grado
+            left join PlanEstudiosCurso plan on plan.id_grado_academico = grado.id_grado_academico and plan.id_curso = ac.id_curso
             where a.activo = true and sc.estado = 'TOMADA' and sc.activo = true
             """.formatted(NOMBRE);
     private static final String DOCENTES = """

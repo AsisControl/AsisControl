@@ -1,0 +1,1 @@
+ALTER TABLE EntregaTarea ADD COLUMN respuesta VARCHAR(2000) NULL;

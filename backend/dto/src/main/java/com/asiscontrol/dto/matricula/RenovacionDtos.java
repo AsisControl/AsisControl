@@ -15,7 +15,9 @@ public final class RenovacionDtos {
     private RenovacionDtos() {}
 
     public record CrearRequest(@NotNull @Positive Long idMatriculaAnterior, @NotNull @Positive Long idSeccion) {}
-    public record AprobarRequest(@NotNull @PositiveOrZero Long version, @Size(max = 64) String firmaPlan) {}
+    /** {@code idSeccion} es opcional: si falta, se aprueba en la sección solicitada. */
+    public record AprobarRequest(@NotNull @PositiveOrZero Long version, @Size(max = 64) String firmaPlan,
+                                 @Positive Long idSeccion) {}
     public record RechazarRequest(@NotNull @PositiveOrZero Long version, @NotBlank @Size(max = 700) String motivo) {}
     public record PromocionRequest(@NotNull ResultadoPromocion resultado, @NotBlank @Size(max = 700) String motivo,
                                    @NotNull @PositiveOrZero Long version) {}

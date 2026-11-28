@@ -50,6 +50,9 @@ test("Con un enlace válido valida el token, lo quita de la URL y cambia la cont
   render(<RecoveryPage />);
   expect(await screen.findByText("Elige una nueva contraseña")).toBeTruthy();
   expect(window.location.hash).toBe("");
+  const rules = screen.getByRole("list", { name: "Requisitos de la nueva contraseña" });
+  await user.type(screen.getByLabelText(/^Nueva contraseña/), "abc");
+  expect([...rules.children].map((rule) => rule.dataset.met)).toEqual(["false", "false", "true", "false", "true"]);
   const submit = async (next, confirm) => {
     for (const [label, value] of [
       [/^Nueva contraseña/, next],

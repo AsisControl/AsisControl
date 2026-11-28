@@ -20,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -32,6 +33,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** ASISCTRL-93: reglas de US-23 con datos persistidos y solicitudes HTTP completas. */
+// Las aserciones globales requieren una base propia, sin datos confirmados por otras clases.
+@TestPropertySource(properties =
+        "spring.datasource.url=jdbc:h2:mem:horario_validaciones;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false")
 class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
     private static final String RUTA = "/api/horarios";
     protected Aula aulaPrincipal;
@@ -103,7 +107,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
     @Test
     void aceptaTurnosDeMananaYTardeEnIntervalosDeMediaHora() throws Exception {
         crear(assignment, aulaPrincipal, "LUNES", "07:00", "08:30");
-        crear(assignment, aulaPrincipal, "MARTES", "13:00", "15:30");
+        crear(assignment, aulaPrincipal, "MARTES", "13:00", "15:00");
         crear(assignment, aulaPrincipal, "MIERCOLES", "19:30", "20:00");
         assertThat(cantidadHorarios()).isEqualTo(3);
     }
@@ -130,6 +134,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         String ruta = RUTA + "/" + creado.path("id").asLong();
         Map<String, Object> cambios = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:15");
         cambios.put("version", creado.path("version").asLong());
+        cambios.put("motivo", "Ajuste de hora");
         JsonNode error = request("PUT", ruta, cambios, 422);
         assertThat(error.path("code").asText()).isEqualTo("HORARIO_FIN_INVALIDO");
         assertThat(getOk(ruta).path("horaFin").asText()).startsWith("09:00");
@@ -215,6 +220,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         String ruta = RUTA + "/" + segundo.path("id").asLong();
         Map<String, Object> cambios = bloque(otraAsignacion, aulaPrincipal, "LUNES", "08:00", "09:00");
         cambios.put("version", segundo.path("version").asLong());
+        cambios.put("motivo", "Cambio de aula");
         request("PUT", ruta, cambios, 409);
         assertThat(getOk(ruta).path("aulaId").asLong()).isEqualTo(otraAula.getId());
         assertThat(cantidadHorarios()).isEqualTo(2);
@@ -227,6 +233,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         String ruta = RUTA + "/" + primero.path("id").asLong();
         Map<String, Object> cambios = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:30");
         cambios.put("version", primero.path("version").asLong());
+        cambios.put("motivo", "Ajuste de hora");
         JsonNode editado = putOk(ruta, cambios);
         assertThat(editado.path("version").asLong()).isGreaterThan(primero.path("version").asLong());
         request("PUT", ruta, cambios, 409);
@@ -241,7 +248,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         tomada.setEstado(EstadoSesionClase.TOMADA);
         tomada.setDocenteRegistrador(teacher);
         em.flush();
-        deleteOk(RUTA + "/" + creado.path("id").asLong());
+        request("DELETE", RUTA + "/" + creado.path("id").asLong(), data("motivo", "Fin de prueba"), 204);
         assertThat(em.find(Horario.class, creado.path("id").asLong()).isActivo()).isFalse();
         assertThat(sesionesActivas()).isEqualTo(1);
         assertThat(tomada.isActivo()).isTrue();
@@ -259,6 +266,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
                 .andExpect(status().isForbidden());
         Map<String, Object> edicion = bloque(assignment, aulaPrincipal, "LUNES", "08:00", "09:00");
         edicion.put("version", 0);
+        edicion.put("motivo", "Cambio no autorizado");
         mvc.perform(put(RUTA + "/1").with(lector).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsBytes(edicion)))
                 .andExpect(status().isForbidden());
@@ -333,7 +341,7 @@ class HorarioValidacionesHttpTest extends ApiIntegrationSupport {
         curso.setHorasSemanales(4);
         curso.setGradoAcademico(grado);
         em.persist(curso);
-        grado.getCursosPlan().add(curso);
+        grado.incluirCurso(curso);
         return curso;
     }
 

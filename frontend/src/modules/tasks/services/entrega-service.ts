@@ -13,6 +13,12 @@ export function calificarEntrega(id: number, input: CalificarEntregaRequest) {
   });
 }
 
+export function guardarDevolucion(id: number, comentario: string | null, version: number) {
+  return api<EntregaTareaResponse>(`/api/entregas/${id}/devolucion`, {
+    method: "PUT", body: JSON.stringify({ comentario, version }),
+  });
+}
+
 /** Padrón de la sección con quién entregó y quién no; solo docente de la tarea y dirección. */
 export function obtenerSeguimiento(tareaId: number) {
   return api<SeguimientoTareaResponse>(`/api/tareas/${tareaId}/seguimiento`);

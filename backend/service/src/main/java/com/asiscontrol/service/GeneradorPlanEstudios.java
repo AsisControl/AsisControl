@@ -60,7 +60,7 @@ public class GeneradorPlanEstudios {
 
     public byte[] generar(PlanAnual plan) {
         var documento = new JasperPrint();
-        documento.setName("Plan de estudios AsisControl " + plan.anio());
+        documento.setName(plan.nombre());
         documento.setPageWidth(ANCHO);
         documento.setPageHeight(ALTO);
         var paginas = paginar(filas(plan));
@@ -130,7 +130,7 @@ public class GeneradorPlanEstudios {
             case BORRADOR -> "AÑO ACADÉMICO EN BORRADOR";
             case CERRADO -> "AÑO ACADÉMICO CERRADO";
         };
-        cabecera(p, "Plan de estudios", "Mapa curricular por grado", estado, String.valueOf(plan.anio()),
+        cabecera(p, "Plan de estudios", plan.nombre(), estado, String.valueOf(plan.anio()),
                 FECHA.format(plan.inicio()) + " a " + FECHA.format(plan.fin()));
         p.texto(MARGEN, 119, 410, "Cursos del plan por grado", 12, TINTA, true);
         if (plan.borrador()) {

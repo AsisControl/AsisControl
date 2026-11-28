@@ -2,8 +2,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { fieldErrorsOf, message } from "@/core/api/client";
+import { hoursLabel } from "@/shared/lib/formatters";
 import { FormDialog } from "@/shared/ui";
 import { hour, weekDayLabels } from "../lib/labels";
+import { exceedDetail, planHours } from "../lib/plan-hours";
 import {
   isSchoolEndSlot,
   isSchoolStartSlot,
@@ -13,6 +15,7 @@ import {
   WEEK_DAYS,
   detectConflicts,
   needsReload,
+  planHoursConflict,
   serverConflict,
   validateBlock,
   type BlockErrors,
@@ -26,6 +29,7 @@ import type {
   ScheduleSection,
   WeekDay,
 } from "../types";
+import styles from "../schedules.module.css";
 import { ConflictList } from "./conflict-list";
 import {
   actualizarHorario,
@@ -34,6 +38,8 @@ import {
 } from "./services/horarioService";
 /** Espera antes de consultar los cruces mientras se escribe. */
 const CHECK_DELAY_MS = 250;
+/** Mismo límite que ReasonField: el motivo queda en el historial de cambios (US-27). */
+const MAX_REASON_LENGTH = 700;
 /** Resultado de la consulta de cruces para una combinación de docente, aula, día y horas. */
 type CheckResult = { key: string; blocks: ScheduleBlock[] | null };
 type Check =
@@ -75,6 +81,8 @@ export function BlockFormDialog({
     horaFin: block ? hour(block.horaFin) : "",
   });
   const [errors, setErrors] = useState<BlockErrors>({});
+  const [motivo, setMotivo] = useState("");
+  const [motivoError, setMotivoError] = useState("");
   const [result, setResult] = useState<CheckResult | null>(null);
   const [rejected, setRejected] = useState<Conflict | null>(null);
   const [busy, setBusy] = useState(false);
@@ -149,7 +157,13 @@ export function BlockFormDialog({
           [...sectionBlocks, ...(check.state === "done" ? check.blocks : [])],
         )
       : [];
-  const blocking = [...unavailable, ...conflicts];
+  // OBS-01: horas del plan, programadas y disponibles del curso en la sección.
+  const hours = assignment
+    ? planHours(assignment, sectionBlocks, block?.id, values.horaInicio, values.horaFin)
+    : null;
+  const noPlan = assignmentsStatus === "ready" && assignment?.horasPlan === null;
+  const hoursConflicts = hours?.exceeds ? [planHoursConflict(exceedDetail(hours))] : [];
+  const blocking = [...unavailable, ...conflicts, ...hoursConflicts];
   const set = (key: keyof BlockFormValues, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
@@ -160,9 +174,12 @@ export function BlockFormDialog({
     event.preventDefault();
     if (sending.current) return;
     const found = validateBlock(values);
+    const reason = motivo.trim();
+    const reasonError = block && !reason ? "Indique el motivo del cambio." : "";
     setErrors(found);
-    if (Object.keys(found).length) return;
-    if (blocking.length) {
+    setMotivoError(reasonError);
+    if (Object.keys(found).length || reasonError) return;
+    if (blocking.length || noPlan) {
       setError("Resuelve los conflictos antes de confirmar el bloque.");
       return;
     }
@@ -178,13 +195,15 @@ export function BlockFormDialog({
     setError("");
     setRejected(null);
     try {
-      onSaved(await (block ? actualizarHorario(block, input) : crearHorario(input)));
+      onSaved(await (block ? actualizarHorario(block, input, reason) : crearHorario(input)));
     } catch (e) {
       // Criterio 7: otro administrador pudo tomar el recurso; el servidor decide.
       const item = serverConflict(e);
       if (item) {
+        const fields = fieldErrorsOf(e);
         setRejected(item);
-        setErrors(fieldErrorsOf(e));
+        setErrors(fields);
+        setMotivoError(fields.motivo ?? "");
         if (needsReload(item)) onStale();
       } else setError(message(e));
       sending.current = false;
@@ -198,12 +217,42 @@ export function BlockFormDialog({
       description={`Sección ${sectionLabel} · aforo máximo ${section.capacidadMaxima}`}
       submitLabel={block ? "Guardar cambios" : "Confirmar bloque"}
       busy={busy}
+      submitDisabled={noPlan || !!hours?.exceeds}
       error={error}
       onClose={onClose}
       onSubmit={save}
       noValidate
       notes={
         <>
+          {hours && assignment && (
+            <p className="hint" role="status">
+              Horas de {assignment.curso} en {section.grado}° {section.nombre}: plan{" "}
+              {hoursLabel(hours.plan)} · {block ? "programadas en otros bloques" : "programadas"}{" "}
+              {hoursLabel(hours.programmed)} · disponibles {hoursLabel(hours.available)}
+            </p>
+          )}
+          {hours && hours.added > 0 && (
+            <p className="hint" role="status">Total con este bloque: {hoursLabel(hours.total)} de {hoursLabel(hours.plan)} del plan.</p>
+          )}
+          {noPlan && (
+            <p className="form-error" role="alert">
+              Este curso no tiene horas definidas para la sección. Revisa su año y grado en{" "}
+              <Link href="/academico/plan-estudios">Plan de estudios</Link>.
+            </p>
+          )}
+          {hours && assignment && hours.overPlan && !hours.exceeds && (
+            <p className={styles.availabilityNotice} role="status">
+              {assignment.curso} en {section.grado}° {section.nombre} tiene {hoursLabel(hours.current)}{" "}
+              programadas y el plan permite {hoursLabel(hours.plan)} (sobra{" "}
+              {hoursLabel(hours.current - hours.plan)}). Puedes mantener o reducir horas, pero no
+              aumentarlas.
+              {hours.fixes && (
+                <strong className={styles.planFixed}>
+                  Con este cambio la sección queda en {hoursLabel(hours.total)}, dentro del plan.
+                </strong>
+              )}
+            </p>
+          )}
           <ConflictList heading="El servidor rechazó el bloque" conflicts={rejected ? [rejected] : []} />
           <ConflictList heading="Conflictos detectados" conflicts={blocking} />
           {check.state === "checking" && (
@@ -351,6 +400,32 @@ export function BlockFormDialog({
           )}
         </label>
       ))}
+      {block && (
+        <label className="field full-field">
+          <span>
+            Motivo del cambio<span className="field-required"> *</span>
+          </span>
+          <textarea
+            name="motivo"
+            rows={3}
+            maxLength={MAX_REASON_LENGTH}
+            value={motivo}
+            aria-invalid={motivoError ? true : undefined}
+            onChange={(event) => {
+              setMotivo(event.target.value);
+              setMotivoError("");
+              setError("");
+            }}
+          />
+          {motivoError ? (
+            <small className="field-error" role="alert">{motivoError}</small>
+          ) : (
+            <small className="field-hint">
+              Se registra en el historial de cambios del horario. Máximo 700 caracteres.
+            </small>
+          )}
+        </label>
+      )}
     </FormDialog>
   );
 }

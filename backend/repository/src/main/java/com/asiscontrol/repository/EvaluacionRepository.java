@@ -11,10 +11,13 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Evaluacion e where e.id = :id and e.activo = true")
+    Optional<Evaluacion> buscarActivaParaEscritura(Long id);
 
     @Query("""
             SELECT DISTINCT e FROM Evaluacion e LEFT JOIN FETCH e.competencias
-            WHERE e.activo = true AND e.asignacionCurso.id = :asignacion
+            WHERE e.activo = true AND e.cuentaResultado = true AND e.asignacionCurso.id = :asignacion
             AND e.fechaEvaluacion BETWEEN :inicio AND :fin
             AND e.estado IN (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                             com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA)
@@ -26,8 +29,10 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
     @Query("""
             SELECT DISTINCT alumno, e FROM Matricula m JOIN m.alumno alumno, Evaluacion e
             JOIN e.asignacionCurso a
-            WHERE m.activo = true AND alumno.activo = true AND e.activo = true AND a.activo = true
-            AND m.seccion = a.seccion
+            WHERE m.activo = true AND alumno.activo = true AND e.activo = true AND e.cuentaResultado = true AND a.activo = true
+            AND (m.seccion = a.seccion OR EXISTS (SELECT h.id FROM HistorialSeccionMatricula h
+                WHERE h.activo = true AND h.matricula = m AND """ + VisibilidadSeccionAnterior.EVALUACION + """
+            ))
             AND m.estado IN (com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA,
                              com.asiscontrol.entity.enums.EstadoMatricula.FINALIZADA)
             AND e.estado IN (com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
@@ -44,7 +49,7 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            SELECT e FROM Evaluacion e WHERE e.activo = true
+            SELECT e FROM Evaluacion e WHERE e.activo = true AND e.cuentaResultado = true
             AND e.asignacionCurso.id = :asignacion
             AND e.fechaEvaluacion BETWEEN :inicio AND :fin
             AND e.estado = com.asiscontrol.entity.enums.EstadoEvaluacion.BORRADOR
@@ -53,12 +58,54 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
     java.util.List<Evaluacion> borradoresParaPublicar(@Param("asignacion") Long asignacion,
             @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin);
 
+    /** Evaluaciones vigentes del año que están en el rango actual de un período y no en el nuevo. */
+    @Query("""
+            SELECT COUNT(e) FROM Evaluacion e
+            WHERE e.activo = true AND e.estado <> com.asiscontrol.entity.enums.EstadoEvaluacion.ANULADA
+            AND e.asignacionCurso.seccion.anioAcademico = :anio
+            AND e.fechaEvaluacion BETWEEN :inicio AND :fin
+            AND (e.fechaEvaluacion < :nuevoInicio OR e.fechaEvaluacion > :nuevoFin)
+            """)
+    long contarFueraDelNuevoRango(@Param("anio") int anio,
+            @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin,
+            @Param("nuevoInicio") java.time.LocalDate nuevoInicio,
+            @Param("nuevoFin") java.time.LocalDate nuevoFin);
+
+    interface AvanceAcademico {
+        Evaluacion getEvaluacion();
+        long getRegistradas();
+    }
+
+    String CONTEXTO_ACADEMICO = """
+            from Evaluacion e join e.asignacionCurso a join a.seccion s
+            where e.activo = true and s.anioAcademico = :anio and s.grado = :grado
+            and s.id = :seccion and a.curso.id = :curso and e.fechaEvaluacion between :inicio and :fin
+            """;
+
+    @Query(value = """
+            select e as evaluacion, (select count(c.id) from Calificacion c where c.activo = true
+                and c.evaluacion = e and c.competencia member of e.competencias
+                and (c.nivelLogro is not null or c.notaNumerica is not null)
+                and exists (select m.id from Matricula m where m.alumno = c.alumno and m.seccion = s
+                    and m.activo = true and m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA)
+            ) as registradas
+            """ + CONTEXTO_ACADEMICO + " order by e.fechaEvaluacion desc, e.id desc",
+            countQuery = "select count(e.id) " + CONTEXTO_ACADEMICO)
+    Page<AvanceAcademico> consultarAvanceAcademico(int anio, int grado, Long seccion, Long curso,
+            java.time.LocalDate inicio, java.time.LocalDate fin, Pageable pageable);
+
     Optional<Evaluacion> findByIdAndActivoTrue(Long id);
 
     @Query("""
             SELECT e FROM Evaluacion e
             WHERE e.activo = true
               AND (:estado IS NULL OR e.estado = :estado)
+              AND (:vinculables = false OR (e.cuentaResultado = true
+                   AND e.modeloCualitativo = true
+                   AND e.estado = com.asiscontrol.entity.enums.EstadoEvaluacion.BORRADOR
+                   AND NOT EXISTS (SELECT c.id FROM Calificacion c WHERE c.evaluacion = e)
+                   AND NOT EXISTS (SELECT t.id FROM Tarea t WHERE t.evaluacionAcademica = e
+                                   AND (:tareaActual IS NULL OR t.id <> :tareaActual))))
               AND (:idAsignacionCurso IS NULL OR e.asignacionCurso.id = :idAsignacionCurso)
               AND (:periodo IS NULL OR e.periodoEvaluacion = :periodo)
               AND (:idCurso IS NULL OR e.asignacionCurso.curso.id = :idCurso)
@@ -66,24 +113,28 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
               AND (:personaDocenteId IS NULL
                    OR e.asignacionCurso.docente.persona.id = :personaDocenteId)
               AND (:personaAlumnoId IS NULL OR (
-                    e.estado IN (
+                    e.cuentaResultado = true AND e.estado IN (
                         com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                         com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
                     )
-                    AND EXISTS (
+                    AND (EXISTS (
                         SELECT m.id FROM Matricula m
                         WHERE m.activo = true
                           AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
                           AND m.seccion.id = e.asignacionCurso.seccion.id
                           AND m.alumno.persona.id = :personaAlumnoId
-                    )
+                    ) OR EXISTS (
+                        SELECT h.id FROM HistorialSeccionMatricula h
+                        WHERE h.matricula.alumno.persona.id = :personaAlumnoId
+                          AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE + " AND " + VisibilidadSeccionAnterior.EVALUACION + """
+                    ))
                   ))
               AND (:personaApoderadoId IS NULL OR (
-                    e.estado IN (
+                    e.cuentaResultado = true AND e.estado IN (
                         com.asiscontrol.entity.enums.EstadoEvaluacion.PUBLICADA,
                         com.asiscontrol.entity.enums.EstadoEvaluacion.CERRADA
                     )
-                    AND EXISTS (
+                    AND (EXISTS (
                         SELECT m.id FROM Matricula m, AlumnoApoderado v
                         WHERE m.activo = true
                           AND m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA
@@ -91,7 +142,12 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
                           AND v.activo = true
                           AND v.alumno.id = m.alumno.id
                           AND v.apoderado.persona.id = :personaApoderadoId
-                    )
+                    ) OR EXISTS (
+                        SELECT h.id FROM HistorialSeccionMatricula h, AlumnoApoderado v
+                        WHERE v.activo = true AND v.alumno.id = h.matricula.alumno.id
+                          AND v.apoderado.persona.id = :personaApoderadoId
+                          AND """ + VisibilidadSeccionAnterior.MATRICULA_VIGENTE + " AND " + VisibilidadSeccionAnterior.EVALUACION + """
+                    ))
                   ))
               AND (:busqueda IS NULL
                    OR LOWER(e.titulo) LIKE LOWER(CONCAT('%', :busqueda, '%'))
@@ -107,6 +163,8 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
             @Param("personaDocenteId") Long personaDocenteId,
             @Param("personaAlumnoId") Long personaAlumnoId,
             @Param("personaApoderadoId") Long personaApoderadoId,
+            @Param("vinculables") boolean vinculables,
+            @Param("tareaActual") Long tareaActual,
             Pageable pageable
     );
 }

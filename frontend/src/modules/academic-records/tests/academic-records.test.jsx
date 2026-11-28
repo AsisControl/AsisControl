@@ -19,6 +19,7 @@ const persona = (nombreCompleto, numeroDocumento, correo = null) => ({
   tipoDocumento: "DNI",
   numeroDocumento,
   correo,
+  activo: true,
 });
 const carmen = {
   id: 7,
@@ -53,6 +54,31 @@ const docente = {
 beforeEach(() => {
   signIn();
   setUrl(BASE);
+});
+
+test.each([
+  ["apoderados", carmen, "Carmen", "Flores"],
+  ["docentes", docente, "Rosa", "Pizarro"],
+])("edita la ficha de %s y conserva la nacionalidad registrada", async (view, profile, nombres, apellidoPaterno) => {
+  const root = `/api/${view}`;
+  let detail = { ...profile, persona: { ...profile.persona, nombres, apellidoPaterno,
+    fechaNacimiento: "1985-03-14", nacionalidadId: 9, sexo: "FEMENINO" } };
+  const calls = fakeBackend({
+    [`GET ${root}`]: () => page([detail]),
+    [`GET ${root}/:id`]: () => detail,
+    [`PUT ${root}/:id`]: ({ body }) => { detail = { ...detail, persona: { ...detail.persona, ...body.persona } }; return detail; },
+  });
+  setUrl(`${BASE}/${view}`);
+  render(<RecordsScreen />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: /Ver ficha de/ }));
+  await user.click(await screen.findByRole("button", { name: "Editar ficha" }));
+  const address = screen.getByLabelText("Dirección");
+  await user.type(address, "Av. Escuela 300");
+  await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  await screen.findByText("Ficha actualizada.");
+  expect(calls.find(({ method }) => method === "PUT").body.persona)
+    .toMatchObject({ direccion: "Av. Escuela 300", nacionalidadId: 9, nombres });
 });
 
 test("Agrupa las vistas y cambia la URL al elegir una", async () => {
@@ -152,18 +178,19 @@ test("Si la ficha no se puede consultar muestra el error", async () => {
   expect(await within(screen.getByRole("dialog")).findByText("No se encontro el docente")).toBeTruthy();
 });
 
-test("Parentescos muestra una fila por vínculo y avisa si falta el apoderado", async () => {
+test("Parentescos reúne los vínculos por estudiante y mantiene el acceso a sus acciones", async () => {
   fakeBackend({ "GET /api/alumnos": page([lucia, mario]) });
   setUrl(`${BASE}/parentescos`);
   render(<RecordsScreen />);
-  const rows = (await screen.findAllByText("Lucía Flores")).map((name) => name.closest("tr"));
-  expect(rows.map((row) => [...row.cells].slice(1).map((cell) => cell.textContent))).toEqual([
-    ["Carmen Flores Vega", "Madre", "Sí"],
-    ["Pedro Flores", "Tutor legal", "No"],
-  ]);
+  const row = (await screen.findByText("Lucía Flores")).closest("tr");
+  expect(within(row).getByText(/Carmen Flores Vega/)).toBeTruthy();
+  expect(within(row).getByText(/Pedro Flores/)).toBeTruthy();
+  expect(within(row).getByRole("button", { name: "Retirar a Pedro Flores de Lucía Flores" })).toBeTruthy();
+  expect(within(row).getByRole("button", { name: "Gestionar vínculos de Lucía Flores" })).toBeTruthy();
   const missing = screen.getByText("Mario Díaz").closest("tr");
-  expect(within(missing).getByText("Sin apoderado registrado")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Vincular apoderado/ }).disabled).toBe(true);
+  expect(within(missing).getByText("Sin apoderados vinculados")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Vincular apoderado" }).disabled).toBe(false);
+  expect(screen.queryByText("Próximamente")).toBeNull();
 });
 
 test("La carga masiva se abre desde apoderados y parentescos", async () => {

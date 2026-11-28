@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { api, message } from "@/core/api/client";
-import { FormDialog, ReasonField } from "@/shared/ui";
+import { Feedback, FormDialog, ReasonField } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
 import type { AcademicYear, Period, YearPanelProps } from "../types";
 import styles from "../academic-config.module.css";
@@ -31,10 +31,13 @@ type PeriodAction = { kind: "period-state"; target: Period; next: string };
 export function PeriodsPanel({
   year,
   onYearChange,
+  onReload,
   onSuccess,
 }: YearPanelProps) {
   const [action, setAction] = useState<PeriodAction | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Period | null>(null);
+  const [staleNotice, setStaleNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const open = (value: PeriodAction) => {
@@ -42,6 +45,16 @@ export function PeriodsPanel({
     onSuccess("");
     setAction(value);
   };
+  /** El período cambió en el servidor: se cierra el formulario y se recarga. */
+  async function reloadStale(reason: string) {
+    setEditing(null);
+    try {
+      await onReload();
+      setStaleNotice(`${reason} Se recargaron los períodos.`);
+    } catch (error) {
+      setStaleNotice(`${reason} ${message(error)}`);
+    }
+  }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!action) return;
@@ -90,12 +103,13 @@ export function PeriodsPanel({
         <div id="period-notice" className={styles.infoNotice} role="note">
           <InfoIcon />
           <p>
-            <strong>No se pueden agregar períodos.</strong> Los períodos se
+            <strong>No se pueden agregar ni editar períodos.</strong> Los períodos se
             configuran mientras el año está en borrador, y el año {year.anio} ya
             está {year.estado === "ACTIVO" ? "activo" : "cerrado"}.
           </p>
         </div>
       )}
+      <Feedback error={staleNotice} />
       <div className={styles.cards}>
         {year.periodos.map((period) => (
           <PeriodCard
@@ -104,6 +118,15 @@ export function PeriodsPanel({
             canChangeState={year.estado === "ACTIVO"}
             onChangeState={(target, next) =>
               open({ kind: "period-state", target, next })
+            }
+            onEdit={
+              year.estado === "BORRADOR"
+                ? (target) => {
+                    onSuccess("");
+                    setStaleNotice("");
+                    setEditing(target);
+                  }
+                : undefined
             }
           />
         ))}
@@ -117,11 +140,24 @@ export function PeriodsPanel({
         <PeriodFormDialog
           year={year}
           onClose={() => setCreating(false)}
-          onCreated={(updated) => {
+          onSaved={(updated) => {
             onYearChange(updated);
             setCreating(false);
             onSuccess("Período creado.");
           }}
+        />
+      )}
+      {editing && year.estado === "BORRADOR" && (
+        <PeriodFormDialog
+          year={year}
+          period={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            onYearChange(updated);
+            setEditing(null);
+            onSuccess("Período actualizado.");
+          }}
+          onStale={(reason) => void reloadStale(reason)}
         />
       )}
       {action && (

@@ -21,6 +21,7 @@ import com.asiscontrol.repository.DocenteRepository;
 import com.asiscontrol.repository.HorarioRepository;
 import com.asiscontrol.repository.SeccionRepository;
 import com.asiscontrol.service.asistencia.HorarioAsignacionCambiadoEvent;
+import jakarta.persistence.EntityManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +48,7 @@ public class AsignacionCursoService {
     private final ModuloAccessGuard accessGuard;
     private final AuditoriaService auditoria;
     private final ApplicationEventPublisher eventos;
+    private final EntityManager entityManager;
 
     public AsignacionCursoService(
             AsignacionCursoRepository asignacionRepository,
@@ -57,7 +59,8 @@ public class AsignacionCursoService {
             PlanEstudiosService planes,
             ModuloAccessGuard accessGuard,
             AuditoriaService auditoria,
-            ApplicationEventPublisher eventos) {
+            ApplicationEventPublisher eventos,
+            EntityManager entityManager) {
         this.asignacionRepository = asignacionRepository;
         this.cursoRepository = cursoRepository;
         this.seccionRepository = seccionRepository;
@@ -67,6 +70,7 @@ public class AsignacionCursoService {
         this.accessGuard = accessGuard;
         this.auditoria = auditoria;
         this.eventos = eventos;
+        this.entityManager = entityManager;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -91,6 +95,7 @@ public class AsignacionCursoService {
         asignacion.setDocente(docente);
         asignacion.setActivo(true);
         AsignacionCurso saved = asignacionRepository.saveAndFlush(asignacion);
+        entityManager.refresh(saved);
         auditoria.registrar(
                 reactivada ? "REACTIVAR_ASIGNACION_CURSO" : "CREAR_ASIGNACION_CURSO",
                 ModuloAuditoria.ACADEMICO, "AsignacionCurso", saved.getId().toString(),
@@ -127,6 +132,7 @@ public class AsignacionCursoService {
         asignacion.setSeccion(seccion);
         asignacion.setDocente(docente);
         AsignacionCurso saved = asignacionRepository.saveAndFlush(asignacion);
+        entityManager.refresh(saved);
         auditoria.registrar("ACTUALIZAR_ASIGNACION_CURSO", ModuloAuditoria.ACADEMICO, "AsignacionCurso",
                 id.toString(), ResultadoAuditoria.EXITOSO, null, anterior, describir(saved));
         eventos.publishEvent(new HorarioAsignacionCambiadoEvent(Set.of(id)));
@@ -284,7 +290,7 @@ public class AsignacionCursoService {
         return "docenteId=" + asignacion.getDocente().getId()
                 + ",docente=" + asignacion.getDocente().getPersona().nombreCompleto()
                 + ",cursoId=" + asignacion.getCurso().getId()
-                + ",curso=" + asignacion.getCurso().getNombre()
+                + ",curso=" + asignacion.nombreCurso()
                 + ",seccionId=" + asignacion.getSeccion().getId()
                 + ",seccion=" + etiquetaSeccion(asignacion.getSeccion())
                 + ",anio=" + asignacion.getSeccion().getAnioAcademico()
@@ -304,14 +310,21 @@ public class AsignacionCursoService {
 
     private AsignacionCursoResponse mapear(AsignacionCurso asignacion) {
         return new AsignacionCursoResponse(
-                asignacion.getId(), asignacion.getCurso().getId(), asignacion.getCurso().getNombre(),
+                asignacion.getId(), asignacion.getCurso().getId(), asignacion.nombreCurso(),
                 asignacion.getSeccion().getId(), asignacion.getSeccion().getNombre(),
                 asignacion.getSeccion().getAnioAcademico(), asignacion.getDocente().getId(),
                 asignacion.getDocente().getPersona().nombreCompleto(), asignacion.isActivo(),
                 asignacion.getVersion(), asignacion.getSeccion().getGrado(),
                 asignacion.getId() == null
                         ? 0
-                        : horarioRepository.countByAsignacionCursoIdAndActivoTrue(asignacion.getId()));
+                        : horarioRepository.countByAsignacionCursoIdAndActivoTrue(asignacion.getId()),
+                horasPlan(asignacion));
+    }
+
+    /** OBS-01: el formulario del bloque muestra las horas del plan, programadas y disponibles. */
+    private Integer horasPlan(AsignacionCurso asignacion) {
+        var horas = planes.horasDelPlan(asignacion.getCurso(), asignacion.getSeccion());
+        return horas.isPresent() ? horas.getAsInt() : null;
     }
 
     private void exigirVersion(long actual, Long recibida) {

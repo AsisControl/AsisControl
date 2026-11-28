@@ -35,7 +35,7 @@ public class ImportacionFamiliaService {
             "apellidoMaterno", "sexo", "fechaNacimiento");
     private static final List<String> RELATIONSHIP_REQUIRED =
             PlantillaFamiliaService.RELATIONSHIP_HEADERS;
-    /** El ENUM de AlumnoApoderado.parentesco en MySQL (V1) no incluye NO_DECLARADO. */
+    /** La plantilla de parentescos requiere uno de los tipos de relación declarados. */
     static final List<Parentesco> PARENTESCOS_IMPORTABLES = List.of(
             Parentesco.PADRE, Parentesco.MADRE, Parentesco.TUTOR_LEGAL, Parentesco.OTRO_FAMILIAR);
 

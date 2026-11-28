@@ -20,6 +20,7 @@ import com.asiscontrol.entity.planificacion.AnioAcademico;
 import com.asiscontrol.service.CicloCuentaService;
 import com.asiscontrol.service.CodigoInstitucionalService;
 import com.asiscontrol.service.CompromisoPagoService;
+import com.asiscontrol.service.InscripcionCursoService;
 import com.asiscontrol.service.PagoService;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
@@ -29,6 +30,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,21 +52,24 @@ public class PagosDemoDataInitializer {
     private final CodigoInstitucionalService codigos;
     private final CompromisoPagoService compromisos;
     private final PagoService pagos;
+    private final InscripcionCursoService inscripciones;
     private final String password;
 
     public PagosDemoDataInitializer(EntityManager em, CicloCuentaService cuentas,
             CodigoInstitucionalService codigos,
-            CompromisoPagoService compromisos, PagoService pagos,
+            CompromisoPagoService compromisos, PagoService pagos, InscripcionCursoService inscripciones,
             @Value("${app.pagos.demo.password:}") String password) {
         this.em = em;
         this.cuentas = cuentas;
         this.codigos = codigos;
         this.compromisos = compromisos;
         this.pagos = pagos;
+        this.inscripciones = inscripciones;
         this.password = password;
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @Order(0)
     @Transactional
     public void preparar() {
         if (!password.matches("(?=.{12,64}$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])[^\\s]+")) {
@@ -193,6 +198,8 @@ public class PagosDemoDataInitializer {
         matricula.setFechaMatricula(Instant.now());
         em.persist(matricula);
         em.flush();
+        // inscripcion cursos: la demo no pasa por MatriculaService, así que inscribe aquí
+        inscripciones.inscribir(matricula);
         for (int cuota = 1; cuota <= 3; cuota++) {
             long dias = cuota == 1 ? -45 : cuota == 2 ? -7 : 15;
             var compromiso = compromisos.emitir(new PagoDto.CompromisoRequest(matricula.getId(), null,

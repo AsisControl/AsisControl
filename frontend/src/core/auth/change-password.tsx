@@ -1,10 +1,15 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { passwordError, passwordHint } from "./password-policy";
+import { passwordError } from "./password-policy";
+import { PasswordRulesList } from "./password-rules-list";
+import { PasswordSuccessIcon } from "./password-success";
 import { api, message } from "@/core/api/client";
 import { Feedback, PasswordField } from "@/shared/ui";
-import { AuthFormLayout } from "./auth-form-layout";
-import styles from "./auth-form.module.css";
+import { AccessArrow } from "@/core/layout/access-brand";
+import access from "@/core/layout/access.module.css";
+import { AccessLayout } from "@/core/layout/access-layout";
+import layout from "@/core/layout/login-screen.module.css";
+import styles from "./password-screens.module.css";
 export function ChangePassword({
   onLogout,
   mandatory = true,
@@ -15,6 +20,7 @@ export function ChangePassword({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -46,24 +52,29 @@ export function ChangePassword({
   }
   if (done)
     return (
-      <AuthFormLayout label="Contraseña actualizada" icon="check" compact={mandatory}>
-        <h1>Contraseña actualizada</h1>
-        <p className={styles.description}>
-          Inicia sesión nuevamente con tu contraseña nueva.
-        </p>
-        <button className={styles.primaryButton} onClick={onLogout}>
+      <AccessLayout titleId="password-title">
+        <PasswordSuccessIcon />
+        <header className={layout.formHeader}>
+          <h1 id="password-title">Contraseña actualizada</h1>
+          <p>Inicia sesión nuevamente con tu contraseña nueva.</p>
+        </header>
+        <button className={`${access.primary} ${layout.submit}`} onClick={onLogout}>
           Ir al inicio de sesión
+          <AccessArrow />
         </button>
-      </AuthFormLayout>
+      </AccessLayout>
     );
   return (
-    <AuthFormLayout label="Cambio de contraseña" icon="lock" compact={mandatory}>
-      <h1>Cambiar contraseña</h1>
-      <p className={styles.description}>
-        {mandatory
-          ? "Debes reemplazar tu contraseña temporal para continuar."
-          : "Confirma tu contraseña actual y elige una nueva."}
-      </p>
+    <AccessLayout titleId="password-title">
+      <p className={styles.badge}>{mandatory ? "Primer ingreso" : "Seguridad de tu cuenta"}</p>
+      <header className={`${layout.formHeader} ${styles.header}`}>
+        <h1 id="password-title">{mandatory ? "Crea tu contraseña" : "Cambiar contraseña"}</h1>
+        <p>
+          {mandatory
+            ? "Debes reemplazar tu contraseña temporal para continuar."
+            : "Confirma tu contraseña actual y elige una nueva."}
+        </p>
+      </header>
       <div className={styles.feedback}>
         <Feedback error={error} />
       </div>
@@ -74,6 +85,7 @@ export function ChangePassword({
             name="currentPassword"
             required
             autoComplete="current-password"
+            placeholder={mandatory ? "Ingresa tu contraseña temporal" : "Ingresa tu contraseña actual"}
           />
           <PasswordField
             label="Nueva contraseña"
@@ -83,7 +95,10 @@ export function ChangePassword({
             maxLength={64}
             autoComplete="new-password"
             placeholder="Mínimo 8 caracteres"
+            aria-describedby="password-rules"
+            onChange={(event) => setNewPassword(event.currentTarget.value)}
           />
+          <PasswordRulesList id="password-rules" password={newPassword} />
           <PasswordField
             label="Confirmar nueva contraseña"
             name="confirm"
@@ -92,12 +107,12 @@ export function ChangePassword({
             placeholder="Repite la contraseña"
           />
         </fieldset>
-        <p className="hint">{passwordHint}</p>
-        <button className={styles.primaryButton} disabled={busy}>
+        <button className={`${access.primary} ${layout.submit}`} disabled={busy}>
           {busy ? "Guardando…" : "Guardar contraseña"}
+          <AccessArrow />
         </button>
         <button
-          className={styles.secondaryButton}
+          className={styles.logout}
           type="button"
           disabled={busy}
           onClick={onLogout}
@@ -105,6 +120,6 @@ export function ChangePassword({
           Cerrar sesión
         </button>
       </form>
-    </AuthFormLayout>
+    </AccessLayout>
   );
 }

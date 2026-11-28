@@ -354,8 +354,51 @@ test("Finaliza la matrícula de una solicitud en revisión", async () => {
     solicitudMatriculaId: 100,
     versionSolicitud: 3,
     firmaPlan: "plan-v2",
+    seccionId: 31,
   });
   expect(within(dialog).getByText("Matricula finalizada")).toBeTruthy();
+});
+
+test("Matricula una solicitud enviada eligiendo la sección en el mismo formulario", async () => {
+  const calls = backend({
+    "GET /api/solicitudes-matricula": page([request({ estado: "ENVIADA", seccionId: null, seccion: "Pendiente de asignación" })]),
+    "GET /api/configuracion-academica/anios/:anio": {
+      ...activeYear,
+      secciones: activeYear.secciones.map((value) => value.id === 32 ? { ...value, vacantes: 0 } : value),
+    },
+    "POST /api/matriculas": enrollment(),
+    "GET /api/solicitudes-matricula/:id": request({ estado: "MATRICULA_FINALIZADA" }),
+  });
+  const user = userEvent.setup();
+  render(<EnrollmentsScreen />);
+  const dialog = await openRequest(user);
+  await user.click(within(dialog).getByText("Finalizar matrícula", { selector: ".primary-action" }));
+  const section = await within(dialog).findByLabelText(/Sección de la matrícula/);
+  expect(section.value).toBe("");
+  expect([...section.options].map((option) => option.disabled)).toEqual([true, false, true]);
+  await within(dialog).findByRole("table", { name: "Pensiones que se asignarán" });
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(calls.some((call) => call.method === "POST")).toBe(false);
+  await user.selectOptions(section, "31");
+  await user.click(within(dialog).getByText("Confirmar"));
+  expect(await within(dialog).findByText(/Matrícula MAT-2026-0001 creada/)).toBeTruthy();
+  expect(calls.find((call) => call.method === "POST").body.seccionId).toBe(31);
+  expect(calls.some((call) => call.method === "PUT")).toBe(false);
+});
+
+test("Avisa cuando el grado no tiene secciones con vacantes", async () => {
+  backend({
+    "GET /api/solicitudes-matricula": page([request({ estado: "EN_REVISION" })]),
+    "GET /api/configuracion-academica/anios/:anio": {
+      ...activeYear,
+      secciones: activeYear.secciones.map((value) => ({ ...value, vacantes: 0 })),
+    },
+  });
+  const user = userEvent.setup();
+  render(<EnrollmentsScreen />);
+  const dialog = await openRequest(user);
+  await user.click(within(dialog).getByText("Finalizar matrícula", { selector: ".primary-action" }));
+  expect(await within(dialog).findByText(/No hay secciones con vacantes en 1°/)).toBeTruthy();
 });
 
 test("No finaliza sin una tarifa configurada y permite actualizar el plan antes de confirmar", async () => {
@@ -622,4 +665,51 @@ test("Si fallan el historial o los vínculos, muestra el error y no se queda car
   expect(await within(dialog).findByText(/Alumno no disponible/)).toBeTruthy();
   expect(within(dialog).queryByText("Cargando historial…")).toBeNull();
   expect(within(dialog).queryByText("Cargando vínculos…")).toBeNull();
+});
+
+test("Busca matrículas por estudiante, año, grado y sección, y limpia los filtros", async () => {
+  const calls = backend({
+    "GET /api/matriculas": ({ query }) => page(query.search ? [] : [enrollment()]),
+  });
+  const user = userEvent.setup();
+  render(<EnrollmentsScreen />);
+  await user.click(await screen.findByText("Matrículas"));
+  const form = await screen.findByRole("form", { name: "Buscar matrículas" });
+  await within(form).findByRole("option", { name: "2026" });
+  await user.type(within(form).getByLabelText(/Buscar por estudiante/), "  lucía ");
+  await user.selectOptions(within(form).getByLabelText("Año"), "7");
+  await user.selectOptions(within(form).getByLabelText("Grado"), "1");
+  await user.selectOptions(within(form).getByLabelText("Sección"), "31");
+  await user.click(within(form).getByRole("button", { name: "Buscar" }));
+  expect(await screen.findByText("No se encontraron matrículas con esos filtros.")).toBeTruthy();
+  expect(calls.filter((call) => call.path === "/api/matriculas").at(-1).query).toMatchObject({
+    search: "lucía", anioAcademico: "2026", grado: "1", seccionId: "31",
+  });
+  await user.click(within(form).getByRole("button", { name: "Limpiar" }));
+  expect(await screen.findByText("MAT-2026-0001")).toBeTruthy();
+});
+
+test("Cambia la sección directamente desde la lista de matrículas", async () => {
+  const calls = backend({
+    "GET /api/configuracion-academica/anios/:anio": {
+      ...activeYear,
+      secciones: activeYear.secciones.map((value) => value.id === 32 ? { ...value, vacantes: 3 } : value),
+    },
+    "PUT /api/matriculas/:id/seccion": enrollment({ seccionId: 32, seccion: "B", version: 4 }),
+  });
+  const user = userEvent.setup();
+  render(<EnrollmentsScreen />);
+  await user.click(await screen.findByText("Matrículas"));
+  await user.click(await screen.findByRole("button", { name: "Cambiar sección" }));
+  const dialog = screen.getByRole("dialog", { name: "Cambiar sección" });
+  const section = await within(dialog).findByLabelText(/Nueva sección del mismo grado y año/);
+  await waitFor(() => expect(section.options.length).toBe(2));
+  await user.selectOptions(section, "32");
+  await user.type(within(dialog).getByLabelText(/Motivo del cambio/), "Redistribución");
+  await user.click(within(dialog).getByRole("button", { name: "Confirmar cambio" }));
+  expect(await screen.findByText("Sección de Lucía Flores actualizada a 1° B.")).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(calls.find((call) => call.method === "PUT").body).toEqual({
+    seccionId: 32, motivo: "Redistribución", version: 3,
+  });
 });

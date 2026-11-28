@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { message } from "@/core/api/client";
-import { Feedback, FormDialog, PanelHeading, Loading } from "@/shared/ui";
-import { countLabel, timeLabel } from "@/shared/lib/formatters";
+import { Feedback, FormDialog, PanelHeading, Loading, ReasonField } from "@/shared/ui";
+import { countLabel, hoursLabel, timeLabel } from "@/shared/lib/formatters";
+import { BulkImportDialog } from "@/modules/bulk-import";
 import { scheduleSlotLabel } from "../lib/labels";
+import { exceededCourses } from "../lib/plan-hours";
 import {
   PERSPECTIVES,
   perspectiveOptions,
@@ -21,11 +23,11 @@ import { BlockDetailDialog } from "./block-detail-dialog";
 import { BlockFormDialog } from "./block-form-dialog";
 import { TimetableGrid } from "./timetable-grid";
 import {
-  eliminarHorario,
   listarAsignaciones,
   listarAulasHabilitadas,
   listarHorarios,
   listarSeccionesActivas,
+  retirarHorario,
 } from "./services/horarioService";
 type BlockDialog =
   | { kind: "create" }
@@ -59,6 +61,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [tick, setTick] = useState(0);
   const [dialog, setDialog] = useState<BlockDialog | null>(null);
+  const [importing, setImporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -173,11 +176,16 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
   async function remove(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (dialog?.kind !== "delete") return;
+    const motivo = String(new FormData(event.currentTarget).get("motivo") ?? "").trim();
+    if (!motivo) {
+      setError("Indique el motivo del retiro.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await eliminarHorario(dialog.block.id);
-      finish(`Bloque de ${dialog.block.curso} eliminado.`);
+      await retirarHorario(dialog.block.id, motivo);
+      finish(`Bloque de ${dialog.block.curso} retirado.`);
     } catch (e) {
       setError(serverConflict(e)?.detail ?? message(e));
       refresh();
@@ -189,6 +197,14 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
     (a) => a.seccionId === selectedId,
   );
   const rows = filterValue === null ? [] : (blocks ?? []);
+    // OBS-01: cursos de la sección que superan el plan; se avisan arriba y se marcan en la matriz.
+  const exceeded =
+    perspective === "seccion" && section && catalogs
+      ? exceededCourses(
+          catalogs.assignments.filter((item) => item.seccionId === section.id),
+          rows,
+        )
+      : [];
   const writable = canWrite && catalogs !== null;
   // Los bloques se editan por sección: el formulario valida los cruces de una sola.
   const editable = writable && perspective === "seccion";
@@ -232,6 +248,11 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
             >
               Actualizar
             </button>
+            {writable && (
+              <button type="button" onClick={() => setImporting(true)}>
+                Carga masiva
+              </button>
+            )}
             {editable && (
               <button
                 type="button"
@@ -324,6 +345,17 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
           <Feedback error={loadError} success={success} />
+          {exceeded.length > 0 && !loading && (
+            <section className={styles.availabilityNotice} role="status" aria-label="Cursos que exceden el plan">
+              {exceeded.map((item) => (
+                <p key={item.cursoId}>
+                  ⚠ {item.curso} tiene {hoursLabel(item.current)} programadas y el plan permite{" "}
+                  {hoursLabel(item.plan)} (sobra {hoursLabel(item.current - item.plan)}).
+                </p>
+              ))}
+              <p>Retira o acorta sus bloques; mientras tanto no se pueden agregar horas de estos cursos.</p>
+            </section>
+          )}
           {loading || (filterValue !== null && !blocks && !loadError) ? (
             <Loading skeleton="timetable">Cargando horario…</Loading>
           ) : perspective !== "seccion" && !viewCatalogs ? (
@@ -353,6 +385,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
                 onOpen={setDetail}
                 onEdit={editable ? (block) => open({ kind: "edit", block }) : undefined}
                 onDelete={editable ? (block) => open({ kind: "delete", block }) : undefined}
+                exceededCourseIds={new Set(exceeded.map((item) => item.cursoId))}
               />
             )
           )}
@@ -382,11 +415,22 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
           }
         />
       )}
+      {importing && (
+        <BulkImportDialog
+          title="Carga masiva de horarios"
+          description="Descarga la plantilla y completa una fila por bloque. Se validan los cruces de aula, docente y sección."
+          path="/api/horarios/importaciones"
+          templateName="plantilla_horarios.xlsx"
+          fileLabel="Archivo Excel de horarios"
+          onClose={() => setImporting(false)}
+          onImported={refresh}
+        />
+      )}
       {dialog?.kind === "delete" && (
         <FormDialog
-          title="Eliminar bloque"
+          title="Retirar bloque"
           description={`${dialog.block.curso} · ${scheduleSlotLabel(dialog.block)}`}
-          submitLabel="Eliminar bloque"
+          submitLabel="Retirar bloque"
           danger
           busy={busy}
           error={error}
@@ -397,6 +441,7 @@ export function TimetablePanel({ canWrite }: { canWrite: boolean }) {
             El bloque de {dialog.block.curso} con {dialog.block.docente} en{" "}
             {dialog.block.aula} dejará de aparecer en el horario de la sección.
           </p>
+          <ReasonField label="Motivo del retiro" />
         </FormDialog>
       )}
     </section>

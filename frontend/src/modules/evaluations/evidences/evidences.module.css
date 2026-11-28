@@ -8,40 +8,33 @@
 .filters :global(.field) {
   margin: 0;
 }
-.pending {
-  background: #fef3c7;
-  border-radius: 999px;
-  color: #92400e;
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  margin-left: 6px;
-  padding: 2px 8px;
-}
-.reason {
-  color: #64748b;
-  font-size: 12px;
-  margin: 4px 0 0;
-}
 .attachment {
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
   display: grid;
-  gap: 8px;
+  background: var(--surface);
+  gap: 12px;
+  min-width: 0;
   padding: 12px;
 }
+.attachment > button { justify-self: start; max-width: 100%; white-space: normal; }
 .attachment p {
   color: #64748b;
   font-size: 13px;
   margin: 0;
 }
-.fileName {
+.attachmentHeading {
   align-items: center;
-  color: #0f172a !important;
   display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  overflow-wrap: anywhere;
+  gap: 10px;
+}
+.attachmentIcon {
+  display: grid;
+  flex: 0 0 2.4rem;
+  place-items: center;
+  height: 2.4rem;
+  border: 1px solid var(--border);
+  border-radius: .45rem;
 }
 .actions {
   align-items: center;

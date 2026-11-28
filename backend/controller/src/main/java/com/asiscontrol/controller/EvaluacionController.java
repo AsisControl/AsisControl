@@ -1,7 +1,9 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.EvaluacionDto;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.CompetenciaPlan;
 import com.asiscontrol.entity.enums.EstadoEvaluacion;
+import com.asiscontrol.service.ConfiguracionAcademicaService;
 import com.asiscontrol.service.EvaluacionService;
 import com.asiscontrol.service.ModuloAccessGuard;
 import jakarta.validation.Valid;
@@ -29,13 +31,30 @@ public class EvaluacionController {
 
     private final EvaluacionService evaluacionService;
     private final ModuloAccessGuard accessGuard;
+    private final ConfiguracionAcademicaService configuracionAcademica;
 
     public EvaluacionController(
             EvaluacionService evaluacionService,
-            ModuloAccessGuard accessGuard
+            ModuloAccessGuard accessGuard,
+            ConfiguracionAcademicaService configuracionAcademica
     ) {
         this.evaluacionService = evaluacionService;
         this.accessGuard = accessGuard;
+        this.configuracionAcademica = configuracionAcademica;
+    }
+
+    @GetMapping("/academicas")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_LEER') and hasAuthority('CALIFICACIONES_LEER')")
+    public Page<EvaluacionService.EvaluacionAcademica> academicas(@RequestParam int anio, @RequestParam Long periodo,
+            @RequestParam int grado, @RequestParam Long seccion, @RequestParam Long curso,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return evaluacionService.consultarAcademicas(anio, periodo, grado, seccion, curso, pageable);
+    }
+
+    @GetMapping("/anio-vigente")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public EvaluacionDto.AnioVigente anioVigente() {
+        return new EvaluacionDto.AnioVigente(configuracionAcademica.anioVigente());
     }
 
     @GetMapping
@@ -46,6 +65,8 @@ public class EvaluacionController {
             @RequestParam(required = false) Long idCurso,
             @RequestParam(required = false) Long idSeccion,
             @RequestParam(required = false) String busqueda,
+            @RequestParam(defaultValue = "false") boolean vinculables,
+            @RequestParam(required = false) Long tareaActual,
             @PageableDefault(size = 20, sort = "fechaEvaluacion", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
@@ -59,7 +80,7 @@ public class EvaluacionController {
                 accessGuard.restriccionDocentePersonaId(),
                 accessGuard.restriccionAlumnoPersonaId(),
                 accessGuard.restriccionApoderadoPersonaId(),
-                pageable);
+                vinculables, tareaActual, pageable);
     }
 
     /** Periodos del curso que el docente puede publicar. */
@@ -67,6 +88,12 @@ public class EvaluacionController {
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
     public java.util.List<EvaluacionDto.PeriodoInforme> periodosInforme(@RequestParam Long idAsignacionCurso) {
         return evaluacionService.periodosPublicables(idAsignacionCurso);
+    }
+
+    @GetMapping("/competencias")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('DOCENTE','ADMINISTRADOR')")
+    public java.util.List<CompetenciaPlan> competencias(@RequestParam Long idAsignacionCurso) {
+        return evaluacionService.competenciasDisponibles(idAsignacionCurso);
     }
 
 
@@ -79,14 +106,27 @@ public class EvaluacionController {
     /** US-18: alumnos de la seccion y sus niveles; nunca para alumnos ni apoderados. */
     @GetMapping("/{id}/planilla")
     @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and @moduloAccessGuard.puedeGestionarEvaluacion(#id)")
-    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id) {
-        return evaluacionService.planilla(id);
+    public EvaluacionDto.PlanillaResponse planilla(@PathVariable Long id, @RequestParam(required = false) Long idAlumno) {
+        return evaluacionService.planilla(id, idAlumno);
+    }
+
+    @PostMapping("/{id}/cancelar-entrega")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_ESCRIBIR')")
+    public EvaluacionDto.Response cancelarEntrega(@PathVariable Long id) {
+        return evaluacionService.cancelarEntrega(id);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("@moduloAccessGuard.puedeAccederEvaluacion(#id)")
     public EvaluacionDto.Response obtener(@PathVariable Long id) {
         return evaluacionService.obtener(id);
+    }
+
+    @GetMapping("/{id}/resultado-publicado")
+    @PreAuthorize("hasAuthority('CALIFICACIONES_LEER') and hasAnyRole('ALUMNO','APODERADO') "
+            + "and @moduloAccessGuard.puedeAccederAlumno(#alumnoId)")
+    public EvaluacionDto.ResultadoPublicado resultadoPublicado(@PathVariable Long id, @RequestParam Long alumnoId) {
+        return evaluacionService.resultadoPublicado(id, alumnoId);
     }
 
     @PostMapping

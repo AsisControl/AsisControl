@@ -8,6 +8,7 @@ import { RolesMatrix } from "./roles-matrix";
 import { SystemLogs } from "./system-logs";
 import { AuditLog } from "./audit/audit-log";
 import { UsersPanel } from "./users/users-panel";
+import { DemoPanel } from "./demonstration/demo-panel";
 type AdminSection = {
   /** Segmento de la URL: /administracion/{id}. */
   id: string;
@@ -37,6 +38,7 @@ const sections: AdminSection[] = [
     label: "Logs del sistema",
     render: () => <SystemLogs />,
   },
+  { id: "demostracion", label: "Preparar demostración", render: () => <DemoPanel /> },
 ];
 export const ADMINISTRATION_PATH = "/administracion";
 const USERS_PATH = `${ADMINISTRATION_PATH}/usuarios`;

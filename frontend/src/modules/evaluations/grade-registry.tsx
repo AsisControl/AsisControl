@@ -2,9 +2,11 @@
 import { useEffect, useState } from "react";
 import { message } from "@/core/api/client";
 import { Feedback, Loading } from "@/shared/ui";
+import { AcademicYearFilter } from "./academic-year-filter";
 import { GradeSheet } from "./grade-sheet";
+import { academicYears } from "./lib/academic-year";
 import { courseOptions, PERIODS, sectionOptions } from "./lib/labels";
-import { listarEvaluaciones, obtenerEvaluacion } from "./services/evaluation-service";
+import { listarEvaluaciones, obtenerAnioVigente, obtenerEvaluacion } from "./services/evaluation-service";
 import type { Evaluation, OwnAssignment } from "./types";
 import styles from "./evaluations.module.css";
 
@@ -19,6 +21,9 @@ export function GradeRegistry({
   /** Evaluación abierta desde Mis evaluaciones o desde la dirección. */
   evaluationId: number | null;
 }) {
+  const [year, setYear] = useState("");
+  const [activeYear, setActiveYear] = useState<number | null>(null);
+  const [loadingYear, setLoadingYear] = useState(true);
   const [periodo, setPeriodo] = useState("");
   const [cursoId, setCursoId] = useState("");
   const [seccionId, setSeccionId] = useState("");
@@ -26,28 +31,45 @@ export function GradeRegistry({
   const [selectedId, setSelectedId] = useState<number | null>(evaluationId);
   const [evaluations, setEvaluations] = useState<{ key: string; items: Evaluation[] } | null>(null);
   const [error, setError] = useState("");
-  const contextKey = `${periodo}|${cursoId}|${seccionId}`;
+  const yearOptions = academicYears(
+    ...assignments.map((item) => item.anioAcademico),
+    activeYear,
+    year ? Number(year) : null,
+  );
+  const assignmentsForYear = assignments.filter((item) => String(item.anioAcademico) === year);
+  const assignmentId = assignmentsForYear.find((item) =>
+    String(item.cursoId) === cursoId && String(item.seccionId) === seccionId)?.id;
+  const contextKey = `${year}|${periodo}|${assignmentId ?? ""}`;
+
   useEffect(() => {
-    if (evaluationId === null) return;
     let active = true;
-    obtenerEvaluacion(evaluationId)
-      .then((value) => {
+    async function initialize() {
+      try {
+        const [activeAcademicYear, evaluation] = await Promise.all([
+          obtenerAnioVigente(),
+          evaluationId === null ? null : obtenerEvaluacion(evaluationId),
+        ]);
         if (!active) return;
-        setCursoId(String(value.idCurso));
-        setSeccionId(String(value.idSeccion));
-        setSelectedId(value.id);
-      })
-      .catch((e) => {
+        setActiveYear(activeAcademicYear);
+        setYear(String(evaluation?.anioAcademico ?? activeAcademicYear ?? ""));
+        if (evaluation) {
+          setCursoId(String(evaluation.idCurso));
+          setSeccionId(String(evaluation.idSeccion));
+          setSelectedId(evaluation.id);
+        }
+      } catch (e) {
         if (active) setError(message(e));
-      });
-    return () => {
-      active = false;
-    };
+      } finally {
+        if (active) setLoadingYear(false);
+      }
+    }
+    void initialize();
+    return () => { active = false; };
   }, [evaluationId]);
   useEffect(() => {
-    if (!cursoId || !seccionId) return;
+    if (!assignmentId) return;
     let active = true;
-    listarEvaluaciones({ periodo, idCurso: cursoId, idSeccion: seccionId })
+    listarEvaluaciones({ periodo, idAsignacionCurso: String(assignmentId) })
       .then((items) => {
         if (active)
           setEvaluations({
@@ -61,16 +83,37 @@ export function GradeRegistry({
     return () => {
       active = false;
     };
-  }, [contextKey, periodo, cursoId, seccionId]);
+  }, [contextKey, periodo, assignmentId]);
   const items = evaluations?.key === contextKey ? evaluations.items : null;
   const current = items?.find((item) => item.id === selectedId) ?? items?.[0] ?? null;
-  const ready = !!cursoId && !!seccionId;
+  const ready = assignmentId !== undefined;
   return (
     <>
       <div className={`panel ${styles.filters}`}>
+        <AcademicYearFilter
+          value={year}
+          years={yearOptions}
+          activeYear={activeYear}
+          loading={loadingYear}
+          onChange={(value) => {
+            setYear(value);
+            setPeriodo("");
+            setCursoId("");
+            setSeccionId("");
+            setCompetenciaId("");
+            setSelectedId(null);
+            setEvaluations(null);
+            setError("");
+          }}
+        />
         <label className="field">
           Período
-          <select value={periodo} onChange={(event) => setPeriodo(event.target.value)}>
+          <select value={periodo} disabled={!year} onChange={(event) => {
+            setPeriodo(event.target.value);
+            setCompetenciaId("");
+            setSelectedId(null);
+            setError("");
+          }}>
             <option value="">Todos los períodos</option>
             {Object.entries(PERIODS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -83,14 +126,17 @@ export function GradeRegistry({
           Curso
           <select
             value={cursoId}
+            disabled={!year}
             onChange={(event) => {
               setCursoId(event.target.value);
               setSeccionId("");
               setCompetenciaId("");
+              setSelectedId(null);
+              setError("");
             }}
           >
             <option value="">— Selecciona un curso —</option>
-            {courseOptions(assignments).map(([id, label]) => (
+            {courseOptions(assignmentsForYear).map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
@@ -105,10 +151,12 @@ export function GradeRegistry({
             onChange={(event) => {
               setSeccionId(event.target.value);
               setCompetenciaId("");
+              setSelectedId(null);
+              setError("");
             }}
           >
             <option value="">— Selecciona una sección —</option>
-            {sectionOptions(assignments, cursoId).map(([id, label]) => (
+            {sectionOptions(assignmentsForYear, cursoId).map(([id, label]) => (
               <option key={id} value={id}>
                 {label}
               </option>
@@ -157,13 +205,14 @@ export function GradeRegistry({
           competencyId={competenciaId ? Number(competenciaId) : null}
           canWrite={canWrite && assignments.some((item) => item.id === current.idAsignacionCurso)}
         />
-      ) : ready && !items ? (
+      ) : !error && (loadingYear || (ready && !items)) ? (
         <Loading>Cargando evaluaciones…</Loading>
       ) : (
         <div className={`panel ${styles.emptyState}`}>
           <strong>
-            {ready
-              ? "No hay evaluaciones para este curso y sección"
+            {!year ? "Selecciona un año académico para continuar"
+              : !assignmentsForYear.length ? "No tienes cursos asignados en este año académico"
+              : ready ? "No hay evaluaciones para este curso y sección"
               : "Selecciona período, curso y sección para ver las evaluaciones"}
           </strong>
           <small>

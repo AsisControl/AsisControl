@@ -146,4 +146,32 @@ public final class AsistenciaDtos {
             EstadoAsistencia estadoAsistencia
     ) {
     }
+
+    // correccion marcacion docente: hora y/o estado nuevos; si solo cambia la hora, el estado se recalcula
+    public record CorregirMarcacionDocenteRequest(
+            LocalTime hora,
+            EstadoAsistencia estado,
+            @NotBlank @Size(max = 500) String motivo,
+            @NotNull Long version
+    ) {
+    }
+
+    /** La marcación vigente (con su versión para corregirla) y sus correcciones, de la más reciente a la más antigua. */
+    public record HistorialMarcacionDocenteResponse(
+            AsistenciaDocenteResponse marcacion,
+            List<CorreccionMarcacionDocenteResponse> correcciones
+    ) {
+    }
+
+    public record CorreccionMarcacionDocenteResponse(
+            Long id,
+            LocalDateTime horaAnterior,
+            LocalDateTime horaNueva,
+            EstadoAsistencia estadoAnterior,
+            EstadoAsistencia estadoNuevo,
+            String motivo,
+            String actor,
+            LocalDateTime fechaHora
+    ) {
+    }
 }

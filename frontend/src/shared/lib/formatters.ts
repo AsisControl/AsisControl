@@ -1,3 +1,6 @@
+const weightFormat = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2 });
+export const formatWeight = (value: number) => `${weightFormat.format(value)} %`;
+
 export const stateLabel = (state: string) =>
   state
     .replaceAll("_", " ")
@@ -46,7 +49,7 @@ export const timeLabel = (date: Date) =>
 export const countLabel = (count: number, singular: string, plural: string) =>
   `${count} ${count === 1 ? singular : plural}`;
 /** MATEMATICA → "Matemática"; los códigos del backend no llevan tildes. */
-const SPECIALTY_LABELS: Record<string, string> = {
+export const SPECIALTY_LABELS: Record<string, string> = {
   MATEMATICA: "Matemática",
   COMUNICACION: "Comunicación",
   CIENCIA_Y_TECNOLOGIA: "Ciencia y Tecnología",
@@ -58,3 +61,11 @@ const SPECIALTY_LABELS: Record<string, string> = {
 };
 export const specialtyLabel = (specialty: string) =>
   SPECIALTY_LABELS[specialty] ?? specialty.replaceAll("_", " ");
+
+/** OBS-01: minutos de horario en horas legibles, como el backend: "4 h 30 min", "30 min", "4 h". */
+export function hoursLabel(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!rest) return `${hours} h`;
+  return hours ? `${hours} h ${rest} min` : `${rest} min`;
+} 

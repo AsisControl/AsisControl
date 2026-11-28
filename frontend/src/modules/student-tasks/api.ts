@@ -15,9 +15,9 @@ export function uploadTaskFile(file: File) {
   return api<TaskFile>("/api/archivos", { method: "POST", body, timeoutMs: 120000 });
 }
 
-export function submitTask(task: StudentTask, archivoIds: number[]) {
+export function submitTask(task: StudentTask, archivoIds: number[], respuesta: string) {
   return api<TaskDelivery>(`/api/tareas/${task.tarea.id}/entregas`, {
-    method: "POST", body: JSON.stringify({ alumnoId: task.alumnoId, archivoIds }),
+    method: "POST", body: JSON.stringify({ alumnoId: task.alumnoId, archivoIds, respuesta }),
   });
 }
 
@@ -25,9 +25,9 @@ export function getDelivery(id: number) {
   return api<TaskDelivery>(`/api/entregas/${id}`);
 }
 
-export function updateDelivery(delivery: TaskDelivery, archivoIds: number[]) {
+export function updateDelivery(delivery: TaskDelivery, archivoIds: number[], respuesta: string) {
   return api<TaskDelivery>(`/api/entregas/${delivery.id}`, {
-    method: "PUT", body: JSON.stringify({ archivoIds, version: delivery.version }),
+    method: "PUT", body: JSON.stringify({ archivoIds, respuesta, version: delivery.version }),
   });
 }
 

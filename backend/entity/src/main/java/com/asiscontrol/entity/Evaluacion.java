@@ -36,6 +36,12 @@ import java.util.Set;
 @Entity
 @Table(name = "Evaluacion")
 public class Evaluacion extends AuditableEntity {
+    @Column(name = "modelo_cualitativo", nullable = false)
+    private boolean modeloCualitativo;
+
+    @Column(name = "entrega_por_configurar", nullable = false)
+    private boolean entregaPorConfigurar;
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,6 +51,13 @@ public class Evaluacion extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_asignacion_curso", nullable = false)
     private AsignacionCurso asignacionCurso;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_escala")
+    private EscalaInstitucional escalaInstitucional;
+
+    @Column(name = "cuenta_resultado", nullable = false)
+    private boolean cuentaResultado = true;
 
     @Column(name = "titulo", nullable = false, length = 160)
     private String titulo;

@@ -8,6 +8,7 @@ export type RecordPerson = {
   tipoDocumento: string | null;
   numeroDocumento: string | null;
   nacionalidad: string | null;
+  nacionalidadId?: number | null;
   sexo: string | null;
   fechaNacimiento: string;
   telefono: string | null;

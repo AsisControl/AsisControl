@@ -1,6 +1,9 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.GuardarPlan;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.IdentidadPlan;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanAnterior;
+import com.asiscontrol.dto.academico.PlanEstudiosDtos.RenombrarPlan;
 import com.asiscontrol.dto.academico.PlanEstudiosDtos.PlanEstudios;
 import com.asiscontrol.service.PlanEstudiosService;
 import com.asiscontrol.service.GeneradorPlanEstudios;
@@ -33,6 +36,24 @@ public class PlanEstudiosController {
     @PreAuthorize("hasAuthority('ACADEMICO_LEER')")
     public PlanEstudios consultar(@PathVariable int anio, @PathVariable int grado) {
         return service.consultar(anio, grado);
+    }
+
+    @GetMapping("/{grado}/anterior")
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER')")
+    public PlanAnterior consultarAnterior(@PathVariable int anio, @PathVariable int grado) {
+        return service.consultarAnterior(anio, grado);
+    }
+
+    @GetMapping("/nombre")
+    @PreAuthorize("hasAuthority('ACADEMICO_LEER')")
+    public IdentidadPlan nombre(@PathVariable int anio) {
+        return service.identidad(anio);
+    }
+
+    @PutMapping("/nombre")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_ESCRIBIR')")
+    public IdentidadPlan renombrar(@PathVariable int anio, @Valid @RequestBody RenombrarPlan request) {
+        return service.renombrar(anio, request);
     }
 
     @GetMapping(value = "/pdf", produces = MediaType.APPLICATION_PDF_VALUE)

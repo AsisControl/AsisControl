@@ -19,6 +19,33 @@ beforeEach(() => {
   signIn();
 });
 
+test("Secciones: revisa y confirma solo las propuestas seleccionadas", async () => {
+  const { calls } = academicBackend([year({ secciones: [] })], {
+    "POST /api/secciones/propuestas": [{ nombre: "A", capacidadMaxima: 35 }, { nombre: "B", capacidadMaxima: 35 }],
+    "POST /api/secciones/propuestas/confirmar": reply(201, [{ id: 40 }]),
+  });
+  render(<AcademicConfiguration />);
+  await ready();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Generar propuestas" }));
+  const number = screen.getByLabelText(/Cantidad de secciones/);
+  await user.clear(number);
+  await user.type(number, "2");
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Generar propuestas" }));
+  await screen.findByRole("dialog", { name: "Revisar propuestas de secciones" });
+  expect(calls.filter(({ method }) => method === "POST")).toHaveLength(1);
+  await user.click(screen.getByLabelText("Crear sección A"));
+  const name = screen.getByLabelText(/Nombre de sección 2/);
+  await user.clear(name);
+  await user.type(name, "C");
+  await user.type(screen.getByLabelText(/Motivo/), "Apertura por demanda");
+  await user.click(screen.getByRole("button", { name: "Confirmar secciones" }));
+  await screen.findByText("Se creó una sección.");
+  expect(calls.find(({ path }) => path.endsWith("/confirmar")).body).toEqual({
+    anioAcademico: 2026, grado: 1, secciones: [{ nombre: "C", capacidadMaxima: 35 }], motivo: "Apertura por demanda",
+  });
+});
+
 test("Secciones: muestra ocupación, vacantes y sobrecupo, y filtra por grado", async () => {
   academicBackend([year()]);
   const user = userEvent.setup();
@@ -74,6 +101,7 @@ test("Secciones: crea una sección con la capacidad sugerida del grado", async (
     capacidadMaxima: 30,
     docenteTutorId: null,
     motivo: "Más alumnos",
+    aulaId: null,
   });
 });
 

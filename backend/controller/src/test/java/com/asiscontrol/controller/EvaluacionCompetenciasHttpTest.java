@@ -5,10 +5,18 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import com.asiscontrol.entity.Docente;
+import com.asiscontrol.entity.AccesoUsuario;
+import com.asiscontrol.entity.AlumnoApoderado;
+import com.asiscontrol.entity.Notificacion;
+import com.asiscontrol.entity.Persona;
+import com.asiscontrol.entity.Rol;
+import com.asiscontrol.entity.enums.EstadoAcceso;
 import com.asiscontrol.entity.RegistroAuditoria;
 import com.asiscontrol.entity.enums.Especialidad;
+import com.asiscontrol.entity.planificacion.PeriodoAcademico;
 import com.asiscontrol.repository.RegistroAuditoriaRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -29,11 +37,118 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
 
     @Autowired RegistroAuditoriaRepository auditorias;
 
+    @Test void cancelarUnaEntregaPendienteHabilitaElRegistroDirectoDeNotas() throws Exception {
+        var datos = datosEvaluacion("Examen sin entrega");
+        datos.put("permitirEntrega", true);
+        var evaluacion = postOk(EVALUACIONES, datos);
+        assertThat(evaluacion.path("entregaPorConfigurar").asBoolean()).isTrue();
+        long id = evaluacion.path("id").asLong();
+        String cancelar = EVALUACIONES + "/" + id + "/cancelar-entrega";
+        var actualizada = request("POST", cancelar, null, 200);
+        assertThat(actualizada.path("entregaPorConfigurar").booleanValue()).isFalse();
+        assertThat(registrarNivel(id, "A").path("nivelLogro").asText()).isEqualTo("A");
+        assertThat(request("POST", cancelar, null, 422).path("code").asText()).isEqualTo("ENTREGA_NO_CANCELABLE");
+    }
+
+    @Test void unPlanConSeleccionVaciaBloqueaUnaCompetenciaGlobalSinBorrarLaEvaluacionAnterior() throws Exception {
+        long id = nuevaEvaluacion();
+        grade.setPlanDefinido(true);
+        em.flush();
+        String opciones = EVALUACIONES + "/competencias?idAsignacionCurso=" + assignment.getId();
+        assertThat(getOk(opciones)).isEmpty();
+        mvc.perform(get(opciones).with(como("DOCENTE", otroDocente().getPersona().getId(), "CALIFICACIONES_LEER")))
+                .andExpect(status().isForbidden());
+        var error = request("POST", EVALUACIONES, datosEvaluacion("Prueba fuera del plan"), 422);
+        assertThat(error.path("code").asText()).isEqualTo("COMPETENCIA_NO_DISPONIBLE_PARA_CURSO");
+        assertThat(getOk(EVALUACIONES + "/" + id).path("competencias").findValuesAsText("codigo"))
+                .containsExactly(competence.getCodigo());
+    }
+
+    @Test void avisaSoloAlAlumnoYAlApoderadoVinculadoAlPublicarYCorregir() throws Exception {
+        var cuentaAlumno = cuentaAcademica(student.getPersona(), "ALUMNO");
+        var cuentaFamilia = cuentaAcademica(guardian.getPersona(), "APODERADO");
+        var ajena = cuentaAcademica(person(), "APODERADO");
+        long evaluacion = nuevaEvaluacion();
+        var nota = registrarNivel(evaluacion, "B");
+        String resultado = EVALUACIONES + "/" + evaluacion + "/resultado-publicado?alumnoId=" + student.getId();
+        var sesionFamilia = como("APODERADO", guardian.getPersona().getId(), "CALIFICACIONES_LEER");
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isNotFound());
+        assertThat(avisos(cuentaAlumno)).isEmpty();
+        request("PUT", EVALUACIONES + "/" + evaluacion + "/estado", data("estado", "PUBLICADA"), 200);
+        request("PUT", EVALUACIONES + "/" + evaluacion + "/estado", data("estado", "PUBLICADA"), 200);
+        assertThat(avisos(cuentaAlumno)).extracting(Notificacion::getTitulo).containsExactly("Resultados publicados");
+        assertThat(avisos(cuentaFamilia)).extracting(Notificacion::getTitulo).containsExactly("Resultados publicados");
+        assertThat(avisos(cuentaFamilia).getFirst().getUrlDestino())
+                .isEqualTo("/progreso/evaluaciones/" + evaluacion + "/" + student.getId());
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.notas[0].nivelLogro").value("B"));
+        nota = getOk(CALIFICACIONES + "/" + nota.path("id").asLong());
+        request("POST", CALIFICACIONES + "/correcciones", correccion(nota, "A", "Corrección para probar los avisos."), 200);
+        assertThat(avisos(cuentaAlumno)).extracting(Notificacion::getTitulo)
+                .containsExactly("Resultados publicados", "Resultado actualizado");
+        assertThat(avisos(cuentaFamilia)).hasSize(2);
+        assertThat(avisos(ajena)).isEmpty();
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.notas[0].nivelLogro").value("A"));
+        mvc.perform(get(resultado).with(como("ALUMNO", student.getPersona().getId(), "CALIFICACIONES_LEER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.notas[0].nivelLogro").value("A"));
+        mvc.perform(get(resultado).with(como("APODERADO", ajena.getPersona().getId(), "CALIFICACIONES_LEER")))
+                .andExpect(status().isForbidden());
+        em.createQuery("from AlumnoApoderado v where v.alumno.id = :alumno and v.apoderado.id = :apoderado",
+                        AlumnoApoderado.class)
+                .setParameter("alumno", student.getId()).setParameter("apoderado", guardian.getId())
+                .getSingleResult().setActivo(false);
+        em.flush();
+        mvc.perform(get(resultado).with(sesionFamilia)).andExpect(status().isForbidden());
+    }
+
+    private AccesoUsuario cuentaAcademica(Persona persona, String rol) {
+        var cuenta = new AccesoUsuario();
+        cuenta.setPersona(persona);
+        cuenta.setCodigo(key());
+        cuenta.setUsername("demo" + key());
+        cuenta.setCorreo(key() + "@example.test");
+        cuenta.setContrasenaHash("hash-exclusivo-de-prueba");
+        cuenta.setEstado(EstadoAcceso.ACTIVO);
+        em.persist(cuenta);
+        var perfil = em.createQuery("from Rol r where r.nombre = :rol", Rol.class).setParameter("rol", rol).getSingleResult();
+        asignarRol(cuenta, perfil);
+        return cuenta;
+    }
+
+    private List<Notificacion> avisos(AccesoUsuario cuenta) {
+        return em.createQuery("from Notificacion n where n.destinatario.id = :id order by n.id", Notificacion.class)
+                .setParameter("id", cuenta.getId()).getResultList();
+    }
+
     private Map<String, Object> datosEvaluacion(String titulo) {
         return data("idAsignacionCurso", assignment.getId(), "titulo", titulo, "descripcion", null,
                 "tipoEvaluacion", "EXAMEN", "periodoEvaluacion", "BIMESTRAL",
-                "fechaEvaluacion", LocalDate.now(), "ponderacionPorcentaje", 100,
+                "fechaEvaluacion", LocalDate.of(section.getAnioAcademico(), 4, 1), "ponderacionPorcentaje", 100,
                 "idsCompetencia", Set.of(competence.getId()));
+    }
+
+    @Test
+    void validaFechaCalendarioAnioYPeriodoActivo() throws Exception {
+        var periodo = new PeriodoAcademico();
+        periodo.setAnioAcademico(year);
+        periodo.setNombre("Primer período");
+        periodo.setOrden(1);
+        periodo.setFechaInicio(LocalDate.of(year.getAnio(), 3, 1));
+        periodo.setFechaFin(LocalDate.of(year.getAnio(), 4, 30));
+        em.persist(periodo);
+        em.flush();
+
+        var datos = datosEvaluacion("Validación de fecha");
+        for (var caso : Map.of("2090-02-30", "fecha de evaluación válida", "202020-04-01", "fecha de evaluación válida",
+                "+202020-04-01", "1900 y 2100", "2091-04-01", "año académico 2090",
+                "2090-05-01", "período académico activo").entrySet()) {
+            datos.put("fechaEvaluacion", caso.getKey());
+            var error = request("POST", EVALUACIONES, datos, 400);
+            assertThat(error.path("message").asText()).contains(caso.getValue());
+        }
+        datos.put("fechaEvaluacion", "2090-04-30");
+        assertThat(postOk(EVALUACIONES, datos).path("fechaEvaluacion").asText()).isEqualTo("2090-04-30");
     }
 
     private long nuevaEvaluacion() throws Exception {
@@ -153,6 +268,8 @@ class EvaluacionCompetenciasHttpTest extends ApiIntegrationSupport {
     @Test
     void corregirCreaNuevaVersionConservaHistorialYActualizaElConsolidado() throws Exception {
         JsonNode nota = publicada("C");
+        em.find(com.asiscontrol.entity.Evaluacion.class, nota.path("idEvaluacion").asLong()).setModeloCualitativo(false);
+        em.flush();
         String ruta = CALIFICACIONES + "/correcciones";
         long id = nota.path("id").asLong();
 

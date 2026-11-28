@@ -9,10 +9,6 @@ import { EvidenceList } from "./evidence-list";
 import { useEvidenceContext } from "./use-evidence-context";
 import styles from "./evidences.module.css";
 
-const NO_STUDENTS_REASON =
-  "El backend aún no ofrece los estudiantes de una asignación. Se obtienen de la planilla de una evaluación; crea una evaluación para este curso.";
-
-/** PROPUESTA de interfaz: pestaña Evidencias de Evaluaciones (US-17). */
 export function Evidences({
   assignments,
   canWrite,
@@ -29,9 +25,9 @@ export function Evidences({
   // Cada registro nuevo vuelve a montar el listado para mostrarlo al instante.
   const [version, setVersion] = useState(0);
   const assignment = assignments.find((item) => String(item.id) === assignmentId);
-  const { context, error, loading } = useEvidenceContext(assignment);
-  const student = context?.students?.find((item) => String(item.id) === studentId);
-  const noStudents = !!context && context.students === null;
+  const { context, error, loading, retry } = useEvidenceContext(assignment);
+  const student = context?.students.find((item) => String(item.id) === studentId);
+  const noStudents = context?.students.length === 0;
   return (
     <>
       <div className={`panel ${styles.filters}`}>
@@ -56,26 +52,22 @@ export function Evidences({
           </select>
         </label>
         <label className="field">
-          <span>
-            Estudiante
-            {noStudents && <span className={styles.pending}>Pendiente de backend</span>}
-          </span>
+          Estudiante
           <select
             value={studentId}
-            disabled={!context?.students?.length}
+            disabled={!context?.students.length}
             onChange={(event) => {
               setStudentId(event.target.value);
               setSuccess("");
             }}
           >
             <option value="">Selecciona un estudiante</option>
-            {context?.students?.map((item) => (
+            {context?.students.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nombre}
               </option>
             ))}
           </select>
-          {noStudents && <small className={styles.reason}>{NO_STUDENTS_REASON}</small>}
         </label>
         <label className="field">
           Competencia
@@ -107,7 +99,7 @@ export function Evidences({
       <div className="panel">
         <PanelHeading
           title="Evidencias pedagógicas"
-          summary={student ? student.nombre : "Selecciona un curso y un estudiante"}
+          summary={student?.nombre}
           actions={
             canWrite && (
               <button
@@ -124,9 +116,13 @@ export function Evidences({
             )
           }
         />
-        <Feedback error={error} />
+        {error && <>
+          <Feedback error="No se pudieron cargar los datos del curso. Inténtalo de nuevo." />
+          <button type="button" className="secondary-action" onClick={retry}>Reintentar carga</button>
+        </>}
         {loading && <Loading>Cargando datos del curso…</Loading>}
         {!assignment && <p className="empty">Selecciona un curso y sección para empezar.</p>}
+        {noStudents && <p className="empty">Esta sección no tiene estudiantes con matrícula activa.</p>}
         {assignment && context && student && (
           <EvidenceList
             key={`${assignment.id}-${student.id}-${competenciaId}-${periodoId}-${version}`}
@@ -152,7 +148,10 @@ export function Evidences({
           periods={context.periods}
           competenciaId={competenciaId}
           periodoId={periodoId}
-          onClose={() => setCreating(false)}
+          onClose={(refresh) => {
+            setCreating(false);
+            if (refresh) setVersion((value) => value + 1);
+          }}
           onSaved={() => {
             setCreating(false);
             setSuccess("Evidencia registrada.");

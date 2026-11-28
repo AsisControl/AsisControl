@@ -12,6 +12,8 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
@@ -26,9 +28,13 @@ public final class TareaDtos {
             @NotBlank @Size(max = 3000) String descripcion,
             LocalDateTime fechaPublicacion,
             @NotNull LocalDateTime fechaLimite,
-            @Positive @Max(1000) int puntajeMaximo,
+            @Positive @Max(1000) Integer puntajeMaximo,
             @Min(0) @Max(20) int maxArchivosEntrega,
-            @NotNull @Size(max = 20) Set<Long> archivoIds
+            @NotNull @Size(max = 20) Set<Long> archivoIds,
+            Boolean cuentaParaResultadoAcademico,
+            @Positive Long idEvaluacionAcademica,
+            @jakarta.validation.Valid CompetenciasSinPeso competenciasSinPeso,
+            @jakarta.validation.Valid EvaluacionParaTarea nuevaEvaluacion
     ) {
     }
 
@@ -37,18 +43,47 @@ public final class TareaDtos {
             @NotBlank @Size(max = 3000) String descripcion,
             LocalDateTime fechaPublicacion,
             @NotNull LocalDateTime fechaLimite,
-            @Positive @Max(1000) int puntajeMaximo,
+            @Positive @Max(1000) Integer puntajeMaximo,
             @Min(0) @Max(20) int maxArchivosEntrega,
             @NotNull @Size(max = 20) Set<Long> archivoIds,
             @NotNull Long version,
             /** US-22: obligatorio si la tarea ya tiene entregas y cambia la fecha límite. */
-            @Size(max = 500) String motivo
+            @Size(max = 500) String motivo,
+            Boolean cuentaParaResultadoAcademico,
+            @Positive Long idEvaluacionAcademica,
+            @jakarta.validation.Valid CompetenciasSinPeso competenciasSinPeso,
+            @jakarta.validation.Valid EvaluacionParaTarea nuevaEvaluacion
     ) {
     }
 
     /** US-22: el motivo es obligatorio si la tarea ya tiene entregas. */
     public record EliminarTareaRequest(@Size(max = 500) String motivo) {
     }
+
+    public record ConfirmarCeros(@NotNull @Positive Integer estudiantesEsperados) {}
+    public record CerosFaltantes(int estudiantes, int calificaciones) {}
+    public record SinEntregaAlumno(Long id, String nombre, String codigo, List<Long> competencias) {}
+    public record SinEntregaCompetencia(Long id, String nombre) {}
+    public record RevisionSinEntrega(BigDecimal nota, com.asiscontrol.entity.enums.NivelLogro nivelLogro,
+                                    String observacion, String devolucion) {}
+    public record DevolucionSinEntregaRequest(@Size(max = 2000) String comentario) {}
+    public record NivelSinEntregaRequest(
+            @PositiveOrZero @jakarta.validation.constraints.Digits(integer = 4, fraction = 10) BigDecimal nota,
+            com.asiscontrol.entity.enums.NivelLogro nivelLogro, @Size(max = 1000) String observacion) {}
+    public record SinEntregaDisponible(List<SinEntregaAlumno> alumnos, List<SinEntregaCompetencia> competencias, int maximo,
+                                     boolean modeloCualitativo) {}
+    public record SinEntregaRequest(
+            @NotNull @Size(min = 1) Set<@NotNull @Positive Long> alumnos,
+            @NotNull Set<@NotNull @Positive Long> competencias,
+            @PositiveOrZero @jakarta.validation.constraints.Digits(integer = 4, fraction = 10) BigDecimal nota,
+            com.asiscontrol.entity.enums.NivelLogro nivelLogro,
+            @Size(max = 1000) String observacion) {}
+    public record EvaluacionParaTarea(
+            @NotNull com.asiscontrol.entity.enums.TipoEvaluacion tipoEvaluacion,
+            LocalDate fechaEvaluacion,
+            @jakarta.validation.constraints.NotEmpty Set<@NotNull @Positive Long> idsCompetencia) {}
+    public record CompetenciasSinPeso(LocalDate fechaEvaluacion,
+                                      @jakarta.validation.constraints.NotEmpty Set<@NotNull @Positive Long> idsCompetencia) {}
 
     /**
      * US-22: padrón de la sección con el estado de entrega de cada alumno.
@@ -73,7 +108,12 @@ public final class TareaDtos {
             Long entregaId,
             EstadoTarea estado,
             LocalDateTime fechaHoraEntrega,
-            Integer nota
+            java.math.BigDecimal nota,
+            com.asiscontrol.entity.enums.NivelLogro nivelLogro,
+            boolean tieneRespuesta,
+            int cantidadArchivos,
+            int competenciasCalificadas,
+            int totalCompetencias
     ) {
     }
 
@@ -88,14 +128,24 @@ public final class TareaDtos {
             int maxArchivosEntrega,
             EstadoPublicacionTarea estado,
             List<ArchivoResponse> archivos,
-            long version
+            long version,
+            boolean puntajeMaximoFijo,
+            boolean modeloCualitativo,
+            EvaluacionAcademica evaluacionAcademica
     ) {
     }
+
+    public record EvaluacionAcademica(Long id, String titulo, com.asiscontrol.entity.enums.EstadoEvaluacion estado,
+                                      boolean cuentaParaResultadoAcademico, String componente, BigDecimal pesoComponente) {}
+
+    public record ResultadoCompetencia(String competencia, com.asiscontrol.entity.enums.NivelLogro nivel,
+                                       BigDecimal pesoEfectivo) {}
 
     public record RegistrarEntregaRequest(
             @NotNull Long alumnoId,
             @NotNull @Size(max = 20) Set<Long> archivoIds,
-            @Size(max = 2000) String comentario
+            @Size(max = 2000) String comentario,
+            @Size(max = 2000) String respuesta
     ) {
     }
 
@@ -105,23 +155,31 @@ public final class TareaDtos {
             String curso,
             String docente,
             String seccion,
-            EntregaTareaResponse entrega
+            EntregaTareaResponse entrega,
+            List<ResultadoCompetencia> resultados,
+            com.asiscontrol.entity.enums.NivelLogro nivelSinEntrega,
+            /* true si la tarea es de una sección que el estudiante ya dejó. */
+            boolean soloConsulta
     ) {
     }
 
     public record ActualizarEntregaRequest(
             @NotNull @Size(max = 20) Set<Long> archivoIds,
             @Size(max = 2000) String comentario,
+            @Size(max = 2000) String respuesta,
             @NotNull Long version
     ) {
     }
 
     public record CalificarEntregaRequest(
-            @NotNull @PositiveOrZero Integer nota,
+            @PositiveOrZero @jakarta.validation.constraints.Digits(integer = 4, fraction = 10) java.math.BigDecimal nota,
+            com.asiscontrol.entity.enums.NivelLogro nivelLogro,
             @Size(max = 2000) String comentario,
             @NotNull Long version
     ) {
     }
+
+    public record DevolucionRequest(@Size(max = 2000) String comentario, @NotNull Long version) {}
 
     public record EntregaTareaResponse(
             Long id,
@@ -129,10 +187,15 @@ public final class TareaDtos {
             Long alumnoId,
             LocalDateTime fechaHoraEntrega,
             List<ArchivoResponse> archivos,
-            Integer nota,
+            java.math.BigDecimal nota,
+            com.asiscontrol.entity.enums.NivelLogro nivelLogro,
             String comentario,
+            String respuesta,
             EstadoTarea estado,
             long version
     ) {
+        public EntregaTareaResponse sinNotaNumerica() {
+            return new EntregaTareaResponse(id, tareaId, alumnoId, fechaHoraEntrega, archivos, null, nivelLogro, comentario, respuesta, estado, version);
+        }
     }
 }
