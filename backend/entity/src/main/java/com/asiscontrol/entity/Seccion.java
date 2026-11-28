@@ -6,6 +6,7 @@ import com.asiscontrol.entity.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -53,4 +54,9 @@ public class Seccion extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_docente_tutor")
     private Docente docenteTutor;
+
+    /** Opcional y compartible entre secciones; no condiciona las aulas de sus horarios. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_aula", foreignKey = @ForeignKey(name = "fk_seccion_aula"))
+    private Aula aula;
 }

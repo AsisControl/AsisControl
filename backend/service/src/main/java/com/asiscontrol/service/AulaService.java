@@ -1,6 +1,7 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.academico.AcademicoDtos.ActualizarAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.AulaDeSeccion;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.AulaResumenResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.CrearAulaRequest;
@@ -9,16 +10,19 @@ import com.asiscontrol.dto.academico.AcademicoDtos.HabilitarAulaRequest;
 import com.asiscontrol.dto.academico.AcademicoDtos.HorarioEnUsoAula;
 import com.asiscontrol.dto.academico.AcademicoDtos.HorarioResponse;
 import com.asiscontrol.dto.academico.AcademicoDtos.InhabilitarAulaRequest;
+import com.asiscontrol.dto.academico.AcademicoDtos.SeccionEnUsoAula;
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Aula;
 import com.asiscontrol.entity.Horario;
 import com.asiscontrol.entity.Seccion;
+import com.asiscontrol.entity.enums.EstadoAnioAcademico;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
 import com.asiscontrol.exception.ResourceNotFoundException;
 import com.asiscontrol.repository.AulaRepository;
 import com.asiscontrol.repository.HorarioRepository;
+import com.asiscontrol.repository.SeccionRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -36,23 +41,55 @@ public class AulaService {
     private static final String MODULO = "ACADEMICO";
     private static final String ENTIDAD = "Aula";
     private static final int EQUIPAMIENTO_MAXIMO = 500;
+    private static final int SECCIONES_EN_MENSAJE = 3;
 
     private final AulaRepository aulaRepository;
     private final HorarioRepository horarioRepository;
+    private final SeccionRepository seccionRepository;
     private final AuditoriaService auditoriaService;
 
     public AulaService(
             AulaRepository aulaRepository,
             HorarioRepository horarioRepository,
+            SeccionRepository seccionRepository,
             AuditoriaService auditoriaService) {
         this.aulaRepository = aulaRepository;
         this.horarioRepository = horarioRepository;
+        this.seccionRepository = seccionRepository;
         this.auditoriaService = auditoriaService;
     }
 
     /** La capacidad del aula es suficiente si es mayor o igual a la capacidad maxima de la seccion. */
     public static boolean esSuficiente(int capacidadAula, int capacidadMaximaSeccion) {
         return capacidadAula >= capacidadMaximaSeccion;
+    }
+
+    /**
+     * Aula que puede quedar asignada a una sección: habilitada y con capacidad suficiente. La
+     * bloquea hasta el fin de la transacción de quien llama.
+     */
+    @Transactional
+    public Aula exigirParaSeccion(Long aulaId, int capacidadMaximaSeccion) {
+        Aula aula = bloquear(aulaId);
+        if (!aula.isActivo()) {
+            throw new BusinessRuleException(
+                    "AULA_INHABILITADA",
+                    "El aula " + aula.getNombre() + " está inhabilitada y no puede asignarse a la sección.",
+                    "aulaId");
+        }
+        if (!esSuficiente(aula.getCapacidad(), capacidadMaximaSeccion)) {
+            throw new BusinessRuleException(
+                    "AULA_CAPACIDAD_INSUFICIENTE",
+                    "El aula " + aula.getNombre() + " admite " + aula.getCapacidad()
+                            + " estudiantes y la sección necesita capacidad para " + capacidadMaximaSeccion + ".",
+                    "aulaId");
+        }
+        return aula;
+    }
+
+    /** Resumen del aula de una sección; null si no tiene. */
+    public static AulaDeSeccion asignada(Aula aula) {
+        return aula == null ? null : new AulaDeSeccion(aula.getId(), aula.getNombre(), aula.getCapacidad());
     }
 
     @Transactional
@@ -70,7 +107,10 @@ public class AulaService {
     @Transactional
     public AulaResponse actualizar(Long id, ActualizarAulaRequest request) {
         validarCapacidad(request.capacidad());
-        Aula aula = obtenerEntidad(id);
+        Aula aula = bloquear(id);
+        if (!aula.isActivo()) {
+            throw new ResourceNotFoundException("AULA_NO_ENCONTRADA", "No existe un aula activa con id " + id);
+        }
         exigirVersion(aula.getVersion(), request.version());
         validarCodigoUnico(request.codigo(), id);
         String codigo = normalizarCodigo(request.codigo());
@@ -115,7 +155,7 @@ public class AulaService {
     @Transactional
     public AulaResponse inhabilitar(Long id, InhabilitarAulaRequest request) {
         String motivo = exigirMotivo(request.motivo());
-        Aula aula = obtenerEntidadSinFiltroActivo(id);
+        Aula aula = bloquear(id);
         exigirVersion(aula.getVersion(), request.version());
         if (!aula.isActivo()) {
             throw new ConflictException("AULA_YA_INHABILITADA", "El aula ya se encuentra inhabilitada");
@@ -127,6 +167,14 @@ public class AulaService {
             throw new ConflictException(
                     "AULA_CON_HORARIOS_ACTIVOS",
                     "No se puede inhabilitar un aula con horarios activos", enUso);
+        }
+        List<Seccion> secciones = seccionesVigentes(id);
+        if (!secciones.isEmpty()) {
+            throw new ConflictException(
+                    "AULA_ASIGNADA_A_SECCION",
+                    "No se puede inhabilitar el aula porque está asignada a " + nombrar(secciones)
+                            + ". Cambia o quita el aula en esas secciones.",
+                    secciones.stream().map(this::mapearUso).toList());
         }
         aula.setActivo(false);
         Aula guardada = aulaRepository.saveAndFlush(aula);
@@ -179,9 +227,17 @@ public class AulaService {
     /** Eliminacion fisica: solo para aulas que nunca se usaron en un horario. Inhabilitar vive en {@link #inhabilitar}. */
     @Transactional
     public void eliminar(Long id) {
-        Aula aula = obtenerEntidadSinFiltroActivo(id);
+        Aula aula = bloquear(id);
         if (horarioRepository.existsByAulaId(id)) {
             throw aulaUtilizada();
+        }
+        // Cualquier sección cuenta, también las históricas: conservan el aula que tuvieron.
+        List<Seccion> secciones = seccionRepository.findByAulaIdOrderByAnioAcademicoAscGradoAscNombreAsc(id);
+        if (!secciones.isEmpty()) {
+            throw new ConflictException(
+                    "AULA_ASIGNADA_A_SECCION",
+                    "No se puede eliminar el aula porque está asignada a " + nombrar(secciones) + ".",
+                    secciones.stream().map(this::mapearUso).toList());
         }
         String anterior = describir(aula);
         try {
@@ -204,6 +260,32 @@ public class AulaService {
         return aulaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "AULA_NO_ENCONTRADA", "No existe un aula con id " + id));
+    }
+
+    private Aula bloquear(Long id) {
+        return aulaRepository.bloquearPorId(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "AULA_NO_ENCONTRADA", "No existe un aula con id " + id));
+    }
+
+    private List<Seccion> seccionesVigentes(Long aulaId) {
+        return seccionRepository.buscarActivasPorAulaFueraDeAnios(aulaId, EstadoAnioAcademico.CERRADO);
+    }
+
+    private String nombrar(List<Seccion> secciones) {
+        String nombres = secciones.stream()
+                .limit(SECCIONES_EN_MENSAJE)
+                .map(s -> s.getGrado() + "° " + s.getNombre() + " (" + s.getAnioAcademico() + ")")
+                .collect(Collectors.joining(", "));
+        int resto = secciones.size() - SECCIONES_EN_MENSAJE;
+        return (secciones.size() == 1 ? "la sección " : "las secciones ")
+                + nombres + (resto > 0 ? " y " + resto + " más" : "");
+    }
+
+    private SeccionEnUsoAula mapearUso(Seccion seccion) {
+        return new SeccionEnUsoAula(
+                seccion.getId(), seccion.getNombre(), seccion.getGrado(), seccion.getAnioAcademico(),
+                seccion.getCapacidadMaxima());
     }
 
     private void aplicar(Aula aula, CrearAulaRequest request) {
@@ -270,6 +352,17 @@ public class AulaService {
                     "AULA_CAPACIDAD_INSUFICIENTE",
                     "La nueva capacidad es menor que la capacidad maxima de secciones asignadas al aula",
                     incompatibles);
+        }
+        List<Seccion> secciones = seccionesVigentes(aulaId).stream()
+                .filter(s -> !esSuficiente(nuevaCapacidad, s.getCapacidadMaxima()))
+                .toList();
+        if (!secciones.isEmpty()) {
+            int minima = secciones.stream().mapToInt(Seccion::getCapacidadMaxima).max().orElseThrow();
+            throw new ConflictException(
+                    "AULA_CAPACIDAD_INSUFICIENTE",
+                    "La capacidad no puede ser menor que " + minima + " porque el aula está asignada a "
+                            + nombrar(secciones) + ".",
+                    secciones.stream().map(this::mapearUso).toList());
         }
     }
 

@@ -93,7 +93,16 @@ public final class AcademicoDtos {
             @Min(2000) @Max(2100) int anioAcademico,
             @Min(1) @Max(100) int capacidadMaxima,
             Long docenteTutorId,
-            @Size(max = 700) String motivo) {}
+            @Size(max = 700) String motivo,
+            /* Opcional: sin aula si se omite. */
+            Long aulaId) {
+
+        public CrearSeccionRequest(
+                String nombre, int grado, int anioAcademico, int capacidadMaxima, Long docenteTutorId,
+                String motivo) {
+            this(nombre, grado, anioAcademico, capacidadMaxima, docenteTutorId, motivo, null);
+        }
+    }
 
     public record ActualizarSeccionRequest(
             @NotBlank @Size(max = 20) String nombre,
@@ -102,7 +111,25 @@ public final class AcademicoDtos {
             @Min(1) @Max(100) int capacidadMaxima,
             Long docenteTutorId,
             @NotNull Long version,
-            @NotBlank @Size(max = 700) String motivo) {}
+            @NotBlank @Size(max = 700) String motivo,
+            /* Omitido o nulo conserva el aula actual. */
+            Long aulaId,
+            /* true deja la sección sin aula; no se combina con aulaId. */
+            Boolean quitarAula) {
+
+        public ActualizarSeccionRequest(
+                String nombre, int grado, int anioAcademico, int capacidadMaxima, Long docenteTutorId,
+                Long version, String motivo) {
+            this(nombre, grado, anioAcademico, capacidadMaxima, docenteTutorId, version, motivo, null, null);
+        }
+    }
+
+    /** Aula asignada a una sección. */
+    public record AulaDeSeccion(Long id, String nombre, int capacidad) {}
+
+    /** Sección que impide reducir la capacidad, inhabilitar o eliminar un aula. */
+    public record SeccionEnUsoAula(
+            Long seccionId, String seccion, int grado, int anioAcademico, int capacidadMaximaSeccion) {}
 
     public record SeccionResponse(
             Long id,
@@ -113,7 +140,9 @@ public final class AcademicoDtos {
             Long docenteTutorId,
             String docenteTutor,
             boolean activo,
-            long version) {}
+            long version,
+            /* null si la sección no tiene aula. */
+            AulaDeSeccion aula) {}
 
     public record GenerarPropuestasSeccionesRequest(
             @Min(2000) @Max(2100) int anioAcademico,
