@@ -31,6 +31,7 @@ public class ConfiguracionAcademicaService {
     private final CursoRepository cursos;
     private final PlanEstudiosService planes;
     private final DiaNoLectivoRepository diasNoLectivos;
+    private final EvaluacionRepository evaluaciones;
     private final AuditoriaService auditoria;
 
     public ConfiguracionAcademicaService(
@@ -43,6 +44,7 @@ public class ConfiguracionAcademicaService {
             CursoRepository cursos,
             PlanEstudiosService planes,
             DiaNoLectivoRepository diasNoLectivos,
+            EvaluacionRepository evaluaciones,
             AuditoriaService auditoria) {
         this.anios = anios;
         this.periodos = periodos;
@@ -53,6 +55,7 @@ public class ConfiguracionAcademicaService {
         this.cursos = cursos;
         this.planes = planes;
         this.diasNoLectivos = diasNoLectivos;
+        this.evaluaciones = evaluaciones;
         this.auditoria = auditoria;
     }
 
@@ -164,22 +167,14 @@ public class ConfiguracionAcademicaService {
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public AnioResponse agregarPeriodo(int numero, CrearPeriodo request) {
         AnioAcademico anioAcademico = bloquear(numero);
-        if (anioAcademico.getEstado() != EstadoAnioAcademico.BORRADOR)
-            rechazarRegla("ANIO_NO_EN_BORRADOR", "Los períodos se configuran mientras el año está en borrador");
-        validarFechas(request.fechaInicio(), request.fechaFin());
-        if (request.fechaInicio().isBefore(anioAcademico.getFechaInicio())
-                || request.fechaFin().isAfter(anioAcademico.getFechaFin()))
-            rechazarRegla("PERIODO_FUERA_DEL_ANIO", "Las fechas del período deben estar dentro del año");
-        for (PeriodoAcademico periodo : periodos.findByAnioAcademicoAnioOrderByOrden(numero)) {
-            if (periodo.getOrden() == request.orden()
-                    || periodo.getNombre().equalsIgnoreCase(request.nombre().trim()))
-                rechazarConflicto("PERIODO_DUPLICADO", "El nombre u orden del período ya está registrado");
-            if (!request.fechaFin().isBefore(periodo.getFechaInicio())
-                    && !request.fechaInicio().isAfter(periodo.getFechaFin()))
-                rechazarRegla(
-                        "PERIODOS_SUPERPUESTOS",
-                        "Las fechas del período se superponen con " + periodo.getNombre());
-        }
+        exigirBorradorParaPeriodos(anioAcademico);
+        validarPeriodo(
+                anioAcademico,
+                null,
+                request.orden(),
+                request.nombre(),
+                request.fechaInicio(),
+                request.fechaFin());
         PeriodoAcademico periodo = new PeriodoAcademico();
         periodo.setAnioAcademico(anioAcademico);
         periodo.setNombre(request.nombre().trim());
@@ -197,15 +192,39 @@ public class ConfiguracionAcademicaService {
         return mapear(anioAcademico);
     }
 
+    /** Cambia el nombre y las fechas de un período; el orden y el estado se conservan. */
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public AnioResponse actualizarPeriodo(Long id, ActualizarPeriodo request) {
+        PeriodoAcademico periodo = buscarPeriodo(id);
+        AnioAcademico anioAcademico = bloquear(periodo.getAnioAcademico().getAnio());
+        validarVersion(periodo.getVersion(), request.version());
+        exigirBorradorParaPeriodos(anioAcademico);
+        validarPeriodo(
+                anioAcademico,
+                periodo.getId(),
+                periodo.getOrden(),
+                request.nombre(),
+                request.fechaInicio(),
+                request.fechaFin());
+        exigirEvaluacionesCubiertas(periodo, request.fechaInicio(), request.fechaFin());
+        String valorAnterior = describir(periodo);
+        periodo.setNombre(request.nombre().trim());
+        periodo.setFechaInicio(request.fechaInicio());
+        periodo.setFechaFin(request.fechaFin());
+        periodos.saveAndFlush(periodo);
+        registrarAuditoria(
+                "ACTUALIZAR_PERIODO",
+                "PeriodoAcademico",
+                periodo.getId(),
+                request.motivo(),
+                valorAnterior,
+                describir(periodo));
+        return mapear(anioAcademico);
+    }
+
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public AnioResponse estadoPeriodo(Long id, EstadoPeriodo request) {
-        PeriodoAcademico periodo =
-                periodos.findById(id)
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "PERIODO_NO_ENCONTRADO",
-                                                "No se encontró el período"));
+        PeriodoAcademico periodo = buscarPeriodo(id);
         AnioAcademico anioAcademico = bloquear(periodo.getAnioAcademico().getAnio());
         validarVersion(periodo.getVersion(), request.version());
         String valorAnterior = periodo.getEstado().name();
@@ -422,6 +441,70 @@ public class ConfiguracionAcademicaService {
                         .toList(),
                 vacantes(anioAcademico.getAnio()),
                 anioAcademico.isAdmisionAbierta());
+    }
+
+    private PeriodoAcademico buscarPeriodo(Long id) {
+        return periodos.findById(id)
+                .orElseThrow(
+                        () ->
+                                new ResourceNotFoundException(
+                                        "PERIODO_NO_ENCONTRADO", "No se encontró el período"));
+    }
+
+    private void exigirBorradorParaPeriodos(AnioAcademico anioAcademico) {
+        if (anioAcademico.getEstado() != EstadoAnioAcademico.BORRADOR)
+            rechazarRegla("ANIO_NO_EN_BORRADOR", "Los períodos se configuran mientras el año está en borrador");
+    }
+
+    /** Reglas comunes de alta y edición; al editar, {@code propio} no se compara consigo mismo. */
+    private void validarPeriodo(
+            AnioAcademico anioAcademico,
+            Long propio,
+            int orden,
+            String nombre,
+            LocalDate inicio,
+            LocalDate fin) {
+        validarFechas(inicio, fin);
+        if (inicio.isBefore(anioAcademico.getFechaInicio()) || fin.isAfter(anioAcademico.getFechaFin()))
+            rechazarRegla("PERIODO_FUERA_DEL_ANIO", "Las fechas del período deben estar dentro del año");
+        for (PeriodoAcademico otro :
+                periodos.findByAnioAcademicoAnioOrderByOrden(anioAcademico.getAnio())) {
+            if (otro.getId().equals(propio)) continue;
+            if (otro.getOrden() == orden || otro.getNombre().equalsIgnoreCase(nombre.trim()))
+                rechazarConflicto("PERIODO_DUPLICADO", "El nombre u orden del período ya está registrado");
+            if (!fin.isBefore(otro.getFechaInicio()) && !inicio.isAfter(otro.getFechaFin()))
+                rechazarRegla(
+                        "PERIODOS_SUPERPUESTOS",
+                        "Las fechas del período se superponen con " + otro.getNombre());
+        }
+    }
+
+    /**
+     * Como los períodos no se solapan, solo pueden quedar sin período las evaluaciones que hoy caen
+     * en el editado y no en sus fechas nuevas.
+     */
+    private void exigirEvaluacionesCubiertas(PeriodoAcademico periodo, LocalDate inicio, LocalDate fin) {
+        long fuera = evaluaciones.contarFueraDelNuevoRango(
+                periodo.getAnioAcademico().getAnio(),
+                periodo.getFechaInicio(),
+                periodo.getFechaFin(),
+                inicio,
+                fin);
+        if (fuera > 0)
+            rechazarRegla(
+                    "EVALUACIONES_FUERA_DE_PERIODO",
+                    "No se pueden cambiar las fechas: "
+                            + (fuera == 1 ? "1 evaluación quedaría" : fuera + " evaluaciones quedarían")
+                            + " fuera de los períodos");
+    }
+
+    private String describir(PeriodoAcademico periodo) {
+        return "nombre="
+                + periodo.getNombre()
+                + ",inicio="
+                + periodo.getFechaInicio()
+                + ",fin="
+                + periodo.getFechaFin();
     }
 
     private void validarFechas(LocalDate inicio, LocalDate fin) {

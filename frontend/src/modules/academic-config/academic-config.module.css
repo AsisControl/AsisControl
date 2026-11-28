@@ -176,16 +176,6 @@
   font-weight: 600;
   padding: 6px 12px;
 }
-.pendingBadge {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  color: #475569;
-  cursor: help;
-  font-size: 11px;
-  padding: 2px 8px;
-  white-space: nowrap;
-}
 .newPeriodButton {
   background: var(--blue);
   border: 1px solid var(--blue);
@@ -223,14 +213,6 @@
 }
 .infoNotice strong {
   font-weight: 600;
-}
-.srOnly {
-  clip: rect(0 0 0 0);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
 }
 .dialogForm {
   display: flex;

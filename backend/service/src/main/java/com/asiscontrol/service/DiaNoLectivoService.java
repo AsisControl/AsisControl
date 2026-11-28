@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -26,16 +27,19 @@ public class DiaNoLectivoService {
     private final DiaNoLectivoRepository diasNoLectivos;
     private final AuditoriaService auditoria;
     private final ApplicationEventPublisher eventos;
+    private final Clock reloj;
 
     public DiaNoLectivoService(
             AnioAcademicoRepository anios,
             DiaNoLectivoRepository diasNoLectivos,
             AuditoriaService auditoria,
-            ApplicationEventPublisher eventos) {
+            ApplicationEventPublisher eventos,
+            Clock reloj) {
         this.anios = anios;
         this.diasNoLectivos = diasNoLectivos;
         this.auditoria = auditoria;
         this.eventos = eventos;
+        this.reloj = reloj;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -82,6 +86,29 @@ public class DiaNoLectivoService {
                 anterior,
                 describir(actualizado));
         return actualizado;
+    }
+
+    /**
+     * Quita un día de hoy o futuro: así el calendario recupera sus sesiones, que solo se
+     * regeneran desde hoy. Los días pasados se conservan.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void eliminar(Long id, Long version) {
+        DiaNoLectivo diaNoLectivo = obtener(id);
+        AnioAcademico anioAcademico = bloquearAnio(diaNoLectivo.getAnioAcademico().getAnio());
+        exigirEditable(anioAcademico);
+        exigirVersion(diaNoLectivo.getVersion(), version);
+        if (diaNoLectivo.getFecha().isBefore(LocalDate.now(reloj)))
+            throw new BusinessRuleException(
+                    "DIA_NO_LECTIVO_PASADO",
+                    "Solo se pueden eliminar días no lectivos de hoy o de fechas futuras");
+
+        String anterior = describir(diaNoLectivo);
+        diasNoLectivos.delete(diaNoLectivo);
+        diasNoLectivos.flush();
+
+        registrarAuditoria("ELIMINAR_DIA_NO_LECTIVO", id, anterior, null);
+        eventos.publishEvent(new CalendarioAnioCambiadoEvent(anioAcademico.getAnio()));
     }
 
     public List<DiaNoLectivo> listar(int numeroAnio) {

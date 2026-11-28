@@ -70,6 +70,12 @@ public class ConfiguracionAcademicaController {
         return configuracionService.agregarPeriodo(anio, request);
     }
 
+    @PutMapping("/periodos/{id}")
+    public AnioResponse actualizarPeriodo(
+            @PathVariable Long id, @Valid @RequestBody ActualizarPeriodo request) {
+        return configuracionService.actualizarPeriodo(id, request);
+    }
+
     @PutMapping("/periodos/{id}/estado")
     public AnioResponse estadoPeriodo(
             @PathVariable Long id, @Valid @RequestBody EstadoPeriodo request) {
@@ -97,6 +103,12 @@ public class ConfiguracionAcademicaController {
         return mapear(
                 diaNoLectivoService.actualizarDescripcion(
                         id, request.descripcion(), request.version()));
+    }
+
+    @DeleteMapping("/dias-no-lectivos/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminarDiaNoLectivo(@PathVariable Long id, @RequestParam Long version) {
+        diaNoLectivoService.eliminar(id, version);
     }
 
     @PostMapping("/anios/{anio}/grados")

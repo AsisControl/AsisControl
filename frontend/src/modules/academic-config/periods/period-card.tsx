@@ -1,7 +1,5 @@
 import { stateLabel } from "@/shared/lib/formatters";
 import { formatDate } from "../lib/format-date";
-import { PendingBadge } from "../pending/pending-badge";
-import { pendingFeatures } from "../pending/pending-features";
 import styles from "../academic-config.module.css";
 import type { Period } from "../types";
 type Props = {
@@ -9,9 +7,16 @@ type Props = {
   /** Solo se activa/cierra con el año ACTIVO. */
   canChangeState: boolean;
   onChangeState: (period: Period, next: string) => void;
+  /** Solo se ofrece editar mientras el año está en borrador. */
+  onEdit?: (period: Period) => void;
 };
 /** Tarjeta de un período con sus fechas y las acciones disponibles. */
-export function PeriodCard({ period, canChangeState, onChangeState }: Props) {
+export function PeriodCard({
+  period,
+  canChangeState,
+  onChangeState,
+  onEdit,
+}: Props) {
   const planned = period.estado === "PLANIFICADO";
   const statusClass = [
     styles.status,
@@ -52,10 +57,14 @@ export function PeriodCard({ period, canChangeState, onChangeState }: Props) {
             {planned ? "Activar" : "Cerrar"}
           </button>
         )}
-        <button disabled title={pendingFeatures.editPeriod.hint}>
-          Editar
-        </button>
-        <PendingBadge feature="editPeriod" />
+        {onEdit && (
+          <button
+            aria-label={`Editar ${period.nombre}`}
+            onClick={() => onEdit(period)}
+          >
+            Editar
+          </button>
+        )}
       </div>
     </article>
   );
