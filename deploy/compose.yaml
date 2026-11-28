@@ -49,6 +49,8 @@ services:
       PAYMENTS_SIMULATOR_ENABLED: ${PAYMENTS_SIMULATOR_ENABLED:-true}
       INSTITUTION_NAME: ${INSTITUTION_NAME:-Colegio PUCP}
       PAYMENTS_DEMO_ENABLED: "false"
+      DEMO_DATA_ENABLED: ${DEMO_DATA_ENABLED:-false}
+      DEMO_SQL_MANIFEST: ${DEMO_SQL_MANIFEST:-/app/demo-sql/manifest.properties}
       BOOTSTRAP_ENABLED: ${BOOTSTRAP_ENABLED:-false}
       BOOTSTRAP_ADMIN_DOCUMENT: ${BOOTSTRAP_ADMIN_DOCUMENT:-}
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
@@ -67,6 +69,7 @@ services:
       FILE_STORAGE_S3_PREFIX: ${FILE_STORAGE_S3_PREFIX:-asiscontrol/adjuntos}
     volumes:
       - archivos:/app/storage
+      - ../demo/sql:/app/demo-sql:ro
       - registros:/app/logs
     logging: *logs
 volumes:

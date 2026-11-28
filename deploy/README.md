@@ -97,6 +97,48 @@ indican el codigo y usuario de la cuenta inicial; debe cambiar la clave al ingre
 Si la cuenta de esa persona ya existe, se conserva su contraseña. El bootstrap
 tambien inicializa roles y permisos: no es una carga de todos los datos de la demo.
 
+### Preparación de la exposición con Excel y SQL externos
+
+Activar `DEMO_DATA_ENABLED=true` solo para preparar la exposición. No se ejecuta al
+arrancar ni reemplaza el bootstrap del administrador. El backend ya no contiene
+los datos de ejemplo en Java: ejecuta los tres SQL seleccionados desde la página.
+
+Conservar `demo/sql` junto a `deploy` en EC2. Compose lo monta en modo de solo
+lectura en `/app/demo-sql`. `DEMO_SQL_MANIFEST` apunta a su `manifest.properties`;
+este manifiesto autoriza el nombre y SHA-256 exactos de los archivos del paquete.
+En IntelliJ usar la ruta absoluta del manifiesto en esa computadora. No incluir
+SQL en recursos del JAR ni activar la opción en entornos de uso normal.
+
+Desde `deploy` en EC2, el usuario del contenedor necesita leer el manifiesto:
+
+```bash
+chmod 755 ../demo/sql
+chmod 644 ../demo/sql/manifest.properties
+```
+
+Esto solo afecta al manifiesto público del paquete; conservar privado el `.env`.
+
+En **Administración → Preparar demostración → Cargar datos de demostración**,
+seleccionar los 14 Excel y los 3 SQL del ZIP descomprimido. Pulsar **Iniciar carga**.
+El botón ejecuta: SQL inicial → Excel 01..09 → SQL de activación → Excel 10..12 →
+SQL de escenarios → Excel 13..14. El esquema se gestiona exclusivamente con Flyway.
+
+Cada SQL se confirma en una transacción. Ante un fallo se revierte esa etapa y se
+conservan los pasos anteriores. Las familias se importan juntas; los otros Excel
+mantienen las reglas de sus importadores. La pantalla muestra el primer fallo y
+permite continuar. Guardar las credenciales generadas como PDF antes de cerrar.
+Repetir un SQL completado devuelve sus referencias sin restaurar los datos.
+
+La regla de riesgo, la alerta y sus evidencias están en el SQL, identificadas como
+datos de demostración. Se puede recalcular a Nicolás desde la aplicación en vivo.
+No se fabrican lecturas QR, contraseñas, archivos ni objetos de S3.
+
+Consultar [la guía de ejecución, escenarios y restablecimiento](../demo/sql/LEER_ANTES.txt)
+y los [SQL externos](../demo/sql). V45 registra etapas y referencias; V46 agrega
+el hash del archivo y sus indicaciones. Ninguna migración carga datos de ejemplo.
+Para repetir desde cero usar un esquema nuevo de ensayo, no borrar los puntos de
+control ni la base compartida. Deshabilitar `DEMO_DATA_ENABLED` al terminar.
+
 No hacen falta un YAML temporal ni credenciales en `compose.yaml`. Si se agregaron
 antes, retirarlas y usar estas variables. No subir el `.env` al repositorio.
 Despues del alta normal, dejar `BOOTSTRAP_ENABLED=false` y vaciar la clave inicial
