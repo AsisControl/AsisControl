@@ -333,7 +333,12 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
 
     private JsonNode tareaPublicada() throws Exception {
         long id = postOk(TAREAS, datosTarea(limite)).path("id").asLong();
-        return request("POST", TAREAS + "/" + id + "/publicar", null, 200);
+        JsonNode publicada = request("POST", TAREAS + "/" + id + "/publicar", null, 200);
+        // La versión devuelta debe ser la que queda guardada; si no, la siguiente edición da 409.
+        em.flush();
+        assertThat(publicada.path("version").asLong())
+                .isEqualTo(em.find(com.asiscontrol.entity.Tarea.class, id).getVersion());
+        return publicada;
     }
 
     private JsonNode entregar(JsonNode tarea, Alumno alumno) throws Exception {
@@ -409,6 +414,8 @@ class TareaSeguimientoHttpTest extends ApiIntegrationSupport {
                 data("nota", 17.75, "comentario", null, "version", entrega.path("version").asLong()), 200);
         assertThat(calificada.path("nota").decimalValue()).isEqualByComparingTo("17.75");
 
+        // Preparar la nota histórica cambió la tarea: se edita sobre la versión vigente.
+        tarea = getOk(TAREAS + "/" + id);
         JsonNode error = request("PUT", TAREAS + "/" + id, edicion(tarea, limite, 15, null), 422);
         assertThat(error.path("code").asText()).isEqualTo("TAREA_PUNTAJE_MENOR_A_NOTAS");
         putOk(TAREAS + "/" + id, edicion(tarea, limite, 18, null));

@@ -165,6 +165,7 @@ export function SectionsPanel({
               <th>Grado</th>
               <th>Sección</th>
               <th>Capacidad máx.</th>
+              <th>Aula</th>
               <th>Matriculados</th>
               <th>Vacantes</th>
               <th>Ocupación</th>
@@ -185,6 +186,13 @@ export function SectionsPanel({
                   )}
                 </td>
                 <td>{section.capacidadMaxima}</td>
+                <td>
+                  {section.aula ? (
+                    section.aula.nombre
+                  ) : (
+                    <span className={styles.noClassroom}>Sin aula</span>
+                  )}
+                </td>
                 <td className={styles.strongCell}>{section.ocupacion}</td>
                 <td>
                   {isOverCapacity(section) ? (
@@ -243,7 +251,7 @@ export function SectionsPanel({
             ))}
             {!visible.length && (
               <tr>
-                <td className={styles.emptyCell} colSpan={7}>
+                <td className={styles.emptyCell} colSpan={8}>
                   {emptyText}
                 </td>
               </tr>

@@ -45,4 +45,8 @@ public class Aula extends AuditableEntity {
 
     @Column(name = "ubicacion", nullable = false, length = 180)
     private String ubicacion;
+
+    /** Texto libre opcional; nulo significa sin equipamiento registrado. */
+    @Column(name = "equipamiento", length = 500)
+    private String equipamiento;
 }

@@ -1,6 +1,8 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
-import { api, message } from "@/core/api/client";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { api, fieldErrorsOf, message } from "@/core/api/client";
+import { listarAulasHabilitadas, type Classroom } from "@/modules/schedules";
+import { countLabel } from "@/shared/lib/formatters";
 import { Dialog, Feedback } from "@/shared/ui";
 import {
   SECTION_NAME_MAX,
@@ -9,7 +11,6 @@ import {
   validateSection,
   type SectionErrors,
 } from "../lib/validation";
-import { PendingBadge } from "../pending/pending-badge";
 import styles from "../academic-config.module.css";
 import type { AcademicYear, Section } from "../types";
 type Props = {
@@ -20,6 +21,8 @@ type Props = {
   /** Se llama tras guardar; el panel recarga el año y cierra el modal. */
   onSaved: (text: string) => Promise<void>;
 };
+const classroomLabel = (aula: { nombre: string; capacidad: number }) =>
+  `${aula.nombre} · ${countLabel(aula.capacidad, "estudiante", "estudiantes")}`;
 /** US-06: modal "Nueva sección" y edición de sección (mismo aspecto). */
 export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
   const editing = !!section;
@@ -32,8 +35,12 @@ export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
     capacidad: section
       ? String(section.capacidadMaxima)
       : String(grades[0]?.capacidadDefault ?? ""),
+    aulaId: section?.aula ? String(section.aula.id) : "",
     motivo: "",
   });
+  const [classrooms, setClassrooms] = useState<Classroom[] | null>(null);
+  const [classroomsError, setClassroomsError] = useState("");
+  const [classroomRejected, setClassroomRejected] = useState(false);
   const [capacityTouched, setCapacityTouched] = useState(false);
   const [errors, setErrors] = useState<SectionErrors>({});
   const [serverError, setServerError] = useState("");
@@ -41,6 +48,27 @@ export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
   const sending = useRef(false);
   // El servidor exige motivo siempre al editar y solo con el año ACTIVO al crear.
   const reasonRequired = editing || year.estado === "ACTIVO";
+  useEffect(() => {
+    let active = true;
+    listarAulasHabilitadas()
+      .then((items) => {
+        if (active) setClassrooms(items);
+      })
+      .catch((error) => {
+        if (active) setClassroomsError(message(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  // El aula actual se ofrece aunque la lista aún no llegue o haya fallado.
+  const current = section?.aula;
+  const classroomOptions = [
+    ...(current && !classrooms?.some((aula) => aula.id === current.id)
+      ? [current]
+      : []),
+    ...(classrooms ?? []),
+  ];
   const set = (key: keyof typeof values, value: string | number | null) => {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
@@ -69,6 +97,7 @@ export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
     sending.current = true;
     setBusy(true);
     setServerError("");
+    setClassroomRejected(false);
     try {
       let tutor: number | null = null;
       let path = "/api/secciones";
@@ -89,11 +118,20 @@ export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
           capacidadMaxima: Number(values.capacidad),
           docenteTutorId: tutor,
           motivo: values.motivo.trim() || null,
-          ...(section ? { version: section.version } : {}),
+          // La regla de capacidad la aplica el servidor.
+          aulaId: values.aulaId ? Number(values.aulaId) : null,
+          // Al editar, omitir el aula la conserva: quitarla se pide expresamente.
+          ...(section
+            ? {
+                version: section.version,
+                quitarAula: !values.aulaId && !!section.aula,
+              }
+            : {}),
         }),
       });
     } catch (error) {
       setServerError(message(error));
+      setClassroomRejected(!!fieldErrorsOf(error).aulaId);
       sending.current = false;
       setBusy(false);
       return;
@@ -189,10 +227,35 @@ export function SectionFormDialog({ year, section, onClose, onSaved }: Props) {
           )}
         </label>
         <label className={styles.label}>
-          Aula asignada <PendingBadge feature="sectionClassroom" />
-          <select className={styles.input} value="" disabled>
-            <option value="">Seleccionar aula</option>
+          Aula asignada
+          <select
+            className={styles.input}
+            value={values.aulaId}
+            disabled={busy}
+            aria-invalid={classroomRejected}
+            onChange={(e) => {
+              setClassroomRejected(false);
+              set("aulaId", e.target.value);
+            }}
+          >
+            <option value="">Sin aula</option>
+            {classroomOptions.map((aula) => (
+              <option key={aula.id} value={aula.id}>
+                {classroomLabel(aula)}
+              </option>
+            ))}
           </select>
+          {classroomsError ? (
+            <span className={styles.fieldError} role="alert">
+              No se pudo cargar la lista de aulas: {classroomsError}
+            </span>
+          ) : (
+            <span className={styles.fieldHint}>
+              {classrooms
+                ? "Opcional. Varias secciones pueden compartirla y no cambia las aulas de los horarios."
+                : "Cargando aulas…"}
+            </span>
+          )}
         </label>
         {reasonRequired && (
           <label className={styles.label}>

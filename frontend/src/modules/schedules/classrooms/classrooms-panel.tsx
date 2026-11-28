@@ -6,7 +6,6 @@ import { usePaged } from "@/shared/hooks/use-paged";
 import { BulkImportDialog } from "@/modules/bulk-import";
 import { countLabel, timeLabel } from "@/shared/lib/formatters";
 import { classroomTypeLabels } from "../lib/labels";
-import { PendingBadge } from "../pending/pending-badge";
 import type { Classroom } from "../types";
 import styles from "../schedules.module.css";
 import { ClassroomDetailDialog } from "./classroom-detail-dialog";
@@ -135,9 +134,7 @@ export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
                 <th>Código</th>
                 <th>Aula</th>
                 <th>Capacidad</th>
-                <th>
-                  Equipamiento <PendingBadge feature="classroomEquipment" />
-                </th>
+                <th>Equipamiento</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -158,8 +155,17 @@ export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
                   <td data-label="Capacidad">
                     {countLabel(classroom.capacidad, "estudiante", "estudiantes")}
                   </td>
-                  <td data-label="Equipamiento" className={styles.muted}>
-                    —
+                  <td data-label="Equipamiento">
+                    {classroom.equipamiento ? (
+                      <span
+                        className={styles.equipment}
+                        title={classroom.equipamiento}
+                      >
+                        {classroom.equipamiento}
+                      </span>
+                    ) : (
+                      <span className={styles.muted}>Sin equipamiento</span>
+                    )}
                   </td>
                   <td data-label="Estado">
                     <ClassroomStatus active={classroom.activo} />
@@ -280,8 +286,8 @@ export function ClassroomsPanel({ canWrite }: { canWrite: boolean }) {
         >
           <p className="full-field hint">
             {dialog.classroom.nombre} se eliminará del catálogo. Solo es
-            posible si nunca se usó en un horario; si ya se usó, inhabilítala
-            en su lugar.
+            posible si ninguna sección la tiene asignada y nunca se usó en un
+            horario; si ya se usó en un horario, inhabilítala en su lugar.
           </p>
         </FormDialog>
       )}

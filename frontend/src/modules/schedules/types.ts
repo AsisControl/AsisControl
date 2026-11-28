@@ -16,6 +16,8 @@ export type Classroom = {
   tipoAula: ClassroomType;
   capacidad: number;
   ubicacion: string;
+  /** Texto libre; null si no se registró. */
+  equipamiento: string | null;
   activo: boolean;
   version: number;
 };
@@ -26,6 +28,8 @@ export type ClassroomInput = {
   tipoAula: ClassroomType;
   capacidad: number;
   ubicacion: string | null;
+  /** Siempre se envía: "" borra el equipamiento (omitirlo lo conservaría). */
+  equipamiento: string;
 };
 /** Respuesta de /api/aulas/resumen (AulaResumenResponse). */
 export type ClassroomSummary = { habilitadas: number };
