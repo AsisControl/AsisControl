@@ -8,7 +8,6 @@ import {
   scheduleSlotLabel,
   sortSchedules,
 } from "../lib/labels";
-import { PendingBadge } from "../pending/pending-badge";
 import type { Classroom, ClassroomSchedule } from "../types";
 import styles from "../schedules.module.css";
 import { ClassroomStatus } from "./classroom-status";
@@ -72,11 +71,11 @@ export function ClassroomDetailDialog({
           <dt>Ubicación / Pabellón</dt>
           <dd>{classroom.ubicacion || "Sin ubicación"}</dd>
         </div>
-        <div>
-          <dt>
-            Equipamiento <PendingBadge feature="classroomEquipment" />
-          </dt>
-          <dd>—</dd>
+        <div className={styles.detailWide}>
+          <dt>Equipamiento</dt>
+          <dd className={styles.equipmentDetail}>
+            {classroom.equipamiento || "Sin equipamiento"}
+          </dd>
         </div>
       </dl>
       <h4>Horarios en esta aula</h4>

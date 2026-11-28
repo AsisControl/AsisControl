@@ -92,7 +92,9 @@ public final class ConfiguracionDtos {
             long ocupacion,
             long vacantes,
             boolean activo,
-            long version) {}
+            long version,
+            /* null si la sección no tiene aula. */
+            AcademicoDtos.AulaDeSeccion aula) {}
 
     public record AnioResponse(
             Long id,

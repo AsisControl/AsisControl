@@ -101,6 +101,7 @@ test("Secciones: crea una sección con la capacidad sugerida del grado", async (
     capacidadMaxima: 30,
     docenteTutorId: null,
     motivo: "Más alumnos",
+    aulaId: null,
   });
 });
 

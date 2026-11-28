@@ -6,6 +6,7 @@ export const CLASSROOM_CAPACITY_MIN = 1;
 export const CLASSROOM_CAPACITY_MAX = 300;
 export const CLASSROOM_LOCATION_MAX = 180;
 export const CLASSROOM_REASON_MAX = 500;
+export const CLASSROOM_EQUIPMENT_MAX = 500;
 
 /** Valores del formulario tal como se escriben, antes de convertirlos. */
 export type ClassroomFormValues = {
@@ -14,6 +15,7 @@ export type ClassroomFormValues = {
   tipoAula: string;
   capacidad: string;
   ubicacion: string;
+  equipamiento: string;
 };
 export type ClassroomErrors = Partial<Record<keyof ClassroomFormValues, string>>;
 
@@ -71,6 +73,13 @@ export function validateClassroomLocation(location: string): string {
   return "";
 }
 
+/** Opcional; máximo 500 caracteres sin contar los espacios de los extremos. */
+export function validateClassroomEquipment(equipment: string): string {
+  if (equipment.trim().length > CLASSROOM_EQUIPMENT_MAX)
+    return `El equipamiento no puede superar ${CLASSROOM_EQUIPMENT_MAX} caracteres.`;
+  return "";
+}
+
 export function validateClassroom(
   input: ClassroomFormValues,
   context: { classrooms: { id: number; codigo: string }[]; currentId?: number },
@@ -84,6 +93,7 @@ export function validateClassroom(
     ["tipoAula", validateClassroomType(input.tipoAula)],
     ["capacidad", validateClassroomCapacity(input.capacidad)],
     ["ubicacion", validateClassroomLocation(input.ubicacion)],
+    ["equipamiento", validateClassroomEquipment(input.equipamiento)],
   ];
   return Object.fromEntries(checks.filter(([, error]) => error));
 }

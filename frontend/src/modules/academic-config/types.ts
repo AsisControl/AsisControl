@@ -24,6 +24,8 @@ export type Section = {
   vacantes: number;
   activo: boolean;
   version: number;
+  /** Aula asignada (opcional y compartible); null si no tiene. */
+  aula: { id: number; nombre: string; capacidad: number } | null;
 };
 /** Respuesta de dias-no-lectivos del backend. */
 export type NonTeachingDay = {

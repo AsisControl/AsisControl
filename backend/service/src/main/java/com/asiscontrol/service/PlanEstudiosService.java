@@ -315,7 +315,7 @@ public class PlanEstudiosService {
         if (bloquearAnio(seccion.getAnioAcademico()) == EstadoAnioAcademico.CERRADO) {
             throw new BusinessRuleException("ANIO_NO_VIGENTE", "El año académico está cerrado");
         }
-        comprobarPertenencia(curso, seccion);
+        exigirHorasDelPlan(curso, seccion);
     }
 
     // inscripcion cursos: cursos vigentes del plan de un año y grado (los que se inscriben al matricular)
@@ -323,16 +323,16 @@ public class PlanEstudiosService {
         return cursosVigentes(buscarGrado(anio, numero));
     }
 
-    void comprobarPertenencia(Curso curso, Seccion seccion) {
+    int exigirHorasDelPlan(Curso curso, Seccion seccion) {
         var grado = buscarGrado(seccion.getAnioAcademico(), seccion.getGrado());
-        boolean autorizado = cursosVigentes(grado).stream().anyMatch(c -> c.id().equals(curso.getId()));
-        if (!autorizado) {
-            var contexto = curso.getGradoAcademico();
-            if (!grado.isPlanDefinido() && contexto != null && !contexto.getId().equals(grado.getId())) {
-                throw new ConflictException("CURSO_DE_OTRO_GRADO", "El curso no pertenece al plan del año y grado de esta sección");
-            }
-            throw new ConflictException("CURSO_FUERA_DEL_PLAN", "El curso no pertenece al plan del año y grado de esta sección");
+        var horas = horasDelPlan(curso, grado);
+        if (horas.isPresent()) return horas.getAsInt();
+
+        var contexto = curso.getGradoAcademico();
+        if (!grado.isPlanDefinido() && contexto != null && !contexto.getId().equals(grado.getId())) {
+            throw new ConflictException("CURSO_DE_OTRO_GRADO", "El curso no pertenece al plan del año y grado de esta sección");
         }
+        throw new ConflictException("CURSO_FUERA_DEL_PLAN", "El curso no pertenece al plan del año y grado de esta sección");
     }
 
     private EstadoAnioAcademico bloquearAnio(int anio) {
@@ -377,12 +377,14 @@ public class PlanEstudiosService {
      * misma regla que {@link #cursosVigentes}: en un borrador sin plan definido manda el catálogo del grado.
      */
     public OptionalInt horasDelPlan(Curso curso, Seccion seccion) {
-        var encontrado = grados.findByAnioAcademicoAnioAndNumero(seccion.getAnioAcademico(), seccion.getGrado())
-                .filter(GradoAcademico::isActivo);
-        if (encontrado.isEmpty() || !curso.isActivo()) {
-            return OptionalInt.empty();
-        }
-        var grado = encontrado.get();
+        return grados.findByAnioAcademicoAnioAndNumero(seccion.getAnioAcademico(), seccion.getGrado())
+                .filter(GradoAcademico::isActivo)
+                .map(grado -> horasDelPlan(curso, grado))
+                .orElseGet(OptionalInt::empty);
+    }
+
+    private OptionalInt horasDelPlan(Curso curso, GradoAcademico grado) {
+        if (!curso.isActivo()) return OptionalInt.empty();
         if (!grado.isPlanDefinido() && esBorrador(grado)) {
             var contexto = curso.getGradoAcademico();
             return contexto != null && contexto.getId().equals(grado.getId())

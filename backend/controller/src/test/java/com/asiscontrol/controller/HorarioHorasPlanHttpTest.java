@@ -2,6 +2,7 @@ package com.asiscontrol.controller;
 
 import com.asiscontrol.entity.AsignacionCurso;
 import com.asiscontrol.entity.Aula;
+import com.asiscontrol.entity.Curso;
 import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Seccion;
 import com.asiscontrol.entity.enums.Especialidad;
@@ -34,6 +35,9 @@ class HorarioHorasPlanHttpTest extends ApiIntegrationSupport {
 
     @Test
     void aceptaLlegarJustoAlPlanYRechazaElExcesoIndicandoLasHoras() throws Exception {
+        course.setHorasSemanales(6);
+        em.flush();
+        assertThat(getOk("/api/asignaciones-cursos/" + assignment.getId()).path("horasPlan").asInt()).isEqualTo(4);
         crear(assignment, aula, "LUNES", "08:00", "10:00");
         crear(assignment, aula, "MARTES", "08:00", "10:00");
 
@@ -42,6 +46,31 @@ class HorarioHorasPlanHttpTest extends ApiIntegrationSupport {
         assertThat(error.path("message").asText()).contains(
                 "4 h semanales", "1° A", "hay 4 h programadas", "suma 1 h", "Disponibles: 0 h");
         assertThat(bloquesDelCurso()).isEqualTo(2);
+    }
+
+    @Test
+    void cadaCursoDeLaMismaSeccionUsaSuPropioLimite() throws Exception {
+        var otro = new Curso();
+        otro.setCodigo("ART-" + key());
+        otro.setNombre("Arte y Cultura");
+        otro.setHorasSemanales(2);
+        otro.setGradoAcademico(grade);
+        em.persist(otro);
+        grade.incluirCurso(otro);
+        var asignacionArte = new AsignacionCurso();
+        asignacionArte.setCurso(otro);
+        asignacionArte.setDocente(teacher);
+        asignacionArte.setSeccion(section);
+        em.persist(asignacionArte);
+        em.flush();
+
+        var arte = crear(asignacionArte, aula, "LUNES", "08:00", "10:00");
+        var cambioArte = edicion(arte, aula, "LUNES", "08:00", "10:30");
+        cambioArte.put("asignacionCursoId", asignacionArte.getId());
+        var error = request("PUT", RUTA + "/" + arte.path("id").asLong(), cambioArte, 422);
+        assertThat(error.path("code").asText()).isEqualTo("HORARIO_EXCEDE_PLAN");
+        assertThat(error.path("message").asText()).contains("Arte y Cultura", "2 h semanales");
+        crear(assignment, aula, "MARTES", "08:00", "12:00");
     }
 
     @Test
@@ -139,6 +168,20 @@ class HorarioHorasPlanHttpTest extends ApiIntegrationSupport {
         crear(assignment, aula, "LUNES", "08:00", "12:00");
         assertThat(request("POST", RUTA, bloque(assignment, aula, "MARTES", "08:00", "08:30"), 422)
                 .path("code").asText()).isEqualTo("HORARIO_EXCEDE_PLAN");
+    }
+
+    @Test
+    void bloqueaCrearYEditarEnUnaAsignacionExistenteQueYaNoPerteneceAlPlan() throws Exception {
+        JsonNode existente = crear(assignment, aula, "LUNES", "08:00", "10:00");
+        grade.getCursosPlan().remove(course);
+        em.flush();
+
+        assertThat(request("POST", RUTA, bloque(assignment, aula, "MARTES", "08:00", "09:00"), 409)
+                .path("code").asText()).isEqualTo("CURSO_FUERA_DEL_PLAN");
+        assertThat(request("PUT", RUTA + "/" + existente.path("id").asLong(),
+                edicion(existente, aula, "MIERCOLES", "08:00", "10:00"), 409)
+                .path("code").asText()).isEqualTo("CURSO_FUERA_DEL_PLAN");
+        assertThat(bloquesDelCurso()).isEqualTo(1);
     }
 
     private JsonNode cambiarHorasDelPlan(int horas) throws Exception {

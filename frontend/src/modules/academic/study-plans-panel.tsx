@@ -63,7 +63,7 @@ export function StudyPlansPanel({ canWrite }: { canWrite: boolean }) {
         </>} />
       {importing && <BulkImportDialog
         title="Carga masiva del plan de estudios"
-        description="Descarga la plantilla y completa una fila por curso, año y grado. Los cursos nuevos se registran en el catálogo."
+        description="Descarga la plantilla y completa una fila por curso, año y grado. Se reutilizan los códigos del catálogo y se registran los cursos nuevos si el plan permite añadirlos."
         path={PLANES_ESTUDIOS_IMPORT_PATH}
         templateName="plantilla_plan_estudios.xlsx"
         fileLabel="Archivo Excel del plan de estudios"

@@ -714,8 +714,10 @@ describe("Horas semanales del plan (OBS-01)", () => {
         "Este bloque suma 1 h y solo hay 30 min disponibles (plan 3 h, programadas 2 h 30 min).",
       ),
     ).toBeTruthy();
-    await user.click(within(dialog).getByText("Confirmar bloque"));
-    expect(within(dialog).getByText("Resuelve los conflictos antes de confirmar el bloque.")).toBeTruthy();
+    expect(within(dialog).getByText("Total con este bloque: 3 h 30 min de 3 h del plan.")).toBeTruthy();
+    const submit = within(dialog).getByRole("button", { name: "Confirmar bloque" });
+    expect(submit.disabled).toBe(true);
+    await user.click(submit);
     expect(calls.some((c) => c.method === "POST")).toBe(false);
 
     fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "08:30" } });
@@ -747,6 +749,7 @@ describe("Horas semanales del plan (OBS-01)", () => {
       within(dialog).getByText("Este bloque suma 2 h y solo hay 1 h disponibles (plan 2 h, programadas 1 h)."),
     ).toBeTruthy();
     expect(within(dialog).queryByText(excess)).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Guardar cambios" }).disabled).toBe(true);
 
     fireEvent.change(within(dialog).getByLabelText(/^Hora de fin/), { target: { value: "09:00" } });
     expect(within(dialog).queryByText(/^Este bloque suma/)).toBeNull();
@@ -772,7 +775,20 @@ describe("Horas semanales del plan (OBS-01)", () => {
     expect(within(table).queryByText("⚠ Excede plan")).toBeNull();
   });
 
-  test("Sin horas del plan no muestra el resumen y explica el rechazo del servidor", async () => {
+  test("Bloquea una asignación sin horas de plan y enlaza al plan de estudios", async () => {
+    const calls = backend({ "GET /api/asignaciones-cursos": page(withPlan(null)) });
+    const user = userEvent.setup();
+    renderTimetable();
+    const dialog = await openNewBlock(user);
+    await fillBlock(user, dialog);
+    expect(await within(dialog).findByText(/Este curso no tiene horas definidas/)).toBeTruthy();
+    expect(within(dialog).getByRole("link", { name: "Plan de estudios" }).getAttribute("href"))
+      .toBe("/academico/plan-estudios");
+    expect(within(dialog).getByRole("button", { name: "Confirmar bloque" }).disabled).toBe(true);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+  });
+
+  test("Explica el rechazo del servidor si el cliente no recibió el campo de horas", async () => {
     backend({
       "POST /api/horarios": reply(422, {
         code: "HORARIO_EXCEDE_PLAN",

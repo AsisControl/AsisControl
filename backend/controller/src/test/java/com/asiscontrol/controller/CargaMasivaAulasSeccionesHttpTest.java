@@ -199,6 +199,32 @@ class CargaMasivaAulasSeccionesHttpTest {
         assertThat(repetida.path("omitidas").get(0).path("row").asInt()).isEqualTo(2);
     }
 
+    /** ASISCTRL-240/241: la carga masiva solo da de alta; no toca lo registrado a mano. */
+    @Test
+    void volverACargarNoBorraElEquipamientoNiElAulaDeLaSeccion() throws Exception {
+        String codigo = "E-" + clave();
+        String nombre = "Q" + clave().substring(0, 6).toUpperCase();
+        crear("/api/aulas", Map.of("codigo", codigo, "nombre", "Aula equipada", "tipoAula", "TALLER",
+                "capacidad", 30, "equipamiento", "Proyector"));
+        Long aulaId = aulas.findByCodigoIgnoreCase(codigo).orElseThrow().getId();
+        crear("/api/secciones", Map.of("nombre", nombre, "grado", 1, "anioAcademico", ANIO,
+                "capacidadMaxima", 30, "aulaId", aulaId));
+
+        JsonNode aulasCargadas = importar(AULAS,
+                libro(COLUMNAS_AULA, List.of(codigo, "Otro nombre", "TALLER", "10", "")), true);
+        JsonNode seccionesCargadas = importar(SECCIONES, libro(COLUMNAS_SECCION,
+                List.of(String.valueOf(ANIO), "1", nombre, "20", "", "")), true);
+
+        assertThat(aulasCargadas.path("omitidas")).hasSize(1);
+        assertThat(seccionesCargadas.path("omitidas")).hasSize(1);
+        var aula = aulas.findByCodigoIgnoreCase(codigo).orElseThrow();
+        assertThat(aula.getEquipamiento()).isEqualTo("Proyector");
+        assertThat(aula.getCapacidad()).isEqualTo(30);
+        var seccion = secciones.findByAnioAcademicoAndGradoAndNombreIgnoreCase(ANIO, 1, nombre).orElseThrow();
+        assertThat(seccion.getAula().getId()).isEqualTo(aulaId);
+        assertThat(seccion.getCapacidadMaxima()).isEqualTo(30);
+    }
+
     @Test
     void soloQuienPuedeRegistrarManualmentePuedeCargarElArchivo() throws Exception {
         byte[] archivo = libro(COLUMNAS_AULA, List.of("P-" + clave(), "Aula", "TALLER", "20", ""));

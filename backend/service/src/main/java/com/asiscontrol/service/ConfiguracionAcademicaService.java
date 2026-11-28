@@ -405,7 +405,8 @@ public class ConfiguracionAcademicaService {
                 ocupado,
                 Math.max(0, seccion.getCapacidadMaxima() - ocupado),
                 seccion.isActivo(),
-                seccion.getVersion());
+                seccion.getVersion(),
+                AulaService.asignada(seccion.getAula()));
     }
 
     private AnioResponse mapear(AnioAcademico anioAcademico) {

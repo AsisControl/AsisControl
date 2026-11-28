@@ -61,7 +61,7 @@ export function ClassroomStateDialog({
     >
       <p className="full-field hint">
         {disabling
-          ? `${classroom.nombre} dejará de ofrecerse para nuevos bloques de horario. No se puede inhabilitar si todavía tiene horarios activos.`
+          ? `${classroom.nombre} dejará de ofrecerse para nuevos bloques de horario. No se puede inhabilitar si todavía tiene horarios activos o está asignada a una sección activa de un año no cerrado.`
           : `${classroom.nombre} volverá a estar disponible para los bloques de horario.`}
       </p>
       <label className="field full-field">

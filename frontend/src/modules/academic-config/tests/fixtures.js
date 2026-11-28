@@ -30,6 +30,7 @@ export const section = (overrides = {}) => ({
   vacantes: 5,
   activo: true,
   version: 2,
+  aula: null,
   ...overrides,
 });
 
@@ -64,6 +65,7 @@ const BASE = "/api/configuracion-academica";
 export function academicBackend(years, routes = {}) {
   const store = Object.fromEntries(years.map((value) => [value.anio, value]));
   const calls = fakeBackend({
+    "GET /api/aulas": page([]),
     [`GET ${BASE}/anios`]: () => page(Object.values(store)),
     [`GET ${BASE}/anios/:anio`]: ({ path }) => store[path.split("/").at(-1)],
     ...routes,
