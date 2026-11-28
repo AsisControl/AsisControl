@@ -40,10 +40,18 @@ test("consulta por contexto, cuenta una versión por alumno y abre el detalle el
     "GET /api/configuracion-academica/anios": page([{ id: 1, anio: 2026, periodos: [{ id: 4, nombre: "Primer bimestre" }],
       grados: [{ id: 7, numero: 3 }], secciones: [{ id: 8, grado: 3, nombre: "A" }] }]),
     "GET /api/planes-estudios/2026/3": { cursos: [{ id: 10, nombre: "Matemática", codigo: "MAT" }] },
-    [`GET ${base}`]: [
-      { ...student, id: 13, numeroVersion: 2, estado: "BORRADOR", logros: { A: 3 }, pendientes: 1 },
-      { ...student, id: 12, numeroVersion: 1, estado: "PUBLICADA", logros: { C: 2 } },
-    ],
+    [`GET ${base}/resumen`]: {
+      estudiantes: [
+        { id: 11, nombre: "Ana Ramos", codigoAlumno: "E11" },
+        { id: 20, nombre: "Luis Salas", codigoAlumno: "E20" },
+        { id: 30, nombre: "Lucía Vega", codigoAlumno: "E30" },
+      ],
+      libretas: [
+        { ...student, id: 13, numeroVersion: 2, estado: "BORRADOR", logros: { A: 3 }, pendientes: 1 },
+        { ...student, id: 12, numeroVersion: 1, estado: "PUBLICADA", logros: { C: 2 } },
+        { ...student, id: 14, idAlumno: 20, alumno: "Luis Salas", numeroVersion: 1, estado: "BORRADOR", logros: { AD: 2 } },
+      ],
+    },
     [`GET ${base}/12`]: { ...progressReport, periodo: "Primer bimestre | Version 1 | PUBLICADA" },
   });
   render(<AcademicCoursePanel tab="reportes" />);
@@ -52,10 +60,13 @@ test("consulta por contexto, cuenta una versión por alumno y abre el detalle el
     await user.selectOptions(await screen.findByLabelText(label), value);
   }
   const table = await screen.findByRole("table", { name: "Libretas por estudiante" });
-  expect(within(table).getAllByRole("row")).toHaveLength(2);
-  expect(calls.find(call => call.path === base).query).toEqual({ anio: "2026", periodo: "4", grado: "3", seccion: "8", curso: "10" });
+  expect(within(table).getAllByRole("row")).toHaveLength(4);
+  expect(within(table).getAllByText("Sin libreta publicada")).toHaveLength(2);
+  expect(calls.find(call => call.path === base + "/resumen").query)
+    .toEqual({ anio: "2026", periodo: "4", grado: "3", seccion: "8", curso: "10" });
   const summary = within(screen.getByRole("region", { name: "Resumen de libretas" }));
-  expect(summary.getAllByRole("cell").map(cell => cell.textContent)).toEqual(["0", "3", "0", "0", "1", "0"]);
+  expect(summary.getByText("Sin libreta publicada: 2")).toBeTruthy();
+  expect(summary.getAllByRole("cell").map(cell => cell.textContent)).toEqual(["0", "0", "0", "2", "0", "0"]);
   await user.click(within(table).getByRole("button", { name: /ver publicada/i }));
   expect(await within(screen.getByRole("region", { name: "Libreta de Ana Ramos" })).findByText("Resuelve problemas")).toBeTruthy();
   expect(calls.some(call => call.path === base + "/12")).toBe(true);

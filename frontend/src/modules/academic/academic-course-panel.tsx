@@ -1,35 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/core/api/client";
 import type { AcademicYear } from "@/modules/academic-config";
 import { ReadPanel, ReportRoster, AcademicEvaluationList } from "@/modules/evaluations";
 import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, Loading, Pager, PanelHeading } from "@/shared/ui";
+import { ANIOS_ACADEMICOS_PATH, obtenerPlanEstudios } from "./services/planEstudiosService";
 import styles from "./grading-rules/grading-rules-panel.module.css";
-
-type Course = { id: number; nombre: string; codigo: string };
 
 type Tab = "evaluaciones" | "reportes";
 
 export function AcademicCoursePanel({ tab }: { tab: Tab }) {
-  const years = usePaged<AcademicYear>("/api/configuracion-academica/anios");
+  const years = usePaged<AcademicYear>(ANIOS_ACADEMICOS_PATH);
   const [id, setId] = useState("");
   const year = years.data?.content.find(item => String(item.id) === id);
   return <section className="panel">
     {tab === "reportes"
       ? <PanelHeading title="Reportes académicos" summary="Consulta las libretas y los niveles de logro por curso y sección." />
       : <PanelHeading title="Evaluaciones" summary="Consulta el estado, el peso y el avance de calificación por curso y sección." />}
-    <Feedback error={years.error} />
+    {years.error && <>
+      <Feedback error={years.error} />
+      <button type="button" className="secondary-action" onClick={years.refresh}>Reintentar</button>
+    </>}
     <div className={styles.scope}>
-      {years.loading ? <Loading skeleton="fields">Cargando años académicos.</Loading> :
+      {years.loading && <Loading skeleton="fields">Cargando años académicos.</Loading>}
+      {!years.loading && !years.error && (years.data?.content.length ?
         <label className="field">Año académico
           <select value={id} onChange={event => setId(event.target.value)}>
             <option value="">Selecciona un año</option>
             {years.data?.content.map(item => <option key={item.id} value={item.id}>{item.anio}</option>)}
           </select>
-        </label>}
-      {year && <YearFilters key={year.id} tab={tab} year={year} />}
+        </label> : <p className="empty">Todavía no hay años académicos registrados.</p>)}
+      {year && !years.error && <YearFilters key={year.id} tab={tab} year={year} />}
       {(years.data?.totalPages ?? 0) > 1 && <div className={styles.fullWidth}>
         <Pager data={years.data} loading={years.loading} setPage={page => { setId(""); years.setPage(page); }} />
       </div>}
@@ -66,7 +68,7 @@ function YearFilters({ year, tab }: { year: AcademicYear; tab: Tab }) {
 }
 
 function CourseFilter({ tab, year, period, grade, section }: { tab: Tab; year: number; period: string; grade: string; section: string }) {
-  const [load] = useState(() => () => api<{ cursos: Course[] }>(`/api/planes-estudios/${year}/${grade}`));
+  const [load] = useState(() => () => obtenerPlanEstudios(year, Number(grade)));
   const [course, setCourse] = useState("");
   const query = new URLSearchParams({ anio: String(year), periodo: period, grado: grade, seccion: section, curso: course });
   return <ReadPanel load={load}>{plan => <>

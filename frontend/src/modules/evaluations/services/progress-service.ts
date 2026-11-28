@@ -2,6 +2,35 @@ import { api } from "@/core/api/client";
 import { normalizePage } from "@/shared/lib/pagination";
 import type { Page } from "@/shared/types/api";
 import type { AchievementLevel, Evaluation } from "../types";
+import type { ProgressReport } from "../report-types";
+
+const ACADEMIC_REPORTS_PATH = "/api/calificaciones/informes/academicos";
+
+export type AcademicReport = {
+  id: number;
+  idAlumno: number;
+  alumno: string;
+  codigoAlumno: string | null;
+  estado: "PUBLICADA" | "BORRADOR";
+  numeroVersion: number;
+  revisado: boolean;
+  logros: Partial<Record<AchievementLevel, number>>;
+  pendientes: number;
+  noEvaluadas: number;
+};
+
+export type AcademicReportSummary = {
+  estudiantes: { id: number; nombre: string; codigoAlumno: string | null }[];
+  libretas: AcademicReport[];
+};
+
+export function obtenerResumenAcademico(query: string) {
+  return api<AcademicReportSummary>(`${ACADEMIC_REPORTS_PATH}/resumen?${query}`);
+}
+
+export function obtenerLibretaAcademica(id: number) {
+  return api<ProgressReport>(`${ACADEMIC_REPORTS_PATH}/${id}`);
+}
 
 export type ProgressGrade = {
   id: number;

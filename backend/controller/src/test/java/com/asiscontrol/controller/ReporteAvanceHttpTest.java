@@ -31,6 +31,13 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
         em.persist(periodo);
         var entrada = data("idAsignacionCurso", assignment.getId(), "idPeriodoAcademico", periodo.getId());
         String base = "/api/calificaciones/informes/";
+        String resumen = base + "academicos/resumen?anio=2090&grado=1&curso=" + course.getId()
+                + "&seccion=" + section.getId() + "&periodo=" + periodo.getId();
+        var inicial = getOk(resumen);
+        assertThat(inicial.path("estudiantes").get(0).path("id").asLong()).isEqualTo(student.getId());
+        assertThat(inicial.path("libretas").size()).isZero();
+        mvc.perform(get(resumen).with(como("APODERADO", guardian.getPersona().getId())))
+                .andExpect(status().isForbidden());
         request("POST", base + "generar", entrada, 200);
         String consulta = "?idAlumno=" + student.getId() + "&idAsignacionCurso=" + assignment.getId()
                 + "&idPeriodoAcademico=" + periodo.getId();
@@ -41,6 +48,7 @@ class ReporteAvanceHttpTest extends ApiIntegrationSupport {
                 + "&seccion=" + section.getId() + "&periodo=" + periodo.getId();
         var libretas = getOk(filtro);
         assertThat(libretas.size()).isEqualTo(1);
+        assertThat(getOk(resumen).path("libretas").get(0).path("estado").asText()).isEqualTo("BORRADOR");
         assertThat(libretas.get(0).path("noEvaluadas").asInt()).isEqualTo(1);
         String detalle = base + "academicos/" + libretas.get(0).path("id").asLong();
         assertThat(getOk(detalle).path("codigoAlumno").asText()).isEqualTo(student.getCodigoAlumno());

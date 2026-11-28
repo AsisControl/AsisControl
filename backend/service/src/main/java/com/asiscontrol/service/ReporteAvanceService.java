@@ -70,6 +70,31 @@ public class ReporteAvanceService {
             EstadoInformeProgreso estado, int numeroVersion, boolean revisado,
             Map<NivelLogro, Long> logros, int pendientes, int noEvaluadas) {}
 
+    public record EstudianteAcademico(Long id, String nombre, String codigoAlumno) {}
+
+    public record ResumenAcademico(List<EstudianteAcademico> estudiantes, List<LibretaAcademica> libretas) {}
+
+    @Transactional(readOnly = true)
+    public ResumenAcademico resumenAcademico(int anio, Long periodo, int grado, Long seccion, Long curso) {
+        var libretas = listarLibretas(anio, periodo, grado, seccion, curso);
+        var estudiantes = new LinkedHashMap<Long, EstudianteAcademico>();
+        var destino = em.find(Seccion.class, seccion);
+        var periodoAcademico = periodos.findById(periodo);
+        if (destino != null && destino.getAnioAcademico() == anio && destino.getGrado() == grado
+                && periodoAcademico.filter(item -> item.getAnioAcademico().getAnio() == anio).isPresent()
+                && planes.cursosDelPlan(anio, grado).stream().anyMatch(item -> item.id().equals(curso))) {
+            matriculas.listarPadronDeSeccion(seccion, List.of(EstadoMatricula.ACTIVA, EstadoMatricula.FINALIZADA),
+                            anio, false)
+                    .forEach(alumno -> estudiantes.put(alumno.getId(), new EstudianteAcademico(alumno.getId(),
+                            nombre(alumno.getPersona()), alumno.getCodigoAlumno())));
+        }
+        for (var libreta : libretas) {
+            estudiantes.putIfAbsent(libreta.idAlumno(),
+                    new EstudianteAcademico(libreta.idAlumno(), libreta.alumno(), libreta.codigoAlumno()));
+        }
+        return new ResumenAcademico(List.copyOf(estudiantes.values()), libretas);
+    }
+
     @Transactional(readOnly = true)
     public List<LibretaAcademica> listarLibretas(int anio, Long periodo, int grado, Long seccion, Long curso) {
         var informes = em.createQuery("""
@@ -82,7 +107,7 @@ public class ReporteAvanceService {
                     and j.alumno = a and j.asignacionCurso = ac and j.periodoAcademico = i.periodoAcademico
                     and (i.estado = com.asiscontrol.entity.enums.EstadoInformeProgreso.BORRADOR or j.estado = i.estado)
                     and j.numeroVersion > i.numeroVersion)
-                order by p.apellidoPaterno, p.apellidoMaterno, p.nombres, a.id, i.numeroVersion desc
+                order by p.apellidoPaterno, p.apellidoMaterno, p.nombres, a.id, i.id desc
                 """, InformeProgreso.class).setParameter("anio", anio).setParameter("grado", grado)
                 .setParameter("seccion", seccion).setParameter("curso", curso).setParameter("periodo", periodo)
                 .getResultList();

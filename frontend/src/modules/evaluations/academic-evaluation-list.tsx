@@ -5,16 +5,20 @@ import { usePaged } from "@/shared/hooks/use-paged";
 import { Feedback, Loading, Pager } from "@/shared/ui";
 import { EvaluationCells, EvaluationHeaders } from "./evaluation-cells";
 import { GradeSheet } from "./grade-sheet";
+import { EVALUACIONES_ACADEMICAS_PATH } from "./services/evaluation-service";
 import type { Evaluation } from "./types";
 import styles from "./evaluations.module.css";
 
 type Row = { evaluacion: Evaluation; registradas: number; esperadas: number };
 
 export function AcademicEvaluationList({ query }: { query: string }) {
-  const list = usePaged<Row>("/api/evaluaciones/academicas", "", query);
+  const list = usePaged<Row>(EVALUACIONES_ACADEMICAS_PATH, "", query);
   const [selected, setSelected] = useState<number | null>(null);
   if (list.loading) return <Loading>Cargando evaluaciones.</Loading>;
-  if (list.error) return <Feedback error={list.error} />;
+  if (list.error) return <>
+    <Feedback error={list.error} />
+    <button type="button" className="secondary-action" onClick={list.refresh}>Reintentar</button>
+  </>;
   if (!list.data?.content.length) return <p className="empty">No hay evaluaciones con estos filtros.</p>;
   return <>
     <div className="user-table-wrap">
