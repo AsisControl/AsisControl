@@ -35,26 +35,55 @@ async function fillIssue(user) {
 }
 
 test("consulta compromisos, aplica filtros y pagina sin depender de edición", async () => {
-  const calls = fakeBackend({ "GET /api/compromisos-pago": ({ query }) => ({ ...page([record], 2), number: Number(query.page), page: Number(query.page), totalElements: 30 }) });
-  const user = userEvent.setup();
-  render(<Finance canWrite={false} />);
-  expect(await screen.findByText("Lucía Flores")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Emitir compromiso" })).toBeNull();
-  expect(screen.getByText("Cuota 1 · CP-012")).toBeTruthy();
-  await user.type(screen.getByLabelText("Buscar estudiante o compromiso"), "Lucía");
-  await user.type(screen.getByLabelText("Año académico"), "2026");
-  await user.selectOptions(screen.getByLabelText("Estado del compromiso"), "PENDIENTE");
-  await user.click(screen.getByRole("button", { name: "Buscar", exact: true }));
-  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ busqueda: "Lucía", anioAcademico: "2026", estado: "PENDIENTE", page: "0" }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Siguiente" }).disabled).toBe(false));
-  await user.click(screen.getByRole("button", { name: "Siguiente" }));
-  await waitFor(() => expect(calls.at(-1).query.page).toBe("1"));
-  await user.click(screen.getByRole("button", { name: "Actualizar" }));
-  await waitFor(() => expect(calls.filter((call) => call.query.page === "1")).toHaveLength(2));
-  await user.selectOptions(screen.getByLabelText("Estado del compromiso"), "ANULADO");
-  await user.click(screen.getByRole("button", { name: "Buscar", exact: true }));
-  await waitFor(() => expect(calls.at(-1).query).toMatchObject({ estado: "ANULADO", page: "0" }));
-  expect(calls.at(-1).query.estadoAdministrativo).toBeUndefined();
+  const path = "/api/compromisos-pago";
+  const calls = fakeBackend({
+    [`GET ${path}`]: ({ query }) => ({
+      ...page([record], 2), number: Number(query.page), page: Number(query.page), totalElements: 30,
+    }),
+    [`GET ${path}/resumen`]: {
+      fechaCalculo: "2026-03-01", cantidad: 1, montoTotal: 350, montoPagado: 0, saldo: 350,
+      porEstado: [{ estado: "PENDIENTE", cantidad: 1, montoTotal: 350, montoPagado: 0, saldo: 350 }],
+      morosidad: { montoVencido: 0, compromisosVencidos: 0, estudiantesMorosos: 0 },
+    },
+  });
+  const listCalls = () => calls.filter((call) => call.path === path);
+  const flushList = () => act(async () => { await vi.advanceTimersByTimeAsync(0); });
+
+  // La carga paginada se programa para el siguiente turno del reloj.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    render(<Finance canWrite={false} />);
+    await flushList();
+    expect(screen.getByText("Lucía Flores")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Emitir compromiso" })).toBeNull();
+    expect(screen.getByText("Cuota 1 · CP-012")).toBeTruthy();
+
+    const search = screen.getByRole("button", { name: "Buscar", exact: true });
+    const status = screen.getByLabelText("Estado del compromiso");
+    fireEvent.change(screen.getByLabelText("Buscar estudiante o compromiso"), { target: { value: "Lucía" } });
+    fireEvent.change(screen.getByLabelText("Año académico"), { target: { value: "2026" } });
+    fireEvent.change(status, { target: { value: "PENDIENTE" } });
+    fireEvent.click(search);
+    await flushList();
+    expect(listCalls().at(-1).query).toMatchObject({
+      busqueda: "Lucía", anioAcademico: "2026", estado: "PENDIENTE", page: "0",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    await flushList();
+    expect(listCalls().at(-1).query.page).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar" }));
+    await flushList();
+    expect(listCalls().filter((call) => call.query.page === "1")).toHaveLength(2);
+
+    fireEvent.change(status, { target: { value: "ANULADO" } });
+    fireEvent.click(search);
+    await flushList();
+    expect(listCalls().at(-1).query).toMatchObject({ estado: "ANULADO", page: "0" });
+    expect(listCalls().at(-1).query.estadoAdministrativo).toBeUndefined();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("informa un fallo del listado y permite recuperar una consulta vacía", async () => {
