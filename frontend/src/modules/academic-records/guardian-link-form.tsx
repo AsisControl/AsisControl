@@ -2,17 +2,9 @@
 import { useState, type FormEvent } from "react";
 import { Feedback, Field, Loading, Pager } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
-import { stateLabel } from "@/shared/lib/formatters";
-import type { GuardianLinkValues } from "./services/guardian-link-service";
+import { readRelationshipFields, RelationshipFields } from "./relationship-fields";
+import { GUARDIAN_RECORDS_PATH, type GuardianLinkValues } from "./services/guardian-link-service";
 import type { Guardian } from "./types";
-
-const RELATIONSHIPS = [
-  "PADRE",
-  "MADRE",
-  "TUTOR_LEGAL",
-  "OTRO_FAMILIAR",
-  "NO_DECLARADO",
-];
 
 /**
  * Búsqueda y selección de apoderados. El estado vive en quien usa el formulario para
@@ -20,7 +12,7 @@ const RELATIONSHIPS = [
  */
 export function useGuardianPicker() {
   const [search, setSearch] = useState("");
-  const guardians = usePaged<Guardian>("/api/apoderados", search);
+  const guardians = usePaged<Guardian>(GUARDIAN_RECORDS_PATH, search);
   const [choice, setChoice] = useState<Guardian | null>(null);
   return { setSearch, guardians, choice, setChoice };
 }
@@ -30,23 +22,24 @@ export function GuardianLinkForm({
   picker,
   linked,
   busy,
+  submitLabel = "Guardar vínculo",
   onSave,
 }: {
   picker: ReturnType<typeof useGuardianPicker>;
   /** Apoderados que el estudiante ya tiene: no se pueden volver a elegir. */
   linked?: { apoderadoId: number }[];
   busy: boolean;
+  submitLabel?: string;
   onSave: (values: GuardianLinkValues) => void;
 }) {
   const { setSearch, guardians, choice, setChoice } = picker;
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!choice) return;
-    const form = new FormData(event.currentTarget);
+    if (!choice?.activo || choice.persona.activo === false || busy
+      || linked?.some(item => item.apoderadoId === choice.id)) return;
     onSave({
+      ...readRelationshipFields(new FormData(event.currentTarget)),
       apoderadoId: choice.id,
-      parentesco: String(form.get("parentesco")),
-      principal: form.get("principal") === "on",
     });
   }
   return (
@@ -63,15 +56,17 @@ export function GuardianLinkForm({
             String(new FormData(event.currentTarget).get("search") || ""),
           );
           guardians.setPage(0);
+          guardians.refresh();
         }}
       >
         <Field label="Buscar apoderado" name="search" />
         <button>Buscar</button>
       </form>
       <Feedback error={guardians.error} />
+      {guardians.error && <button type="button" onClick={guardians.refresh}>Reintentar búsqueda</button>}
       {guardians.loading ? (
         <Loading>Cargando apoderados…</Loading>
-      ) : (
+      ) : !guardians.error && (guardians.data?.content.length ? (
         <ul className="choice-list">
           {guardians.data?.content.map((guardian) => {
             const alreadyLinked = linked?.some(
@@ -87,7 +82,8 @@ export function GuardianLinkForm({
                   disabled={
                     alreadyLinked ||
                     choice?.id === guardian.id ||
-                    !guardian.activo
+                    !guardian.activo ||
+                    guardian.persona.activo === false
                   }
                   onClick={() => setChoice(guardian)}
                 >
@@ -101,7 +97,7 @@ export function GuardianLinkForm({
             );
           })}
         </ul>
-      )}
+      ) : <p className="empty">No se encontraron apoderados para esta búsqueda.</p>)}
       <Pager
         data={guardians.data}
         loading={guardians.loading}
@@ -113,22 +109,10 @@ export function GuardianLinkForm({
             Apoderado seleccionado:{" "}
             <strong>{choice.persona.nombreCompleto}</strong>
           </p>
-          <label className="field">
-            Parentesco *
-            <select name="parentesco" defaultValue="NO_DECLARADO">
-              {RELATIONSHIPS.map((value) => (
-                <option key={value} value={value}>
-                  {stateLabel(value)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="check-field">
-            <input type="checkbox" name="principal" /> Apoderado principal
-          </label>
+          <RelationshipFields key={choice.id} />
           <div className="form-actions">
             <button className="primary-action" disabled={busy}>
-              {busy ? "Asociando…" : "Guardar vínculo"}
+              {busy ? "Asociando…" : submitLabel}
             </button>
           </div>
         </form>

@@ -15,6 +15,7 @@ import type {
 } from "../types";
 
 export const EVALUACIONES_PATH = "/api/evaluaciones";
+export const EVALUACIONES_ACADEMICAS_PATH = `${EVALUACIONES_PATH}/academicas`;
 const CALIFICACIONES_PATH = "/api/calificaciones";
 
 export type PublishedResult = {

@@ -87,6 +87,13 @@ public class CalificacionController {
         return reporteAvanceService.listarLibretas(anio, periodo, grado, seccion, curso);
     }
 
+    @GetMapping("/informes/academicos/resumen")
+    @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_LEER') and hasAuthority('CALIFICACIONES_LEER')")
+    public ReporteAvanceService.ResumenAcademico resumenAcademico(@RequestParam int anio,
+            @RequestParam Long periodo, @RequestParam int grado, @RequestParam Long seccion, @RequestParam Long curso) {
+        return reporteAvanceService.resumenAcademico(anio, periodo, grado, seccion, curso);
+    }
+
     @GetMapping("/informes/academicos/{id}")
     @PreAuthorize("hasRole('ADMINISTRADOR') and hasAuthority('ACADEMICO_LEER') and hasAuthority('CALIFICACIONES_LEER')")
     public com.asiscontrol.dto.ReporteAvanceDto detalleLibreta(@PathVariable Long id) {

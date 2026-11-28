@@ -19,6 +19,7 @@ const persona = (nombreCompleto, numeroDocumento, correo = null) => ({
   tipoDocumento: "DNI",
   numeroDocumento,
   correo,
+  activo: true,
 });
 const carmen = {
   id: 7,
@@ -177,18 +178,18 @@ test("Si la ficha no se puede consultar muestra el error", async () => {
   expect(await within(screen.getByRole("dialog")).findByText("No se encontro el docente")).toBeTruthy();
 });
 
-test("Parentescos muestra una fila por vínculo y avisa si falta el apoderado", async () => {
+test("Parentescos reúne los vínculos por estudiante y mantiene el acceso a sus acciones", async () => {
   fakeBackend({ "GET /api/alumnos": page([lucia, mario]) });
   setUrl(`${BASE}/parentescos`);
   render(<RecordsScreen />);
-  const rows = (await screen.findAllByText("Lucía Flores")).map((name) => name.closest("tr"));
-  expect(rows.map((row) => [...row.cells].slice(1).map((cell) => cell.textContent))).toEqual([
-    ["Carmen Flores Vega", "Madre", "Sí", "Retirar"],
-    ["Pedro Flores", "Tutor legal", "No", "Retirar"],
-  ]);
+  const row = (await screen.findByText("Lucía Flores")).closest("tr");
+  expect(within(row).getByText(/Carmen Flores Vega/)).toBeTruthy();
+  expect(within(row).getByText(/Pedro Flores/)).toBeTruthy();
+  expect(within(row).getByRole("button", { name: "Retirar a Pedro Flores de Lucía Flores" })).toBeTruthy();
+  expect(within(row).getByRole("button", { name: "Gestionar vínculos de Lucía Flores" })).toBeTruthy();
   const missing = screen.getByText("Mario Díaz").closest("tr");
-  expect(within(missing).getByText("Sin apoderado registrado")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "+ Vincular apoderado" }).disabled).toBe(false);
+  expect(within(missing).getByText("Sin apoderados vinculados")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Vincular apoderado" }).disabled).toBe(false);
   expect(screen.queryByText("Próximamente")).toBeNull();
 });
 

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Student } from "@/modules/students";
 import { Feedback, Field, Loading, Pager } from "@/shared/ui";
 import { usePaged } from "@/shared/hooks/use-paged";
+import { STUDENT_RECORDS_PATH } from "./services/guardian-link-service";
 
 /** Búsqueda y selección de un estudiante habilitado. */
 export function StudentPicker({
@@ -13,7 +14,7 @@ export function StudentPicker({
   selected: Student | null;
 }) {
   const [search, setSearch] = useState("");
-  const students = usePaged<Student>("/api/alumnos", search);
+  const students = usePaged<Student>(STUDENT_RECORDS_PATH, search);
   return (
     <div className="picker-card">
       <h4>Estudiante</h4>
@@ -25,12 +26,14 @@ export function StudentPicker({
             String(new FormData(event.currentTarget).get("search") || ""),
           );
           students.setPage(0);
+          students.refresh();
         }}
       >
         <Field label="Buscar por nombre, documento o código" name="search" />
         <button>Buscar</button>
       </form>
       <Feedback error={students.error} />
+      {students.error && <button type="button" onClick={students.refresh}>Reintentar búsqueda</button>}
       {selected && (
         <p className="selected-person">
           Seleccionado: <strong>{selected.persona.nombreCompleto}</strong> ·{" "}
@@ -39,7 +42,7 @@ export function StudentPicker({
       )}
       {students.loading ? (
         <Loading>Cargando estudiantes…</Loading>
-      ) : (
+      ) : !students.error && (students.data?.content.length ? (
         <ul className="choice-list">
           {students.data?.content.map((student) => (
             <li key={student.id}>
@@ -50,7 +53,7 @@ export function StudentPicker({
                 </small>
               </span>
               <button
-                disabled={!student.activo || selected?.id === student.id}
+                disabled={!student.activo || student.persona.activo === false || selected?.id === student.id}
                 onClick={() => onSelect(student)}
               >
                 {selected?.id === student.id ? "Seleccionado" : "Elegir"}
@@ -58,7 +61,7 @@ export function StudentPicker({
             </li>
           ))}
         </ul>
-      )}
+      ) : <p className="empty">No se encontraron estudiantes para esta búsqueda.</p>)}
       <Pager
         data={students.data}
         loading={students.loading}

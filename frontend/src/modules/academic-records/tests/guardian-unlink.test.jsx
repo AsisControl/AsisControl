@@ -55,8 +55,12 @@ async function openDialog(user, guardian) {
   await user.click(await screen.findByRole("button", { name: `Retirar a ${guardian} de Lucía Flores` }));
   return screen.getByRole("dialog", { name: "Retirar vínculo" });
 }
-const confirm = (user, dialog) =>
-  user.click(within(dialog).getByRole("button", { name: "Retirar vínculo" }));
+const reason = "Solicitud del apoderado";
+async function confirm(user, dialog) {
+  const field = within(dialog).getByLabelText("Motivo del cambio");
+  if (!field.value) await user.type(field, reason);
+  await user.click(within(dialog).getByRole("button", { name: "Retirar vínculo" }));
+}
 const deletes = (calls) => calls.filter((call) => call.method === "DELETE");
 
 test("Retira con confirmación y el vínculo desaparece del listado y de la ficha del apoderado", async () => {
@@ -65,7 +69,9 @@ test("Retira con confirmación y el vínculo desaparece del listado y de la fich
   const view = render(<RecordsScreen />);
   const dialog = await openDialog(user, "Pedro Flores");
   expect(dialog.textContent).toContain("Pedro Flores · Tutor legal de Lucía Flores");
-  expect(within(dialog).queryByRole("textbox")).toBeNull();
+  const motivo = within(dialog).getByLabelText("Motivo del cambio");
+  expect(motivo.required).toBe(true);
+  await user.click(within(dialog).getByRole("button", { name: "Retirar vínculo" }));
   expect(deletes(calls)).toHaveLength(0);
   await confirm(user, dialog);
   expect((await screen.findByRole("status")).textContent).toBe(
@@ -75,6 +81,7 @@ test("Retira con confirmación y el vínculo desaparece del listado y de la fich
   expect(await screen.findByText("Carmen Flores")).toBeTruthy();
   expect(screen.queryByText("Pedro Flores")).toBeNull();
   expect(deletes(calls).map((call) => call.path)).toEqual(["/api/alumnos/3/apoderados/9"]);
+  expect(deletes(calls)[0].query.motivo).toBe(reason);
 
   setUrl(`${BASE}/apoderados`);
   view.rerender(<RecordsScreen />);
@@ -155,6 +162,7 @@ test("Un doble envío retira una sola vez y bloquea los botones", async () => {
   render(<RecordsScreen />);
   const dialog = await openDialog(user, "Pedro Flores");
   const form = within(dialog).getByRole("button", { name: "Retirar vínculo" }).closest("form");
+  await user.type(within(dialog).getByLabelText("Motivo del cambio"), reason);
   fireEvent.submit(form);
   fireEvent.submit(form);
   expect(within(dialog).getByRole("button", { name: "Cancelar" }).disabled).toBe(true);

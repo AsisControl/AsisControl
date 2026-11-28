@@ -28,6 +28,17 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
     java.util.List<com.asiscontrol.entity.Alumno> buscarAlumnosActivosDeSeccion(@Param("seccionId") Long seccionId);
 
     @Query("""
+            select distinct a from Matricula m join m.alumno a join fetch a.persona p
+            where m.activo = true and m.seccion.id = :seccion and m.estado in :estados
+            and (:anio is null or m.anioAcademico = :anio)
+            and (:soloFichasActivas = false or (a.activo = true and p.activo = true))
+            order by p.apellidoPaterno, p.apellidoMaterno, p.nombres, a.id
+            """)
+    List<com.asiscontrol.entity.Alumno> listarPadronDeSeccion(@Param("seccion") Long seccion,
+            @Param("estados") Collection<EstadoMatricula> estados, @Param("anio") Integer anio,
+            @Param("soloFichasActivas") boolean soloFichasActivas);
+
+    @Query("""
             select count(distinct m.alumno.id) from Matricula m where m.activo = true
             and m.estado = com.asiscontrol.entity.enums.EstadoMatricula.ACTIVA and m.seccion.id = :seccionId
             """)

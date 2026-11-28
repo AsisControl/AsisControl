@@ -25,6 +25,9 @@ export function backend(routes = {}) {
     "GET /api/asignaciones-cursos/mias": page([assignment]),
     "GET /api/evaluaciones": page([evaluation]),
     "GET /api/evaluaciones/:id/planilla": { evaluacion: evaluation, alumnos: students },
+    "GET /api/evidencias-pedagogicas/asignaciones/5/estudiantes": students.map(item => ({
+      id: item.idAlumno, nombre: item.nombreCompleto,
+    })),
     "GET /api/evaluaciones/periodos-informe": [
       { id: 3, nombre: "I Bimestre", fechaInicio: "2026-08-01", fechaFin: "2026-09-22" },
       { id: 4, nombre: "II Bimestre", fechaInicio: "2026-10-01", fechaFin: "2026-11-30" },

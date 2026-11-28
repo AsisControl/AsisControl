@@ -65,6 +65,56 @@
 .retry {
   margin-top: 12px;
 }
+.relationshipStack,
+.relationshipList {
+  display: grid;
+  gap: 12px;
+}
+.relationshipList p {
+  margin: 0;
+}
+.relationshipList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.relationshipList li {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+.relationshipIdentity,
+.relationshipActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.principalField {
+  align-items: center;
+  align-self: end;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+}
+.principalField input {
+  width: auto;
+}
+.relationshipSummary {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.relationshipSummary dt {
+  color: var(--muted);
+}
+.relationshipSummary dd {
+  margin: 0;
+}
 @media (max-width: 520px) {
   .viewGroup,
   .segmented {

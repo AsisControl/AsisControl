@@ -3,14 +3,13 @@ import { useRef, useState, type FormEvent } from "react";
 import { ApiError, message } from "@/core/api/client";
 import type { Student } from "@/modules/students";
 import { FormDialog } from "@/shared/ui";
-import { stateLabel } from "@/shared/lib/formatters";
+import { kinshipLabel } from "./relationship-fields";
 import { unlinkGuardian } from "./services/guardian-link-service";
 
-export type GuardianLink = Student["apoderados"][number];
+export type GuardianLink = Pick<Student["apoderados"][number], "apoderadoId" | "nombreCompleto" | "parentesco">;
 
 /**
- * Confirma el retiro de un vínculo (sin motivo). El backend no permite retirar al
- * apoderado principal mientras haya otros ni cambiarlo directamente.
+ * Finaliza el vínculo con un motivo de auditoría y conserva su historial.
  */
 export function GuardianUnlinkDialog({
   student,
@@ -18,6 +17,7 @@ export function GuardianUnlinkDialog({
   onClose,
   onUnlinked,
   onOutdated,
+  actionLabel = "Retirar vínculo",
 }: {
   student: Student;
   link: GuardianLink;
@@ -25,6 +25,7 @@ export function GuardianUnlinkDialog({
   onUnlinked: () => void;
   /** El vínculo ya no existe: el listado quedó desactualizado. */
   onOutdated: () => void;
+  actionLabel?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -33,11 +34,16 @@ export function GuardianUnlinkDialog({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending.current) return;
+    const motivo = String(new FormData(event.currentTarget).get("motivo") ?? "").trim();
+    if (!motivo) {
+      setError("Ingresa el motivo del cambio.");
+      return;
+    }
     sending.current = true;
     setBusy(true);
     setError("");
     try {
-      await unlinkGuardian(student.id, link.apoderadoId);
+      await unlinkGuardian(student.id, link.apoderadoId, motivo);
       onUnlinked();
     } catch (e) {
       const code = e instanceof ApiError ? e.code : "";
@@ -50,9 +56,9 @@ export function GuardianUnlinkDialog({
   }
   return (
     <FormDialog
-      title="Retirar vínculo"
-      description={`${link.nombreCompleto} · ${stateLabel(link.parentesco)} de ${student.persona.nombreCompleto}`}
-      submitLabel="Retirar vínculo"
+      title={actionLabel}
+      description={`${link.nombreCompleto} · ${kinshipLabel(link.parentesco)} de ${student.persona.nombreCompleto}`}
+      submitLabel={actionLabel}
       danger
       busy={busy}
       error={error}
@@ -65,11 +71,14 @@ export function GuardianUnlinkDialog({
       </p>
       {principalBlocked && (
         <p className="full-field hint">
-          Para reemplazar al principal, vincula un apoderado nuevo como
-          principal y luego retira a este. Si el reemplazo ya está vinculado,
-          retíralo primero y vuelve a vincularlo como principal.
+          Para reemplazar al principal, abre Gestionar vínculos y edita al apoderado
+          que asumirá ese rol. Después podrás finalizar este vínculo.
         </p>
       )}
+      <label className="field full-field">
+        Motivo del cambio
+        <textarea name="motivo" required maxLength={500} rows={3} />
+      </label>
     </FormDialog>
   );
 }

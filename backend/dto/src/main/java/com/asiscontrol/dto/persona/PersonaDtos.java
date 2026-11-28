@@ -204,6 +204,24 @@ public final class PersonaDtos {
             Parentesco parentesco,
             boolean principal) {}
 
+    public record EdicionVinculoApoderadoRequest(
+            Parentesco parentesco,
+            @NotNull Boolean principal,
+            @NotBlank @Size(max = 500) String motivo) {}
+
+    public record EstadoVinculoApoderadoRequest(
+            @NotNull Boolean activo,
+            @NotBlank @Size(max = 500) String motivo) {}
+
+    public record VinculoApoderadoResponse(
+            Long id,
+            Long apoderadoId,
+            String nombreCompleto,
+            Parentesco parentesco,
+            boolean principal,
+            boolean activo,
+            boolean apoderadoActivo) {}
+
     public record AlumnoVinculadoResponse(
             Long id,
             Long alumnoId,

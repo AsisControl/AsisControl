@@ -105,11 +105,26 @@ class UsuariosEstudiantesHttpTest {
                 put("/api/apoderados/{id}", gid),
                 new PersonaDtos.ApoderadoUpdateRequest(persona(g)),
                 200);
-        call(
-                post("/api/alumnos/{id}/apoderados", id),
-                new PersonaDtos.VinculoApoderadoRequest(gid, Parentesco.MADRE, true),
-                201);
-        call(delete("/api/alumnos/{id}/apoderados/{gid}", id, gid), null, 204);
+        String vinculos = "/api/alumnos/" + id + "/apoderados";
+        String vinculo = vinculos + "/" + gid;
+        var alta = new PersonaDtos.VinculoApoderadoRequest(gid, null, true);
+        assertThat(call(post(vinculos), alta, 201).path("parentesco").asText()).isEqualTo("NO_DECLARADO");
+        assertThat(call(post(vinculos), alta, 409).path("code").asText()).isEqualTo("VINCULO_DUPLICADO");
+        mvc.perform(get(vinculos).with(user("docente").roles("DOCENTE"))).andExpect(status().isForbidden());
+        call(put(vinculo), new PersonaDtos.EdicionVinculoApoderadoRequest(Parentesco.MADRE, true, " "), 400);
+        call(put(vinculo), new PersonaDtos.EdicionVinculoApoderadoRequest(
+                Parentesco.MADRE, true, "Verificación de parentesco"), 200);
+        call(delete(vinculo), null, 400);
+        call(delete(vinculo).param("motivo", "Solicitud familiar"), null, 204);
+        assertThat(call(get(vinculos), null, 200).get(0).path("activo").asBoolean()).isFalse();
+        assertThat(call(post(vinculos), alta, 409).path("code").asText()).isEqualTo("VINCULO_FINALIZADO");
+        call(put(vinculo + "/estado"), new PersonaDtos.EstadoVinculoApoderadoRequest(true, "Vínculo confirmado"), 200);
+        assertThat(call(get(vinculos), null, 200).get(0).path("activo").asBoolean()).isTrue();
+        var historial = call(get(vinculo + "/historial"), null, 200);
+        assertThat(historial.size()).isEqualTo(4);
+        assertThat(historial.get(3).path("motivo").asText()).isEqualTo("Vínculo confirmado");
+        assertThat(historial.get(3).path("actor").asText()).isEqualTo("admin-prueba");
+        call(delete(vinculo).param("motivo", "Cierre de la prueba"), null, 204);
         call(delete("/api/apoderados/{id}", gid), null, 204);
         call(delete("/api/alumnos/{id}", id), null, 204);
         call(get("/api/alumnos/{id}", id), null, 404);

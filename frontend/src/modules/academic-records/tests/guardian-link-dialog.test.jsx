@@ -58,7 +58,7 @@ beforeEach(() => {
 const rowOf = (dialog, text) => within(dialog).getByText(text).closest("li");
 
 async function openDialog(user) {
-  await user.click(await screen.findByRole("button", { name: "+ Vincular apoderado" }));
+  await user.click(await screen.findByRole("button", { name: "Vincular apoderado" }));
   const dialog = screen.getByRole("dialog", { name: "Vincular apoderado" });
   await within(dialog).findByText("Mario Díaz");
   return dialog;
@@ -70,6 +70,11 @@ async function chooseBoth(user, dialog) {
   await user.click(within(rowOf(dialog, "Jorge Rojas")).getByRole("button", { name: "Elegir" }));
 }
 
+async function review(user, dialog) {
+  await user.click(within(dialog).getByRole("button", { name: "Revisar vínculo" }));
+  return screen.getByRole("dialog", { name: "Confirmar vínculo" });
+}
+
 test("Vincula con parentesco, refresca el listado y la relación aparece en ambas fichas", async () => {
   const calls = backend();
   const user = userEvent.setup();
@@ -78,8 +83,12 @@ test("Vincula con parentesco, refresca el listado y la relación aparece en amba
   await chooseBoth(user, dialog);
   await user.selectOptions(within(dialog).getByLabelText(/Parentesco/), "PADRE");
   await user.click(within(dialog).getByLabelText(/Apoderado principal/));
-  await user.click(within(dialog).getByRole("button", { name: "Guardar vínculo" }));
-  expect((await screen.findByRole("status")).textContent).toBe("Apoderado vinculado a Mario Díaz.");
+  const confirmation = await review(user, dialog);
+  expect(calls.some((call) => call.method === "POST")).toBe(false);
+  expect(within(confirmation).getByText("Mario Díaz")).toBeTruthy();
+  expect(within(confirmation).getByText("Jorge Rojas")).toBeTruthy();
+  await user.click(within(confirmation).getByRole("button", { name: "Confirmar vínculo" }));
+  expect((await screen.findByRole("status")).textContent).toBe("Apoderado vinculado correctamente.");
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(calls.find((call) => call.method === "POST")).toMatchObject({
     path: "/api/alumnos/4/apoderados",
@@ -87,7 +96,7 @@ test("Vincula con parentesco, refresca el listado y la relación aparece en amba
   });
   const row = (await screen.findByText("Jorge Rojas")).closest("tr");
   expect(within(row).getByText("Mario Díaz")).toBeTruthy();
-  expect(within(row).getByText("Padre")).toBeTruthy();
+  expect(within(row).getByText(/Padre/)).toBeTruthy();
 
   setUrl(`${BASE}/apoderados`);
   view.rerender(<RecordsScreen />);
@@ -111,11 +120,11 @@ test("Exige estudiante y apoderado, y no arrastra la elección a otro estudiante
   render(<RecordsScreen />);
   const dialog = await openDialog(user);
   expect(within(dialog).queryByText("Jorge Rojas")).toBeNull();
-  expect(within(dialog).queryByRole("button", { name: "Guardar vínculo" })).toBeNull();
+  expect(within(dialog).queryByRole("button", { name: "Revisar vínculo" })).toBeNull();
   await chooseBoth(user, dialog);
   await user.click(within(rowOf(dialog, "Lucía Flores")).getByRole("button", { name: "Elegir" }));
   await within(dialog).findByText("Jorge Rojas");
-  expect(within(dialog).queryByRole("button", { name: "Guardar vínculo" })).toBeNull();
+  expect(within(dialog).queryByRole("button", { name: "Revisar vínculo" })).toBeNull();
   await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(calls.some((call) => call.method !== "GET")).toBe(false);
@@ -130,15 +139,16 @@ test("Muestra el error de la API, bloquea mientras envía y permite reintentar",
   render(<RecordsScreen />);
   const dialog = await openDialog(user);
   await chooseBoth(user, dialog);
-  const form = within(dialog).getByRole("button", { name: "Guardar vínculo" }).closest("form");
+  const confirmation = await review(user, dialog);
+  const form = within(confirmation).getByRole("button", { name: "Confirmar vínculo" }).closest("form");
   fireEvent.submit(form);
   fireEvent.submit(form);
-  expect(within(dialog).getByRole("button", { name: "Asociando…" }).disabled).toBe(true);
-  expect(within(dialog).getByRole("button", { name: "Cancelar" }).disabled).toBe(true);
+  expect(within(confirmation).getByRole("button", { name: "Guardando…" }).disabled).toBe(true);
+  expect(within(confirmation).getByRole("button", { name: "Cancelar" }).disabled).toBe(true);
   respond(reply(409, { code: "VINCULO_DUPLICADO", message: "El apoderado ya esta vinculado al alumno" }));
-  expect((await within(dialog).findByRole("alert")).textContent).toBe("El apoderado ya esta vinculado al alumno");
+  expect((await within(confirmation).findByRole("alert")).textContent).toBe("El apoderado ya esta vinculado al alumno");
   await waitFor(() =>
-    expect(within(dialog).getByRole("button", { name: "Guardar vínculo" }).disabled).toBe(false),
+    expect(within(confirmation).getByRole("button", { name: "Confirmar vínculo" }).disabled).toBe(false),
   );
   expect(calls.filter((call) => call.method === "POST")).toHaveLength(1);
 });

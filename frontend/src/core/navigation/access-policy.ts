@@ -31,6 +31,8 @@ export function canAccess(
   const required = requiredPermissions[nav];
   if (required && !permissions.includes(required)) return false;
   const [tab, view] = subpath;
+  if (nav === "Académico" && (tab === "evaluaciones" || tab === "reportes"))
+    return user.role === "ADMINISTRADOR" && permissions.includes("CALIFICACIONES_LEER");
   if (nav === "Administración" && tab === "usuarios" && view === "nuevo")
     return permissions.includes(USERS_WRITE_PERMISSION);
   return true;

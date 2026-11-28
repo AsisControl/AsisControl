@@ -3,6 +3,7 @@ package com.asiscontrol.service;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Adjunto;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Crear;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Editar;
+import com.asiscontrol.dto.EvidenciaPedagogicaDto.Estudiante;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.EvaluacionVinculada;
 import com.asiscontrol.dto.EvidenciaPedagogicaDto.Respuesta;
 import com.asiscontrol.dto.PageResponse;
@@ -22,6 +23,7 @@ import com.asiscontrol.repository.EvidenciaPedagogicaRepository;
 import com.asiscontrol.repository.MatriculaRepository;
 import com.asiscontrol.repository.planificacion.PeriodoAcademicoRepository;
 import java.util.Comparator;
+import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -64,6 +66,7 @@ public class EvidenciaPedagogicaService {
     public Respuesta crear(Crear request) {
         AsignacionCurso asignacion = asignacionAutorizada(request.asignacionId());
         var alumno = alumnos.findByIdAndActivoTrue(request.alumnoId())
+                .filter(item -> item.getPersona().isActivo())
                 .orElseThrow(() -> new ResourceNotFoundException("ALUMNO_NO_ENCONTRADO", "El estudiante no está activo o no existe"));
         if (!matriculas.existsByAlumnoIdAndSeccionIdAndEstadoAndActivoTrue(
                 alumno.getId(), asignacion.getSeccion().getId(), EstadoMatricula.ACTIVA)) {
@@ -90,6 +93,14 @@ public class EvidenciaPedagogicaService {
         var guardada = evidencias.save(evidencia);
         registrar("CREAR_EVIDENCIA_PEDAGOGICA", guardada);
         return respuesta(guardada);
+    }
+
+    public List<Estudiante> listarEstudiantes(Long asignacionId) {
+        var seccion = asignacionAutorizada(asignacionId).getSeccion();
+        return matriculas.listarPadronDeSeccion(seccion.getId(), List.of(EstadoMatricula.ACTIVA),
+                        seccion.getAnioAcademico(), true)
+                .stream().map(alumno -> new Estudiante(alumno.getId(), alumno.getPersona().nombreCompleto()))
+                .toList();
     }
 
     public PageResponse<Respuesta> listar(Long asignacionId, Long alumnoId, Long competenciaId,
