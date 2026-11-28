@@ -482,7 +482,8 @@ public class CalificacionService {
         if (nueva) {
             calificacion.setFechaRegistro(Instant.now());
         }
-        Calificacion saved = calificacionRepository.save(calificacion);
+        // Flush antes de responder: el cliente necesita la versión ya incrementada.
+        Calificacion saved = calificacionRepository.saveAndFlush(calificacion);
         auditoria.registrar(nueva ? "REGISTRAR_CALIFICACION" : "ACTUALIZAR_CALIFICACION", ModuloAuditoria.ACADEMICO, "Calificacion",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, anterior,
                 "nivelLogro=" + saved.getNivelLogro() + ",observacion=" + saved.getObservacion());

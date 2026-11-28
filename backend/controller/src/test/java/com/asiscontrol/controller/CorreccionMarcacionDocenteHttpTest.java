@@ -18,7 +18,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * se conserva el valor anterior, queda la auditoría y el reporte muestra el valor corregido.
  */
 class CorreccionMarcacionDocenteHttpTest extends ApiIntegrationSupport {
-    private static final LocalDate JORNADA = LocalDate.now().minusDays(1);
+    // "Ayer" en la zona de la institución: en UTC (CI) la fecha cambia 5 horas antes que en Lima.
+    private static final LocalDate JORNADA = LocalDate.now(java.time.ZoneId.of("America/Lima")).minusDays(1);
 
     private AsistenciaDocente marcacion() {
         var a = new AsistenciaDocente();
