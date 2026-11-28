@@ -1,9 +1,20 @@
 "use client";
 import { useState } from "react";
 import { FamilyImportDialog, type Student } from "@/modules/students";
-import { documentLabel, FilterSelect, PersonCell, StatusPill } from "@/shared/ui";
+import {
+  documentLabel,
+  Feedback,
+  FilterSelect,
+  PersonCell,
+  StatusPill,
+} from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
-import { PendingAction, RecordsPanel } from "./records-panel";
+import { GuardianLinkDialog } from "./guardian-link-dialog";
+import {
+  GuardianUnlinkDialog,
+  type GuardianLink,
+} from "./guardian-unlink-dialog";
+import { RecordsPanel } from "./records-panel";
 import { RegisterProfile } from "./register-profile";
 import { GuardianDetail } from "./record-details";
 import type { Guardian } from "./types";
@@ -120,55 +131,116 @@ export function GuardiansPanel() {
  * estudiante (AlumnoResponse.apoderados), así que la página y la búsqueda son de estudiantes.
  */
 export function RelationshipsPanel() {
+  /** Ventana abierta, con la función que vuelve a consultar el listado. */
+  const [linking, setLinking] = useState<{ refresh: () => void } | null>(null);
+  const [unlinking, setUnlinking] = useState<{
+    student: Student;
+    link: GuardianLink;
+    refresh: () => void;
+  } | null>(null);
+  const [success, setSuccess] = useState("");
   return (
-    <RecordsPanel<Student>
-      title="Parentescos"
-      path="/api/alumnos"
-      noun={["estudiante", "estudiantes"]}
-      searchLabel="Buscar estudiante por nombre, código o documento"
-      columns={["Estudiante", "Apoderado", "Parentesco", "Principal"]}
-      emptyText="Todavía no hay estudiantes registrados."
-      actions={(refresh) => (
-        <>
-          <FamilyImportAction onImported={refresh} />
-          <PendingAction
-            className="primary-action"
-            label="+ Vincular apoderado"
-            hint="Vincular desde aquí se habilitará en una próxima entrega."
-          />
-        </>
-      )}
-      renderRows={(students) =>
-        students.flatMap((student) => {
-          const name = (
-            <td data-label="Estudiante">
-              <PersonCell
-                name={student.persona.nombreCompleto}
-                detail={student.codigoAlumno}
-              />
-            </td>
-          );
-          if (!student.apoderados.length)
-            return (
-              <tr key={student.id}>
+    <>
+      <Feedback success={success} />
+      <RecordsPanel<Student>
+        title="Parentescos"
+        path="/api/alumnos"
+        noun={["estudiante", "estudiantes"]}
+        searchLabel="Buscar estudiante por nombre, código o documento"
+        columns={[
+          "Estudiante",
+          "Apoderado",
+          "Parentesco",
+          "Principal",
+          "Acción",
+        ]}
+        emptyText="Todavía no hay estudiantes registrados."
+        actions={(refresh) => (
+          <>
+            <FamilyImportAction onImported={refresh} />
+            <button
+              type="button"
+              className="primary-action"
+              onClick={() => {
+                setSuccess("");
+                setLinking({ refresh });
+              }}
+            >
+              + Vincular apoderado
+            </button>
+          </>
+        )}
+        renderRows={(students, refresh) =>
+          students.flatMap((student) => {
+            const name = (
+              <td data-label="Estudiante">
+                <PersonCell
+                  name={student.persona.nombreCompleto}
+                  detail={student.codigoAlumno}
+                />
+              </td>
+            );
+            if (!student.apoderados.length)
+              return (
+                <tr key={student.id}>
+                  {name}
+                  <td data-label="Apoderado" colSpan={4}>
+                    <span className={styles.warning}>
+                      Sin apoderado registrado
+                    </span>
+                  </td>
+                </tr>
+              );
+            return student.apoderados.map((link) => (
+              <tr key={`${student.id}-${link.id}`}>
                 {name}
-                <td data-label="Apoderado" colSpan={3}>
-                  <span className={styles.warning}>
-                    Sin apoderado registrado
-                  </span>
+                <td data-label="Apoderado">{link.nombreCompleto}</td>
+                <td data-label="Parentesco">{stateLabel(link.parentesco)}</td>
+                <td data-label="Principal">{link.principal ? "Sí" : "No"}</td>
+                <td data-label="Acción">
+                  <button
+                    type="button"
+                    aria-label={`Retirar a ${link.nombreCompleto} de ${student.persona.nombreCompleto}`}
+                    onClick={() => {
+                      setSuccess("");
+                      setUnlinking({ student, link, refresh });
+                    }}
+                  >
+                    Retirar
+                  </button>
                 </td>
               </tr>
+            ));
+          })
+        }
+      />
+      {linking && (
+        <GuardianLinkDialog
+          onClose={() => setLinking(null)}
+          onLinked={(student) => {
+            setLinking(null);
+            setSuccess(
+              `Apoderado vinculado a ${student.persona.nombreCompleto}.`,
             );
-          return student.apoderados.map((link) => (
-            <tr key={`${student.id}-${link.id}`}>
-              {name}
-              <td data-label="Apoderado">{link.nombreCompleto}</td>
-              <td data-label="Parentesco">{stateLabel(link.parentesco)}</td>
-              <td data-label="Principal">{link.principal ? "Sí" : "No"}</td>
-            </tr>
-          ));
-        })
-      }
-    />
+            linking.refresh();
+          }}
+        />
+      )}
+      {unlinking && (
+        <GuardianUnlinkDialog
+          student={unlinking.student}
+          link={unlinking.link}
+          onClose={() => setUnlinking(null)}
+          onOutdated={unlinking.refresh}
+          onUnlinked={() => {
+            setUnlinking(null);
+            setSuccess(
+              `Se retiró el vínculo de ${unlinking.link.nombreCompleto} con ${unlinking.student.persona.nombreCompleto}.`,
+            );
+            unlinking.refresh();
+          }}
+        />
+      )}
+    </>
   );
 }
