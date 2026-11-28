@@ -30,5 +30,7 @@ public final class EvidenciaPedagogicaDto {
 
     public record EvaluacionVinculada(Long id, String titulo) {}
 
+    public record Estudiante(Long id, String nombre) {}
+
     public record Adjunto(Long id, String nombreOriginal, String tipoMime, long tamanioBytes) {}
 }

@@ -126,13 +126,20 @@ test("Un archivo no permitido se rechaza antes de subirlo; quitar el archivo es 
   expect(calls.some((call) => call.method === "POST")).toBe(false);
 });
 
-test("Sin evaluaciones el selector de estudiantes queda deshabilitado con su motivo", async () => {
-  backend({ "GET /api/evaluaciones": page([]) });
+test("Con matrícula y sin evaluaciones se puede seleccionar al estudiante y registrar evidencia", async () => {
+  const calls = backend({ "GET /api/evaluaciones": page([]) });
+  open();
+  const user = await chooseStudent();
+  await openDialog(user);
+  expect(calls.some(call => call.path.endsWith("/planilla"))).toBe(false);
+});
+
+test("Una sección sin matrícula muestra un estado vacío", async () => {
+  backend({ "GET /api/evidencias-pedagogicas/asignaciones/5/estudiantes": [] });
   open();
   const user = userEvent.setup();
   await user.selectOptions(await screen.findByLabelText("Curso y sección"), "5");
-  expect(await screen.findByText("Pendiente de backend")).toBeTruthy();
-  expect(screen.getByText(/crea una evaluación para este curso/)).toBeTruthy();
+  expect(await screen.findByText("Esta sección no tiene estudiantes con matrícula activa.")).toBeTruthy();
   expect(screen.getByLabelText(/Estudiante/).disabled).toBe(true);
   expect(screen.getByRole("button", { name: "+ Nueva evidencia" }).disabled).toBe(true);
 });
@@ -142,7 +149,8 @@ test("Un error al cargar el curso se muestra y el rol sin escritura no ve el bot
   open({ canWrite: false });
   const user = userEvent.setup();
   await user.selectOptions(await screen.findByLabelText("Curso y sección"), "5");
-  expect(await screen.findByText("Sin períodos")).toBeTruthy();
+  expect(await screen.findByText(/No se pudieron cargar los datos del curso/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Reintentar carga" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "+ Nueva evidencia" })).toBeNull();
 });
 
