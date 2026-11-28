@@ -357,7 +357,8 @@ public class TareaService {
             throw new BusinessRuleException("TAREA_EVALUACION_INCOMPATIBLE",
                     "La evaluación vinculada ya no está disponible para activar la actividad.");
         }
-        LocalDateTime ahora = LocalDateTime.now();
+        // La base guarda microsegundos y redondea: sin truncar, la publicación podría quedar en el futuro.
+        LocalDateTime ahora = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         if (!tarea.getFechaLimite().isAfter(ahora)) {
             throw new BusinessRuleException("TAREA_FECHA_LIMITE_VENCIDA", "No se puede publicar una tarea ya vencida");
         }
