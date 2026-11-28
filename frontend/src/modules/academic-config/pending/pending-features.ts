@@ -7,10 +7,6 @@ export const pendingFeatures = {
     label: "Editar período",
     hint: "La edición del nombre y las fechas de un período estará disponible próximamente.",
   },
-  sectionClassroom: {
-    label: "Aula asignada",
-    hint: "La asignación de aulas a las secciones estará disponible próximamente.",
-  },
   deleteNonTeachingDay: {
     label: "Eliminar día no lectivo",
     hint: "Por ahora solo se puede editar la descripción; la eliminación estará disponible próximamente.",
