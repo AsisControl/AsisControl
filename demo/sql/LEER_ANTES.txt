@@ -1,0 +1,78 @@
+PAQUETE DE EXPOSICION - EXCEL Y SQL EXTERNOS
+
+No se ejecuta automaticamente. La carga necesita un administrador autorizado,
+una instalacion limpia y DEMO_DATA_ENABLED=true. El esquema y el administrador
+inicial se crean con Flyway/bootstrap; estos SQL solo agregan datos de ejemplo.
+
+CONFIGURACION DEL SERVIDOR
+- En Docker Compose, demo/sql se monta solo para lectura en /app/demo-sql.
+  DEMO_SQL_MANIFEST=/app/demo-sql/manifest.properties ya tiene ese valor por defecto.
+  Conservar la carpeta demo/sql al actualizar los archivos del despliegue.
+  En EC2, desde la carpeta deploy, permitir su lectura al usuario del contenedor:
+    chmod 755 ../demo/sql
+    chmod 644 ../demo/sql/manifest.properties
+  Estos permisos son solo para el manifiesto publico del paquete, nunca para .env.
+- En IntelliJ local, agregar DEMO_DATA_ENABLED=true y DEMO_SQL_MANIFEST con la
+  ruta absoluta a demo/sql/manifest.properties en esta copia del proyecto.
+- Reiniciar el backend al cambiar sus variables de entorno.
+- No subir .env ni contrasenas al repositorio.
+
+USO DESDE LA PAGINA
+1. Descomprimir el ZIP. Entrar con el administrador y cambiar su clave temporal.
+2. Administracion > Preparar demostracion > Cargar datos de demostracion.
+3. Seleccionar los 14 Excel 01..14 y los 3 SQL. Se pueden seleccionar juntos si
+   estan en la misma carpeta; si estan separados, seleccionar cada grupo y se acumulan.
+   No seleccionar manifest.properties, esta guia ni el script de mantenimiento.
+4. Pulsar Iniciar carga UNA VEZ. La pagina ejecuta automaticamente:
+   00_configuracion_inicial.sql -> Excel 01..09 -> 09_habilitar_matriculas.sql ->
+   Excel 10..12 -> 12_escenarios.sql -> Excel 13..14.
+5. Revisar el avance. Si falla un paso, corregir la causa y Continuar carga.
+   Cada SQL es una transaccion: si falla se revierte entero. Los pasos previos
+   confirmados se conservan. Los importadores de Excel mantienen sus reglas normales.
+6. Guardar las credenciales generadas como PDF ANTES de cerrar la ventana.
+7. Deshabilitar DEMO_DATA_ENABLED cuando ya no se necesite preparar la demo.
+
+QUE SE DEJA CARGADO
+- 2026 activo, periodo anual DEMO-2026; 2027 en borrador para renovacion posterior.
+- Dos secciones con cinco matriculados cada una, dos docentes, cursos y horarios.
+- Carmen vinculada con sus dos hijos: Mia (2 A) y Diego (3 A).
+- 2 A tiene capacidad 6: queda una vacante y dos solicitudes candidatas.
+- Evaluaciones y reglas 60% examen/40% trabajo por competencia. Comunicacion y
+  trabajos publicados. Matematica con notas de Excel en borrador, una de Mia pendiente.
+- Historial de asistencia 13,16,17,18 de noviembre de 2026. Mia: 2 presentes,
+  1 tardanza y 1 inasistencia. Rango vacio: 6 al 7 de noviembre de 2026.
+- Patricia: 13/11 presente, 16/11 tardanza, 17/11 jornada cerrada sin marcacion.
+- Tarea publicada y dos entregas de companeros. Mia entrega en vivo con adjunto real.
+- Regla de riesgo: dos inasistencias. Nicolas tiene cuatro y una alerta preparada con sus evidencias. Se identifica
+  como dato de demostracion SQL. Se puede recalcular en vivo desde el flujo normal.
+- 100 pensiones generadas por las matriculas. Mia tiene un pago aprobado con recibo;
+  diciembre sigue pendiente para pagar en vivo. Diego conserva deuda.
+
+QUE HACER EN VIVO
+Consultar reportes y filtros; completar/publicar notas y libretas; entregar tarea;
+recalcular riesgo; pagar y consultar recibo; mostrar cruce de horarios; ocupar
+ultima vacante AL FINAL para no agregar una alumna a las planillas antes de publicarlas.
+Asistencia del dia solo de lunes a viernes. QR real dentro de la ventana 07:00..10:00.
+Renovacion a 2027 solo despues de terminar 2026: exige cerrar/activar el ano y
+completar su oferta/plan. El paquete no ejecuta esa transicion automaticamente.
+
+SQL EXTERNOS Y SEGURIDAD
+Los datos no estan en clases Java ni se incorporan al JAR. El backend valida el
+nombre y SHA-256 de cada SQL contra manifest.properties montado en el servidor.
+No acepta ejecutar cualquier SQL. Admite SELECT/INSERT/UPDATE, no DDL, DELETE,
+procedimientos ni COMMIT. Las referencias se resuelven por documentos/codigos,
+sin IDs numericos fijos. No hay passwords en los SQL.
+Los parametros :fecha_referencia, :instante_carga y :actor los completa el backend.
+Estos archivos estan preparados para el boton, no para pegarlos sin adaptar en Workbench.
+Si el equipo edita intencionalmente un SQL, revisarlo y ejecutar actualizar-manifiesto.ps1
+ANTES de desplegar. Subir al servidor los mismos SQL y manifiesto del paquete entregado.
+No editar un SQL de una etapa ya completada: el sistema no sobrescribe esa carga.
+
+RESTABLECIMIENTO PARA ENSAYO
+No borrar tablas ni flyway_schema_history de una base compartida. Crear otro esquema
+vacio exclusivo de ensayo, configurar DB_URL para ese esquema y reiniciar con bootstrap.
+Flyway crea las tablas; entrar con el nuevo administrador y repetir la carga del paquete.
+No basta borrar CargaDemostracion: quedan todas sus relaciones. No se borra S3.
+Los adjuntos se suben por el flujo normal; el paquete no fabrica archivos ni claves S3.
+El reinicio de la base y el despliegue son pasos distintos: preparar y cronometrar
+el arranque de imagenes, migraciones y la carga antes de la presentacion.
