@@ -105,6 +105,12 @@ public class ConfiguracionAcademicaController {
                         id, request.descripcion(), request.version()));
     }
 
+    @DeleteMapping("/dias-no-lectivos/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminarDiaNoLectivo(@PathVariable Long id, @RequestParam Long version) {
+        diaNoLectivoService.eliminar(id, version);
+    }
+
     @PostMapping("/anios/{anio}/grados")
     @ResponseStatus(HttpStatus.CREATED)
     public AnioResponse grado(@PathVariable int anio, @Valid @RequestBody CrearGrado request) {
