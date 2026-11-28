@@ -111,7 +111,8 @@ public class TareaService {
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.BORRADOR);
         tarea.setActivo(true);
-        Tarea saved = tareaRepository.save(tarea);
+        // Flush antes de responder: el cliente necesita la versión ya incrementada.
+        Tarea saved = tareaRepository.saveAndFlush(tarea);
         auditoria.registrar("CREAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 saved.getId().toString(), ResultadoAuditoria.EXITOSO, null, null, describir(saved));
         return mapResponse(saved);
@@ -163,7 +164,8 @@ public class TareaService {
         tarea.setMaxArchivosEntrega(request.maxArchivosEntrega());
         tarea.setArchivos(archivoService.obtenerActivos(request.archivoIds()));
         int recalculadas = publicada && cambiaLimite ? recalcularEntregas(tarea) : 0;
-        Tarea saved = tareaRepository.save(tarea);
+        // Flush antes de responder: el cliente necesita la versión ya incrementada.
+        Tarea saved = tareaRepository.saveAndFlush(tarea);
         auditoria.registrar("ACTUALIZAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, motivo, anterior,
                 describir(saved) + (recalculadas > 0 ? ",entregasRecalculadas=" + recalculadas : ""));
@@ -367,7 +369,8 @@ public class TareaService {
             tarea.setFechaPublicacion(ahora);
         }
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.PUBLICADA);
-        Tarea saved = tareaRepository.save(tarea);
+        // Flush antes de responder: el cliente necesita la versión ya incrementada.
+        Tarea saved = tareaRepository.saveAndFlush(tarea);
         auditoria.registrar("PUBLICAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + EstadoPublicacionTarea.BORRADOR, "estado=" + saved.getEstadoPublicacion());
@@ -386,7 +389,8 @@ public class TareaService {
                     "TAREA_AUN_VIGENTE", "La tarea todavía acepta entregas y no puede cerrarse antes de su fecha límite");
         }
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.CERRADA);
-        Tarea saved = tareaRepository.save(tarea);
+        // Flush antes de responder: el cliente necesita la versión ya incrementada.
+        Tarea saved = tareaRepository.saveAndFlush(tarea);
         auditoria.registrar("CERRAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + EstadoPublicacionTarea.PUBLICADA, "estado=" + saved.getEstadoPublicacion());
@@ -399,7 +403,8 @@ public class TareaService {
         accessGuard.verificarAsignacionDocente(tarea.getAsignacionCurso());
         exigirEstado(tarea, EstadoPublicacionTarea.CERRADA, "Solo se puede archivar una tarea cerrada");
         tarea.setEstadoPublicacion(EstadoPublicacionTarea.ARCHIVADA);
-        Tarea saved = tareaRepository.save(tarea);
+        // Flush antes de responder: el cliente necesita la versión ya incrementada.
+        Tarea saved = tareaRepository.saveAndFlush(tarea);
         auditoria.registrar("ARCHIVAR_TAREA", ModuloAuditoria.TAREAS, "Tarea",
                 id.toString(), ResultadoAuditoria.EXITOSO, null,
                 "estado=" + EstadoPublicacionTarea.CERRADA, "estado=" + saved.getEstadoPublicacion());
