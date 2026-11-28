@@ -1,7 +1,5 @@
 import { api } from "@/core/api/client";
-
-export const STUDENT_RECORDS_PATH = "/api/alumnos";
-export const GUARDIAN_RECORDS_PATH = "/api/apoderados";
+import { relationshipsPath } from "./guardian-link-service";
 
 export type Kinship = "PADRE" | "MADRE" | "TUTOR_LEGAL" | "OTRO_FAMILIAR" | "NO_DECLARADO";
 type RelationshipFields = { parentesco: Kinship; principal: boolean };
@@ -21,19 +19,8 @@ export type RelationshipEvent = {
   motivo: string | null;
 };
 
-function relationshipsPath(studentId: number) {
-  return `${STUDENT_RECORDS_PATH}/${studentId}/apoderados`;
-}
-
 export function listRelationships(studentId: number) {
   return api<Relationship[]>(relationshipsPath(studentId));
-}
-
-export function createRelationship(studentId: number, input: RelationshipFields & { apoderadoId: number }) {
-  return api<RelationshipFields>(relationshipsPath(studentId), {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
 }
 
 export function editRelationship(studentId: number, guardianId: number, input: RelationshipFields & { motivo: string }) {
@@ -43,10 +30,10 @@ export function editRelationship(studentId: number, guardianId: number, input: R
   });
 }
 
-export function changeRelationshipState(studentId: number, guardianId: number, activo: boolean, motivo: string) {
+export function reactivateRelationship(studentId: number, guardianId: number, motivo: string) {
   return api<Relationship>(`${relationshipsPath(studentId)}/${guardianId}/estado`, {
     method: "PUT",
-    body: JSON.stringify({ activo, motivo }),
+    body: JSON.stringify({ activo: true, motivo }),
   });
 }
 

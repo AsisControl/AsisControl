@@ -194,8 +194,8 @@ test("Sin estudiantes asociados ni convocatoria no permite crear solicitudes", a
   });
   render(<GuardianEnrollment />);
   expect(await screen.findByText(/No tienes estudiantes asociados y habilitados/)).toBeTruthy();
-  expect(screen.getByText(/no tiene una convocatoria abierta/)).toBeTruthy();
-  expect(screen.getByText("Todavía no tienes solicitudes registradas.")).toBeTruthy();
+  expect(await screen.findByText(/no tiene una convocatoria abierta/)).toBeTruthy();
+  expect(await screen.findByText("Todavía no tienes solicitudes registradas.")).toBeTruthy();
   expect(screen.getByText("+ Nueva solicitud").disabled).toBe(true);
 });
 

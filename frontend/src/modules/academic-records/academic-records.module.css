@@ -42,13 +42,11 @@
   color: var(--blue);
   font-weight: 600;
 }
-.srOnly {
-  clip: rect(0 0 0 0);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
+.plainFieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
 }
 .inlineList {
   display: grid;
@@ -68,16 +66,10 @@
   margin-top: 12px;
 }
 .relationshipStack,
-.relationshipSection,
 .relationshipList {
   display: grid;
   gap: 12px;
 }
-.relationshipSection + .relationshipSection {
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-.relationshipSection h4,
 .relationshipList p {
   margin: 0;
 }
@@ -95,15 +87,11 @@
   padding: 12px;
 }
 .relationshipIdentity,
-.relationshipActions,
-.selectedRecord {
+.relationshipActions {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-.selectedRecord {
-  justify-content: space-between;
 }
 .principalField {
   align-items: center;

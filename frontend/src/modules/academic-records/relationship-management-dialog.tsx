@@ -4,11 +4,12 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { message } from "@/core/api/client";
 import { Dialog, Feedback, FormDialog, Loading, StatusPill } from "@/shared/ui";
 import type { Student } from "@/modules/students";
+import { GuardianUnlinkDialog } from "./guardian-unlink-dialog";
 import { kinshipLabel, readRelationshipFields, RelationshipFields } from "./relationship-fields";
 import {
-  changeRelationshipState,
   editRelationship,
   listRelationships,
+  reactivateRelationship,
   relationshipHistory,
   type Relationship,
 } from "./services/relationship-service";
@@ -17,7 +18,6 @@ import styles from "./academic-records.module.css";
 type Action = "editar" | "finalizar" | "reactivar" | "historial";
 const actions = {
   editar: { title: "Editar vínculo", submit: "Guardar cambios", success: "Vínculo actualizado." },
-  finalizar: { title: "Finalizar vínculo", submit: "Finalizar vínculo", success: "Vínculo finalizado." },
   reactivar: { title: "Reactivar vínculo", submit: "Reactivar vínculo", success: "Vínculo reactivado." },
 };
 const auditLabels: Record<string, string> = {
@@ -62,17 +62,23 @@ export function RelationshipManagementDialog({ student, onClose, onChanged }: {
   const [version, setVersion] = useState(0);
   const canChange = student.activo && student.persona.activo;
 
+  function changed(success: string) {
+    setNotice(success);
+    setSelection(null);
+    setVersion(value => value + 1);
+    onChanged();
+  }
+
   if (selection?.action === "historial") {
     return <RelationshipHistoryDialog studentId={student.id} link={selection.link} onClose={() => setSelection(null)} />;
   }
+  if (selection?.action === "finalizar") {
+    return <GuardianUnlinkDialog student={student} link={selection.link} actionLabel="Finalizar vínculo"
+      onClose={() => setSelection(null)} onUnlinked={() => changed("Vínculo finalizado.")} onOutdated={onChanged} />;
+  }
   if (selection) {
     return <ChangeRelationshipDialog studentId={student.id} link={selection.link} action={selection.action}
-      onClose={() => setSelection(null)} onSaved={success => {
-        setNotice(success);
-        setSelection(null);
-        setVersion(value => value + 1);
-        onChanged();
-      }} />;
+      onClose={() => setSelection(null)} onSaved={changed} />;
   }
 
   return <Dialog title="Gestionar vínculos" description={student.persona.nombreCompleto} onClose={onClose} size="lg">
@@ -105,7 +111,7 @@ export function RelationshipManagementDialog({ student, onClose, onChanged }: {
 function ChangeRelationshipDialog({ studentId, link, action, onClose, onSaved }: {
   studentId: number;
   link: Relationship;
-  action: Exclude<Action, "historial">;
+  action: keyof typeof actions;
   onClose: () => void;
   onSaved: (notice: string) => void;
 }) {
@@ -125,7 +131,7 @@ function ChangeRelationshipDialog({ studentId, link, action, onClose, onSaved }:
     setError("");
     try {
       if (action === "editar") await editRelationship(studentId, link.apoderadoId, { ...readRelationshipFields(data), motivo });
-      else await changeRelationshipState(studentId, link.apoderadoId, action === "reactivar", motivo);
+      else await reactivateRelationship(studentId, link.apoderadoId, motivo);
       onSaved(copy.success);
     } catch (failure) {
       setError(message(failure));
@@ -134,11 +140,8 @@ function ChangeRelationshipDialog({ studentId, link, action, onClose, onSaved }:
     }
   }
   return <FormDialog title={copy.title} description={link.nombreCompleto} busy={busy}
-    error={error} onClose={onClose} onSubmit={save} submitLabel={copy.submit} danger={action === "finalizar"}>
+    error={error} onClose={onClose} onSubmit={save} submitLabel={copy.submit}>
     {action === "editar" && <RelationshipFields kinship={link.parentesco} principal={link.principal} />}
-    {action === "finalizar" && <p className={styles.relationshipSummary}>
-      El apoderado dejará de tener acceso a la información de este estudiante.
-    </p>}
     <label className={`field ${styles.relationshipSummary}`}>
       Motivo del cambio
       <textarea name="motivo" required maxLength={500} rows={3} />

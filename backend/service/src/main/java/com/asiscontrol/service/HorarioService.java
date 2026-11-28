@@ -224,7 +224,7 @@ public class HorarioService {
             Aula aula,
             Long idExcluido) {
         validarContexto(asignacion);
-        planes.comprobarPertenencia(asignacion.getCurso(), asignacion.getSeccion());
+        int horasPlan = planes.exigirHorasDelPlan(asignacion.getCurso(), asignacion.getSeccion());
         if (!inicio.isBefore(fin)) {
             throw new BusinessRuleException(
                     "HORARIO_RANGO_INVALIDO", "La hora de inicio debe ser anterior a la hora de fin");
@@ -269,7 +269,7 @@ public class HorarioService {
                     "HORARIO_SECCION_OCUPADA", "La sección ya tiene una clase: " + describirConflicto(conflicto),
                     detalles);
         }
-        validarHorasDelPlan(asignacion, inicio, fin, idExcluido);
+        validarHorasDelPlan(asignacion, inicio, fin, idExcluido, horasPlan);
     }
 
     /**
@@ -277,12 +277,9 @@ public class HorarioService {
      * (no por docente), solo bloques vigentes, y al editar se excluye el propio bloque. Corre después de
      * {@link #bloquearPlanificacion}, así dos guardados simultáneos no pueden pasar juntos el tope.
      */
-    private void validarHorasDelPlan(AsignacionCurso asignacion, LocalTime inicio, LocalTime fin, Long idExcluido) {
-        var horasPlan = planes.horasDelPlan(asignacion.getCurso(), asignacion.getSeccion());
-        if (horasPlan.isEmpty()) {
-            return;
-        }
-        long tope = (long) horasPlan.getAsInt() * MINUTOS_POR_HORA;
+    private void validarHorasDelPlan(AsignacionCurso asignacion, LocalTime inicio, LocalTime fin, Long idExcluido,
+                                    int horasPlan) {
+        long tope = (long) horasPlan * MINUTOS_POR_HORA;
         List<Horario> vigentes = horarioRepository.findActivosDelCursoEnSeccion(
                 asignacion.getCurso().getId(), asignacion.getSeccion().getId());
         long actual = vigentes.stream().mapToLong(HorarioService::minutos).sum();
