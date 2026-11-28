@@ -3,13 +3,13 @@ import { useCallback, useId, useState } from "react";
 import { api, message } from "@/core/api/client";
 import { Feedback, Loading } from "@/shared/ui";
 import { formatDate } from "../lib/format-date";
-import { PendingBadge } from "../pending/pending-badge";
 import styles from "../academic-config.module.css";
 import type { NonTeachingDay, YearPanelProps } from "../types";
+import { NonTeachingDayDeleteDialog } from "./non-teaching-day-delete-dialog";
 import { NonTeachingDayFormDialog } from "./non-teaching-day-form-dialog";
 const byDate = (a: NonTeachingDay, b: NonTeachingDay) =>
   a.fecha.localeCompare(b.fecha);
-/** US-05: días no lectivos del año seleccionado (GET/POST/PATCH reales). */
+/** US-05: días no lectivos del año seleccionado (GET/POST/PATCH/DELETE reales). */
 export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [days, setDays] = useState<NonTeachingDay[]>([]);
@@ -18,6 +18,7 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
   const [success, setSuccess] = useState("");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<NonTeachingDay | null>(null);
+  const [deleting, setDeleting] = useState<NonTeachingDay | null>(null);
   const bodyId = useId();
   const anio = year.anio;
   const load = useCallback(async () => {
@@ -43,13 +44,15 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
   async function saved(text: string) {
     setAdding(false);
     setEditing(null);
+    setDeleting(null);
     setSuccess(text);
     await load();
   }
-  async function failedEdit(reason: string) {
+  async function failedChange(reason: string) {
     // Con versión vieja (u otro cambio) el diálogo ya no sirve: se cierra,
     // se refresca la lista y se avisa.
     setEditing(null);
+    setDeleting(null);
     setSuccess("");
     await load();
     setError(`${reason} Se recargó la lista.`);
@@ -115,10 +118,16 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
                           >
                             Editar descripción
                           </button>
-                          <button type="button" disabled>
+                          <button
+                            type="button"
+                            aria-label={`Eliminar ${formatDate(day.fecha)}`}
+                            onClick={() => {
+                              setSuccess("");
+                              setDeleting(day);
+                            }}
+                          >
                             Eliminar
                           </button>
-                          <PendingBadge feature="deleteNonTeachingDay" />
                         </div>
                       )}
                     </td>
@@ -158,7 +167,15 @@ export function NonTeachingDaysPanel({ year, editable }: YearPanelProps) {
           day={editing}
           onClose={() => setEditing(null)}
           onSaved={() => void saved("Descripción actualizada.")}
-          onFailed={(reason) => void failedEdit(reason)}
+          onFailed={(reason) => void failedChange(reason)}
+        />
+      )}
+      {editable && deleting && (
+        <NonTeachingDayDeleteDialog
+          day={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => void saved("Día no lectivo eliminado.")}
+          onStale={(reason) => void failedChange(reason)}
         />
       )}
     </section>
