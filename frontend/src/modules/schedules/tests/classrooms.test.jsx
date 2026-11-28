@@ -14,6 +14,7 @@ const classroom = (overrides = {}) => ({
   tipoAula: "AULA_REGULAR",
   capacidad: 35,
   ubicacion: "Pabellón A — 2° piso",
+  equipamiento: null,
   activo: true,
   version: 4,
   ...overrides,
@@ -80,7 +81,8 @@ test("Lista todas las aulas con ubicación, capacidad y estado", async () => {
   expect(within(await rowOf("Aula 302")).getByText("Inhabilitada").className).toContain("status-warning");
   expect(await screen.findByText(/3 aulas registradas · 2 disponibles · Última actualización: \d{2}:\d{2}/)).toBeTruthy();
   expect(screen.getByText("Las aulas inhabilitadas no pueden asignarse a nuevos bloques de horario.")).toBeTruthy();
-  expect(screen.getByRole("columnheader", { name: /Equipamiento/ }).textContent).toContain("Próximamente");
+  expect(screen.getByRole("columnheader", { name: "Equipamiento" })).toBeTruthy();
+  expect(within(first).getByText("Sin equipamiento")).toBeTruthy();
   const list = calls.find((c) => c.path === "/api/aulas");
   expect(list.query).toMatchObject({ estado: "TODAS", sort: "codigo", page: "0", size: "20" });
 });
@@ -171,7 +173,7 @@ test("El formulario valida los campos antes de enviar", async () => {
   await user.click(screen.getByText("+ Nueva aula"));
   const dialog = screen.getByRole("dialog", { name: "Nueva aula" });
   expect(within(dialog).getByLabelText(/^Estado/).disabled).toBe(true);
-  expect(within(dialog).getByLabelText(/^Equipamiento/).disabled).toBe(true);
+  expect(within(dialog).getByLabelText(/^Equipamiento/).disabled).toBe(false);
   await user.selectOptions(within(dialog).getByLabelText(/^Tipo de aula/), "");
   await user.click(within(dialog).getByText("Guardar aula"));
   expect(within(dialog).getByText("El código del aula es obligatorio.")).toBeTruthy();
@@ -209,6 +211,7 @@ test("Registra un aula con los datos del formulario", async () => {
     tipoAula: "TALLER",
     capacidad: 30,
     ubicacion: null,
+    equipamiento: "",
   });
   await waitFor(() => expect(calls.filter((c) => c.method === "GET" && c.path === "/api/aulas")).toHaveLength(2));
 });

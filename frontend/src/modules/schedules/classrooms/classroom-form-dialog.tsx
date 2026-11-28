@@ -7,6 +7,7 @@ import {
   CLASSROOM_CAPACITY_MAX,
   CLASSROOM_CAPACITY_MIN,
   CLASSROOM_CODE_MAX,
+  CLASSROOM_EQUIPMENT_MAX,
   CLASSROOM_LOCATION_MAX,
   CLASSROOM_NAME_MAX,
   hasErrors,
@@ -14,7 +15,7 @@ import {
   type ClassroomErrors,
   type ClassroomFormValues,
 } from "../lib/validation";
-import { PendingBadge } from "../pending/pending-badge";
+import styles from "../schedules.module.css";
 import { CLASSROOM_TYPES, type Classroom, type ClassroomType } from "../types";
 import { actualizarAula, crearAula } from "./services/aulaService";
 /** Alta de un aula o edición de una existente (mismo formulario, "Nueva aula" del prototipo). */
@@ -37,6 +38,7 @@ export function ClassroomFormDialog({
     tipoAula: classroom?.tipoAula ?? "AULA_REGULAR",
     capacidad: classroom ? String(classroom.capacidad) : "",
     ubicacion: classroom?.ubicacion ?? "",
+    equipamiento: classroom?.equipamiento ?? "",
   });
   const [errors, setErrors] = useState<ClassroomErrors>({});
   const [busy, setBusy] = useState(false);
@@ -61,6 +63,7 @@ export function ClassroomFormDialog({
       tipoAula: values.tipoAula as ClassroomType,
       capacidad: Number(values.capacidad),
       ubicacion: values.ubicacion.trim() || null,
+      equipamiento: values.equipamiento.trim(),
     };
     sending.current = true;
     setBusy(true);
@@ -76,6 +79,8 @@ export function ClassroomFormDialog({
       setBusy(false);
     }
   }
+  // Mismo criterio que el servidor: los espacios de los extremos no cuentan.
+  const equipmentLength = values.equipamiento.trim().length;
   return (
     <FormDialog
       title={classroom ? "Editar aula" : "Nueva aula"}
@@ -191,14 +196,29 @@ export function ClassroomFormDialog({
         onChange={(e) => set("ubicacion", e.target.value)}
       />
       <label className="field full-field">
-        <span>
-          Equipamiento <PendingBadge feature="classroomEquipment" />
-        </span>
-        <input
+        Equipamiento
+        <textarea
           name="equipamiento"
-          disabled
+          rows={3}
           placeholder="Ej. Proyector, Pizarra, Computadoras"
+          value={values.equipamiento}
+          disabled={busy}
+          aria-invalid={errors.equipamiento ? true : undefined}
+          onChange={(e) => set("equipamiento", e.target.value)}
         />
+        {errors.equipamiento && (
+          <small className="field-error" role="alert">
+            {errors.equipamiento}
+          </small>
+        )}
+        <small
+          className={`field-hint ${styles.counter}${equipmentLength > CLASSROOM_EQUIPMENT_MAX ? ` ${styles.counterOver}` : ""}`}
+        >
+          <span>Opcional.</span>
+          <span>
+            {equipmentLength}/{CLASSROOM_EQUIPMENT_MAX} caracteres
+          </span>
+        </small>
       </label>
     </FormDialog>
   );

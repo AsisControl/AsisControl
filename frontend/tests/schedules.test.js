@@ -13,6 +13,7 @@ const valid = {
   tipoAula: "AULA_REGULAR",
   capacidad: "30",
   ubicacion: "",
+  equipamiento: "",
 };
 test("El código se normaliza como en el servidor", () => {
   assert.equal(v.normalizeClassroomCode("  lab   01 "), "LAB 01");
