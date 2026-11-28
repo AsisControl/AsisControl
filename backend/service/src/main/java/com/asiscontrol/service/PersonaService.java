@@ -1,6 +1,7 @@
 package com.asiscontrol.service;
 
 import com.asiscontrol.dto.PageResponse;
+import com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse;
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.entity.Alumno;
 import com.asiscontrol.entity.AlumnoApoderado;
@@ -9,6 +10,7 @@ import com.asiscontrol.entity.Docente;
 import com.asiscontrol.entity.Nacionalidad;
 import com.asiscontrol.entity.Persona;
 import com.asiscontrol.entity.enums.Especialidad;
+import com.asiscontrol.entity.enums.Parentesco;
 import com.asiscontrol.entity.enums.ResultadoAuditoria;
 import com.asiscontrol.exception.BusinessRuleException;
 import com.asiscontrol.exception.ConflictException;
@@ -29,6 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.text.Normalizer;
 import java.time.Instant;
@@ -388,105 +391,192 @@ public class PersonaService {
         auditDelete("Apoderado", id);
     }
 
-    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public PersonaDtos.ApoderadoVinculadoResponse linkGuardian(
             Long alumnoId, PersonaDtos.VinculoApoderadoRequest request) {
-        Alumno alumno = findAlumno(alumnoId);
-        personaRepository
-                .lockActiveById(alumno.getPersona().getId())
-                .orElseThrow(
-                        () ->
-                                new BusinessRuleException(
-                                        "ALUMNO_INACTIVO", "El estudiante no está habilitado"));
-        Apoderado apoderado = findApoderado(request.apoderadoId());
+        return guardarNuevoVinculo(alumnoId, request, true);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public PersonaDtos.ApoderadoVinculadoResponse crearVinculoIndividual(
+            Long alumnoId, PersonaDtos.VinculoApoderadoRequest request) {
+        return guardarNuevoVinculo(alumnoId, request, false);
+    }
+
+    private PersonaDtos.ApoderadoVinculadoResponse guardarNuevoVinculo(
+            Long alumnoId, PersonaDtos.VinculoApoderadoRequest request, boolean permitirReactivacionInterna) {
+        Alumno alumno = bloquearAlumnoParaVinculos(alumnoId);
+        Apoderado apoderado = apoderadoHabilitado(request.apoderadoId());
         if (alumno.getPersona().getId().equals(apoderado.getPersona().getId())) {
             throw new BusinessRuleException("VINCULO_MISMA_PERSONA",
                     "El estudiante y su apoderado deben ser personas distintas");
         }
-        if (alumnoApoderadoRepository
-                .findByAlumnoIdAndApoderadoIdAndActivoTrue(alumnoId, apoderado.getId())
-                .isPresent()) {
+        var existente = alumnoApoderadoRepository.findByAlumnoIdAndApoderadoId(alumnoId, apoderado.getId());
+        if (existente.filter(AlumnoApoderado::isActivo).isPresent()) {
             throw new ConflictException(
-                    "VINCULO_DUPLICADO", "El apoderado ya esta vinculado al alumno");
+                    "VINCULO_DUPLICADO", "El apoderado ya está vinculado al estudiante.");
         }
+        if (existente.isPresent() && !permitirReactivacionInterna) {
+            throw new ConflictException("VINCULO_FINALIZADO",
+                    "Este vínculo está finalizado. Reactívalo desde Gestionar vínculos indicando el motivo.");
+        }
+        String motivo = existente.isPresent() ? "Reactivación al registrar la relación familiar" : null;
+        var link = existente.orElseGet(AlumnoApoderado::new);
+        var anterior = existente.map(this::valoresVinculo).orElse(null);
+        link.setAlumno(alumno);
+        link.setApoderado(apoderado);
         if (request.principal()) {
-            alumnoApoderadoRepository
-                    .findAllByAlumnoIdAndActivoTrue(alumnoId)
-                    .forEach(
-                            link -> {
-                                link.setPrincipal(false);
-                                alumnoApoderadoRepository.save(link);
-                            });
+            sustituirPrincipal(link, motivo == null ? "Se designó otro apoderado principal" : motivo);
         }
-        AlumnoApoderado link =
-                alumnoApoderadoRepository
-                        .findByAlumnoIdAndApoderadoId(alumnoId, apoderado.getId())
-                        .orElseGet(
-                                () -> {
-                                    AlumnoApoderado nuevo = new AlumnoApoderado();
-                                    nuevo.setAlumno(alumno);
-                                    nuevo.setApoderado(apoderado);
-                                    return nuevo;
-                                });
-        link.setParentesco(
-                request.parentesco() == null
-                        ? com.asiscontrol.entity.enums.Parentesco.NO_DECLARADO
-                        : request.parentesco());
+        link.setParentesco(Objects.requireNonNullElse(request.parentesco(), Parentesco.NO_DECLARADO));
         link.setPrincipal(request.principal());
         link.setActivo(true);
         alumnoApoderadoRepository.saveAndFlush(link);
-        auditoriaService.registrar(
-                "ASOCIAR_APODERADO",
-                ModuloAuditoria.PERSONAS,
-                "AlumnoApoderado",
-                link.getId().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                null,
-                "alumno=" + alumnoId + ",apoderado=" + apoderado.getId());
+        auditarVinculo(existente.isPresent() ? "REACTIVAR_VINCULO_APODERADO" : "ASOCIAR_APODERADO",
+                link, motivo, anterior);
         return toGuardianLink(link);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
+    public List<PersonaDtos.VinculoApoderadoResponse> listarVinculosApoderados(Long alumnoId) {
+        if (!alumnoRepository.existsById(alumnoId)) {
+            throw new ResourceNotFoundException("ALUMNO_NO_ENCONTRADO", "No se encontró el estudiante.");
+        }
+        return alumnoApoderadoRepository.findAllByAlumnoIdOrderByActivoDescPrincipalDescIdAsc(alumnoId)
+                .stream().map(this::respuestaVinculo).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<HistorialResponse> historialVinculo(
+            Long alumnoId, Long apoderadoId) {
+        return auditoriaService.historial("AlumnoApoderado", buscarVinculo(alumnoId, apoderadoId).getId());
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public PersonaDtos.VinculoApoderadoResponse editarVinculo(Long alumnoId, Long apoderadoId,
+            PersonaDtos.EdicionVinculoApoderadoRequest request) {
+        String motivo = motivoVinculo(request.motivo());
+        bloquearAlumnoParaVinculos(alumnoId);
+        var link = buscarVinculo(alumnoId, apoderadoId);
+        if (!link.isActivo()) {
+            throw new ConflictException("VINCULO_FINALIZADO", "Reactiva el vínculo antes de editarlo.");
+        }
+        apoderadoHabilitado(apoderadoId);
+        var parentesco = Objects.requireNonNullElse(request.parentesco(), Parentesco.NO_DECLARADO);
+        if (link.isPrincipal() == request.principal() && link.getParentesco() == parentesco) {
+            return respuestaVinculo(link);
+        }
+        String anterior = valoresVinculo(link);
+        if (request.principal()) {
+            sustituirPrincipal(link, motivo);
+        } else {
+            comprobarRetiroPrincipal(link);
+        }
+        link.setPrincipal(request.principal());
+        link.setParentesco(parentesco);
+        auditarVinculo("EDITAR_VINCULO_APODERADO", link, motivo, anterior);
+        return respuestaVinculo(link);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public PersonaDtos.VinculoApoderadoResponse cambiarEstadoVinculo(Long alumnoId, Long apoderadoId,
+            PersonaDtos.EstadoVinculoApoderadoRequest request) {
+        return cambiarEstadoVinculo(alumnoId, apoderadoId, request.activo(), motivoVinculo(request.motivo()));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void finalizarVinculo(Long alumnoId, Long apoderadoId, String motivo) {
+        cambiarEstadoVinculo(alumnoId, apoderadoId, false, motivoVinculo(motivo));
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void unlinkGuardian(Long alumnoId, Long apoderadoId) {
-        AlumnoApoderado link =
-                alumnoApoderadoRepository
-                        .findByAlumnoIdAndApoderadoIdAndActivoTrue(alumnoId, apoderadoId)
-                        .orElseThrow(
-                                () ->
-                                        new ResourceNotFoundException(
-                                                "VINCULO_NO_ENCONTRADO",
-                                                "No se encontro el vinculo entre alumno y"
-                                                        + " apoderado"));
-        if (link.isPrincipal()) {
-            long otherLinks =
-                    alumnoApoderadoRepository.findAllByAlumnoIdAndActivoTrue(alumnoId).stream()
-                            .filter(existing -> !existing.getId().equals(link.getId()))
-                            .count();
-            if (otherLinks > 0) {
-                throw new BusinessRuleException(
-                        "APODERADO_PRINCIPAL_REQUERIDO",
-                        "Designe otro apoderado principal antes de retirar el actual");
+        cambiarEstadoVinculo(alumnoId, apoderadoId, false, "Finalización de la relación familiar");
+    }
+
+    private PersonaDtos.VinculoApoderadoResponse cambiarEstadoVinculo(
+            Long alumnoId, Long apoderadoId, boolean activo, String motivo) {
+        bloquearAlumnoParaVinculos(alumnoId);
+        var link = buscarVinculo(alumnoId, apoderadoId);
+        if (link.isActivo() == activo) {
+            return respuestaVinculo(link);
+        }
+        String anterior = valoresVinculo(link);
+        if (activo) {
+            apoderadoHabilitado(apoderadoId);
+            if (alumnoApoderadoRepository.existsByAlumnoIdAndPrincipalTrueAndActivoTrue(alumnoId)) {
+                link.setPrincipal(false);
+            }
+        } else {
+            comprobarRetiroPrincipal(link);
+        }
+        link.setActivo(activo);
+        auditarVinculo(activo ? "REACTIVAR_VINCULO_APODERADO" : "DESVINCULAR_APODERADO", link, motivo, anterior);
+        return respuestaVinculo(link);
+    }
+
+    private Alumno bloquearAlumnoParaVinculos(Long alumnoId) {
+        var alumno = findAlumno(alumnoId);
+        personaRepository.lockActiveById(alumno.getPersona().getId())
+                .orElseThrow(() -> new BusinessRuleException("ALUMNO_INACTIVO", "El estudiante no está habilitado."));
+        return alumno;
+    }
+
+    private Apoderado apoderadoHabilitado(Long apoderadoId) {
+        var apoderado = findApoderado(apoderadoId);
+        if (!apoderado.getPersona().isActivo()) {
+            throw new BusinessRuleException("APODERADO_INACTIVO", "La ficha del apoderado no está habilitada.");
+        }
+        return apoderado;
+    }
+
+    private AlumnoApoderado buscarVinculo(Long alumnoId, Long apoderadoId) {
+        return alumnoApoderadoRepository.findByAlumnoIdAndApoderadoId(alumnoId, apoderadoId)
+                .orElseThrow(() -> new ResourceNotFoundException("VINCULO_NO_ENCONTRADO",
+                        "No se encontró el vínculo entre el estudiante y el apoderado."));
+    }
+
+    private void comprobarRetiroPrincipal(AlumnoApoderado link) {
+        if (link.isPrincipal() && alumnoApoderadoRepository.findAllByAlumnoIdAndActivoTrue(link.getAlumno().getId())
+                .stream().anyMatch(otro -> !otro.getId().equals(link.getId()))) {
+            throw new BusinessRuleException("APODERADO_PRINCIPAL_REQUERIDO",
+                    "Designa otro apoderado principal antes de retirar al actual.");
+        }
+    }
+
+    private void sustituirPrincipal(AlumnoApoderado link, String motivo) {
+        for (var otro : alumnoApoderadoRepository.findAllByAlumnoIdAndActivoTrue(link.getAlumno().getId())) {
+            if (otro.isPrincipal() && !otro.getId().equals(link.getId())) {
+                String anterior = valoresVinculo(otro);
+                otro.setPrincipal(false);
+                auditarVinculo("EDITAR_VINCULO_APODERADO", otro, motivo, anterior);
             }
         }
-        link.setActivo(false);
-        alumnoApoderadoRepository.save(link);
-        auditoriaService.registrar(
-                "DESVINCULAR_APODERADO",
-                ModuloAuditoria.PERSONAS,
-                "AlumnoApoderado",
-                link.getId().toString(),
-                ResultadoAuditoria.EXITOSO,
-                null,
-                "alumno="
-                        + alumnoId
-                        + ",apoderado="
-                        + apoderadoId
-                        + ",parentesco="
-                        + link.getParentesco()
-                        + ",principal="
-                        + link.isPrincipal(),
-                null);
+    }
+
+    private String motivoVinculo(String motivo) {
+        if (motivo == null || motivo.isBlank() || motivo.length() > 500) {
+            throw new BusinessRuleException("MOTIVO_VINCULO_INVALIDO", "Ingresa un motivo de hasta 500 caracteres.");
+        }
+        return motivo.strip();
+    }
+
+    private PersonaDtos.VinculoApoderadoResponse respuestaVinculo(AlumnoApoderado link) {
+        var apoderado = link.getApoderado();
+        return new PersonaDtos.VinculoApoderadoResponse(link.getId(), apoderado.getId(),
+                apoderado.getPersona().nombreCompleto(), link.getParentesco(), link.isPrincipal(),
+                link.isActivo(), apoderado.isActivo() && apoderado.getPersona().isActivo());
+    }
+
+    private String valoresVinculo(AlumnoApoderado link) {
+        return "alumno=" + link.getAlumno().getId() + ",apoderado=" + link.getApoderado().getId()
+                + ",parentesco=" + link.getParentesco() + ",principal=" + link.isPrincipal()
+                + ",activo=" + link.isActivo();
+    }
+
+    private void auditarVinculo(String accion, AlumnoApoderado link, String motivo, String anterior) {
+        auditoriaService.registrar(accion, ModuloAuditoria.PERSONAS, "AlumnoApoderado", link.getId().toString(),
+                ResultadoAuditoria.EXITOSO, motivo, anterior, valoresVinculo(link));
     }
 
     @Transactional(readOnly = true)

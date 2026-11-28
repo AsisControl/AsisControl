@@ -127,22 +127,3 @@ export function RecordsPanel<T>({
     </section>
   );
 }
-
-/** Botón de una acción que el backend o la pantalla todavía no ofrecen. */
-export function PendingAction({
-  label,
-  hint,
-  className,
-}: {
-  label: string;
-  hint: string;
-  className?: string;
-}) {
-  return (
-    <button type="button" className={className} disabled title={hint}>
-      {label}
-      <span className={styles.pendingBadge}>Próximamente</span>
-      <span className={styles.srOnly}>: {hint}</span>
-    </button>
-  );
-}

@@ -1,12 +1,14 @@
 package com.asiscontrol.controller;
 
 import com.asiscontrol.dto.PageResponse;
+import com.asiscontrol.dto.auditoria.AuditoriaDtos.HistorialResponse;
 import com.asiscontrol.dto.persona.PersonaDtos;
 import com.asiscontrol.service.CargaMasivaFamiliasService;
 import com.asiscontrol.service.ImportacionAlumnoService;
 import com.asiscontrol.service.PersonaService;
 
 import jakarta.validation.Valid;
+import java.util.List;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ContentDisposition;
@@ -32,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/alumnos")
 public class AlumnoController {
 
+    private static final String GESTION_PARENTESCOS = "hasAnyRole('ADMINISTRADOR','SECRETARIA')";
     private final PersonaService personaService;
     private final ImportacionAlumnoService importacionService;
     private final CargaMasivaFamiliasService cargaMasiva;
@@ -88,18 +91,46 @@ public class AlumnoController {
 
     @PostMapping("/{id}/apoderados")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
+    @PreAuthorize(GESTION_PARENTESCOS)
     public PersonaDtos.ApoderadoVinculadoResponse linkGuardian(
             @PathVariable Long id,
             @Valid @RequestBody PersonaDtos.VinculoApoderadoRequest request) {
-        return personaService.linkGuardian(id, request);
+        return personaService.crearVinculoIndividual(id, request);
+    }
+
+    @GetMapping("/{id}/apoderados")
+    @PreAuthorize(GESTION_PARENTESCOS)
+    public List<PersonaDtos.VinculoApoderadoResponse> listarVinculos(@PathVariable Long id) {
+        return personaService.listarVinculosApoderados(id);
+    }
+
+    @PutMapping("/{id}/apoderados/{apoderadoId}")
+    @PreAuthorize(GESTION_PARENTESCOS)
+    public PersonaDtos.VinculoApoderadoResponse editarVinculo(
+            @PathVariable Long id, @PathVariable Long apoderadoId,
+            @Valid @RequestBody PersonaDtos.EdicionVinculoApoderadoRequest request) {
+        return personaService.editarVinculo(id, apoderadoId, request);
+    }
+
+    @PutMapping("/{id}/apoderados/{apoderadoId}/estado")
+    @PreAuthorize(GESTION_PARENTESCOS)
+    public PersonaDtos.VinculoApoderadoResponse cambiarEstadoVinculo(
+            @PathVariable Long id, @PathVariable Long apoderadoId,
+            @Valid @RequestBody PersonaDtos.EstadoVinculoApoderadoRequest request) {
+        return personaService.cambiarEstadoVinculo(id, apoderadoId, request);
+    }
+
+    @GetMapping("/{id}/apoderados/{apoderadoId}/historial")
+    @PreAuthorize(GESTION_PARENTESCOS)
+    public List<HistorialResponse> historialVinculo(@PathVariable Long id, @PathVariable Long apoderadoId) {
+        return personaService.historialVinculo(id, apoderadoId);
     }
 
     @DeleteMapping("/{id}/apoderados/{apoderadoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','SECRETARIA')")
-    public void unlinkGuardian(@PathVariable Long id, @PathVariable Long apoderadoId) {
-        personaService.unlinkGuardian(id, apoderadoId);
+    @PreAuthorize(GESTION_PARENTESCOS)
+    public void unlinkGuardian(@PathVariable Long id, @PathVariable Long apoderadoId, @RequestParam String motivo) {
+        personaService.finalizarVinculo(id, apoderadoId, motivo);
     }
 
     @PostMapping(value = "/importaciones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

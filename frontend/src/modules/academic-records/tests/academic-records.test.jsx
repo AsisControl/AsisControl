@@ -19,6 +19,7 @@ const persona = (nombreCompleto, numeroDocumento, correo = null) => ({
   tipoDocumento: "DNI",
   numeroDocumento,
   correo,
+  activo: true,
 });
 const carmen = {
   id: 7,
@@ -177,18 +178,31 @@ test("Si la ficha no se puede consultar muestra el error", async () => {
   expect(await within(screen.getByRole("dialog")).findByText("No se encontro el docente")).toBeTruthy();
 });
 
-test("Parentescos muestra una fila por vínculo y avisa si falta el apoderado", async () => {
-  fakeBackend({ "GET /api/alumnos": page([lucia, mario]) });
+test("Parentescos reúne los vínculos por estudiante y registra uno nuevo tras confirmar", async () => {
+  const calls = fakeBackend({
+    "GET /api/alumnos": page([lucia, mario]),
+    "GET /api/apoderados": page([carmen]),
+    "POST /api/alumnos/4/apoderados": { id: 10 },
+  });
   setUrl(`${BASE}/parentescos`);
   render(<RecordsScreen />);
-  const rows = (await screen.findAllByText("Lucía Flores")).map((name) => name.closest("tr"));
-  expect(rows.map((row) => [...row.cells].slice(1).map((cell) => cell.textContent))).toEqual([
-    ["Carmen Flores Vega", "Madre", "Sí"],
-    ["Pedro Flores", "Tutor legal", "No"],
-  ]);
+  const row = (await screen.findByText("Lucía Flores")).closest("tr");
+  expect(within(row).getByText(/Carmen Flores Vega/)).toBeTruthy();
+  expect(within(row).getByText(/Pedro Flores/)).toBeTruthy();
   const missing = screen.getByText("Mario Díaz").closest("tr");
-  expect(within(missing).getByText("Sin apoderado registrado")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /Vincular apoderado/ }).disabled).toBe(true);
+  expect(within(missing).getByText("Sin apoderados vinculados")).toBeTruthy();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Vincular apoderado" }));
+  const dialog = within(screen.getByRole("dialog"));
+  await user.selectOptions(await dialog.findByLabelText("Estudiante encontrado"), "4");
+  await user.selectOptions(await dialog.findByLabelText("Apoderado encontrado"), "7");
+  await user.selectOptions(dialog.getByLabelText("Parentesco"), "MADRE");
+  await user.click(dialog.getByRole("button", { name: "Revisar vínculo" }));
+  expect(calls.filter(call => call.method === "POST")).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "Confirmar vínculo" }));
+  expect(await screen.findByText("Apoderado vinculado correctamente.")).toBeTruthy();
+  expect(calls.find(call => call.method === "POST").body)
+    .toEqual({ apoderadoId: 7, parentesco: "MADRE", principal: false });
 });
 
 test("La carga masiva se abre desde apoderados y parentescos", async () => {

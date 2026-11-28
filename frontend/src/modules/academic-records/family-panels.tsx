@@ -1,11 +1,15 @@
 "use client";
 import { useState } from "react";
 import { FamilyImportDialog, type Student } from "@/modules/students";
-import { documentLabel, FilterSelect, PersonCell, StatusPill } from "@/shared/ui";
+import { documentLabel, Feedback, FilterSelect, PersonCell, StatusPill } from "@/shared/ui";
 import { stateLabel } from "@/shared/lib/formatters";
-import { PendingAction, RecordsPanel } from "./records-panel";
+import { RecordsPanel } from "./records-panel";
 import { RegisterProfile } from "./register-profile";
 import { GuardianDetail } from "./record-details";
+import { RelationshipCreateDialog } from "./relationship-create-dialog";
+import { RelationshipManagementDialog } from "./relationship-management-dialog";
+import { kinshipLabel } from "./relationship-fields";
+import { STUDENT_RECORDS_PATH } from "./services/relationship-service";
 import type { Guardian } from "./types";
 import styles from "./academic-records.module.css";
 
@@ -115,60 +119,51 @@ export function GuardiansPanel() {
   );
 }
 
-/**
- * Un vínculo por fila. El backend no tiene un listado propio de vínculos: salen de cada
- * estudiante (AlumnoResponse.apoderados), así que la página y la búsqueda son de estudiantes.
- */
 export function RelationshipsPanel() {
+  const [creating, setCreating] = useState(false);
+  const [selected, setSelected] = useState<Student | null>(null);
+  const [notice, setNotice] = useState("");
   return (
+    <>
+    <Feedback success={notice} />
     <RecordsPanel<Student>
       title="Parentescos"
-      path="/api/alumnos"
+      path={STUDENT_RECORDS_PATH}
       noun={["estudiante", "estudiantes"]}
       searchLabel="Buscar estudiante por nombre, código o documento"
-      columns={["Estudiante", "Apoderado", "Parentesco", "Principal"]}
+      columns={["Estudiante", "Apoderados activos", "Acción"]}
       emptyText="Todavía no hay estudiantes registrados."
       actions={(refresh) => (
         <>
           <FamilyImportAction onImported={refresh} />
-          <PendingAction
-            className="primary-action"
-            label="+ Vincular apoderado"
-            hint="Vincular desde aquí se habilitará en una próxima entrega."
-          />
+          <button className="primary-action" type="button" onClick={() => {
+            setNotice("");
+            setCreating(true);
+          }}>Vincular apoderado</button>
         </>
       )}
-      renderRows={(students) =>
-        students.flatMap((student) => {
-          const name = (
-            <td data-label="Estudiante">
-              <PersonCell
-                name={student.persona.nombreCompleto}
-                detail={student.codigoAlumno}
-              />
-            </td>
-          );
-          if (!student.apoderados.length)
-            return (
-              <tr key={student.id}>
-                {name}
-                <td data-label="Apoderado" colSpan={3}>
-                  <span className={styles.warning}>
-                    Sin apoderado registrado
-                  </span>
-                </td>
-              </tr>
-            );
-          return student.apoderados.map((link) => (
-            <tr key={`${student.id}-${link.id}`}>
-              {name}
-              <td data-label="Apoderado">{link.nombreCompleto}</td>
-              <td data-label="Parentesco">{stateLabel(link.parentesco)}</td>
-              <td data-label="Principal">{link.principal ? "Sí" : "No"}</td>
-            </tr>
-          ));
-        })
-      }
+      renderRows={(students) => students.map(student => <tr key={student.id}>
+        <td data-label="Estudiante"><PersonCell name={student.persona.nombreCompleto} detail={student.codigoAlumno} /></td>
+        <td data-label="Apoderados activos">{student.apoderados.length ?
+          <ul className={styles.inlineList}>{student.apoderados.map(link => <li key={link.id}>
+            {link.nombreCompleto}<span className={styles.muted}>
+              {" · "}{kinshipLabel(link.parentesco)}{link.principal ? " · Principal" : ""}
+            </span>
+          </li>)}</ul> : <span className={styles.muted}>Sin apoderados vinculados</span>}
+        </td>
+        <td data-label="Acción"><button type="button" aria-label={`Gestionar vínculos de ${student.persona.nombreCompleto}`}
+          onClick={() => setSelected(student)}>Gestionar vínculos</button></td>
+      </tr>)}
+      detail={(refresh) => <>
+        {creating && <RelationshipCreateDialog onClose={() => setCreating(false)} onSaved={() => {
+          setCreating(false);
+          setNotice("Apoderado vinculado correctamente.");
+          refresh();
+        }} />}
+        {selected && <RelationshipManagementDialog key={selected.id} student={selected}
+          onClose={() => setSelected(null)} onChanged={refresh} />}
+      </>}
     />
+    </>
   );
 }

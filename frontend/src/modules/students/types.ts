@@ -9,6 +9,7 @@ export type StudentPerson = Omit<
   numeroDocumento: string | null;
   sexo: string | null;
   correo: string | null;
+  activo: boolean;
   nacionalidad?: string | null;
   fechaCreacion?: string | null;
   fechaActualizacion?: string | null;
