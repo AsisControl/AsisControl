@@ -35,6 +35,7 @@ public class AulaService {
 
     private static final String MODULO = "ACADEMICO";
     private static final String ENTIDAD = "Aula";
+    private static final int EQUIPAMIENTO_MAXIMO = 500;
 
     private final AulaRepository aulaRepository;
     private final HorarioRepository horarioRepository;
@@ -82,18 +83,24 @@ public class AulaService {
         }
         String nombre = request.nombre().trim();
         String ubicacion = normalizarUbicacion(request.ubicacion());
+        // Omitir el equipamiento en el PUT no lo borra; enviarlo en blanco sí.
+        String equipamiento = request.equipamiento() == null
+                ? aula.getEquipamiento()
+                : normalizarEquipamiento(request.equipamiento());
         StringBuilder anterior = new StringBuilder();
         StringBuilder nuevo = new StringBuilder();
         anotarCambio(anterior, nuevo, "codigo", aula.getCodigo(), codigo);
         anotarCambio(anterior, nuevo, "nombre", aula.getNombre(), nombre);
         anotarCambio(anterior, nuevo, "tipoAula", aula.getTipoAula(), request.tipoAula());
         anotarCambio(anterior, nuevo, "ubicacion", aula.getUbicacion(), ubicacion);
+        anotarCambio(anterior, nuevo, "equipamiento", aula.getEquipamiento(), equipamiento);
         Integer capacidadAnterior = aula.getCapacidad();
         aula.setCodigo(codigo);
         aula.setNombre(nombre);
         aula.setTipoAula(request.tipoAula());
         aula.setCapacidad(request.capacidad());
         aula.setUbicacion(ubicacion);
+        aula.setEquipamiento(equipamiento);
         Aula guardada = aulaRepository.saveAndFlush(aula);
         if (!nuevo.isEmpty()) {
             auditar("ACTUALIZAR_AULA", guardada, null, anterior.toString(), nuevo.toString());
@@ -205,6 +212,7 @@ public class AulaService {
         aula.setTipoAula(request.tipoAula());
         aula.setCapacidad(request.capacidad());
         aula.setUbicacion(normalizarUbicacion(request.ubicacion()));
+        aula.setEquipamiento(normalizarEquipamiento(request.equipamiento()));
     }
 
     private void validarCapacidad(Integer capacidad) {
@@ -230,10 +238,25 @@ public class AulaService {
         return ubicacion == null || ubicacion.isBlank() ? "" : ubicacion.trim();
     }
 
+    /** Recorta el texto; en blanco equivale a sin equipamiento. El límite se aplica ya recortado. */
+    private String normalizarEquipamiento(String equipamiento) {
+        if (equipamiento == null || equipamiento.isBlank()) {
+            return null;
+        }
+        String texto = equipamiento.strip();
+        if (texto.length() > EQUIPAMIENTO_MAXIMO) {
+            throw new BusinessRuleException(
+                    "AULA_EQUIPAMIENTO_LARGO",
+                    "El equipamiento no puede superar " + EQUIPAMIENTO_MAXIMO + " caracteres.",
+                    "equipamiento");
+        }
+        return texto;
+    }
+
     private AulaResponse mapear(Aula aula) {
         return new AulaResponse(
                 aula.getId(), aula.getCodigo(), aula.getNombre(), aula.getTipoAula(), aula.getCapacidad(),
-                aula.getUbicacion(), aula.isActivo(), aula.getVersion());
+                aula.getUbicacion(), aula.getEquipamiento(), aula.isActivo(), aula.getVersion());
     }
 
     private void validarReduccionCapacidad(Long aulaId, int nuevaCapacidad) {
@@ -296,6 +319,7 @@ public class AulaService {
                 + ",tipoAula=" + aula.getTipoAula()
                 + ",capacidad=" + aula.getCapacidad()
                 + ",ubicacion=" + aula.getUbicacion()
+                + ",equipamiento=" + aula.getEquipamiento()
                 + ",activo=" + aula.isActivo();
     }
 

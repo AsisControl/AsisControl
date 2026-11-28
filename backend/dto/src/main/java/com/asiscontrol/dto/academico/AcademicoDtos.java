@@ -136,12 +136,20 @@ public final class AcademicoDtos {
             @NotBlank @Size(max = 20) String nombre,
             @Min(1) @Max(100) int capacidadMaxima) {}
 
+    /** {@code equipamiento} es opcional; AulaService lo recorta y valida su longitud. */
     public record CrearAulaRequest(
             @NotBlank @Size(max = 30) String codigo,
             @NotBlank @Size(max = 100) String nombre,
             @NotNull TipoAula tipoAula,
             @NotNull @Min(1) @Max(300) Integer capacidad,
-            @Size(max = 180) String ubicacion) {}
+            @Size(max = 180) String ubicacion,
+            String equipamiento) {
+
+        public CrearAulaRequest(
+                String codigo, String nombre, TipoAula tipoAula, Integer capacidad, String ubicacion) {
+            this(codigo, nombre, tipoAula, capacidad, ubicacion, null);
+        }
+    }
 
     public record ActualizarAulaRequest(
             @NotBlank @Size(max = 30) String codigo,
@@ -149,7 +157,16 @@ public final class AcademicoDtos {
             @NotNull TipoAula tipoAula,
             @NotNull @Min(1) @Max(300) Integer capacidad,
             @Size(max = 180) String ubicacion,
-            @NotNull Long version) {}
+            @NotNull Long version,
+            /* Omitido o nulo conserva el equipamiento actual; en blanco lo borra. */
+            String equipamiento) {
+
+        public ActualizarAulaRequest(
+                String codigo, String nombre, TipoAula tipoAula, Integer capacidad, String ubicacion,
+                Long version) {
+            this(codigo, nombre, tipoAula, capacidad, ubicacion, version, null);
+        }
+    }
 
     public record InhabilitarAulaRequest(
             @NotBlank @Size(max = 500) String motivo,
@@ -185,6 +202,7 @@ public final class AcademicoDtos {
             TipoAula tipoAula,
             int capacidad,
             String ubicacion,
+            String equipamiento,
             boolean activo,
             long version) {}
 
