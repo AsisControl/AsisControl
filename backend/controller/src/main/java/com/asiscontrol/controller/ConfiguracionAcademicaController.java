@@ -70,6 +70,12 @@ public class ConfiguracionAcademicaController {
         return configuracionService.agregarPeriodo(anio, request);
     }
 
+    @PutMapping("/periodos/{id}")
+    public AnioResponse actualizarPeriodo(
+            @PathVariable Long id, @Valid @RequestBody ActualizarPeriodo request) {
+        return configuracionService.actualizarPeriodo(id, request);
+    }
+
     @PutMapping("/periodos/{id}/estado")
     public AnioResponse estadoPeriodo(
             @PathVariable Long id, @Valid @RequestBody EstadoPeriodo request) {

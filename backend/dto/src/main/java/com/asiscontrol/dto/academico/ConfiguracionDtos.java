@@ -30,6 +30,14 @@ public final class ConfiguracionDtos {
             @NotNull LocalDate fechaInicio,
             @NotNull LocalDate fechaFin) {}
 
+    /** El orden del período no se edita. */
+    public record ActualizarPeriodo(
+            @NotBlank @Size(max = 100) String nombre,
+            @NotNull LocalDate fechaInicio,
+            @NotNull LocalDate fechaFin,
+            @NotNull Long version,
+            @NotBlank @Size(max = 700) String motivo) {}
+
     public record CrearDiaNoLectivo(
             @NotNull LocalDate fecha,
             @Size(max = 255) String descripcion) {}

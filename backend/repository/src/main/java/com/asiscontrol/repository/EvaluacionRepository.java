@@ -58,6 +58,19 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
     java.util.List<Evaluacion> borradoresParaPublicar(@Param("asignacion") Long asignacion,
             @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin);
 
+    /** Evaluaciones vigentes del año que están en el rango actual de un período y no en el nuevo. */
+    @Query("""
+            SELECT COUNT(e) FROM Evaluacion e
+            WHERE e.activo = true AND e.estado <> com.asiscontrol.entity.enums.EstadoEvaluacion.ANULADA
+            AND e.asignacionCurso.seccion.anioAcademico = :anio
+            AND e.fechaEvaluacion BETWEEN :inicio AND :fin
+            AND (e.fechaEvaluacion < :nuevoInicio OR e.fechaEvaluacion > :nuevoFin)
+            """)
+    long contarFueraDelNuevoRango(@Param("anio") int anio,
+            @Param("inicio") java.time.LocalDate inicio, @Param("fin") java.time.LocalDate fin,
+            @Param("nuevoInicio") java.time.LocalDate nuevoInicio,
+            @Param("nuevoFin") java.time.LocalDate nuevoFin);
+
     interface AvanceAcademico {
         Evaluacion getEvaluacion();
         long getRegistradas();
