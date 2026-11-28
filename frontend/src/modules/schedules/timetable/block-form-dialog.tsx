@@ -161,6 +161,7 @@ export function BlockFormDialog({
   const hours = assignment
     ? planHours(assignment, sectionBlocks, block?.id, values.horaInicio, values.horaFin)
     : null;
+  const noPlan = assignmentsStatus === "ready" && assignment?.horasPlan === null;
   const hoursConflicts = hours?.exceeds ? [planHoursConflict(exceedDetail(hours))] : [];
   const blocking = [...unavailable, ...conflicts, ...hoursConflicts];
   const set = (key: keyof BlockFormValues, value: string) => {
@@ -178,7 +179,7 @@ export function BlockFormDialog({
     setErrors(found);
     setMotivoError(reasonError);
     if (Object.keys(found).length || reasonError) return;
-    if (blocking.length) {
+    if (blocking.length || noPlan) {
       setError("Resuelve los conflictos antes de confirmar el bloque.");
       return;
     }
@@ -216,6 +217,7 @@ export function BlockFormDialog({
       description={`Sección ${sectionLabel} · aforo máximo ${section.capacidadMaxima}`}
       submitLabel={block ? "Guardar cambios" : "Confirmar bloque"}
       busy={busy}
+      submitDisabled={noPlan || !!hours?.exceeds}
       error={error}
       onClose={onClose}
       onSubmit={save}
@@ -227,6 +229,15 @@ export function BlockFormDialog({
               Horas de {assignment.curso} en {section.grado}° {section.nombre}: plan{" "}
               {hoursLabel(hours.plan)} · {block ? "programadas en otros bloques" : "programadas"}{" "}
               {hoursLabel(hours.programmed)} · disponibles {hoursLabel(hours.available)}
+            </p>
+          )}
+          {hours && hours.added > 0 && (
+            <p className="hint" role="status">Total con este bloque: {hoursLabel(hours.total)} de {hoursLabel(hours.plan)} del plan.</p>
+          )}
+          {noPlan && (
+            <p className="form-error" role="alert">
+              Este curso no tiene horas definidas para la sección. Revisa su año y grado en{" "}
+              <Link href="/academico/plan-estudios">Plan de estudios</Link>.
             </p>
           )}
           {hours && assignment && hours.overPlan && !hours.exceeds && (
