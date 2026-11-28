@@ -35,14 +35,15 @@ test("Abre el año activo por defecto y muestra sus períodos", async () => {
   expect(screen.getByText("1. Período I")).toBeTruthy();
   expect(screen.getAllByText("01/03/2026")).toHaveLength(2);
   expect(screen.getByRole("button", { name: "Activar" })).toBeTruthy();
-  expect(screen.getAllByText(/^Próximamente/).length).toBeGreaterThan(0);
+  // Con el año activo los períodos no se editan.
+  expect(screen.queryByRole("button", { name: /^Editar Período/ })).toBeNull();
   expect(screen.queryByText(/backend/i)).toBeNull();
   // Un año activo no admite períodos nuevos: el botón no se ofrece y el aviso lo explica.
   expect(screen.queryByText("+ Nuevo período")).toBeNull();
   expect(screen.queryByText("Eliminar año")).toBeNull();
   expect(screen.queryByText(/registros · Página/)).toBeNull();
   const notice = screen.getByRole("note");
-  expect(notice.textContent).toMatch(/No se pueden agregar períodos/);
+  expect(notice.textContent).toMatch(/No se pueden agregar ni editar períodos/);
   expect(notice.textContent).toMatch(/el año 2026 ya está activo/);
   const picker = screen.getByLabelText("Año académico");
   expect([...picker.options].map((o) => o.textContent)).toEqual([
